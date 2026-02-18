@@ -1,0 +1,29 @@
+table.dataTable thead tr > .dtfc-fixed-left,
+table.dataTable thead tr > .dtfc-fixed-right,
+table.dataTable tfoot tr > .dtfc-fixed-left,
+table.dataTable tfoot tr > .dtfc-fixed-right {
+  top: 0;
+  bottom: 0;
+  z-index: 3;
+  background-color: #d9d9e3 !important; /* Increased intensity for thead background */
+}
+
+table.dataTable tbody tr.odd > .dtfc-fixed-left,
+table.dataTable tbody tr.odd > .dtfc-fixed-right {
+  background-color: #eceef2 !important; /* Unchanged intensity for odd rows */
+}
+
+table.dataTable tbody tr.even > .dtfc-fixed-left,
+table.dataTable tbody tr.even > .dtfc-fixed-right {
+  background-color: #eeeff0 !important; /* Unchanged intensity for even rows */
+}
+
+table.dataTable tbody tr .dtfc-fixed-left,
+table.dataTable tbody tr .dtfc-fixed-right {
+  box-shadow: 0 -1px 0 #dadada; /* Unchanged shadow */
+}
+
+div.dtfc-left-top-blocker,
+div.dtfc-right-top-blocker {
+  background-color: #f3f3f5 !important; /* Unchanged intensity for blockers */
+}

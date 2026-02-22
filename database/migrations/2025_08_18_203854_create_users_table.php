@@ -41,11 +41,11 @@ class CreateUsersTable extends Migration
             $table->string('nextofkin_contact')->nullable();
             });
         DB::table('users')->insert([
-            'name' => 'Default Admin (Super)',
+            'name' => 'Default Admin',
             'phone' => '0000000000',
             'email' => 'admin@gmail.com',
             'password' => Hash::make('1234'),
-            'role' => 'SuperAdmin',
+            'role' => 'Admin',
         ]);    
     }
     /**
@@ -58,3 +58,4 @@ class CreateUsersTable extends Migration
         Schema::dropIfExists('users');
     }
 }
+

@@ -245,7 +245,7 @@
                     <div class="tab-content">
 
                         <div class="tab-pane show active" id="general">
-                            <?php $generalData = DB::table('company_info')->where('id',1)->first(); ?>
+                            <?php $generalData = DB::connection('tenant')->table('company_info')->where('id',1)->first();  ?>
                             <form action="#" class="form-horizontal" id="generalDataForm" method="post">
                                 @csrf
                                 <div class="row mb-3">
@@ -293,7 +293,7 @@
                         </div>
 
                         <div class="tab-pane" id="contact">
-                            <?php $contactData = DB::table('company_info')->where('id',1)->first(); ?>
+                            <?php $contactData = DB::connection('tenant')->table('company_info')->where('id',1)->first();  ?>
                             <form class="form-horizontal" action="#" method="post" id="contactDataForm">
                                 @csrf
                                 <div class="row mb-3">
@@ -376,7 +376,7 @@
                                     </thead>
                                     <tbody id="filesTbody">
                                         @php
-                                            $files = DB::table('company_files')->orderByDesc('created_at')->get();
+                                            $files = DB::connection('tenant')->table('company_files')->orderByDesc('created_at')->get();
                                         @endphp
 
                                         @if($files->count() == 0)

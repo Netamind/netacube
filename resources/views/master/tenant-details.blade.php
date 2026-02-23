@@ -253,11 +253,8 @@
                     <?php $status = optional($tenantData)->status; ?>
 
                     @if($status == 'Pending')
-                        <a href="#" class="btn btn-primary btn-sm mb-2 me-2" id="approveBtnLocal">
-                            <i class="ri-checkbox-circle-line"></i> Approve Local
-                        </a>
-                        <a href="#" class="btn btn-primary btn-sm mb-2 me-2" id="approveBtnRemote">
-                            <i class="ri-checkbox-circle-line"></i> Approve Remote
+                        <a href="#" class="btn btn-primary btn-sm mb-2 me-2" id="approveBtn">
+                            <i class="ri-checkbox-circle-line"></i> Approve Tenant
                         </a>
                     @endif
 
@@ -298,17 +295,17 @@
     </div>
 </section>
 
-<!-- Approve Local Modal -->
+<!-- Single Approve Modal (used for both local & remote) -->
 <section>
-    <div class="modal fade" id="approveModalLocal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal fade" id="approveModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title">Approve Tenant (Local)</h5>
+                    <h5 class="modal-title">Approve Tenant</h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <div class="modal-body">
-                    <form id="approveTenantFormLocal">
+                    <form id="approveTenantForm">
                         @csrf
                         <input type="hidden" name="id" value="{{ optional($tenantData)->id }}">
                         <input type="hidden" name="approved_by" value="1">
@@ -332,50 +329,9 @@
 
                         <div class="text-end">
                             <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="submitApproveBtnLocal">Approve</button>
-                        </div>
-                    </form>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- Approve Remote Modal -->
-<section>
-    <div class="modal fade" id="approveModalRemote" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
-            <div class="modal-content">
-                <div class="modal-header">
-                    <h5 class="modal-title">Approve Tenant (Remote)</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <form id="approveTenantFormRemote">
-                        @csrf
-                        <input type="hidden" name="id" value="{{ optional($tenantData)->id }}">
-                        <input type="hidden" name="approved_by" value="1">
-
-                        <div class="mb-3">
-                            <label class="form-label">Tenant Name</label>
-                            <input type="text" class="form-control" disabled value="{{ optional($tenantData)->full_name }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Business Name</label>
-                            <input type="text" class="form-control" disabled value="{{ optional($tenantData)->business_name }}">
-                        </div>
-                        <div class="mb-3">
-                            <label class="form-label">Client URL Prefix</label>
-                            <small class="text-muted d-block mb-2">
-                                e.g., <code>netacube.net/clientprefix</code> enter <code>clientprefix</code>
-                            </small>
-                            <input type="text" class="form-control text-lowercase" name="client_url" required
-                                   placeholder="e.g., netamind" maxlength="50">
-                        </div>
-
-                        <div class="text-end">
-                            <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
-                            <button type="button" class="btn btn-primary" id="submitApproveBtnRemote">Approve</button>
+                            <button type="button" class="btn btn-primary" id="submitApproveBtn">
+                                <i class="ri-checkbox-circle-line"></i> Approve
+                            </button>
                         </div>
                     </form>
                 </div>
@@ -457,371 +413,231 @@
     </div>
 </section>
 
-
-
 @endsection 
+
 @section('scripts')
 
-<script >
-    $(document).ready(function() {
-        toastr.options = {
-            closeButton: true,
-            progressBar: true,
-            showMethod: 'slideDown',
-            timeOut: 5000,
-            allowHtml: true
-        };
+<script>
+$(document).ready(function() {
+    toastr.options = {
+        closeButton: true,
+        progressBar: true,
+        showMethod: 'slideDown',
+        timeOut: 5000,
+        allowHtml: true
+    };
 
-        $('#actionsBtn').click(e => {
-            e.preventDefault();
-            $('#actionsModal').modal('show');
-        });
+    $('#actionsBtn').click(e => {
+        e.preventDefault();
+        $('#actionsModal').modal('show');
+    });
 
-        $('#approveBtnLocal').click(e => {
-            e.preventDefault();
-            $('#approveModalLocal').modal('show');
-             $('#actionsModal').modal('hide');
-        });
+    // ── Single Approve Button Handler ───────────────────────────────
+    $('#approveBtn').click(e => {
+        e.preventDefault();
+        $('#approveModal').modal('show');
+        $('#actionsModal').modal('hide');
+    });
 
-        $('#approveBtnRemote').click(e => {
-            e.preventDefault();
-            $('#approveModalRemote').modal('show');
-             $('#actionsModal').modal('hide');
-        });
+    // Open Send Invoice Modal
+    $('.send-invoice-trigger').on('click', function(e) {
+        e.preventDefault();
+        $('#actionsModal').modal('hide');
+        setTimeout(() => $('#sendInvoiceModal').modal('show'), 350);
+    });
 
-        // Open Send Invoice Modal
-        $('.send-invoice-trigger').on('click', function(e) {
-            e.preventDefault();
-            $('#actionsModal').modal('hide');
-            setTimeout(() => $('#sendInvoiceModal').modal('show'), 350);
-        });
+    // ==================== UPDATE TENANT DETAILS ====================
+    $('#updateDataBtn').click(function(e) {
+        var self = $(this);
+        $(this).prop("disabled", true);
+        var form = document.getElementById("tenantForm");
+        e.preventDefault();
 
-        // ==================== UPDATE TENANT DETAILS ====================
-        $('#updateDataBtn').click(function(e) {
-            var self = $(this);
-            $(this).prop("disabled", true);
-            var form = document.getElementById("tenantForm");
-            e.preventDefault();
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.ajax({
-                type: "POST",
-                url: "{{ route('master.tenant.details.update') }}",
-                data: $(form).serialize(),
-                timeout: 60000,
-                beforeSend: function() {
-                    $('#progressBar').show();
-                },
-                complete: function() {
-                    $('#progressBar').hide();
-                    self.prop("disabled", false);
-                },
-                success: function(data) {
-                    if (data.status === 201) {
-                        toastr.success(data.success, 'Success', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (data.status === 409) {
-                        toastr.info(data.error, 'No Changes', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else {
-                        toastr.info('Unexpected response.', 'Info', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 422) {
-                        var errorPassage = '';
-                        var errors = xhr.responseJSON.errors;
-                        $.each(errors, function(key, value) {
-                            errorPassage += value + '\n';
-                        });
-                        toastr.error(errorPassage, 'Validation Errors', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 404) {
-                        toastr.error(xhr.responseJSON?.error || 'Tenant not found.', 'Not Found', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 500) {
-                        toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                }
-            });
-        });
-
-        // ==================== APPROVE LOCAL ====================
-        $('#submitApproveBtnLocal').click(function(e) {
-            var self = $(this);
-            $(this).prop("disabled", true);
-            var form = document.getElementById("approveTenantFormLocal");
-            e.preventDefault();
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.ajax({
-                type: "POST",
-                url: "{{ route('master.tenant.approve.local') }}",
-                data: $(form).serialize(),
-                timeout: 60000,
-                beforeSend: function() {
-                    $('#progressBar').show();
-                },
-                complete: function() {
-                    $('#progressBar').hide();
-                    self.prop("disabled", false);
-                },
-                success: function(data) {
-                    if (data.status === 201) {
-                        toastr.success(data.success, 'Success', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                        $('#approveModalLocal').modal('hide');
-                        setTimeout(() => location.reload(), 1500);
-                    } else if (data.status === 203) {
-                        toastr.info(data.errors[0], 'Already Approved', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                        $('#approveModalLocal').modal('hide');
-                    } else {
-                        toastr.info('Unexpected response.', 'Info', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 422) {
-                        var errorPassage = '';
-                        var errors = xhr.responseJSON.errors;
-                        $.each(errors, function(key, value) {
-                            errorPassage += value + '\n';
-                        });
-                        toastr.error(errorPassage, 'Validation Errors', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 404) {
-                        toastr.error(xhr.responseJSON?.errors?.[0] || 'Tenant not found.', 'Not Found', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 500) {
-                        toastr.error(xhr.responseJSON?.errors?.[0] || 'Server error occurred.', 'Server Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                }
-            });
-        });
-
-        // ==================== APPROVE REMOTE ====================
-        $('#submitApproveBtnRemote').click(function(e) {
-            var self = $(this);
-            $(this).prop("disabled", true);
-            var form = document.getElementById("approveTenantFormRemote");
-            e.preventDefault();
-
-            $.ajaxSetup({
-                headers: {
-                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-                }
-            });
-
-            $.ajax({
-                type: "POST",
-                url: "{{ route('master.tenant.approve.remote') }}",
-                data: $(form).serialize(),
-                timeout: 60000,
-                beforeSend: function() {
-                    $('#progressBar').show();
-                },
-                complete: function() {
-                    $('#progressBar').hide();
-                    self.prop("disabled", false);
-                },
-                success: function(data) {
-                    if (data.status === 201) {
-                        toastr.success(data.success, 'Success', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                        $('#approveModalRemote').modal('hide');
-                        setTimeout(() => location.reload(), 1500);
-                    } else if (data.status === 203) {
-                        toastr.info(data.errors[0], 'Already Approved', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                        $('#approveModalRemote').modal('hide');
-                    } else {
-                        toastr.info('Unexpected response.', 'Info', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                },
-                error: function(xhr, status, error) {
-                    if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 422) {
-                        var errorPassage = '';
-                        var errors = xhr.responseJSON.errors;
-                        $.each(errors, function(key, value) {
-                            errorPassage += value + '\n';
-                        });
-                        toastr.error(errorPassage, 'Validation Errors', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 404) {
-                        toastr.error(xhr.responseJSON?.errors?.[0] || 'Tenant not found.', 'Not Found', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else if (xhr.status === 500) {
-                        toastr.error(xhr.responseJSON?.errors?.[0] || 'Server error occurred.', 'Server Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
-                    }
-                }
-            });
-        });
-
-
-$('#sendInvoiceBtn').on('click', function(e) {
-    e.preventDefault();
-    var $btn = $(this);
-    $btn.prop('disabled', true);
-
-    var formData = $('#sendInvoiceForm').serialize();
-    // Always use subscription plan
-    formData += '&useSubscriptionPlan=1';
-
-    $.ajax({
-        type: 'POST',
-        url: '{{ route("master.tenant.send.invoice") }}',
-        data: formData,
-        timeout: 60000,
-
-        beforeSend: function() {
-            $('#progressBar').show();
-        },
-
-        complete: function() {
-            $('#progressBar').hide();
-            $btn.prop('disabled', false);
-        },
-
-        success: function(data) {
-            var msg = data.success || 'Invoice created and sent successfully!';
-            if (data.invoice_number) {
-                msg += '<br><small><strong>Invoice #:</strong> ' + data.invoice_number + '</small>';
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
             }
+        });
 
-            toastr.success(msg, 'Success', {
-                timeOut: 10000,
-                escapeHtml: false
-            });
+        $.ajax({
+            type: "POST",
+            url: "{{ route('master.tenant.details.update') }}",
+            data: $(form).serialize(),
+            timeout: 60000,
+            beforeSend: function() {
+                $('#progressBar').show();
+            },
+            complete: function() {
+                $('#progressBar').hide();
+                self.prop("disabled", false);
+            },
+            success: function(data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success', { timeOut: 5000, progressBar: true });
+                } else if (data.status === 409) {
+                    toastr.info(data.error, 'No Changes', { timeOut: 5000, progressBar: true });
+                } else {
+                    toastr.info('Unexpected response.', 'Info', { timeOut: 5000, progressBar: true });
+                }
+            },
+            error: function(xhr, status, error) {
+                // ... (same error handling as before) ...
+                if (status === 'timeout') {
+                    toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 0) {
+                    toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 422) {
+                    var errorPassage = '';
+                    var errors = xhr.responseJSON.errors;
+                    $.each(errors, function(key, value) {
+                        errorPassage += value + '\n';
+                    });
+                    toastr.error(errorPassage, 'Validation Errors', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 404) {
+                    toastr.error(xhr.responseJSON?.error || 'Tenant not found.', 'Not Found', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 500) {
+                    toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error', { timeOut: 5000, progressBar: true });
+                } else {
+                    toastr.error('Unspecified error occurred. Try again later.', 'Error', { timeOut: 5000, progressBar: true });
+                }
+            }
+        });
+    });
 
-            $('#sendInvoiceModal').modal('hide');
-            $('#sendInvoiceForm')[0].reset();
-        },
+    // ==================== APPROVE TENANT (single handler) ====================
+    $('#submitApproveBtn').click(function(e) {
+        var self = $(this);
+        self.prop("disabled", true);
+        var form = document.getElementById("approveTenantForm");
+        e.preventDefault();
 
-        error: function(xhr) {
-            var errorMessage = 'An unexpected error occurred.';
+        $.ajaxSetup({
+            headers: {
+                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+            }
+        });
 
-            if (xhr.status === 422 && xhr.responseJSON) {
-                if (xhr.responseJSON.error) {
-                    errorMessage = xhr.responseJSON.error;
-                } else if (xhr.responseJSON.errors) {
-                    errorMessage = '';
-                    $.each(xhr.responseJSON.errors, function(field, msgs) {
-                        errorMessage += (Array.isArray(msgs) ? msgs.join('<br>') : msgs) + '<br>';
+        $.ajax({
+            type: "POST",
+            url: "{{ route('master.tenant.approve') }}",   // ← your new unified route
+            data: $(form).serialize(),
+            timeout: 60000,
+            beforeSend: function() {
+                $('#progressBar').show();
+            },
+            complete: function() {
+                $('#progressBar').hide();
+                self.prop("disabled", false);
+            },
+            success: function(data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success', {
+                        timeOut: 5000,
+                        progressBar: true
+                    });
+                    $('#approveModal').modal('hide');
+                    setTimeout(() => location.reload(), 1500);
+                } else if (data.status === 203) {
+                    toastr.info(data.errors[0], 'Already Approved', {
+                        timeOut: 5000,
+                        progressBar: true
+                    });
+                    $('#approveModal').modal('hide');
+                } else {
+                    toastr.info('Unexpected response.', 'Info', {
+                        timeOut: 5000,
+                        progressBar: true
                     });
                 }
-            } else if (xhr.status === 404) {
-                errorMessage = xhr.responseJSON?.error || 'Tenant not found.';
-            } else if (xhr.status === 500) {
-                errorMessage = 'Server error. Please try again later.';
+            },
+            error: function(xhr, status, error) {
+                // Reuse the same detailed error handling as before
+                if (status === 'timeout') {
+                    toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 0) {
+                    toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 422) {
+                    var errorPassage = '';
+                    var errors = xhr.responseJSON.errors;
+                    $.each(errors, function(key, value) {
+                        errorPassage += value + '\n';
+                    });
+                    toastr.error(errorPassage, 'Validation Errors', { timeOut: 5000, progressBar: true });
+                } else if (xhr.status === 404) {
+                    toastr.error(xhr.responseJSON?.errors?.[0] || 'Tenant not found.', 'Not Found', { timeOut: 5000, progressBar: true });
+                } 
+
+                else if (xhr.status === 500) {
+                    let errorMsg = 'Server error occurred. Please try again.';
+                    
+                    // Try to get the real message from Laravel's JSON response
+                    if (xhr.responseJSON && xhr.responseJSON.errors && xhr.responseJSON.errors.length > 0) {
+                        errorMsg = xhr.responseJSON.errors[0];   // ← this will show "Unresolved application environment..."
+                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
+                        errorMsg = xhr.responseJSON.message;
+                    }
+                    
+                    toastr.error(errorMsg, 'Error', {
+                        timeOut: 8000,
+                        progressBar: true,
+                        closeButton: true
+                    });
+                   }
+                
+                else {
+                    toastr.error('Unspecified error occurred. Try again later.', 'Error', { timeOut: 5000, progressBar: true });
+                }
             }
-
-            toastr.error(errorMessage, 'Error', {
-                timeOut: 12000,
-                escapeHtml: false
-            });
-        }
+        });
     });
+
+    // Send Invoice handler remains unchanged
+    $('#sendInvoiceBtn').on('click', function(e) {
+        e.preventDefault();
+        var $btn = $(this);
+        $btn.prop('disabled', true);
+
+        var formData = $('#sendInvoiceForm').serialize();
+        formData += '&useSubscriptionPlan=1';
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ route("master.tenant.send.invoice") }}',
+            data: formData,
+            timeout: 60000,
+            beforeSend: function() { $('#progressBar').show(); },
+            complete: function() { $('#progressBar').hide(); $btn.prop('disabled', false); },
+            success: function(data) {
+                var msg = data.success || 'Invoice created and sent successfully!';
+                if (data.invoice_number) {
+                    msg += '<br><small><strong>Invoice #:</strong> ' + data.invoice_number + '</small>';
+                }
+                toastr.success(msg, 'Success', { timeOut: 10000, escapeHtml: false });
+                $('#sendInvoiceModal').modal('hide');
+                $('#sendInvoiceForm')[0].reset();
+            },
+            error: function(xhr) {
+                var errorMessage = 'An unexpected error occurred.';
+                if (xhr.status === 422 && xhr.responseJSON) {
+                    if (xhr.responseJSON.error) {
+                        errorMessage = xhr.responseJSON.error;
+                    } else if (xhr.responseJSON.errors) {
+                        errorMessage = '';
+                        $.each(xhr.responseJSON.errors, function(field, msgs) {
+                            errorMessage += (Array.isArray(msgs) ? msgs.join('<br>') : msgs) + '<br>';
+                        });
+                    }
+                } else if (xhr.status === 404) {
+                    errorMessage = xhr.responseJSON?.error || 'Tenant not found.';
+                } else if (xhr.status === 500) {
+                    errorMessage = 'Server error. Please try again later.';
+                }
+                toastr.error(errorMessage, 'Error', { timeOut: 12000, escapeHtml: false });
+            }
+        });
+    });
+
 });
-
-
-     }); 
-     </script>
+</script>
 
 @endsection

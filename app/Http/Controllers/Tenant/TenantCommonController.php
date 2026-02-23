@@ -255,17 +255,26 @@ private function getTenantDatabaseName(string $clientCode): string
 
     if ($env === 'local') {
         return "netacube_{$code}";
+    } else if($env === 'production'){
+
+       return "premiate_netacube_{$code}";
+
+    }
+    else{
+
+         return "Failed to resolve app environment";
     }
 
-    if ($env === 'testing') {
-        return "netacube_{$code}";
-    }
+}
 
-    if ($env === 'staging') {
-        return "staging_netacube_{$code}";
-    }
 
-    return "premiate_netacube_{$code}";
+
+public function tenantLogout()
+{
+    Auth::logout();
+    request()->session()->invalidate();
+    request()->session()->regenerateToken();
+    return redirect()->route('tenant.login.by.url');
 }
 
 

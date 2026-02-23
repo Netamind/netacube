@@ -30,12 +30,30 @@ class MasterTenantController extends Controller
     public function showTenantDetailsView() { 
         return view('master.tenant-details'); 
     }
-  
-    public function approveTenantLocal(Request $request)
+
+    private function getTenantDatabaseName(string $clientCode): string
+    {
+        $code = strtolower(trim($clientCode));
+        $env  = app()->environment();
+        if ($env === 'local') {
+            return "netacube_{$code}";
+        } else if($env === 'production'){
+           return "premiate_netacube_{$code}";
+        }
+        else{
+             throw new \Exception("Unresolved application environment. Only 'local' and 'production' are allowed.");
+        }
+    }
+
+    public function approveTenant(Request $request, CpanelService $cpanel = null)
     {
         $tenantId = $request->id;
         $clientUrl = $request->client_url;
-        $databaseName = "netacube_" . $request->client_url;
+        $databaseName = $this->getTenantDatabaseName($clientUrl);
+
+        if (str_contains($databaseName, "Failed to resolve")) {
+            return response()->json(['errors' => [$databaseName], 'status' => 500]);
+        }
 
         $tenantModel = Tenant::find($tenantId);
         if (!$tenantModel) {
@@ -76,20 +94,48 @@ class MasterTenantController extends Controller
         ];
 
         try {
-            $escapedDbName = DB::connection('mysql')->getPdo()->quote($databaseName);
-            $dbExists = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
-            if (!empty($dbExists)) {
-                throw new \Exception('Database ' . $databaseName . ' already exists.');
-            }
+            $isLocal = app()->environment('local');
 
-            $dbCreated = DB::connection('mysql')->statement("CREATE DATABASE `$databaseName`");
-            if (!$dbCreated) {
-                throw new \Exception('Failed to create tenant database.');
+            if ($isLocal) {
+                $escapedDbName = DB::connection('mysql')->getPdo()->quote($databaseName);
+                $dbExists = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
+                if (!empty($dbExists)) {
+                    throw new \Exception('Database ' . $databaseName . ' already exists.');
+                }
+
+                $dbCreated = DB::connection('mysql')->statement("CREATE DATABASE `$databaseName`");
+                if (!$dbCreated) {
+                    throw new \Exception('Failed to create tenant database.');
+                }
+            } else {
+                if ($cpanel->databaseExists($databaseName)) {
+                    throw new \Exception('Database already exists.');
+                }
+
+                $dbUser = $databaseName;
+                $dbPassword = "binto2020";
+
+                $userCreated = $cpanel->createUser($dbUser, $dbPassword);
+                if (!$userCreated['success']) throw new \Exception($userCreated['message']);
+
+                $dbCreated = $cpanel->createDatabase($databaseName);
+                if (!$dbCreated['success']) throw new \Exception($dbCreated['message']);
+
+                $privilegesSet = $cpanel->setPrivileges($dbUser, $databaseName);
+                if (!$privilegesSet['success']) throw new \Exception($privilegesSet['message']);
             }
 
             DB::beginTransaction();
 
-            config(['database.connections.tenant.database' => $databaseName]);
+            if ($isLocal) {
+                config(['database.connections.tenant.database' => $databaseName]);
+            } else {
+                config([
+                    'database.connections.tenant.database' => $databaseName,
+                    'database.connections.tenant.username' => $dbUser,
+                    'database.connections.tenant.password' => $dbPassword,
+                ]);
+            }
             DB::purge('tenant');
 
             $tenantModel->data = $databaseName;
@@ -109,100 +155,17 @@ class MasterTenantController extends Controller
             return response()->json(['success' => 'Tenant approved successfully.', 'status' => 201]);
         } catch (\Exception $e) {
             DB::rollBack();
-            DB::connection('mysql')->statement("DROP DATABASE IF EXISTS `$databaseName`");
-            return response()->json(['errors' => [$e->getMessage()], 'status' => 500]);
-        }
-    }
 
-    public function approveTenantRemote(Request $request, CpanelService $cpanel)
-    {
-        $tenantId = $request->id;
-        $clientUrl = $request->client_url;
-        $databaseName = "premiate_netacube_" . $request->client_url;
-        $dbUser = $databaseName;
-        $dbPassword = "binto2020";
-
-        $tenantModel = Tenant::find($tenantId);
-        if (!$tenantModel) {
-            return response()->json(['errors' => ['Tenant not found.'], 'status' => 404]);
-        }
-
-        if ($tenantModel->status === 'Approved') {
-            return response()->json(['errors' => ['Tenant is already approved.'], 'status' => 203]);
-        }
-
-        $validator = Validator::make($request->all(), [
-            'client_url' => [
-                'required',
-                'string',
-                'min:3',
-                'max:20',
-                'regex:/^[a-zA-Z0-9-]+$/',
-                'unique:tenants,client_url,' . $tenantId,
-                function ($attribute, $value, $fail) use ($databaseName, $tenantId) {
-                    if (DB::table('tenants')->where('data', $databaseName)->where('id', '!=', $tenantId)->exists()) {
-                        $fail('Database name ' . $databaseName . ' is already taken.');
-                    }
-                },
-            ],
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
-        }
-
-        $data = [
-            'client_url' => $clientUrl,
-            'data' => $databaseName,
-            'approved_by' => $request->user_id,
-            'approved_at' => Carbon::today()->toDateString(),
-            'next_payment_date' => Carbon::today()->addDays(7)->toDateString(),
-            'status' => 'Approved',
-        ];
-
-        try {
-            if ($cpanel->databaseExists($databaseName)) {
-                throw new \Exception('Database already exists.');
+            if ($isLocal) {
+                DB::connection('mysql')->statement("DROP DATABASE IF EXISTS `$databaseName`");
+            } else {
+                $cpanel->deleteDatabase($databaseName);
+                $cpanel->deleteUser($dbUser);
             }
-
-            $userCreated = $cpanel->createUser($dbUser, $dbPassword);
-            if (!$userCreated['success']) throw new \Exception($userCreated['message']);
-
-            $dbCreated = $cpanel->createDatabase($databaseName);
-            if (!$dbCreated['success']) throw new \Exception($dbCreated['message']);
-
-            $privilegesSet = $cpanel->setPrivileges($dbUser, $databaseName);
-            if (!$privilegesSet['success']) throw new \Exception($privilegesSet['message']);
-
-            DB::beginTransaction();
-
-            config([
-                'database.connections.tenant.database' => $databaseName,
-                'database.connections.tenant.username' => $dbUser,
-                'database.connections.tenant.password' => $dbPassword,
-            ]);
-            DB::purge('tenant');
-
-            $tenantModel->data = $databaseName;
-            $tenantModel->save();
-
-            tenancy()->initialize($tenantModel);
-            Artisan::call('migrate', ['--database' => 'tenant', '--path' => 'database/migrations/tenant', '--force' => true]);
-            tenancy()->end();
-
-            $updated = DB::table('tenants')->where('id', $tenantId)->update($data);
-            if (!$updated) throw new \Exception('Failed to update tenant.');
-
-            DB::commit();
-
-            return response()->json(['success' => 'Tenant approved successfully.', 'status' => 201]);
-        } catch (\Exception $e) {
-            DB::rollBack();
-            $cpanel->deleteDatabase($databaseName);
-            $cpanel->deleteUser($dbUser);
             return response()->json(['errors' => [$e->getMessage()], 'status' => 500]);
         }
     }
+
     public function masterAddTenant(Request $request)
     {
         $data = [

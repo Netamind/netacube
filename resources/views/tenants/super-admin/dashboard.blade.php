@@ -148,7 +148,7 @@
         </div>
         <!-- ========== Topbar End ========== -->
 
-        <!-- ========== Left Sidebar Start ========== -->
+        <!-- ========== Left Sidebar Start ========== -->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
         <div class="leftside-menu">
 
             <!-- Brand Logo -->
@@ -206,12 +206,7 @@
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.employees') }}" class="side-nav-link">
-                            <i class="ri-team-line"></i>
-                            <span> Employees </span>
-                        </a>
-                    </li>
+            
 
                     <!-- BUSINESS SECTORS -->
                     <li class="side-nav-title mt-2">Business Sectors</li>
@@ -230,11 +225,19 @@
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-service-line"></i>
+                     <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarServices" aria-expanded="false" class="side-nav-link">
+                          <i class="ri-briefcase-4-line"></i>
                             <span> Services </span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarServices">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Financial Services</a></li>
+                                 <li><a href="#">Consultancy Services</a></li>
+                                
+                            </ul>
+                        </div>
                     </li>
 
                     <li class="side-nav-item">
@@ -258,36 +261,46 @@
                         </a>
                     </li>
 
+                    
+
                     <!-- ADMIN & SETUP -->
                     <li class="side-nav-title mt-2">Admin & Setup</li>
 
-                    <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.company.info') }}" class="side-nav-link">
-                            <i class="ri-building-line"></i>
-                            <span> Company Info </span>
+
+                     <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarAdmin" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-admin-line"></i>
+                            <span> Administration </span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarAdmin">
+                            <ul class="side-nav-second-level">
+                                <li><a  href="{{ route('tenant.super.admin.company.info') }}" >Company</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.employees') }}" >Employees</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.branches') }}" >Categories</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.branches') }}" >Branches</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.branches') }}" >Suppliers</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.roles') }}" >Roles & Permissions</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.roles') }}" >HR Dashboard</a></li>
+                               <li><a  href="{{ route('tenant.super.admin.roles') }}" >Audit Logs</a></li>
+                            </ul>
+                        </div>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.branches') }}" class="side-nav-link">
-                            <i class="ri-git-branch-line"></i>
-                            <span> Branches </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.roles') }}" class="side-nav-link">
-                            <i class="ri-shield-check-line"></i>
-                            <span> Roles </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-team-line"></i>
-                            <span> HR </span>
-                        </a>
-                    </li>
+                            <a data-bs-toggle="collapse" href="#sidebarSystem" aria-expanded="false" class="side-nav-link">
+                              <i class="ri-lifebuoy-line"></i>
+                                <span> System</span>
+                                <span class="menu-arrow"></span>
+                            </a>
+                            <div class="collapse" id="sidebarSystem">
+                                <ul class="side-nav-second-level">
+                                    <li><a href="#" >Subscription</a></li>
+                                    <li><a href="#" >Help center</a></li>
+                                    <li><a href="#" >Notifications</a></li>
+                                </ul>
+                            </div>
+                        </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">

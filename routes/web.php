@@ -37,11 +37,11 @@ Route::group(['prefix' => 'master' ], function () {
 Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy'] ], function () {
   Route::get('/', [TenantCommonController::class, 'showTenantLoginPageByUrl'])->name('tenant.login.by.url');
   Route::post('login', [TenantCommonController::class, 'submitUrlBasedLogin'])->name('tenant.submit.login');
-  Route::post('/tenant-logout', [TenantCommonController::class, 'masterLogout'])->name('tenant.logout'); 
+  Route::post('/tenant-logout', [TenantCommonController::class, 'tenantLogout'])->name('tenant.logout'); 
 });
 
 
- Route::post('/temporal-route-name', [TenantCommonController::class, 'masterLogout'])->name('tenant.super.admin.branches'); 
+ //Route::post('/temporal-route-name', [TenantCommonController::class, 'masterLogout'])->name('tenant.super.admin.branches'); 
 
 
 
@@ -329,6 +329,7 @@ Route::group(['prefix' => 'master', 'middleware' => ['master.auth','master.admin
     Route::post('/add-tenant', [MasterTenantController::class, 'masterAddTenant'])->name('master.add.tenant');
     Route::get('/tenant-details', [MasterTenantController::class, 'showTenantDetailsView'])->name('master.tenant.details');
     Route::post('/update-tenant-details', [MasterTenantController::class, 'updateTenantDetails'])->name('master.tenant.details.update');
+    Route::post('/master/tenant/approve', [MasterTenantController::class, 'approveTenant'])->name('master.tenant.approve');
     Route::post('/approve-tenant-local', [MasterTenantController::class, 'approveTenantLocal'])->name('master.tenant.approve.local');
     Route::post('/approve-tenant-remote', [MasterTenantController::class, 'approveTenantRemote'])->name('master.tenant.approve.remote');
 

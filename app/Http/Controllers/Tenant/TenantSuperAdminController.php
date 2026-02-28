@@ -15,6 +15,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Carbon\Carbon;
+use Illuminate\Validation\Rule;
 use DB;
 use Auth;
 
@@ -103,6 +104,16 @@ class TenantSuperAdminController extends Controller
         return view('tenants.super-admin.branch-details');
     }
 
+    public function  showCartegoriesView()
+    {
+        return view('tenants.super-admin.cartegories');
+    }
+
+
+    public function  showSectorsView()
+    {
+        return view('tenants.super-admin.sectors');
+    }
 
    
 
@@ -1441,6 +1452,104 @@ public function deleteBranch(Request $request)
 
 
 
+    public function insertCartegory(Request $request)
+    {
+        $data = [
+            'sector'    => trim($request->sector),
+            'cartegory' => trim($request->cartegory),
+            'description' => trim($request->description),
+        ];
+
+        $validator = $request->validate([
+            'sector'    => 'required|string|max:255',
+            'cartegory'   => 'required|string|max:255|unique:tenant.cartegories,cartegory',
+            'description' => 'required|string|max:5000',
+        ]);
+
+      
+
+        if ($validator) {
+            $insertId = DB::connection('tenant')->table('cartegories')->insertGetId($data);
+            if ($insertId) {
+                $cartegory = DB::connection('tenant')->table('cartegories')->where('id', $insertId)->first();
+
+                return response()->json([
+                    'success'   => 'Category created successfully.',
+                    'status'    => 201,
+                    'cartegory' => [
+                        'id'        => $cartegory->id,
+                        'sector'    => $cartegory->sector,
+                        'cartegory' => $cartegory->cartegory,
+                        'description' => $cartegory->description,
+                    ],
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to create category.', 'status' => 500]);
+            }
+        } else {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+        }
+    }
+
+
+        public function updateCartegory(Request $request)
+    {
+        $data = [
+            'sector'    => trim($request->sector),
+            'cartegory' => trim($request->cartegory),
+            'description' => trim($request->description)
+        ];
+
+        $validator = $request->validate([
+            'id'        => 'required|integer|exists:tenant.cartegories,id',
+            'sector'    => 'required|string|max:255',
+            'cartegory' => 'required|string|max:255|unique:tenant.cartegories,cartegory,' . $request->id,
+        ]);
+
+        if ($validator) {
+            $updated = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->update($data);
+            if ($updated) {
+                $cartegory = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->first();
+
+                return response()->json([
+                    'success'   => 'Category updated successfully.',
+                    'status'    => 201,
+                    'cartegory' => [
+                        'id'        => $cartegory->id,
+                        'sector'    => $cartegory->sector,
+                        'cartegory' => $cartegory->cartegory,
+                        'description' => $cartegory->description,
+                    ],
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to update category.', 'status' => 500]);
+            }
+        } else {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+        }
+    }
+
+
+  public function deleteCartegory(Request $request)
+    {
+        $validator = $request->validate([
+            'id' => 'required|integer',
+        ]);
+
+        if ($validator) {
+            $deleted = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->delete();
+            if ($deleted) {
+                return response()->json([
+                    'success' => 'Category deleted successfully.',
+                    'status'  => 201,
+                ]);
+            } else {
+                return response()->json(['error' => 'Failed to delete category.', 'status' => 500]);
+            }
+        } else {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+        }
+    }
 
 
 

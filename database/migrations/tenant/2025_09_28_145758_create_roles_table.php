@@ -16,14 +16,45 @@ return new class extends Migration
             $table->string('role')->unique();
             $table->text('description')->nullable();
         });
-
-        DB::table('roles')->insert([
-            ['role' => 'Sales', 'description' => 'Team members focused on generating revenue, managing customer relationships, and driving business growth'],
-            ['role' => 'Admin', 'description' => 'System Administrator with full access and control'],
-            ['role' => 'Accounts', 'description' => 'Users responsible for managing financial transactions, invoices and payments'],
-            ['role' => 'Operations', 'description' => 'Personnel overseeing the day-to-day activities, logistics, and processes that keep the organization running smoothly'],
-            ['role' => 'Investor', 'description' => 'Authorized individuals with access to financial information and investment details'],
+     DB::table('roles')->insert([
+            [
+                'role'        => 'SuperAdmin',
+                'description' => 'Full unrestricted access to the entire system. Can manage tenants, users, roles, sectors, categories, system configuration, and all data across companies. Highest privilege level.',
+            ],
+            [
+                'role'        => 'Admin',
+                'description' => 'Full administrative access within permitted sectors. Can manage categories, employees, business operations, reports, and sector-level settings.',
+            ],
+            [
+                'role'        => 'Accounts',
+                'description' => 'Responsible for financial operations: managing invoices, payments, receipts, expense tracking, bank reconciliations, financial reports, and basic accounting within the assigned company.',
+            ],
+            [
+                'role'        => 'Sales',
+                'description' => 'Focused on revenue generation: managing leads, customers, sales pipeline, quotations, orders, follow-ups, commissions, and sales performance reporting.',
+            ],
+            [
+                'role'        => 'Operations',
+                'description' => 'Handles day-to-day business execution: logistics, inventory management, service delivery, process coordination, staff scheduling, and operational performance monitoring.',
+            ],
+            [
+                'role'        => 'Investor',
+                'description' => 'Read-only access (or limited write permissions where allowed) to financial summaries, performance reports, investment tracking, profit & loss statements, and key business metrics.',
+            ],
+            [
+                'role'        => 'Manager',
+                'description' => 'Departmental or branch-level oversight: access to team performance, reports, approvals, and limited administrative functions within their scope.',
+            ],
+            [
+                'role'        => 'Staff',
+                'description' => 'Standard employee access: can view personal profile, finances, leave balance, assigned tasks, and submit requests.',
+            ],
+            [
+                'role'        => 'NSS',
+                'description' => 'Non-system user: individuals who cannot log in to the system',
+            ],
         ]);
+    
     }
 
     /**

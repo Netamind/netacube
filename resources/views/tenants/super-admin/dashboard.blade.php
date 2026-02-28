@@ -206,10 +206,20 @@
                         </a>
                     </li>
 
+
+                    
+                    <li class="side-nav-item">
+                        <a href="{{ route('tenant.super.admin.events') }}" class="side-nav-link">        
+                            <i class="ri-briefcase-4-line"></i>
+                            <span> HR </span>
+                        </a>
+                    </li>
+
             
 
-                    <!-- BUSINESS SECTORS -->
-                    <li class="side-nav-title mt-2">Business Sectors</li>
+
+                
+                    <li class="side-nav-title mt-2">Sectors</li>
 
                     <li class="side-nav-item">
                         <a href="{{ route('tenant.retail.admin.dashboard') }}" class="side-nav-link">
@@ -233,9 +243,9 @@
                         </a>
                         <div class="collapse" id="sidebarServices">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Financial Services</a></li>
-                                 <li><a href="#">Consultancy Services</a></li>
-                                
+                                <li><a href="#">Finance</a></li>
+                                 <li><a href="#">Consultancy</a></li>
+                                  <li><a href="#">IT</a></li>
                             </ul>
                         </div>
                     </li>
@@ -263,8 +273,8 @@
 
                     
 
-                    <!-- ADMIN & SETUP -->
-                    <li class="side-nav-title mt-2">Admin & Setup</li>
+            
+                    <li class="side-nav-title mt-2">Management</li>
 
 
                      <li class="side-nav-item">
@@ -276,13 +286,13 @@
                         <div class="collapse" id="sidebarAdmin">
                             <ul class="side-nav-second-level">
                                 <li><a  href="{{ route('tenant.super.admin.company.info') }}" >Company</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.roles') }}" >Roles</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.employees') }}" >Employees</a></li>
-                                <li><a  href="{{ route('tenant.super.admin.branches') }}" >Categories</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.employees') }}" >Permissions</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.sectors') }}" >Sectors</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.cartegories') }}" >Categories</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.branches') }}" >Branches</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.branches') }}" >Suppliers</a></li>
-                                <li><a  href="{{ route('tenant.super.admin.roles') }}" >Roles & Permissions</a></li>
-                                <li><a  href="{{ route('tenant.super.admin.roles') }}" >HR Dashboard</a></li>
-                               <li><a  href="{{ route('tenant.super.admin.roles') }}" >Audit Logs</a></li>
                             </ul>
                         </div>
                     </li>
@@ -297,17 +307,18 @@
                                 <ul class="side-nav-second-level">
                                     <li><a href="#" >Subscription</a></li>
                                     <li><a href="#" >Help center</a></li>
-                                    <li><a href="#" >Notifications</a></li>
                                 </ul>
                             </div>
                         </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-settings-3-line"></i>
-                            <span> Settings </span>
-                        </a>
-                    </li>
+                          
+
+                            <li class="side-nav-item">
+                                <a href="#" class="side-nav-link">
+                                    <i class="ri-settings-3-line"></i>
+                                    <span>Settings</span>
+                                </a>
+                            </li>
 
                 </ul>
                 <div class="clearfix"></div>

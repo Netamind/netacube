@@ -143,6 +143,18 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::get('/super-admin/branch-details', [TenantSuperAdminController::class, 'showBranchDetailsView'])->name('tenant.super.admin.branch.details');
 
 
+    
+    
+    Route::get('/super-admin/business/cartegories', [TenantSuperAdminController::class, 'showCartegoriesView'])->name('tenant.super.admin.cartegories');
+
+    Route::get('/super-admin/business/sectors', [TenantSuperAdminController::class, 'showSectorsView'])->name('tenant.super.admin.sectors');
+
+
+    Route::post('/super-admin/insert-cartegory', [TenantSuperAdminController::class, 'insertCartegory'])->name('tenant.super.admin.cartegory.insert');
+    Route::post('/super-admin/update-cartegory', [TenantSuperAdminController::class, 'updateCartegory'])->name('tenant.super.admin.cartegory.update');
+    Route::post('/super-admin/delete-cartegory', [TenantSuperAdminController::class, 'deleteCartegory'])->name('tenant.super.admin.cartegory.delete');
+
+    
 
 });
 

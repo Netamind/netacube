@@ -88,7 +88,7 @@
                     </div>
                     <?php
                     $maintableTitle = "System Roles";
-                    $roles = DB::table('roles')->get();
+                    $roles = DB::connection('tenant')->table('roles')->get();
                     ?>
                 </div>
 

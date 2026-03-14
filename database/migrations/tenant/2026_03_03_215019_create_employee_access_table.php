@@ -11,12 +11,10 @@ return new class extends Migration
      */
     public function up(): void
     {
-        Schema::create('cartegories', function (Blueprint $table) {
+        Schema::create('employee_access', function (Blueprint $table) {
             $table->id();
-            $table->string('sector');
-            $table->string('cartegory')->unique();
-            $table->text('description',500);
-  
+            $table->integer('employee_id');
+            $table->integer('sector_id');
         });
     }
 
@@ -25,6 +23,6 @@ return new class extends Migration
      */
     public function down(): void
     {
-        Schema::dropIfExists('cartegories');
+        Schema::dropIfExists('employee_access');
     }
 };

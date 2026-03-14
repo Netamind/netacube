@@ -107,8 +107,14 @@
         <?php $row = "row".$branch->id ?>
         <tr id="{{ $row }}">
             <td>{{ $branch->name }}</td>
-            <td style="text-align:center">{{ $branch->sector }}</td>
-            <td style="text-align:center">{{ $branch->category }}</td>
+            <td style="text-align:center">
+                
+            {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
+        
+            </td>
+            <td style="text-align:center">
+                   {{ DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
+            </td>
             <td style="text-align:center">
                 <span class="badge bg-{{ $branch->status == 'active' ? 'success' : ($branch->status == 'inactive' ? 'warning' : 'secondary') }}">
                     {{ ucfirst($branch->status) }}
@@ -175,12 +181,21 @@
                         <label class="control-label form-label">Branch Name <span class="text-danger">*</span></label>
                         <input class="form-control" placeholder="Enter branch name" type="text" name="name" id="branch-name" required/>
                     </div>
+
+                    <div class="mb-3">
+                        <label class="control-label form-label">TIN Number</label>
+                        <input class="form-control" type="text" name="tin_number"  placeholder="e.g. 1234"/>
+                    </div>
+                       <div class="mb-3">
+                        <label class="control-label form-label">License Number</label>
+                        <input class="form-control" type="text" name="business_number"  placeholder="e.g. 1234"/>
+                    </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Physical Address</label>
                         <textarea class="form-control" placeholder="Enter full address" name="address" id="branch-address" rows="2"></textarea>
                     </div>
                     <div class="mb-3">
-                        <label class="control-label form-label">City</label>
+                        <label class="control-label form-label">City/District</label>
                         <input class="form-control" type="text" name="city" id="branch-city" placeholder="e.g. Lilongwe"/>
                     </div>
                     <div class="mb-3">
@@ -193,11 +208,21 @@
                     </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Sector <span class="text-danger">*</span></label>
-                        <input class="form-control" type="text" name="sector" id="branch-sector" required placeholder="e.g. Retail"/>
+                        <select class="form-select" name="sector" id="branch-sector" required>
+                            <option value="">-- Select Sector --</option>
+                            @foreach(DB::connection('tenant')->table('sectors')->orderBy('sector')->get() as $sector)
+                                <option value="{{ $sector->id }}">{{ $sector->sector }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Category <span class="text-danger">*</span></label>
-                        <input class="form-control" type="text" name="category" id="branch-category" required placeholder="e.g. Supermarket"/>
+                        <select class="form-select" name="category" id="branch-category" required>
+                            <option value="">-- Select Category --</option>
+                            @foreach(DB::connection('tenant')->table('categories')->orderBy('category')->get() as $cat)
+                                <option value="{{ $cat->id }}">{{ $cat->category }}</option>
+                            @endforeach
+                        </select>
                     </div>
                     <a href="#" class="btn btn-primary float-end mt-3 mb-2" id="submitDataBtn">Submit</a>
                     <a href="#" class="btn btn-secondary float-end mt-3 mb-2 mx-2" id="cancelDataBtn">Clear</a>
@@ -211,6 +236,7 @@
 
 @section('scripts') 
 <script>
+// No changes needed here — it already expects b.sector and b.category to be the string names
 $(document).ready(function() {
     toastr.options = {
         closeButton: true,

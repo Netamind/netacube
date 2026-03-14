@@ -42,9 +42,8 @@
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn" title="Add new category"><i class="ri-add-circle-line"></i></a>
 </div>
 <?php 
-$maintableTitle = "Category List"; 
-$cartegories = DB::connection('tenant')->table('cartegories')->get(); 
-$sectors = DB::connection('tenant')->table('sectors')->pluck('sector')->toArray();
+$maintableTitle = "Business Categories"; 
+$categories = DB::connection('tenant')->table('categories')->get(); 
 ?>
 </div>
 
@@ -52,31 +51,28 @@ $sectors = DB::connection('tenant')->table('sectors')->pluck('sector')->toArray(
 <table id="maintable" class="table table-sm table-striped row-border order-column w-100">
     <thead style="background-color:#e2e2e9">
     <tr>
-        <th>Sector</th>
-        <th style="text-align:center">Category</th>
+        <th>Category</th>
         <th style="text-align:center">Description</th>
         <th style="text-align:center">Action</th>
     </tr>
     </thead>
     <tbody id="tbody">
-    @foreach($cartegories as $cartegory)
-        <?php $row = "row".$cartegory->id ?>
+    @foreach($categories as $category)
+        <?php $row = "row".$category->id ?>
         <tr id="{{ $row }}">
-            <td>{{ $cartegory->sector }}</td>
-            <td style="text-align:center">{{ $cartegory->cartegory }}</td>
-            <td style="text-align:center">{{ $cartegory->description ?? '-' }}</td>
+            <td>{{ $category->category }}</td>
+            <td style="text-align:center">{{ $category->description ?? '-' }}</td>
             <td style="text-align:center">
                 <a href="#" class="editDataBtn"
-                   editId="{{ $cartegory->id }}"
+                   editId="{{ $category->id }}"
                    editRow="{{ $row }}"
-                   editSector="{{ $cartegory->sector }}"
-                   editCartegory="{{ $cartegory->cartegory }}"
-                   editDescription="{{ $cartegory->description ?? '' }}">
+                   editCategory="{{ $category->category }}"
+                   editDescription="{{ $category->description ?? '' }}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px;"></i>
                 </a>
                 <a href="#" class="deleteDataBtn"
-                   deleteLabel="{{ $cartegory->cartegory }} <small>({{ $cartegory->sector }})</small>"
-                   deleteId="{{ $cartegory->id }}"
+                   deleteLabel="{{ $category->category }}"
+                   deleteId="{{ $category->id }}"
                    deleteRow="{{ $row }}">
                    <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px;"></i>
                 </a>
@@ -116,7 +112,7 @@ $sectors = DB::connection('tenant')->table('sectors')->pluck('sector')->toArray(
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Manage categories and associate them with predefined sectors.
+                Manage categories.
             </div>
         </div>
     </div>
@@ -133,17 +129,8 @@ $sectors = DB::connection('tenant')->table('sectors')->pluck('sector')->toArray(
                 <form action="#" method="post" id="newDataForm">
                     @csrf
                     <div class="mb-3">
-                        <label class="control-label form-label">Sector <span class="text-danger">*</span></label>
-                        <select class="form-control" name="sector" id="sector" required>
-                            <option value="">-- Select Sector --</option>
-                            @foreach($sectors as $sector)
-                                <option value="{{ $sector }}">{{ $sector }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="control-label form-label">Category <span class="text-danger">*</span></label>
-                        <input class="form-control" placeholder="Enter category name" type="text" name="cartegory" id="cartegory" autocomplete="off" required/>
+                        <input class="form-control" placeholder="Enter category name" type="text" name="category" id="category" autocomplete="off" required/>
                     </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Description <small class="text-muted">(max 500 characters)</small></label>
@@ -199,17 +186,8 @@ $sectors = DB::connection('tenant')->table('sectors')->pluck('sector')->toArray(
                         <input type="hidden" name="editrow" id="editRow">
                     </div>
                     <div class="mb-3">
-                        <label class="control-label form-label">Sector <span class="text-danger">*</span></label>
-                        <select class="form-control" name="sector" id="editSector" required>
-                            <option value="">-- Select Sector --</option>
-                            @foreach($sectors as $sector)
-                                <option value="{{ $sector }}">{{ $sector }}</option>
-                            @endforeach
-                        </select>
-                    </div>
-                    <div class="mb-3">
                         <label class="control-label form-label">Category <span class="text-danger">*</span></label>
-                        <input class="form-control" type="text" name="cartegory" id="editCartegory" required/>
+                        <input class="form-control" type="text" name="category" id="editCategory" required/>
                     </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Description <small class="text-muted">(max 500 characters)</small></label>
@@ -252,11 +230,10 @@ $(document).ready(function () {
     });
     table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-    // Open add modal & reset select
+    // Open add modal
     $('#newDataBtn').click(function (e) {
         e.preventDefault();
         $('#newDataForm')[0].reset();
-        $('#sector').val('');
         $('#newDataModal').modal('show');
     });
 
@@ -271,7 +248,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.cartegory.insert") }}',
+            url: '{{ route("tenant.super.admin.category.insert") }}',
             data: formData,
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
@@ -279,20 +256,19 @@ $(document).ready(function () {
             success: function (data) {
                 if (data.status === 201) {
                     toastr.success(data.success, 'Success');
-                    var c = data.cartegory;
+                    var c = data.category;
                     var newRow = `<tr id="row${c.id}">
-                        <td>${c.sector}</td>
-                        <td style="text-align:center">${c.cartegory}</td>
+                        <td>${c.category}</td>
                         <td style="text-align:center">${c.description || '-'}</td>
                         <td style="text-align:center">
                             <a href="#" class="editDataBtn"
                                editId="${c.id}" editRow="row${c.id}"
-                               editSector="${c.sector}" editCartegory="${c.cartegory}"
+                               editCategory="${c.category}"
                                editDescription="${c.description || ''}">
                                <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px;"></i>
                             </a>
                             <a href="#" class="deleteDataBtn"
-                               deleteLabel="${c.cartegory} <small>(${c.sector})</small>"
+                               deleteLabel="${c.category}"
                                deleteId="${c.id}" deleteRow="row${c.id}">
                                <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px;"></i>
                             </a>
@@ -327,7 +303,6 @@ $(document).ready(function () {
     $('#cancelDataBtn').click(function (e) { 
         e.preventDefault(); 
         $('#newDataForm')[0].reset(); 
-        $('#sector').val('');
         $('#newDataModal').modal('hide'); 
     });
 
@@ -349,18 +324,18 @@ $(document).ready(function () {
         e.preventDefault();
         var self = $(this); self.prop('disabled', true);
         var row = $('#singleDeleteRow').val();
-        var cartegoryId = $('#singleDeleteId').val();
+        var categoryId = $('#singleDeleteId').val();
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.cartegory.delete") }}',
-            data: { id: cartegoryId, _token: '{{ csrf_token() }}' },
+            url: '{{ route("tenant.super.admin.category.delete") }}',
+            data: { id: categoryId, _token: '{{ csrf_token() }}' },
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
             complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function (data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
+                if (data.status === 200 || data.status === 201) {
+                    toastr.success(data.success || 'Deleted successfully', 'Success');
                     table.row('#' + row).remove().draw(false);
                     $('#singleDeleteDataModal').modal('hide');
                 } else {
@@ -384,12 +359,11 @@ $(document).ready(function () {
         });
     });
 
-    // EDIT - populate modal with correct sector
+    // EDIT - populate modal
     $('#tbody').on('click', '.editDataBtn', function () {
         $('#editId').val($(this).attr('editId'));
         $('#editRow').val($(this).attr('editRow'));
-        $('#editSector').val($(this).attr('editSector')); // ← sets the select value
-        $('#editCartegory').val($(this).attr('editCartegory'));
+        $('#editCategory').val($(this).attr('editCategory'));
         $('#editDescription').val($(this).attr('editDescription'));
         $('#editDataModal').modal('show');
     });
@@ -403,28 +377,27 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.cartegory.update") }}',
+            url: '{{ route("tenant.super.admin.category.update") }}',
             data: formData,
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
             complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function (data) {
-                if (data.status === 201) {
+                if (data.status === 200 || data.status === 201) {
                     toastr.success(data.success, 'Success');
-                    var c = data.cartegory;
+                    var c = data.category;
                     var updatedRow = `<tr id="${row}">
-                        <td>${c.sector}</td>
-                        <td style="text-align:center">${c.cartegory}</td>
+                        <td>${c.category}</td>
                         <td style="text-align:center">${c.description || '-'}</td>
                         <td style="text-align:center">
                             <a href="#" class="editDataBtn"
                                editId="${c.id}" editRow="${row}"
-                               editSector="${c.sector}" editCartegory="${c.cartegory}"
+                               editCategory="${c.category}"
                                editDescription="${c.description || ''}">
                                <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px;"></i>
                             </a>
                             <a href="#" class="deleteDataBtn"
-                               deleteLabel="${c.cartegory} <small>(${c.sector})</small>"
+                               deleteLabel="${c.category}"
                                deleteId="${c.id}" deleteRow="${row}">
                                <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px;"></i>
                             </a>
@@ -459,7 +432,6 @@ $(document).ready(function () {
     $('#cancelEditDataBtn').click(function (e) { 
         e.preventDefault(); 
         $('#editDataForm')[0].reset(); 
-        $('#editSector').val(''); 
         $('#editDataModal').modal('hide'); 
     });
 });

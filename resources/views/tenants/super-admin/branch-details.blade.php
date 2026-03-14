@@ -93,7 +93,7 @@
                             <!-- LEFT COLUMN -->
                             <div class="col-md-6">
                                 <div class="row mb-3">
-                                    <label class="col-4 col-form-label">Branch Name <span class="text-danger">*</span></label>
+                                    <label class="col-4 col-form-label">Branch Name </label>
                                     <div class="col-8">
                                         <input type="text" class="form-control" name="name" value="{{ $branch->name }}" required>
                                     </div>
@@ -114,31 +114,29 @@
                                 </div>
 
                                 <div class="row mb-3">
-                                    <label class="col-4 col-form-label">Sector <span class="text-danger">*</span></label>
+                                    <label class="col-4 col-form-label">Sector</label>
                                     <div class="col-8">
-                                        <select class="form-select" name="sector" required>
-                                            <option value="">Select Sector</option>
-                                            <option value="Retail" {{ $branch->sector == 'Retail' ? 'selected' : '' }}>Retail</option>
-                                            <option value="Hospitality" {{ $branch->sector == 'Hospitality' ? 'selected' : '' }}>Hospitality</option>
-                                            <option value="Manufacturing" {{ $branch->sector == 'Manufacturing' ? 'selected' : '' }}>Manufacturing</option>
-                                            <option value="Agriculture" {{ $branch->sector == 'Agriculture' ? 'selected' : '' }}>Agriculture</option>
-                                            <option value="Services" {{ $branch->sector == 'Services' ? 'selected' : '' }}>Services</option>
-                                            <!-- Add more real sectors from your app if available -->
+                                        <select class="form-select" name="sector" required >
+                                            <option value="{{$branch->sector}}">
+                                            {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
+                                            </option>
+                                              @foreach(DB::connection('tenant')->table('sectors')->where('id','!=', $branch->sector)->get() as $sector)
+                                                <option value="{{ $sector->id }}">{{ $sector->sector }}</option>
+                                             @endforeach
                                         </select>
                                     </div>
                                 </div>
 
                                 <div class="row mb-3">
-                                    <label class="col-4 col-form-label">Category <span class="text-danger">*</span></label>
+                                    <label class="col-4 col-form-label">Category </label>
                                     <div class="col-8">
-                                        <select class="form-select" name="category" required>
-                                            <option value="">Select Category</option>
-                                            <option value="Supermarket" {{ $branch->category == 'Supermarket' ? 'selected' : '' }}>Supermarket</option>
-                                            <option value="Hotel" {{ $branch->category == 'Hotel' ? 'selected' : '' }}>Hotel</option>
-                                            <option value="Food Processing" {{ $branch->category == 'Food Processing' ? 'selected' : '' }}>Food Processing</option>
-                                            <option value="Pharmacy" {{ $branch->category == 'Pharmacy' ? 'selected' : '' }}>Pharmacy</option>
-                                            <option value="Consultancy" {{ $branch->category == 'Consultancy' ? 'selected' : '' }}>Consultancy</option>
-                                            <!-- Add more real categories from your app if available -->
+                                        <select class="form-select" name="category" required >
+                                            <option value="{{$branch->category}}">
+                                                {{DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
+                                            </option>
+                                          @foreach(DB::connection('tenant')->table('categories')->where('id','!=',$branch->category)->get() as $cat)
+                                              <option value="{{ $cat->id }}">{{ $cat->category }}</option>
+                                           @endforeach
                                         </select>
                                     </div>
                                 </div>
@@ -165,7 +163,7 @@
                                 </div>
 
                                 <div class="row mb-3">
-                                    <label class="col-4 col-form-label">City</label>
+                                    <label class="col-4 col-form-label">City/District</label>
                                     <div class="col-8">
                                         <input type="text" class="form-control" name="city" value="{{ $branch->city }}">
                                     </div>
@@ -204,10 +202,9 @@
                         <!-- ACTION BUTTONS -->
                         <div class="justify-content-end row mt-5">
                             <div class="col-12 text-end">
-                                <a href="#" class="btn btn-danger" id="deleteBtn"
+                               <!-- <a href="#" class="btn btn-danger" id="deleteBtn"
                                    data-id="{{ $branch->id }}" data-name="{{ $branch->name }}" title="Delete Branch">
-                                    <i class="ri-delete-bin-line"></i> Delete
-                                </a>
+                                    <i-->
                                 <button type="submit" class="btn btn-primary" id="updateBranchInfoBtn">
                                     <i class="ri-save-line me-1"></i> Update
                                 </button>

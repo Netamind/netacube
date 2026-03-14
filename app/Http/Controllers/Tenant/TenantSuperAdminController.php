@@ -104,9 +104,9 @@ class TenantSuperAdminController extends Controller
         return view('tenants.super-admin.branch-details');
     }
 
-    public function  showCartegoriesView()
+    public function  showCategoriesView()
     {
-        return view('tenants.super-admin.cartegories');
+        return view('tenants.super-admin.categories');
     }
 
 
@@ -1304,13 +1304,17 @@ class TenantSuperAdminController extends Controller
 {
     $data = [
         'name'      => trim($request->name),
-        'address'   => trim($request->address ?? ''),
-        'city'      => trim($request->city ?? ''),
-        'phone'     => trim($request->phone ?? ''),
-        'email'     => trim($request->email ?? ''),
+        'business_number'      => trim($request->business_number),
+        'tin_number'      => trim($request->tin_number),
+        'address'   => trim($request->address),
+        'city'      => trim($request->city),
+        'phone'     => trim($request->phone),
+        'email'     => trim($request->email),
         'sector'    => trim($request->sector),
         'category'  => trim($request->category),
         'status'    => $request->status ?? 'active',
+        'created_at'    => Carbon::today()->toDateString(),
+        'updated_at'    => Carbon::today()->toDateString(),
     ];
 
     $validator = $request->validate([
@@ -1354,8 +1358,8 @@ class TenantSuperAdminController extends Controller
                 'city'     => $branch->city,
                 'phone'    => $branch->phone,
                 'email'    => $branch->email,
-                'sector'   => $branch->sector,
-                'category' => $branch->category,
+                'sector'   =>  DB::connection('tenant')->table('sectors')->where('id',$branch->sector)->value('sector'),
+                'category' => DB::connection('tenant')->table('categories')->where('id',$branch->category)->value('category'),
                 'status'   => $branch->status,
             ],
         ]);
@@ -1368,19 +1372,20 @@ public function updateBranch(Request $request)
 {
     $data = [
         'name'      => trim($request->name),
-        'address'   => trim($request->address ?? ''),
-        'city'      => trim($request->city ?? ''),
-        'phone'     => trim($request->phone ?? ''),
-        'email'     => trim($request->email ?? ''),
-        'sector'    => trim($request->sector),
-        'category'  => trim($request->category),
-        'status'    => $request->status ?? 'active',
+        'address'   => trim($request->address),
+        'city'      => trim($request->city),
+        'phone'     => trim($request->phone),
+        'email'     => trim($request->email),
+        'sector'     => trim($request->sector),
+        'category'     => trim($request->category),
+        'business_number' =>trim($request->business_number),
+        'tin_number' =>trim($request->tin_number),
+        'status'    => trim($request->status),
+        'updated_at'    => Carbon::today()->toDateString(),
     ];
 
     $validator = $request->validate([
         'name'     => 'required|string|max:255',
-        'sector'   => 'required|string|max:255',
-        'category' => 'required|string|max:255',
         'address'  => 'nullable|string|max:1000',
         'city'     => 'nullable|string|max:100',
         'phone'    => 'nullable|string|max:50',
@@ -1392,8 +1397,8 @@ public function updateBranch(Request $request)
     $exists = DB::connection('tenant')
         ->table('branches')
         ->where('name', $data['name'])
-        ->where('sector', $data['sector'])
-        ->where('category', $data['category'])
+        ->where('sector', $request->sector)
+        ->where('category', $request->category)
         ->where('id', '!=', $request->id)
         ->exists();
 
@@ -1422,22 +1427,16 @@ public function updateBranch(Request $request)
                 'city'     => $branch->city,
                 'phone'    => $branch->phone,
                 'email'    => $branch->email,
-                'sector'   => $branch->sector,
-                'category' => $branch->category,
                 'status'   => $branch->status,
             ],
         ]);
     }
 
-    return response()->json(['error' => 'Branch not found or no changes made.', 'status' => 409]);
+    return response()->json(['error' => 'No changes made.', 'status' => 409]);
 }
 
 public function deleteBranch(Request $request)
 {
-    $validator = $request->validate([
-        'id' => 'required|integer|exists:branches,id',
-    ]);
-
     $deleted = DB::connection('tenant')
         ->table('branches')
         ->where('id', $request->id)
@@ -1451,106 +1450,197 @@ public function deleteBranch(Request $request)
 }
 
 
+public function insertCategory(Request $request)
+{
+    $data = [
+        'category' => trim($request->category),
+        'description' => trim($request->description),
+    ];
 
-    public function insertCartegory(Request $request)
-    {
-        $data = [
-            'sector'    => trim($request->sector),
-            'cartegory' => trim($request->cartegory),
-            'description' => trim($request->description),
-        ];
+    $validator = $request->validate([
+        'category'   => 'required|string|max:255|unique:tenant.categories,category',
+        'description' => 'required|string|max:5000',
+    ]);
 
-        $validator = $request->validate([
-            'sector'    => 'required|string|max:255',
-            'cartegory'   => 'required|string|max:255|unique:tenant.cartegories,cartegory',
-            'description' => 'required|string|max:5000',
-        ]);
+    if ($validator) {
+        $insertId = DB::connection('tenant')->table('categories')->insertGetId($data);
+        if ($insertId) {
+            $category = DB::connection('tenant')->table('categories')->where('id', $insertId)->first();
 
-      
-
-        if ($validator) {
-            $insertId = DB::connection('tenant')->table('cartegories')->insertGetId($data);
-            if ($insertId) {
-                $cartegory = DB::connection('tenant')->table('cartegories')->where('id', $insertId)->first();
-
-                return response()->json([
-                    'success'   => 'Category created successfully.',
-                    'status'    => 201,
-                    'cartegory' => [
-                        'id'        => $cartegory->id,
-                        'sector'    => $cartegory->sector,
-                        'cartegory' => $cartegory->cartegory,
-                        'description' => $cartegory->description,
-                    ],
-                ]);
-            } else {
-                return response()->json(['error' => 'Failed to create category.', 'status' => 500]);
-            }
+            return response()->json([
+                'success'   => 'Category created successfully.',
+                'status'    => 201,
+                'category' => [
+                    'id'        => $category->id,
+                    'category' => $category->category,
+                    'description' => $category->description,
+                ],
+            ]);
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json(['error' => 'Failed to create category.', 'status' => 500]);
         }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+
+public function updateCategory(Request $request)
+{
+    $data = [
+        'category' => trim($request->category),
+        'description' => trim($request->description)
+    ];
+
+    $validator = $request->validate([
+        'id'        => 'required|integer|exists:tenant.categories,id',
+        'category' => 'required|string|max:255|unique:tenant.categories,category,' . $request->id,
+    ]);
+
+    if ($validator) {
+        $updated = DB::connection('tenant')->table('categories')->where('id', $request->id)->update($data);
+        if ($updated) {
+            $category = DB::connection('tenant')->table('categories')->where('id', $request->id)->first();
+
+            return response()->json([
+                'success'   => 'Category updated successfully.',
+                'status'    => 201,
+                'category' => [
+                    'id'        => $category->id,
+                    'category' => $category->category,
+                    'description' => $category->description,
+                ],
+            ]);
+        } else {
+            return response()->json(['error' => 'Failed to update category.', 'status' => 500]);
+        }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+
+public function deleteCategory(Request $request)
+{
+    $validator = $request->validate([
+        'id' => 'required|integer',
+    ]);
+
+    if ($validator) {
+        $deleted = DB::connection('tenant')->table('categories')->where('id', $request->id)->delete();
+        if ($deleted) {
+            return response()->json([
+                'success' => 'Category deleted successfully.',
+                'status'  => 201,
+            ]);
+        } else {
+            return response()->json(['error' => 'Failed to delete category.', 'status' => 500]);
+        }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+    
+    public function showPermissionsView()
+    {
+        return view('tenants.super-admin.employee_access');
+    }
+    public function addPermission(Request $request)
+{
+    $data = [
+        'employee_id' => trim($request->employee_id),
+        'sector_id'   => trim($request->sector_id),
+    ];
+
+    $validator = $request->validate([
+        'employee_id' => 'required|integer|exists:tenant.employees,id',
+        'sector_id'   => 'required|integer|exists:tenant.sectors,id',
+    ]);
+
+    $exists = DB::connection('tenant')->table('employee_access')
+        ->where('employee_id', $data['employee_id'])
+        ->where('sector_id', $data['sector_id'])
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'error'  => 'This sector is already assigned to the employee.',
+            'status' => 422
+        ]);
     }
 
+    $insertId = DB::connection('tenant')->table('employee_access')->insertGetId([
+        'employee_id' => $data['employee_id'],
+        'sector_id'   => $data['sector_id'],
+        'created_at'  => now(),
+        'updated_at'  => now(),
+    ]);
 
-        public function updateCartegory(Request $request)
-    {
-        $data = [
-            'sector'    => trim($request->sector),
-            'cartegory' => trim($request->cartegory),
-            'description' => trim($request->description)
-        ];
+    if ($insertId) {
+        $access = DB::connection('tenant')->table('employee_access')->where('id', $insertId)->first();
+        $sectorName = DB::connection('tenant')->table('sectors')->where('id', $access->sector_id)->value('sector');
 
-        $validator = $request->validate([
-            'id'        => 'required|integer|exists:tenant.cartegories,id',
-            'sector'    => 'required|string|max:255',
-            'cartegory' => 'required|string|max:255|unique:tenant.cartegories,cartegory,' . $request->id,
+        return response()->json([
+            'success' => 'Sector assigned successfully.',
+            'status'  => 201,
+            'access'  => [
+                'id'          => $access->id,
+                'employee_id' => $access->employee_id,
+                'sector'      => $sectorName,
+            ],
         ]);
-
-        if ($validator) {
-            $updated = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->update($data);
-            if ($updated) {
-                $cartegory = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->first();
-
-                return response()->json([
-                    'success'   => 'Category updated successfully.',
-                    'status'    => 201,
-                    'cartegory' => [
-                        'id'        => $cartegory->id,
-                        'sector'    => $cartegory->sector,
-                        'cartegory' => $cartegory->cartegory,
-                        'description' => $cartegory->description,
-                    ],
-                ]);
-            } else {
-                return response()->json(['error' => 'Failed to update category.', 'status' => 500]);
-            }
-        } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
-        }
     }
 
+    return response()->json(['error' => 'Failed to assign sector.', 'status' => 500]);
+}
 
-  public function deleteCartegory(Request $request)
-    {
-        $validator = $request->validate([
-            'id' => 'required|integer',
-        ]);
+public function removePermission(Request $request)
+{
+    $validator = $request->validate([
+        'id' => 'required|integer|exists:tenant.employee_access,id',
+    ]);
 
-        if ($validator) {
-            $deleted = DB::connection('tenant')->table('cartegories')->where('id', $request->id)->delete();
-            if ($deleted) {
-                return response()->json([
-                    'success' => 'Category deleted successfully.',
-                    'status'  => 201,
-                ]);
-            } else {
-                return response()->json(['error' => 'Failed to delete category.', 'status' => 500]);
-            }
+    if ($validator) {
+        $deleted = DB::connection('tenant')->table('employee_access')->where('id', $request->id)->delete();
+        if ($deleted) {
+            return response()->json([
+                'success' => 'Sector access removed successfully.',
+                'status'  => 201,
+            ]);
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json(['error' => 'Failed to remove sector access.', 'status' => 500]);
         }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
     }
-
+}
 
 
     

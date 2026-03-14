@@ -215,8 +215,7 @@
                         </a>
                     </li>
 
-            
-
+        
 
                 
                     <li class="side-nav-title mt-2">Sectors</li>
@@ -245,7 +244,6 @@
                             <ul class="side-nav-second-level">
                                 <li><a href="#">Finance</a></li>
                                  <li><a href="#">Consultancy</a></li>
-                                  <li><a href="#">IT</a></li>
                             </ul>
                         </div>
                     </li>
@@ -288,9 +286,9 @@
                                 <li><a  href="{{ route('tenant.super.admin.company.info') }}" >Company</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.roles') }}" >Roles</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.employees') }}" >Employees</a></li>
-                                <li><a  href="{{ route('tenant.super.admin.employees') }}" >Permissions</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.permissions') }}" >Permissions</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.sectors') }}" >Sectors</a></li>
-                                <li><a  href="{{ route('tenant.super.admin.cartegories') }}" >Categories</a></li>
+                                <li><a  href="{{ route('tenant.super.admin.categories') }}" >Categories</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.branches') }}" >Branches</a></li>
                                 <li><a  href="{{ route('tenant.super.admin.branches') }}" >Suppliers</a></li>
                             </ul>

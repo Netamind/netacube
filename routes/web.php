@@ -145,21 +145,23 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
     
     
-    Route::get('/super-admin/business/cartegories', [TenantSuperAdminController::class, 'showCartegoriesView'])->name('tenant.super.admin.cartegories');
+    Route::get('/super-admin/business/categories', [TenantSuperAdminController::class, 'showCategoriesView'])->name('tenant.super.admin.categories');
 
     Route::get('/super-admin/business/sectors', [TenantSuperAdminController::class, 'showSectorsView'])->name('tenant.super.admin.sectors');
 
 
-    Route::post('/super-admin/insert-cartegory', [TenantSuperAdminController::class, 'insertCartegory'])->name('tenant.super.admin.cartegory.insert');
-    Route::post('/super-admin/update-cartegory', [TenantSuperAdminController::class, 'updateCartegory'])->name('tenant.super.admin.cartegory.update');
-    Route::post('/super-admin/delete-cartegory', [TenantSuperAdminController::class, 'deleteCartegory'])->name('tenant.super.admin.cartegory.delete');
+    Route::post('/super-admin/insert-category', [TenantSuperAdminController::class, 'insertCategory'])->name('tenant.super.admin.category.insert');
+    Route::post('/super-admin/update-category', [TenantSuperAdminController::class, 'updateCategory'])->name('tenant.super.admin.category.update');
+    Route::post('/super-admin/delete-category', [TenantSuperAdminController::class, 'deleteCategory'])->name('tenant.super.admin.category.delete');
 
     
 
+    Route::get('/super-admin/permissions', [TenantSuperAdminController::class, 'showPermissionsView'])->name('tenant.super.admin.permissions');
+    Route::post('/super-admin/add-permission', [TenantSuperAdminController::class, 'addPermission'])->name('tenant.super.admin.permision.add');
+    Route::post('/super-admin/remove-permission', [TenantSuperAdminController::class, 'removePermission'])->name('tenant.super.admin.permision.remove');
+
+
 });
-
-
-
 
 
 

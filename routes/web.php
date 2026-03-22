@@ -67,7 +67,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
     Route::get('/super-admin/employees', [TenantSuperAdminController::class, 'showEmployeesView'])->name('tenant.super.admin.employees');
 
-    Route::get('/super-admin/employee-details', [TenantSuperAdminController::class, 'showEmployeeDetailsView'])->name('tenant.super.admin.employee.details');
+
 
     Route::post('/super-admin/employee/insert', [TenantSuperAdminController::class, 'insertEmployee'])->name('tenant.super.admin.employee.insert');
 
@@ -76,6 +76,13 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/super-admin/employee/delete', [TenantSuperAdminController::class, 'deleteEmployee'])->name('tenant.super.admin.employee.delete');
 
     Route::get('/super-admin/employee/{id}/pdf', [TenantSuperAdminController::class, 'employeePdf'])->name('tenant.super.admin.employee.pdf');
+
+    Route::get('/super-admin/employee-details', [TenantSuperAdminController::class, 'showEmployeeDetailsView'])->name('tenant.super.admin.employee.details');
+
+    Route::post('/super-admin/employee/details/update', [TenantSuperAdminController::class, 'updateEmployeeDetails'])->name('tenant.super.admin.employee.details.update');
+
+
+
 
     Route::get('/super-admin/company-info', [TenantSuperAdminController::class, 'showCompanyInfoView'])->name('tenant.super.admin.company.info');
 

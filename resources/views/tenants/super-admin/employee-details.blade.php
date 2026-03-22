@@ -78,18 +78,6 @@
 
             <div class="row mb-3"></div>
 
-            <?php
-                $userid = request('id');
-                $user   = DB::table('users')->where('id', $userid)->first();
-
-                // BRANCH, DEPARTMENT, ROLE — ALL FROM `roles` TABLE
-                $roles = DB::table('roles')->orderBy('role')->pluck('role')->toArray();
-
-                if (!$user) {
-                    abort(404, 'Employee not found');
-                }
-            ?>
-
             <div class="card">
                 <!-- Header -->
                 <div class="card-header d-flex justify-content-between align-items-center">
@@ -97,11 +85,11 @@
                          Employee Details
                     </h4>
                     <div class="d-flex align-items-center gap-1">
-                        <a href="{{ route('master.employees') }}"
+                        <a href="{{ route('tenant.super.admin.employees') }}"
                            class="btn btn-light text-primary" title="Back to Employees">
                             <i class="ri-arrow-left-line"></i>
                         </a>
-                        <a href="{{ route('master.employee.pdf', $user->id) }}" target="_blank"
+                        <a href="{{ route('tenant.super.admin.employee.pdf', $user->id) }}" target="_blank"
                            class="btn btn-light text-primary" title="Download PDF">
                             <i class="ri-download-line"></i>
                         </a>
@@ -175,15 +163,14 @@
                                             </div>
                                         </div>
 
-                                        <!-- BRANCH FROM ROLES TABLE -->
                                         <div class="row mb-3">
                                             <label for="branch" class="col-3 col-form-label">Branch</label>
                                             <div class="col-9">
                                                 <select class="form-control" name="branch">
-                                                    <option value="">Select Branch</option>
-                                                    @foreach($roles as $r)
-                                                        <option value="{{ $r }}" {{ $user->branch == $r ? 'selected' : '' }}>{{ $r }}</option>
-                                                    @endforeach
+                                                    <option value="{{$user->branch}}">{{ DB::connection('tenant')->table('branches')->where('id', $user->branch)->value('name') }}</option>
+                                                    @foreach($branches as $b)
+                                                    <option value="{{ $b->id }}">{{ $b->name}}</option>
+                                                   @endforeach
                                                 </select>
                                             </div>
                                         </div>
@@ -241,12 +228,7 @@
                                         <div class="row mb-3">
                                             <label for="department" class="col-3 col-form-label">Department</label>
                                             <div class="col-9">
-                                                <select class="form-control" name="department">
-                                                    <option value="">Select Department</option>
-                                                    @foreach($roles as $r)
-                                                        <option value="{{ $r }}" {{ $user->department == $r ? 'selected' : '' }}>{{ $r }}</option>
-                                                    @endforeach
-                                                </select>
+                                                <input type="text" class="form-control" name="department" value="{{ $user->department }}">
                                             </div>
                                         </div>
 
@@ -268,9 +250,9 @@
                                             <label for="role" class="col-3 col-form-label">Role</label>
                                             <div class="col-9">
                                                 <select class="form-control" name="role">
-                                                    <option value="">Select Role</option>
+                                                    <option value="{{ $user->role}} ">{{ $user->role }}</option>
                                                     @foreach($roles as $r)
-                                                        <option value="{{ $r }}" {{ $user->role == $r ? 'selected' : '' }}>{{ $r }}</option>
+                                                        <option value="{{$r->role}}">{{ $r->role }}</option>
                                                     @endforeach
                                                 </select>
                                             </div>
@@ -401,14 +383,24 @@ $(function () {
         const $form = $('#profileDataForm');
 
         $.ajax({
-            url: '{{ route('master.update.employee.info') }}',
+            url: '{{ route('tenant.super.admin.employee.details.update') }}',
             method: 'POST',
             data: $form.serialize(),
             timeout: 60000,
             beforeSend: () => $('#progressBar').show(),
             complete: () => { $('#progressBar').hide(); $btn.prop('disabled', false); },
             success: data => {
-                if (data.status === 201) toastr.success(data.success, 'Success');
+                if (data.status === 201) {
+                    
+                toastr.success(data.success, 'Success');
+            
+              }
+              else if(data.status===203){
+
+                toastr.error(data.error, 'Error');  
+                  
+
+              }
                 else if (data.status === 422) {
                     let msg = ''; $.each(data.errors, (k,v) => msg += v + '\n');
                     toastr.error(msg, 'Validation');
@@ -458,7 +450,7 @@ $(function () {
         const id = $(this).data('id'), name = $(this).data('name');
         $('#singleDeleteId').val(id);
         $('#singleDisplayDeleteLabel').text(name);
-        $('#singleDeleteDataForm').attr('action', '{{ route("master.employee.delete") }}');
+        $('#singleDeleteDataForm').attr('action', '{{ route("tenant.super.admin.employee.delete") }}');
         delModal.show();
     });
 
@@ -481,7 +473,7 @@ $(function () {
                 if (res.status === 201) {
                     toastr.success(res.success, 'Deleted');
                     delModal.hide();
-                    setTimeout(() => location.href = '{{ route("master.employees") }}', 800);
+                    setTimeout(() => location.href = '{{ route("tenant.super.admin.employees") }}', 800);
                 }
             },
             error: xhr => {

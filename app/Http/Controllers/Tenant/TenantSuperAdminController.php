@@ -36,10 +36,6 @@ class TenantSuperAdminController extends Controller
         return view('tenants.super-admin.employees');
     }
 
-    public function showEmployeeDetailsView()
-    {
-        return view('tenants.super-admin.employee-details');
-    }
 
     public function showCompanyInfoView()
     {
@@ -694,8 +690,8 @@ class TenantSuperAdminController extends Controller
     {
         $validator = Validator::make($request->all(), [
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|unique:users,phone',
-            'email' => 'required|email|unique:users,email',
+            'phone' => 'required|string|unique:tenant.users,phone', 
+            'email' => 'required|email|unique:tenant.users,email',
             'role' => 'nullable|string',
             'branch' => 'nullable|string',
             'department' => 'nullable|string',
@@ -744,22 +740,40 @@ class TenantSuperAdminController extends Controller
             'entered_on' => now(),
         ]);
 
-        $employee = DB::connection('tenant')->table('users')->where('id', $id)->first();
+        $data = DB::connection('tenant')->table('users')->where('id', $id)->first();
 
         return response()->json([
             'status' => 201,
             'success' => 'Employee added successfully!',
-            'employee' => $employee
+            'employee' => [
+                        'name' => $data->name,
+                        'phone' => $data->phone,
+                        'email' => $data->email,
+                        'role' => $data->role,
+                        'branch' => DB::connection('tenant')->table('branches')->where('id',$data->branch)->value('name'),
+                        'department' => $data->department,
+                        'position' => $data->position,
+                        'gross_salary' => $data->gross_salary,
+                        'dob' => $data->dob,
+                        'started_on' => $data->started_on,
+                        'idtype' => $data->idtype,
+                        'idnumber' => $data->idnumber,
+                        'home_address' => $data->home_address,
+                        'current_residence' => $data->current_residence,
+                        'nextofkin_name' => $data->nextofkin_name,
+                        'nextofkin_relationship' => $data->nextofkin_relationship,
+                        'nextofkin_physical_address' => $data->nextofkin_physical_address,
+                        'nextofkin_contact' => $data->nextofkin_contact,
+            ]
         ], 201);
     }
 
     public function updateEmployee(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:users,id',
             'name' => 'required|string|max:255',
-            'phone' => 'required|string|unique:users,phone,' . $request->id,
-            'email' => 'required|email|unique:users,email,' . $request->id,
+            'phone' => 'required|string|unique:tenant.users,phone,' . $request->id,
+            'email' => 'required|email|unique:tenant.users,email,' . $request->id,
             'role' => 'nullable|string',
             'branch' => 'nullable|string',
             'department' => 'nullable|string',
@@ -805,13 +819,134 @@ class TenantSuperAdminController extends Controller
             'nextofkin_contact' => $request->nextofkin_contact,
         ]);
 
-        $employee = DB::connection('tenant')->table('users')->where('id', $request->id)->first();
+        $data = DB::connection('tenant')->table('users')->where('id', $request->id)->first();
 
         return response()->json([
             'status' => 201,
             'success' => 'Employee updated successfully!',
-            'employee' => $employee
+             'employee' => [
+                        'name' => $data->name,
+                        'phone' => $data->phone,
+                        'email' => $data->email,
+                        'role' => $data->role,
+                        'branch' => DB::connection('tenant')->table('branches')->where('id',$data->branch)->value('name'),
+                        'department' => $data->department,
+                        'position' => $data->position,
+                        'gross_salary' => $data->gross_salary,
+                        'dob' => $data->dob,
+                        'started_on' => $data->started_on,
+                        'idtype' => $data->idtype,
+                        'idnumber' => $data->idnumber,
+                        'home_address' => $data->home_address,
+                        'current_residence' => $data->current_residence,
+                        'nextofkin_name' => $data->nextofkin_name,
+                        'nextofkin_relationship' => $data->nextofkin_relationship,
+                        'nextofkin_physical_address' => $data->nextofkin_physical_address,
+                        'nextofkin_contact' => $data->nextofkin_contact,
+                    ]
         ], 201);
+    }
+
+
+
+    
+    
+    public function showEmployeeDetailsView(Request $request)
+    {
+        
+     $id = $request->query('id');
+
+    if (!$id) {
+        return redirect()
+            ->route('tenant.super.admin.employees')
+            ->with('error', 'Employee ID is required');
+    }
+
+    $user = DB::connection('tenant')
+        ->table('users')
+        ->where('id', $id)
+        ->first();
+
+    if (!$user) {
+        return redirect()
+            ->route('tenant.super.admin.employees')
+            ->with('error', 'Employee not found');
+    }
+
+    $branches = DB::connection('tenant')->table('branches')->get();
+    $roles    = DB::connection('tenant')->table('roles')->get();
+
+    return view('tenants.super-admin.employee-details', compact('user', 'branches', 'roles'));
+    
+    }
+
+
+
+    public function updateEmployeeDetails(Request $request){
+
+
+    $validator = Validator::make($request->all(), [
+            'name' => 'required|string|max:255',
+            'phone' => 'required|string|unique:tenant.users,phone,' . $request->id,
+            'email' => 'required|email|unique:tenant.users,email,' . $request->id,
+            'role' => 'nullable|string',
+            'branch' => 'nullable|string',
+            'department' => 'nullable|string',
+            'position' => 'nullable|string',
+            'gross_salary' => 'nullable|integer',
+            'dob' => 'nullable|date',
+            'started_on' => 'nullable|date',
+            'idtype' => 'nullable|string',
+            'idnumber' => 'nullable|string',
+            'home_address' => 'nullable|string',
+            'current_residence' => 'nullable|string',
+            'nextofkin_name' => 'nullable|string',
+            'nextofkin_relationship' => 'nullable|string',
+            'nextofkin_physical_address' => 'nullable|string',
+            'nextofkin_contact' => 'nullable|string',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'status' => 422,
+                'errors' => $validator->errors()
+            ], 422);
+        }
+
+      $updateData =  DB::connection('tenant')->table('users')->where('id', $request->id)->update([
+            'name' => $request->name,
+            'phone' => $request->phone,
+            'email' => $request->email,
+            'role' => $request->role,
+            'branch' => $request->branch,
+            'department' => $request->department,
+            'position' => $request->position,
+            'gross_salary' => $request->gross_salary,
+            'dob' => $request->dob,
+            'started_on' => $request->started_on,
+            'idtype' => $request->idtype,
+            'idnumber' => $request->idnumber,
+            'home_address' => $request->home_address,
+            'current_residence' => $request->current_residence,
+            'nextofkin_name' => $request->nextofkin_name,
+            'nextofkin_relationship' => $request->nextofkin_relationship,
+            'nextofkin_physical_address' => $request->nextofkin_physical_address,
+            'nextofkin_contact' => $request->nextofkin_contact,
+        ]);
+
+        if($updateData){
+          return response()->json([
+            'status' => 201,
+            'success' => 'Employee updated successfully!',
+        ], 201);
+
+        }else{
+          return response()->json([
+            'status' => 203,
+            'error' => 'Record not found or no data change detected',
+        ], 203);
+        }
+
     }
 
     public function deleteEmployee(Request $request)
@@ -1540,32 +1675,6 @@ public function deleteCategory(Request $request)
         return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
     }
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
     
     public function showPermissionsView()

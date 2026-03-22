@@ -42,8 +42,9 @@
 </div>
 <?php
     $maintableTitle = "Employees Management";
-    $employees = DB::table('users')->get();
-    $roles = DB::table('roles')->orderBy('role')->get(); // Used for role, branch, department (temp)
+    $employees = DB::connection('tenant')->table('users')->get();
+    $branches = DB::connection('tenant')->table('branches')->get();
+    $roles = DB::connection('tenant')->table('roles')->get();
 ?>
 </div>
 
@@ -69,7 +70,9 @@
             <td style="text-align:center">{{ $emp->phone }}</td>
             <td style="text-align:center">{{ $emp->email }}</td>
             <td style="text-align:center">{{ $emp->role ?? '—' }}</td>
-            <td style="text-align:center">{{ $emp->branch ?? '—' }}</td>
+            <td style="text-align:center">      
+            {{ DB::connection('tenant')->table('branches')->where('id',$emp->branch)->value('name') }}
+            </td>
             <td style="text-align:center">{{ $emp->department ?? '—' }}</td>
             <td style="text-align:center">{{ $emp->position ?? '—' }}</td>
             <td style="text-align:center">
@@ -141,6 +144,7 @@
                 <p class="mb-3">Click on the info icon above to read more about employee management.</p>
                 <p>Use this section to add new employees, view their details, and export data in various formats (Excel, CSV, PDF, Print).</p>
                 <p>To add a new employee, click the <strong>Add</strong> button and fill in all required fields marked with <span style="color:red">*</span>.</p>
+                <p>Make sure you understand roles before assigning to employees <a  href="{{ route('tenant.super.admin.roles') }}" >Click here to view roles</a></p>
             </div>
         </div>
     </div>
@@ -184,19 +188,14 @@
                             <label for="branch">Branch (<span style="color:red">*</span>):</label>
                             <select class="form-control" id="branch" name="branch" required>
                                 <option value="">-- Select Branch --</option>
-                                @foreach($roles as $r)
-                                    <option value="{{ $r->role }}">{{ $r->role }}</option>
+                                @foreach($branches as $b)
+                                    <option value="{{ $b->id }}">{{ $b->name}}</option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="department">Department (<span style="color:red">*</span>):</label>
-                            <select class="form-control" id="department" name="department" required>
-                                <option value="">-- Select Department --</option>
-                                @foreach($roles as $r)
-                                    <option value="{{ $r->role }}">{{ $r->role }}</option>
-                                @endforeach
-                            </select>
+                            <label for="idtype">Department</label>
+                            <input type="text" class="form-control" id="department" name="department" autocomplete="off">
                         </div>
                         <div class="form-group col-md-6">
                             <label for="dob">Date of Birth:</label>
@@ -271,44 +270,39 @@
                     <input type="hidden" name="editrow" id="editRow">
                     <div class="row">
                         <div class="form-group col-md-6">
-                            <label for="editName">Full name (<span style="color:red">*</span>)</label>
+                            <label for="editName">Full name</label>
                             <input type="text" class="form-control" id="editName" name="name" autocomplete="off" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="editPhone">Phone (<span style="color:red">*</span>)</label>
+                            <label for="editPhone">Phone </label>
                             <input type="text" class="form-control" id="editPhone" name="phone" autocomplete="off" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="editEmail">Email (<span style="color:red">*</span>)</label>
+                            <label for="editEmail">Email</label>
                             <input type="email" class="form-control" id="editEmail" name="email" autocomplete="off" required>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="editRole">Role (<span style="color:red">*</span>):</label>
+                            <label for="editRole">Role</label>
                             <select class="form-control" id="editRole" name="role" required>
-                                <option value="">-- Select Role --</option>
                                 @foreach($roles as $r)
-                                    <option value="{{ $r->role }}" {{ old('role') == $r->role ? 'selected' : '' }}>{{ $r->role }}</option>
+                                    <option value="{{ $r->role }}"> {{ $r->role}} </option>
                                 @endforeach
                             </select>
                         </div>
                         <div class="form-group col-md-6">
-                            <label for="editBranch">Branch (<span style="color:red">*</span>):</label>
+                            <label for="editBranch">Branch</label>
                             <select class="form-control" id="editBranch" name="branch" required>
-                                <option value="">-- Select Branch --</option>
-                                @foreach($roles as $r)
-                                    <option value="{{ $r->role }}" {{ old('branch') == $r->role ? 'selected' : '' }}>{{ $r->role }}</option>
+                                @foreach($branches as $b)
+                                       <option value="{{ $b->id }}"> {{ $b->name}} </option>
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
-                            <label for="editDepartment">Department (<span style="color:red">*</span>):</label>
-                            <select class="form-control" id="editDepartment" name="department" required>
-                                <option value="">-- Select Department --</option>
-                                @foreach($roles as $r)
-                                    <option value="{{ $r->role }}" {{ old('department') == $r->role ? 'selected' : '' }}>{{ $r->role }}</option>
-                                @endforeach
-                            </select>
+            
+                         <div class="form-group col-md-6">
+                            <label for="editDob">Department</label>
+                            <input type="text" class="form-control" id="editDepartment" name="department" autocomplete="off">
                         </div>
+
                         <div class="form-group col-md-6">
                             <label for="editDob">Date of Birth:</label>
                             <input type="date" class="form-control" id="editDob" name="dob" autocomplete="off">
@@ -408,7 +402,7 @@ $(document).ready(function () {
 
             $.ajax({
                 type: 'POST',
-                url: '{{ route("master.employee.insert") }}',
+                url: '{{ route("tenant.super.admin.employee.insert") }}',
                 data: formData + '&_token={{ csrf_token() }}',
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },
@@ -479,7 +473,7 @@ $(document).ready(function () {
 
             $.ajax({
                 type: 'POST',
-                url: '{{ route("master.employee.update") }}',
+                url: '{{ route("tenant.super.admin.employee.update") }}',
                 data: formData + '&_token={{ csrf_token() }}',
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },

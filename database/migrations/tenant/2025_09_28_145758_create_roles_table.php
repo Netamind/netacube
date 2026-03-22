@@ -50,7 +50,7 @@ return new class extends Migration
                 'description' => 'Standard employee access: can view personal profile, finances, leave balance, assigned tasks, and submit requests.',
             ],
             [
-                'role'        => 'NSS',
+                'role'        => 'NSU',
                 'description' => 'Non-system user: individuals who cannot log in to the system',
             ],
         ]);

@@ -74,11 +74,6 @@ class Kernel extends HttpKernel
         'master.admin'  => \App\Http\Middleware\MasterAdmin::class,
 
              
-        'tenant.super.auth'   => \App\Http\Middleware\TenantSuperAuth::class,
-        'tenant.super.admin'  => \App\Http\Middleware\TenantSuperAdmin::class,
-
-        
-             
         'tenant.retail.auth'   => \App\Http\Middleware\TenantRetailAuth::class,
         'tenant.retail.admin'  => \App\Http\Middleware\TenantRetailAdmin::class,
 

@@ -33,7 +33,7 @@ public function submitUrlBasedLogin(Request $request)
         $notification = [
             'message'    => $message,
             'alert-type' => 'error'
-        ];
+        ];                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                      
 
         return redirect()->back()
             ->with($notification)
@@ -52,11 +52,11 @@ public function submitUrlBasedLogin(Request $request)
     // Get current tenant code from route (since login is under /noveta/...)
     $tenantCode = $request->route('tenantName');
 
-    if ($user->role === 'SuperAdmin') {
+    if ($user->role === 'Admin') {
         Auth::guard('web')->loginUsingId($user->id);
         session(['tenant_code' => $tenantCode]); 
         session()->regenerate(true);
-        return redirect()->route('tenant.super.admin.dashboard');
+        return redirect()->route('tenant.admin.dashboard');
     } 
      elseif ($user->role === 'RetailAdmin') {
         $notification = array(

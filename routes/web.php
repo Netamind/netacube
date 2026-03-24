@@ -47,129 +47,81 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy'] ], functio
 
 
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.super.auth', 'tenant.super.admin']], function () {
-
-    Route::get('/super-admin', [TenantSuperAdminController::class, 'showTenantAdminDashboard'])->name('tenant.super.admin.dashboard');
-
-    Route::get('/super-admin/profile', [TenantSuperAdminController::class, 'showProfileView'])->name('tenant.super.admin.profile');
-
-    Route::post('/super-admin/update-profile-info', [TenantAuthController::class, 'updateProfileInfo'])->name('tenant.super.admin.update.profile.info');
-
-    Route::post('/super-admin/profile-change-password', [TenantAuthController::class, 'profileChangePassword'])->name('tenant.super.admin.profile.change.password');
-
-    Route::get('/super-admin/forgot-password', [TenantAuthController::class, 'forgotPasswordView'])->name('tenant.super.admin.forgot.password');
-
-    Route::post('/super-admin/send-password-reset-link', [TenantAuthController::class, 'sendPasswordResetLink'])->name('tenant.super.admin.password.reset.link');
-
-    Route::get('/super-admin/reset-password-view', [TenantAuthController::class, 'resetPasswordView'])->name('tenant.super.admin.reset.password.view');
-
-    Route::post('/super-admin/submit-password-reset', [TenantAuthController::class, 'submitPasswordReset'])->name('tenant.super.admin.submit.password.reset');
-
-    Route::get('/super-admin/employees', [TenantSuperAdminController::class, 'showEmployeesView'])->name('tenant.super.admin.employees');
 
 
+                                                                                                                                                                                                                                                                                                                       
 
-    Route::post('/super-admin/employee/insert', [TenantSuperAdminController::class, 'insertEmployee'])->name('tenant.super.admin.employee.insert');
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.auth', 'tenant.admin']], function () {
 
-    Route::post('/super-admin/employee/update', [TenantSuperAdminController::class, 'updateEmployee'])->name('tenant.super.admin.employee.update');
+    Route::get('/admin',                     [TenantAdminController::class, 'showTenantAdminDashboard'])->name('tenant.admin.dashboard');
+    Route::get('/admin/profile',             [TenantAdminController::class, 'showProfileView'])->name('tenant.admin.profile');
+    Route::post('/admin/update-profile-info',[TenantAuthController::class, 'updateProfileInfo'])->name('tenant.admin.update.profile.info');
+    Route::post('/admin/profile-change-password', [TenantAuthController::class, 'profileChangePassword'])->name('tenant.admin.profile.change.password');
 
-    Route::post('/super-admin/employee/delete', [TenantSuperAdminController::class, 'deleteEmployee'])->name('tenant.super.admin.employee.delete');
+    Route::get('/admin/forgot-password',     [TenantAuthController::class, 'forgotPasswordView'])->name('tenant.admin.forgot.password');
+    Route::post('/admin/send-password-reset-link', [TenantAuthController::class, 'sendPasswordResetLink'])->name('tenant.admin.password.reset.link');
+    Route::get('/admin/reset-password-view', [TenantAuthController::class, 'resetPasswordView'])->name('tenant.admin.reset.password.view');
+    Route::post('/admin/submit-password-reset', [TenantAuthController::class, 'submitPasswordReset'])->name('tenant.admin.submit.password.reset');
 
-    Route::get('/super-admin/employee/{id}/pdf', [TenantSuperAdminController::class, 'employeePdf'])->name('tenant.super.admin.employee.pdf');
+    Route::get('/admin/employees',           [TenantAdminController::class, 'showEmployeesView'])->name('tenant.admin.employees');
+    Route::post('/admin/employee/insert',    [TenantAdminController::class, 'insertEmployee'])->name('tenant.admin.employee.insert');
+    Route::post('/admin/employee/update',    [TenantAdminController::class, 'updateEmployee'])->name('tenant.admin.employee.update');
+    Route::post('/admin/employee/delete',    [TenantAdminController::class, 'deleteEmployee'])->name('tenant.admin.employee.delete');
+    Route::get('/admin/employee/{id}/pdf',   [TenantAdminController::class, 'employeePdf'])->name('tenant.admin.employee.pdf');
+    Route::get('/admin/employee-details',    [TenantAdminController::class, 'showEmployeeDetailsView'])->name('tenant.admin.employee.details');
+    Route::post('/admin/employee/details/update', [TenantAdminController::class, 'updateEmployeeDetails'])->name('tenant.admin.employee.details.update');
 
-    Route::get('/super-admin/employee-details', [TenantSuperAdminController::class, 'showEmployeeDetailsView'])->name('tenant.super.admin.employee.details');
+    Route::get('/admin/company-info',        [TenantAdminController::class, 'showCompanyInfoView'])->name('tenant.admin.company.info');
+    Route::post('/admin/update-company-general-info', [TenantAdminController::class, 'updateCompanyGeneralInfo'])->name('tenant.admin.company.general.info.update');
+    Route::post('/admin/update-company-contact-info', [TenantAdminController::class, 'updateCompanyContactInfo'])->name('tenant.admin.company.contact.info.update');
 
-    Route::post('/super-admin/employee/details/update', [TenantSuperAdminController::class, 'updateEmployeeDetails'])->name('tenant.super.admin.employee.details.update');
+    Route::get('/admin/payment-methods',     [TenantAdminController::class, 'showPaymentMethodsView'])->name('tenant.admin.payment.methods');
+    Route::post('/admin/insert-payment-method', [TenantAdminController::class, 'insertPaymentMethod'])->name('tenant.admin.payment.method.insert');
+    Route::post('/admin/update-payment-method', [TenantAdminController::class, 'updatePaymentMethod'])->name('tenant.admin.payment.method.update');
+    Route::post('/admin/delete-payment-method', [TenantAdminController::class, 'deletePaymentMethod'])->name('tenant.admin.payment.method.delete');
 
+    Route::get('/admin/events',              [TenantAdminController::class, 'showEventsView'])->name('tenant.admin.events');
+    Route::get('/admin/events-data',         [TenantAdminController::class, 'fetchEvents'])->name('tenant.admin.fetch.events');
+    Route::post('/admin/event-create',       [TenantAdminController::class, 'storeEvent'])->name('tenant.admin.add.event');
+    Route::post('/admin/event-create-table', [TenantAdminController::class, 'addEventForTableView'])->name('tenant.admin.add.event.table');
+    Route::post('/admin/event-update/{id}',  [TenantAdminController::class, 'updateEvent'])->name('tenant.admin.update.event');
+    Route::post('/admin/event-delete/{id}',  [TenantAdminController::class, 'deleteEvent'])->name('tenant.admin.delete.event');
+    Route::get('/admin/events-table',        [TenantAdminController::class, 'showEventsTable'])->name('tenant.admin.events.table');
+    Route::post('/admin/events-bulk-delete', [TenantAdminController::class, 'bulkDeleteEvents'])->name('tenant.admin.bulk.delete.events');
 
+    Route::get('/admin/company/files/list',  [TenantAdminController::class, 'listCompanyFiles'])->name('tenant.admin.company.files.list');
+    Route::post('/admin/company/upload/document', [TenantAdminController::class, 'uploadDocument'])->name('tenant.admin.company.upload.document');
+    Route::post('/admin/company/upload/image',    [TenantAdminController::class, 'uploadImage'])->name('tenant.admin.company.upload.image');
+    Route::post('/admin/company/edit/name/{id}',  [TenantAdminController::class, 'updateName'])->name('tenant.admin.company.edit.name');
+    Route::post('/admin/company/delete/{id}',     [TenantAdminController::class, 'deleteFile'])->name('tenant.admin.company.delete.file');
+    Route::get('/admin/company/download/{id}',    [TenantAdminController::class, 'downloadFile'])->name('tenant.admin.company.download.file');
+    Route::post('/admin/company/files/bulk-delete',[TenantAdminController::class, 'bulkDeleteFiles'])->name('tenant.admin.company.files.bulk-delete');
 
+    Route::get('/admin/currency',            [TenantAdminController::class, 'showCurrencyView'])->name('tenant.admin.currency');
+    Route::post('/admin/insert-currency',    [TenantAdminController::class, 'insertCurrency'])->name('tenant.admin.currency.insert');
+    Route::post('/admin/update-currency',    [TenantAdminController::class, 'updateCurrency'])->name('tenant.admin.currency.update');
+    Route::post('/admin/delete-currency',    [TenantAdminController::class, 'deleteCurrency'])->name('tenant.admin.currency.delete');
 
-    Route::get('/super-admin/company-info', [TenantSuperAdminController::class, 'showCompanyInfoView'])->name('tenant.super.admin.company.info');
+    Route::get('/admin/roles',               [TenantAdminController::class, 'showRolesView'])->name('tenant.admin.roles');
 
-    Route::post('/super-admin/update-company-general-info', [TenantSuperAdminController::class, 'updateCompanyGeneralInfo'])->name('tenant.super.admin.company.general.info.update');
+    Route::get('/admin/branches',            [TenantAdminController::class, 'showBranchesView'])->name('tenant.admin.branches');
+    Route::post('/admin/insert-branch',      [TenantAdminController::class, 'insertBranch'])->name('tenant.admin.branch.insert');
+    Route::post('/admin/update-branch',      [TenantAdminController::class, 'updateBranch'])->name('tenant.admin.branch.update');
+    Route::post('/admin/delete-branch',      [TenantAdminController::class, 'deleteBranch'])->name('tenant.admin.branch.delete');
+    Route::get('/admin/branch-details',      [TenantAdminController::class, 'showBranchDetailsView'])->name('tenant.admin.branch.details');
 
-    Route::post('/super-admin/update-company-contact-info', [TenantSuperAdminController::class, 'updateCompanyContactInfo'])->name('tenant.super.admin.company.contact.info.update');
+    Route::get('/admin/business/categories', [TenantAdminController::class, 'showCategoriesView'])->name('tenant.admin.categories');
+    Route::get('/admin/business/sectors',    [TenantAdminController::class, 'showSectorsView'])->name('tenant.admin.sectors');
 
-    Route::get('/super-admin/payment-methods', [TenantSuperAdminController::class, 'showPaymentMethodsView'])->name('tenant.super.admin.payment.methods');
+    Route::post('/admin/insert-category',    [TenantAdminController::class, 'insertCategory'])->name('tenant.admin.category.insert');
+    Route::post('/admin/update-category',    [TenantAdminController::class, 'updateCategory'])->name('tenant.admin.category.update');
+    Route::post('/admin/delete-category',    [TenantAdminController::class, 'deleteCategory'])->name('tenant.admin.category.delete');
 
-    Route::post('/super-admin/insert-payment-method', [TenantSuperAdminController::class, 'insertPaymentMethod'])->name('tenant.super.admin.payment.method.insert');
-
-    Route::post('/super-admin/update-payment-method', [TenantSuperAdminController::class, 'updatePaymentMethod'])->name('tenant.super.admin.payment.method.update');
-
-    Route::post('/super-admin/delete-payment-method', [TenantSuperAdminController::class, 'deletePaymentMethod'])->name('tenant.super.admin.payment.method.delete');
-
-    Route::get('/super-admin/events', [TenantSuperAdminController::class, 'showEventsView'])->name('tenant.super.admin.events');
-
-    Route::get('/super-admin/events-data', [TenantSuperAdminController::class, 'fetchEvents'])->name('tenant.super.admin.fetch.events');
-
-    Route::post('/super-admin/event-create', [TenantSuperAdminController::class, 'storeEvent'])->name('tenant.super.admin.add.event');
-
-    Route::post('/super-admin/event-create-table', [TenantSuperAdminController::class, 'addEventForTableView'])->name('tenant.super.admin.add.event.table');
-
-    Route::post('/super-admin/event-update/{id}', [TenantSuperAdminController::class, 'updateEvent'])->name('tenant.super.admin.update.event');
-
-    Route::post('/super-admin/event-delete/{id}', [TenantSuperAdminController::class, 'deleteEvent'])->name('tenant.super.admin.delete.event');
-
-    Route::get('/super-admin/events-table', [TenantSuperAdminController::class, 'showEventsTable'])->name('tenant.super.admin.events.table');
-
-    Route::post('/super-admin/events-bulk-delete', [TenantSuperAdminController::class, 'bulkDeleteEvents'])->name('tenant.super.admin.bulk.delete.events');
-
-    Route::get('/super-admin/company/files/list', [TenantSuperAdminController::class, 'listCompanyFiles'])->name('tenant.super.admin.company.files.list');
-
-    Route::post('/super-admin/company/upload/document', [TenantSuperAdminController::class, 'uploadDocument'])->name('tenant.super.admin.company.upload.document');
-
-    Route::post('/super-admin/company/upload/image', [TenantSuperAdminController::class, 'uploadImage'])->name('tenant.super.admin.company.upload.image');
-
-    Route::post('/super-admin/company/edit/name/{id}', [TenantSuperAdminController::class, 'updateName'])->name('tenant.super.admin.company.edit.name');
-
-    Route::post('/super-admin/company/delete/{id}', [TenantSuperAdminController::class, 'deleteFile'])->name('tenant.super.admin.company.delete.file');
-
-    Route::get('/super-admin/company/download/{id}', [TenantSuperAdminController::class, 'downloadFile'])->name('tenant.super.admin.company.download.file');
-
-    Route::post('/super-admin/company/files/bulk-delete', [TenantSuperAdminController::class, 'bulkDeleteFiles'])->name('tenant.super.admin.company.files.bulk-delete');
-
-    Route::get('/super-admin/currency', [TenantSuperAdminController::class, 'showCurrencyView'])->name('tenant.super.admin.currency');
-
-    Route::post('/super-admin/insert-currency', [TenantSuperAdminController::class, 'insertCurrency'])->name('tenant.super.admin.currency.insert');
-
-    Route::post('/super-admin/update-currency', [TenantSuperAdminController::class, 'updateCurrency'])->name('tenant.super.admin.currency.update');
-
-    Route::post('/super-admin/delete-currency', [TenantSuperAdminController::class, 'deleteCurrency'])->name('tenant.super.admin.currency.delete');
-
-    Route::get('/super-admin/roles', [TenantSuperAdminController::class, 'showRolesView'])->name('tenant.super.admin.roles');
-    
-    Route::get('/super-admin/branches', [TenantSuperAdminController::class, 'showBranchesView'])->name('tenant.super.admin.branches');
-    
-    Route::post('/super-admin/insert-branch', [TenantSuperAdminController::class, 'insertBranch'])->name('tenant.super.admin.branch.insert');
-
-    Route::post('/super-admin/update-branch', [TenantSuperAdminController::class, 'updateBranch'])->name('tenant.super.admin.branch.update');
-
-    Route::post('/super-admin/delete-branch', [TenantSuperAdminController::class, 'deleteBranch'])->name('tenant.super.admin.branch.delete');
-
-    
-    Route::get('/super-admin/branch-details', [TenantSuperAdminController::class, 'showBranchDetailsView'])->name('tenant.super.admin.branch.details');
-
-
-    
-    
-    Route::get('/super-admin/business/categories', [TenantSuperAdminController::class, 'showCategoriesView'])->name('tenant.super.admin.categories');
-
-    Route::get('/super-admin/business/sectors', [TenantSuperAdminController::class, 'showSectorsView'])->name('tenant.super.admin.sectors');
-
-
-    Route::post('/super-admin/insert-category', [TenantSuperAdminController::class, 'insertCategory'])->name('tenant.super.admin.category.insert');
-    Route::post('/super-admin/update-category', [TenantSuperAdminController::class, 'updateCategory'])->name('tenant.super.admin.category.update');
-    Route::post('/super-admin/delete-category', [TenantSuperAdminController::class, 'deleteCategory'])->name('tenant.super.admin.category.delete');
-
-    
-
-    Route::get('/super-admin/permissions', [TenantSuperAdminController::class, 'showPermissionsView'])->name('tenant.super.admin.permissions');
-    Route::post('/super-admin/add-permission', [TenantSuperAdminController::class, 'addPermission'])->name('tenant.super.admin.permision.add');
-    Route::post('/super-admin/remove-permission', [TenantSuperAdminController::class, 'removePermission'])->name('tenant.super.admin.permision.remove');
-
+    Route::get('/admin/permissions',         [TenantAdminController::class, 'showPermissionsView'])->name('tenant.admin.permissions');
+    Route::post('/admin/add-permission',     [TenantAdminController::class, 'addPermission'])->name('tenant.admin.permission.add');
+    Route::post('/admin/remove-permission',  [TenantAdminController::class, 'removePermission'])->name('tenant.admin.permission.remove');
 
 });
-
 
 
 

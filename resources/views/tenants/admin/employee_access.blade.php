@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 
 @section('content')
 <style>
@@ -237,7 +237,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.permision.add") }}',
+            url: '{{ route("tenant.admin.permission.add") }}',
             data: formData,
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
@@ -312,7 +312,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.permision.remove") }}',
+            url: '{{ route("tenant.admin.permission.remove") }}',
             data: { id: accessId, _token: '{{ csrf_token() }}' },
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },

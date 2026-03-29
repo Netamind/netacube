@@ -1371,7 +1371,7 @@ public function deleteCategory(Request $request)
 
     
 public function showPermissionsView(){
-        return view('tenants.super-admin.employee_access');
+        return view('tenants.admin.employee_access');
 }
 
 
@@ -1382,7 +1382,7 @@ public function addPermission(Request $request){
     ];
 
     $validator = $request->validate([
-        'employee_id' => 'required|integer|exists:tenant.employees,id',
+        'employee_id' => 'required|integer|exists:tenant.users,id',
         'sector_id'   => 'required|integer|exists:tenant.sectors,id',
     ]);
 
@@ -1401,8 +1401,6 @@ public function addPermission(Request $request){
     $insertId = DB::connection('tenant')->table('employee_access')->insertGetId([
         'employee_id' => $data['employee_id'],
         'sector_id'   => $data['sector_id'],
-        'created_at'  => now(),
-        'updated_at'  => now(),
     ]);
 
     if ($insertId) {

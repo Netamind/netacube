@@ -34,69 +34,69 @@
 
 <div class="card">
 <div class="card-header d-flex justify-content-between align-items-center">
-<h4 class="header-title mb-0">
-    Employee Access Management
-</h4>
-<div class="d-flex align-items-center">
-    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>
-    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download options"><i class="ri-download-line"></i></a>
-</div>
-<?php 
-$maintableTitle = "Employee Access List"; 
-$employees = DB::connection('tenant')->table('users')->get(); 
-$sectors = DB::connection('tenant')->table('sectors')->pluck('sector', 'id')->toArray();
-$accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('employee_id');
-?>
+    <h4 class="header-title mb-0">
+        <i class="ri-shield-user-line"></i> Employee Access Management
+    </h4>
+    <div class="d-flex align-items-center">
+        <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>
+        <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download options"><i class="ri-download-line"></i></a>
+    </div>
+    <?php 
+    $maintableTitle = "Employee Access List"; 
+    $employees = DB::connection('tenant')->table('users')->where('role','Operations')->get(); 
+    $sectors = DB::connection('tenant')->table('sectors')->pluck('sector', 'id')->toArray();
+    $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('employee_id');
+    ?>
 </div>
 
 <div class="card-body">
-<table id="maintable" class="table table-sm table-striped row-border order-column w-100">
-    <thead style="background-color:#e2e2e9">
-    <tr>
-        <th>Employee Name</th>
-        <th style="text-align:center">Role</th>
-        <th style="text-align:center">Access</th>
-        <th style="text-align:center">Action</th>
-    </tr>
-    </thead>
-    <tbody id="tbody">
-    @foreach($employees as $emp)
-        <?php $row = "row".$emp->id ?>
-        <tr id="{{ $row }}">
-            <td>{{ $emp->name }}</td>
-            <td style="text-align:center">{{ $emp->role }}</td>
-            <td style="text-align:center">
-                <?php $empAccess = $accesses[$emp->id] ?? collect(); ?>
-                @if($empAccess->isNotEmpty())
-                    @foreach($empAccess as $acc)
-                        <?php 
-                        $sectorName = DB::connection('tenant')->table('sectors')->where('id', $acc->sector_id)->value('sector') ?? 'Unknown';
-                        ?>
-                        <span class="badge bg-primary access-badge">
-                            {{ $sectorName }}
-                            <a href="#" class="deleteDataBtn text-white ms-1"
-                               deleteLabel="{{ $sectorName }}"
-                               deleteId="{{ $acc->id }}"
-                               deleteRow="{{ $row }}">
-                                <i class="ri-close-line"></i>
-                            </a>
-                        </span>
-                    @endforeach
-                @else
-                    <span class="text-muted">No sectors assigned</span>
-                @endif
-            </td>
-            <td style="text-align:center">
-                <a href="#" class="addDataBtn text-success"
-                   addId="{{ $emp->id }}"
-                   addName="{{ $emp->name }}">
-                   <i class="ri-add-circle-line" style="font-size:20px;"></i>
-                </a>
-            </td>
+    <table id="maintable" class="table table-sm table-striped row-border order-column w-100">
+        <thead style="background-color:#e2e2e9">
+        <tr>
+            <th>Employee Name</th>
+            <th style="text-align:center">Role</th>
+            <th style="text-align:center">Access</th>
+            <th style="text-align:center">Action</th>
         </tr>
-    @endforeach
-    </tbody>
-</table>
+        </thead>
+        <tbody id="tbody">
+        @foreach($employees as $emp)
+            <?php $row = "row".$emp->id ?>
+            <tr id="{{ $row }}">
+                <td>{{ $emp->name }}</td>
+                <td style="text-align:center">{{ $emp->role }}</td>
+                <td style="text-align:center">
+                    <?php $empAccess = $accesses[$emp->id] ?? collect(); ?>
+                    @if($empAccess->isNotEmpty())
+                        @foreach($empAccess as $acc)
+                            <?php 
+                            $sectorName = DB::connection('tenant')->table('sectors')->where('id', $acc->sector_id)->value('sector') ?? 'Unknown';
+                            ?>
+                            <span class="badge bg-primary access-badge">
+                                {{ $sectorName }}
+                                <a href="#" class="deleteDataBtn text-white ms-1"
+                                   deleteLabel="{{ $sectorName }}"
+                                   deleteId="{{ $acc->id }}"
+                                   deleteRow="{{ $row }}">
+                                    <i class="ri-close-line"></i>
+                                </a>
+                            </span>
+                        @endforeach
+                    @else
+                        <span class="text-muted">No sectors assigned</span>
+                    @endif
+                </td>
+                <td style="text-align:center">
+                    <a href="#" class="addDataBtn text-success"
+                       addId="{{ $emp->id }}"
+                       addName="{{ $emp->name }}">
+                       <i class="ri-add-circle-line" style="font-size:20px;"></i>
+                    </a>
+                </td>
+            </tr>
+        @endforeach
+        </tbody>
+    </table>
 </div>
 </div>
 
@@ -105,6 +105,7 @@ $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('
 </div>
 
 <!-- Modals -->
+<section>
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -119,7 +120,9 @@ $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('
         </div>
     </div>
 </div>
+</section>
 
+<section>
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -128,12 +131,18 @@ $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
-                Assign and remove sector access permissions for employees.
+                This page allows you to assign and remove sector access permissions for employees.<br><br>
+                
+                <strong>Note:</strong> Only employees with the <strong>Operations</strong> role can be assigned sector access.<br><br>
+                
+                If the table is empty, please go to the <strong>Employees</strong> page, add or edit an employee and set their role to <strong>Operations</strong>.
             </div>
         </div>
     </div>
 </div>
+</section>
 
+<section>
 <div class="modal fade" id="newDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -165,7 +174,9 @@ $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('
         </div>
     </div>
 </div>
+</section>
 
+<section>
 <div class="modal fade" id="singleDeleteDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog" style="max-width:350px; margin:1.75rem auto;">
         <div class="modal-content">
@@ -192,6 +203,7 @@ $accesses = DB::connection('tenant')->table('employee_access')->get()->groupBy('
         </div>
     </div>
 </div>
+</section>
 
 @endsection
 
@@ -206,145 +218,141 @@ $(document).ready(function () {
         allowHtml: true
     };
 
-    var table = $('#maintable').DataTable({
-        dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
-        lengthChange: true,
-        lengthMenu: [[50, 100, 250, -1], [50, 100, 250, "All"]],
-        scrollX: true,
-        buttons: [
-            { extend: 'excelHtml5', title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'csvHtml5',  title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'pdfHtml5',  title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' },
-              customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
-            }
-        ]
-    });
-    table.buttons().container().appendTo($('#buttonsModal .buttons'));
-
-    // Open assign modal
-    $('#tbody').on('click', '.addDataBtn', function (e) {
-        e.preventDefault();
-        $('#new_employee_id').val($(this).attr('addId'));
-        $('#new_employee_name').val($(this).attr('addName'));
-        $('#sector_id').val('');
-        $('#newDataModal').modal('show');
-    });
-
-    $('#submitDataBtn').click(function (e) {
-        e.preventDefault();
-        var self = $(this); self.prop('disabled', true);
-        var formData = $('#newDataForm').serialize();
-
-        $.ajax({
-            type: 'POST',
-            url: '{{ route("tenant.admin.permission.add") }}',
-            data: formData,
-            timeout: 60000,
-            beforeSend: function () { $('#progressBar').show(); },
-            complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
-            success: function (data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
-                    var acc = data.access;
-                    var badge = `<span class="badge bg-primary access-badge">
-                        ${acc.sector}
-                        <a href="#" class="deleteDataBtn text-white ms-1"
-                           deleteLabel="${acc.sector}"
-                           deleteId="${acc.id}"
-                           deleteRow="row${acc.employee_id}">
-                            <i class="ri-close-line"></i>
-                        </a>
-                    </span>`;
-
-                    var td = $(`#row${acc.employee_id} td:nth-child(3)`);
-                    if (td.find('.text-muted').length) td.empty();
-                    td.append(badge);
-
-                    $('#newDataModal').modal('hide');
-                } else if (data.status === 422) {
-                    toastr.error(data.error || 'Validation failed.', 'Error');
-                } else {
-                    toastr.info('Unspecified error occurred.', 'Notice');
+    function initDataTable() {
+        var table = $('#maintable').DataTable({
+            dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
+            lengthChange: true,
+            lengthMenu: [[50, 100, 250, -1], [50, 100, 250, "All"]],
+            fixedColumns: { left: 1 },        // ← Fixed first column (Employee Name)
+            scrollX: true,
+            buttons: [
+                { extend: 'excelHtml5', title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
+                { extend: 'csvHtml5',  title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
+                { extend: 'pdfHtml5',  title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' },
+                  customize: function (doc) { 
+                      doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); 
+                  }
                 }
-            },
-            error: function (xhr, status, error) {
-                if (status === 'timeout') {
-                    toastr.error('Request timed out. Check connection.', 'Timeout');
-                } else if (xhr.status === 0) {
-                    toastr.error('Connection failed.', 'Error');
-                } else if (xhr.status === 422) {
-                    var errorPassage = ''; 
-                    $.each(xhr.responseJSON.errors, function (k, v) { errorPassage += v.join('<br>') + '<br>'; });
-                    toastr.error(errorPassage, 'Validation Errors');
-                } else if (xhr.status === 500) {
-                    toastr.error('Server error. Try again later.', 'Error');
-                } else {
-                    toastr.error('Unknown error occurred.', 'Error');
-                }
-            }
+            ]
         });
-    });
 
-    $('#cancelDataBtn').click(function (e) { 
-        e.preventDefault(); 
-        $('#newDataModal').modal('hide'); 
-    });
+        table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-    // DELETE
-    $('#tbody').on('click', '.deleteDataBtn', function () {
-        $('#singleDisplayDeleteLabel').html($(this).attr('deleteLabel'));
-        $('#singleDeleteRow').val($(this).attr('deleteRow'));
-        $('#singleDeleteId').val($(this).attr('deleteId'));
-        $('#singleDeleteDataModal').modal('show');
-    });
+        // Button handlers
+        $('#infoBtn').click(function (e) { e.preventDefault(); $('#infoModal').modal('show'); });
+        $('#tableButtonsBtn').click(function (e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
 
-    $('#keepSingleDataBtn').click(function (e) {
-        e.preventDefault();
-        toastr.info('Access kept.', 'Cancelled');
-        $('#singleDeleteDataModal').modal('hide');
-    });
+        // OPEN ASSIGN MODAL
+        $('#tbody').on('click', '.addDataBtn', function (e) {
+            e.preventDefault();
+            $('#new_employee_id').val($(this).attr('addId'));
+            $('#new_employee_name').val($(this).attr('addName'));
+            $('#sector_id').val('');
+            $('#newDataModal').modal('show');
+        });
 
-    $('#submitSingleDeleteDataBtn').click(function (e) {
-        e.preventDefault();
-        var self = $(this); self.prop('disabled', true);
-        var row = $('#singleDeleteRow').val();
-        var accessId = $('#singleDeleteId').val();
+        // ASSIGN (ADD) SECTOR
+        $('#submitDataBtn').click(function (e) {
+            e.preventDefault();
+            var self = $(this); self.prop('disabled', true);
+            var formData = $('#newDataForm').serialize();
 
-        $.ajax({
-            type: 'POST',
-            url: '{{ route("tenant.admin.permission.remove") }}',
-            data: { id: accessId, _token: '{{ csrf_token() }}' },
-            timeout: 60000,
-            beforeSend: function () { $('#progressBar').show(); },
-            complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
-            success: function (data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
-                    $(`#${row} .badge:contains("${$('#singleDisplayDeleteLabel').text()}")`).remove();
-                    if ($(`#${row} .badge`).length === 0) {
-                        $(`#${row} td:nth-child(3)`).html('<span class="text-muted">No sectors assigned</span>');
+            $.ajax({
+                type: 'POST',
+                url: '{{ route("tenant.admin.permission.add") }}',
+                data: formData,
+                timeout: 60000,
+                beforeSend: function () { $('#progressBar').show(); },
+                complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
+                success: function (data) {
+                    if (data.status === 201) {
+                        toastr.success(data.success, 'Success');
+                        var acc = data.access;
+                        var badge = `<span class="badge bg-primary access-badge">
+                            ${acc.sector}
+                            <a href="#" class="deleteDataBtn text-white ms-1"
+                               deleteLabel="${acc.sector}"
+                               deleteId="${acc.id}"
+                               deleteRow="row${acc.employee_id}">
+                                <i class="ri-close-line"></i>
+                            </a>
+                        </span>`;
+
+                        var td = $(`#row${acc.employee_id} td:nth-child(3)`);
+                        if (td.find('.text-muted').length) td.empty();
+                        td.append(badge);
+
+                        $('#newDataModal').modal('hide');
+                    } else if (data.status === 422) {
+                        toastr.error(data.error || 'Validation failed.', 'Error');
+                    } else {
+                        toastr.info('Unspecified error occurred.', 'Notice');
                     }
-                    $('#singleDeleteDataModal').modal('hide');
-                } else {
-                    toastr.error(data.error || 'Delete failed.', 'Error');
+                },
+                error: function (xhr) {
+                    if (xhr.status === 422) {
+                        var errorPassage = ''; 
+                        $.each(xhr.responseJSON.errors, function (k, v) { errorPassage += v.join('<br>') + '<br>'; });
+                        toastr.error(errorPassage, 'Validation Errors');
+                    } else {
+                        toastr.error('An error occurred while assigning access.', 'Error');
+                    }
                 }
-            },
-            error: function (xhr, status, error) {
-                if (status === 'timeout') {
-                    toastr.error('Request timed out.', 'Timeout');
-                } else if (xhr.status === 0) {
-                    toastr.error('Connection failed.', 'Error');
-                } else if (xhr.status === 422) {
-                    var errorPassage = ''; $.each(xhr.responseJSON.errors, function (k, v) { errorPassage += v.join('<br>') + '<br>'; });
-                    toastr.error(errorPassage, 'Validation Errors');
-                } else if (xhr.status === 500) {
-                    toastr.error('Server error.', 'Error');
-                } else {
-                    toastr.error('Unknown error.', 'Error');
-                }
-            }
+            });
         });
-    });
+
+        $('#cancelDataBtn').click(function (e) { 
+            e.preventDefault(); 
+            $('#newDataModal').modal('hide'); 
+        });
+
+        // DELETE ACCESS
+        $('#tbody').on('click', '.deleteDataBtn', function () {
+            $('#singleDisplayDeleteLabel').html($(this).attr('deleteLabel'));
+            $('#singleDeleteRow').val($(this).attr('deleteRow'));
+            $('#singleDeleteId').val($(this).attr('deleteId'));
+            $('#singleDeleteDataModal').modal('show');
+        });
+
+        $('#keepSingleDataBtn').click(function (e) {
+            e.preventDefault();
+            toastr.info('Access kept.', 'Cancelled');
+            $('#singleDeleteDataModal').modal('hide');
+        });
+
+        $('#submitSingleDeleteDataBtn').click(function (e) {
+            e.preventDefault();
+            var self = $(this); self.prop('disabled', true);
+            var row = $('#singleDeleteRow').val();
+            var accessId = $('#singleDeleteId').val();
+
+            $.ajax({
+                type: 'POST',
+                url: '{{ route("tenant.admin.permission.remove") }}',
+                data: { id: accessId, _token: '{{ csrf_token() }}' },
+                timeout: 60000,
+                beforeSend: function () { $('#progressBar').show(); },
+                complete: function () { $('#progressBar').hide(); self.prop('disabled', false); },
+                success: function (data) {
+                    if (data.status === 201) {
+                        toastr.success(data.success, 'Success');
+                        $(`#${row} .badge:contains("${$('#singleDisplayDeleteLabel').text()}")`).remove();
+                        if ($(`#${row} .badge`).length === 0) {
+                            $(`#${row} td:nth-child(3)`).html('<span class="text-muted">No sectors assigned</span>');
+                        }
+                        $('#singleDeleteDataModal').modal('hide');
+                    } else {
+                        toastr.error(data.error || 'Delete failed.', 'Error');
+                    }
+                },
+                error: function (xhr) {
+                    toastr.error('Failed to remove access.', 'Error');
+                }
+            });
+        });
+    }
+
+    initDataTable();
 });
 </script>
 @endsection

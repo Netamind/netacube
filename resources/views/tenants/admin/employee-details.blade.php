@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 @section('content')
 <style>
     .card-header { 
@@ -85,11 +85,11 @@
                          Employee Details
                     </h4>
                     <div class="d-flex align-items-center gap-1">
-                        <a href="{{ route('tenant.super.admin.employees') }}"
+                        <a href="{{ route('tenant.admin.employees') }}"
                            class="btn btn-light text-primary" title="Back to Employees">
                             <i class="ri-arrow-left-line"></i>
                         </a>
-                        <a href="{{ route('tenant.super.admin.employee.pdf', $user->id) }}" target="_blank"
+                        <a href="{{ route('tenant.admin.employee.pdf', $user->id) }}" target="_blank"
                            class="btn btn-light text-primary" title="Download PDF">
                             <i class="ri-download-line"></i>
                         </a>
@@ -383,7 +383,7 @@ $(function () {
         const $form = $('#profileDataForm');
 
         $.ajax({
-            url: '{{ route('tenant.super.admin.employee.details.update') }}',
+            url: '{{ route('tenant.admin.employee.details.update') }}',
             method: 'POST',
             data: $form.serialize(),
             timeout: 60000,
@@ -450,7 +450,7 @@ $(function () {
         const id = $(this).data('id'), name = $(this).data('name');
         $('#singleDeleteId').val(id);
         $('#singleDisplayDeleteLabel').text(name);
-        $('#singleDeleteDataForm').attr('action', '{{ route("tenant.super.admin.employee.delete") }}');
+        $('#singleDeleteDataForm').attr('action', '{{ route("tenant.admin.employee.delete") }}');
         delModal.show();
     });
 
@@ -473,7 +473,7 @@ $(function () {
                 if (res.status === 201) {
                     toastr.success(res.success, 'Deleted');
                     delModal.hide();
-                    setTimeout(() => location.href = '{{ route("tenant.super.admin.employees") }}', 800);
+                    setTimeout(() => location.href = '{{ route("tenant.admin.employees") }}', 800);
                 }
             },
             error: xhr => {

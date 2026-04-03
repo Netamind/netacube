@@ -42,16 +42,9 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy'] ], functio
 
 
  //Route::post('/temporal-route-name', [TenantCommonController::class, 'masterLogout'])->name('tenant.super.admin.branches'); 
+                                                                                                                                                                                                                                                                                                                 
 
-
-
-
-
-
-
-                                                                                                                                                                                                                                                                                                                       
-
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.auth', 'tenant.admin']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.admin']], function () {
 
     Route::get('/admin',                     [TenantAdminController::class, 'showTenantAdminDashboard'])->name('tenant.admin.dashboard');
     Route::get('/admin/profile',             [TenantAdminController::class, 'showProfileView'])->name('tenant.admin.profile');
@@ -121,27 +114,11 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/admin/add-permission',     [TenantAdminController::class, 'addPermission'])->name('tenant.admin.permission.add');
     Route::post('/admin/remove-permission',  [TenantAdminController::class, 'removePermission'])->name('tenant.admin.permission.remove');
 
-});
 
-
-
-
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.retail.auth', 'tenant.retail.admin']], function () {
-
-    Route::get('/retail-admin', [TenantRetailAdminController::class, 'showTenantAdminDashboard'])->name('tenant.retail.admin.dashboard');
-
-    Route::get('/retail-admin/profile', [TenantRetailAdminController::class, 'showProfileView'])->name('tenant.retail.admin.profile');
-
-});
-
-
-
-
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.wholesale.auth', 'tenant.wholesale.admin']], function () {
-
-    Route::get('/wholesale-admin', [TenantWholesaleAdminController::class, 'showTenantAdminDashboard'])->name('tenant.wholesale.admin.dashboard');
-
-    Route::get('/wholesale-admin/profile', [TenantWholesaleAdminController::class, 'showProfileView'])->name('tenant.wholesale.admin.profile');
+    
+    Route::get('/admin/system/settings',         [TenantAdminController::class, 'showSystemSettingsView'])->name('tenant.admin.system.settings');
+    Route::get('/admin/system/helpcenter',     [TenantAdminController::class, 'showSystemHelpcenterView'])->name('tenant.admin.system.helpcenter');
+    Route::get('/admin/system/subscription',  [TenantAdminController::class, 'showSystemSubscriptionView'])->name('tenant.admin.system.subscription');
 
 });
 
@@ -205,24 +182,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-Route::group(['prefix' => 'master', 'middleware' => ['master.auth','master.admin'] ], function () {
+Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () {
 
     Route::get('/dashboard', [MasterController::class, 'showMasterDashboard'])->name('master.dashboard');
     Route::get('/support-center', [MasterController::class, 'showMasterSupportCenter'])->name('master.support.center');

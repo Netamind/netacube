@@ -14,35 +14,56 @@ class TenantAdmin
     {
         $user = Auth::user();
 
-        if (! $user) {
-            $notification = array(
+        // 1. Check if user is logged in
+        if (!$user) {
+            $notification = [
                 'message'    => 'Your session has expired. Please sign in again to continue.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('tenant.login.by.url')->with($notification);
+            ];
+            return redirect()->route('tenant.login.by.url')->with($notification);
         }
 
-        // Directly query current role from tenant database
-        $currentRole = DB::connection('tenant')->table('users')->where('id', $user->id)->value('role');
+        // 2. Verify tenant session belongs to the correct tenant
+        $currentTenantCode = $request->route('tenantName') ?? session('tenant_code');
+
+        if (!$currentTenantCode || session('tenant_code') !== $currentTenantCode) {
+            Auth::logout();
+            session()->flush();
+
+            $notification = [
+                'message'    => 'Session belongs to a different tenant. Please login again.',
+                'alert-type' => 'error'
+            ];
+            return redirect()->route('tenant.login.by.url')->with($notification);
+        }
+
+        // 3. Check if user is Admin (directly from tenant database)
+        $currentRole = DB::connection('tenant')
+                         ->table('users')
+                         ->where('id', $user->id)
+                         ->value('role');
 
         if ($currentRole === null) {
             Auth::logout();
-            $notification = array(
-                'message'    => 'Sesion expired you need to login.',
+
+            $notification = [
+                'message'    => 'Session expired. You need to login again.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('tenant.login.by.url')->with($notification);
+            ];
+            return redirect()->route('tenant.login.by.url')->with($notification);
         }
 
         if ($currentRole !== 'Admin') {
             Auth::logout();
-            $notification = array(
+
+            $notification = [
                 'message'    => 'This area is restricted to administrators only.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('tenant.login.by.url')->with($notification);
+            ];
+            return redirect()->route('tenant.login.by.url')->with($notification);
         }
 
+        // All checks passed
         return $next($request);
     }
 }

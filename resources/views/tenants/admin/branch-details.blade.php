@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 @section('content')
 <style>
     .card-header { 
@@ -76,7 +76,7 @@
                         <i class="ri-building-4-line"></i> Branch Details
                     </h4>
                     <div class="d-flex align-items-center gap-1">
-                        <a href="{{ route('tenant.super.admin.branches') }}"
+                        <a href="{{ route('tenant.admin.branches') }}"
                            class="btn btn-light text-primary" title="Back to Branches">
                             <i class="ri-arrow-left-line"></i>
                         </a>
@@ -116,7 +116,7 @@
                                 <div class="row mb-3">
                                     <label class="col-4 col-form-label">Sector</label>
                                     <div class="col-8">
-                                        <select class="form-select" name="sector" required >
+                                        <select class="form-select" name="sector" readonly>
                                             <option value="{{$branch->sector}}">
                                             {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
                                             </option>
@@ -130,7 +130,7 @@
                                 <div class="row mb-3">
                                     <label class="col-4 col-form-label">Category </label>
                                     <div class="col-8">
-                                        <select class="form-select" name="category" required >
+                                        <select class="form-select" name="category" readonly>
                                             <option value="{{$branch->category}}">
                                                 {{DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
                                             </option>
@@ -259,7 +259,7 @@ $(function () {
         const $form = $('#branchDataForm');
 
         $.ajax({
-            url: '{{ route("tenant.super.admin.branch.update") }}',
+            url: '{{ route("tenant.admin.branch.update") }}',
             method: 'POST',
             data: $form.serialize(),
             timeout: 60000,
@@ -311,7 +311,7 @@ $(function () {
         const $form = $('#singleDeleteDataForm');
 
         $.ajax({
-            url: '{{ route("tenant.super.admin.branch.delete") }}',
+            url: '{{ route("tenant.admin.branch.delete") }}',
             method: 'POST',
             data: $form.serialize() + '&_token={{ csrf_token() }}',
             beforeSend: () => $('#progressBar').show(),
@@ -319,7 +319,7 @@ $(function () {
                 if (res.success || res.status === 201) {
                     toastr.success(res.success || 'Branch deleted successfully', 'Success');
                     delModal.hide();
-                    setTimeout(() => location.href = '{{ route("tenant.super.admin.branches") }}', 800);
+                    setTimeout(() => location.href = '{{ route("tenant.admin.branches") }}', 800);
                 } else {
                     toastr.error(res.error || 'Delete failed', 'Error');
                 }

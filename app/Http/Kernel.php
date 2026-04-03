@@ -65,21 +65,11 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
-        'tenancy' => \App\Http\Middleware\InitializeTenancyByPath::class,
-
-        'tenant.auth'   => \App\Http\Middleware\TenantAuth::class,
-        'tenant.admin'  => \App\Http\Middleware\TenantAdmin::class,
-        
-        'master.auth'   => \App\Http\Middleware\MasterAuth::class,
+        'tenancy' => \App\Http\Middleware\InitializeTenancyByPath::class,     
         'master.admin'  => \App\Http\Middleware\MasterAdmin::class,
+        'tenant.admin'  => \App\Http\Middleware\TenantAdmin::class,
+
 
              
-        'tenant.retail.auth'   => \App\Http\Middleware\TenantRetailAuth::class,
-        'tenant.retail.admin'  => \App\Http\Middleware\TenantRetailAdmin::class,
-
-        
-             
-        'tenant.wholesale.auth'   => \App\Http\Middleware\TenantWholesaleAuth::class,
-        'tenant.wholesale.admin'  => \App\Http\Middleware\TenantWholesaleAdmin::class,
     ];
 }

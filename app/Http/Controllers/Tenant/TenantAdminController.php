@@ -1442,6 +1442,28 @@ public function removePermission(Request $request)
     }
 }
 
+public function showSystemSettingsView(){
+
+return view('tenants.admin.settings');
+
+}
+
+
+
+public function showSystemHelpcenterView(){
+
+return view('tenants.admin.helpcenter');
+
+}
+
+
+
+public function showSystemSubscriptionView(){
+
+return view('tenants.admin.subscription');
+
+}
+
 
     
 }

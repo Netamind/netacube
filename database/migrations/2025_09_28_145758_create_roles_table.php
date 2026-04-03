@@ -18,7 +18,7 @@ return new class extends Migration
         });
 
         DB::table('roles')->insert([
-            ['role' => 'Sales', 'description' => 'Team members focused on generating revenue, managing customer relationships, and driving business growth'],
+            ['role' => 'Sales', 'description' => 'Team members focused on generating revenue, managing customer relationships and driving business growth'],
             ['role' => 'Admin', 'description' => 'System Administrator with full access and control'],
             ['role' => 'Accounts', 'description' => 'Users responsible for managing financial transactions, invoices and payments'],
             ['role' => 'Operations', 'description' => 'Personnel overseeing the day-to-day activities, logistics, and processes that keep the organization running smoothly'],

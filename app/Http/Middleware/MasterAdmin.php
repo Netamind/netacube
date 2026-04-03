@@ -14,34 +14,41 @@ class MasterAdmin
     {
         $user = Auth::user();
 
-        if (! $user) {
-            $notification = array(
+        // 1. Check if user is logged in
+        if (!$user) {
+            $notification = [
                 'message'    => 'Your session has expired. Please sign in again to continue.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('master.login.page')->with($notification);
+            ];
+            return redirect()->route('master.login.page')->with($notification);
         }
 
-        $currentRole = DB::table('users')->where('id', $user->id)->value('role');
+        // 2. Check user role from master database
+        $currentRole = DB::table('users')
+                         ->where('id', $user->id)
+                         ->value('role');
 
         if ($currentRole === null) {
             Auth::logout();
-            $notification = array(
+
+            $notification = [
                 'message'    => 'Your role to the system is not defined.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('master.login.page')->with($notification);
+            ];
+            return redirect()->route('master.login.page')->with($notification);
         }
 
         if ($currentRole !== 'Admin') {
             Auth::logout();
-            $notification = array(
+
+            $notification = [
                 'message'    => 'This area is restricted to administrators only.',
                 'alert-type' => 'error'
-            );
-            return Redirect()->route('master.login.page')->with($notification);
+            ];
+            return redirect()->route('master.login.page')->with($notification);
         }
 
+        // All checks passed → proceed
         return $next($request);
     }
 }

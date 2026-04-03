@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 @section('content')
 <style>
 .dt-buttons .btn {
@@ -121,7 +121,7 @@
                 </span>
             </td>
             <td style="text-align:center">
-                <a href="{{ route('tenant.super.admin.branch.details') }}?id={{ $branch->id }}" title="Branch Details">
+                <a href="{{ route('tenant.admin.branch.details') }}?id={{ $branch->id }}" title="Branch Details">
                     <i class="ri-settings-4-line text-primary" style="font-weight:bold;font-size:20px;"></i>
                 </a>
             </td>
@@ -320,7 +320,7 @@ $(document).ready(function() {
 
             $.ajax({
                 type: 'POST',
-                url: '{{ route("tenant.super.admin.branch.insert") }}',
+                url: '{{ route("tenant.admin.branch.insert") }}',
                 data: form.serialize(),
                 timeout: 60000,
                 beforeSend: function() {
@@ -350,7 +350,7 @@ $(document).ready(function() {
                                     <span class="badge bg-${statusBadge}">${statusText}</span>
                                 </td>
                                 <td style="text-align:center">
-                                    <a href="{{ route('tenant.super.admin.branch.details', '') }}/${b.id}" title="Branch Details">
+                                    <a href="{{ route('tenant.admin.branch.details', '') }}/${b.id}" title="Branch Details">
                                         <i class="ri-settings-4-line text-primary" style="font-weight:bold;font-size:20px;"></i>
                                     </a>
                                 </td>

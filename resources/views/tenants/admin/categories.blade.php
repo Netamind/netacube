@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 
 @section('content')
 <style>
@@ -248,7 +248,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.category.insert") }}',
+            url: '{{ route("tenant.admin.category.insert") }}',
             data: formData,
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
@@ -328,7 +328,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.category.delete") }}',
+            url: '{{ route("tenant.admin.category.delete") }}',
             data: { id: categoryId, _token: '{{ csrf_token() }}' },
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
@@ -377,7 +377,7 @@ $(document).ready(function () {
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("tenant.super.admin.category.update") }}',
+            url: '{{ route("tenant.admin.category.update") }}',
             data: formData,
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },

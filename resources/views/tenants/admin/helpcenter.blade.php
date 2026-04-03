@@ -37,7 +37,7 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 </h4>
 <div class="d-flex align-items-center">
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>
-    <!--<a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download options"><i class="ri-download-line"></i></a>-->
+    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download options"><i class="ri-download-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn" title="Add new currency"><i class="ri-add-circle-line"></i></a>
 </div>
 <?php $maintableTitle = "Currency List"; $currencies = DB::table('currency')->get(); ?>

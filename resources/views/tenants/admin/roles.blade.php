@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 @section('content')
 <style>
     .dt-buttons .btn {

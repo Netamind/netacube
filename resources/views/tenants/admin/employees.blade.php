@@ -1,4 +1,4 @@
-@extends('tenants.super-admin.dashboard')
+@extends('tenants.admin.dashboard')
 @section('content')
 <style>
     .dt-buttons .btn {
@@ -76,7 +76,7 @@
             <td style="text-align:center">{{ $emp->department ?? '—' }}</td>
             <td style="text-align:center">{{ $emp->position ?? '—' }}</td>
             <td style="text-align:center">
-                <a href="{{ route('tenant.super.admin.employee.details') }}?id={{ $emp->id }}" class="btn btn-light text-primary btn-sm" title="View Details">
+                <a href="{{ route('tenant.admin.employee.details') }}?id={{ $emp->id }}" class="btn btn-light text-primary btn-sm" title="View Details">
                     <i class="ri-eye-line"></i>
                 </a>
                 <a href="#" class="editDataBtn btn btn-light text-info btn-sm"
@@ -144,7 +144,7 @@
                 <p class="mb-3">Click on the info icon above to read more about employee management.</p>
                 <p>Use this section to add new employees, view their details, and export data in various formats (Excel, CSV, PDF, Print).</p>
                 <p>To add a new employee, click the <strong>Add</strong> button and fill in all required fields marked with <span style="color:red">*</span>.</p>
-                <p>Make sure you understand roles before assigning to employees <a  href="{{ route('tenant.super.admin.roles') }}" >Click here to view roles</a></p>
+                <p>Make sure you understand roles before assigning to employees <a  href="{{ route('tenant.admin.roles') }}" >Click here to view roles</a></p>
             </div>
         </div>
     </div>
@@ -402,7 +402,7 @@ $(document).ready(function () {
 
             $.ajax({
                 type: 'POST',
-                url: '{{ route("tenant.super.admin.employee.insert") }}',
+                url: '{{ route("tenant.admin.employee.insert") }}',
                 data: formData + '&_token={{ csrf_token() }}',
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },
@@ -473,7 +473,7 @@ $(document).ready(function () {
 
             $.ajax({
                 type: 'POST',
-                url: '{{ route("tenant.super.admin.employee.update") }}',
+                url: '{{ route("tenant.admin.employee.update") }}',
                 data: formData + '&_token={{ csrf_token() }}',
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },

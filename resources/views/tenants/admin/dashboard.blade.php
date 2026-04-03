@@ -148,7 +148,7 @@
         </div>
         <!-- ========== Topbar End ========== -->
 
-        <!-- ========== Left Sidebar Start ========== -->                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                  
+        <!-- ========== Left Sidebar Start ========== -->
         <div class="leftside-menu">
 
             <!-- Brand Logo -->
@@ -201,29 +201,27 @@
 
                     <li class="side-nav-item">
                         <a href="{{ route('tenant.admin.events') }}" class="side-nav-link">
-                            <i class="ri-calendar-check-line"></i>
+                            <i class="ri-calendar-event-fill"></i>
                             <span> Events </span>
                         </a>
                     </li>
 
-
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#sidebarAdmin" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-admin-line"></i>
+                            <i class="ri-building-4-line"></i>
                             <span> Company </span>
                             <span class="menu-arrow"></span>
                         </a>
                         <div class="collapse" id="sidebarAdmin">
                             <ul class="side-nav-second-level">
-                                <li><a  href="{{ route('tenant.admin.company.info') }}" >Info</a></li>
-                                <li><a  href="{{ route('tenant.admin.employees') }}" >Employees</a></li>
-                                <li><a  href="{{ route('tenant.admin.roles') }}" >Roles</a></li>
-                                <li><a  href="{{ route('tenant.admin.permissions') }}" >Permissions</a></li>
-                                <li><a  href="{{ route('tenant.admin.sectors') }}" >Sectors</a></li>
-                                <li><a  href="{{ route('tenant.admin.categories') }}" >Categories</a></li>
-                                <li><a  href="{{ route('tenant.admin.branches') }}" >Branches</a></li>
-                                <li><a  href="{{ route('tenant.admin.branches') }}" >Suppliers</a></li>
-                                <li><a  href="{{ route('tenant.admin.branches') }}" >HR</a></li>
+                                <li><a href="{{ route('tenant.admin.company.info') }}">Info</a></li>
+                                <li><a href="{{ route('tenant.admin.employees') }}">Employees</a></li>
+                                <li><a href="{{ route('tenant.admin.roles') }}">Roles</a></li>
+                                <li><a href="{{ route('tenant.admin.permissions') }}">Permissions</a></li>
+                                <li><a href="{{ route('tenant.admin.currency') }}">Currency</a></li>
+                                <li><a href="{{ route('tenant.admin.sectors') }}">Sectors</a></li>
+                                <li><a href="{{ route('tenant.admin.categories') }}">Categories</a></li>
+                                <li><a href="{{ route('tenant.admin.branches') }}">Branches</a></li>
                             </ul>
                         </div>
                     </li>
@@ -231,85 +229,92 @@
                     <li class="side-nav-title mt-2">Sectors</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.retail.admin.dashboard') }}" class="side-nav-link">
-                            <i class="ri-shopping-cart-line"></i>
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-shopping-cart-2-fill"></i>
                             <span> Retail </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.wholesale.admin.dashboard') }}" class="side-nav-link">
-                            <i class="ri-truck-line"></i>
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-truck-fill"></i>
                             <span> Wholesale </span>
-                        </a>
-                    </li>
-
-
-                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-heart-pulse-line"></i>
-                            <span>Finance </span>
-                        </a>
-                    </li>
-
-
-                    
-                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-heart-pulse-line"></i>
-                            <span>Consultancy </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-heart-pulse-line"></i>
+                            <i class="ri-money-dollar-circle-fill"></i>
+                            <span> Finance </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-briefcase-4-fill"></i>
+                            <span> Consultancy </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-hospital-line"></i>
                             <span> Healthcare </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-hotel-line"></i>
+                            <i class="ri-hotel-fill"></i>
                             <span> Hospitality </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-building-2-line"></i>
+                            <i class="ri-building-2-fill"></i>
                             <span> Properties </span>
                         </a>
                     </li>
 
-                    
-
-            
-                    <li class="side-nav-title mt-2">Configuration</li>
-
+                    <li class="side-nav-title mt-2">System</li>
 
                     <li class="side-nav-item">
-                            <a data-bs-toggle="collapse" href="#sidebarSystem" aria-expanded="false" class="side-nav-link">
-                              <i class="ri-lifebuoy-line"></i>
-                                <span> System</span>
-                                <span class="menu-arrow"></span>
-                            </a>
-                            <div class="collapse" id="sidebarSystem">
-                                <ul class="side-nav-second-level">
-                                    <li><a href="#" >Subscription</a></li>
-                                    <li><a href="#" >Help center</a></li>
-                                </ul>
-                            </div>
-                        </li>
+                        <a href="{{ route('tenant.admin.system.settings') }}" class="side-nav-link">
+                            <i class="ri-settings-4-fill"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
 
-                          
+                    <li class="side-nav-item">
+                        <a href="{{ route('tenant.admin.system.subscription') }}" class="side-nav-link">
+                            <i class="ri-vip-crown-fill"></i>
+                            <span>Subscription</span>
+                        </a>
+                    </li>
 
-                            <li class="side-nav-item">
-                                <a href="#" class="side-nav-link">
-                                    <i class="ri-settings-3-line"></i>
-                                    <span>Settings</span>
-                                </a>
-                            </li>
+                    <li class="side-nav-item">
+                        <a href="{{ route('tenant.admin.system.helpcenter') }}" class="side-nav-link">
+                            <i class="ri-question-answer-fill"></i>
+                            <span>Helpcenter</span>
+                        </a>
+                    </li>
+
+            
+
+                     
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link"    onclick="document.getElementById('logout-form').submit();">
+                           <i class="ri-logout-box-r-line"></i>
+                            <span>Logout</span>
+                        </a>
+                    </li>
+
+
+
+
+
+
 
                 </ul>
                 <div class="clearfix"></div>

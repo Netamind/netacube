@@ -243,7 +243,7 @@
 <!-- Actions Modal -->
 <section>
     <div class="modal fade" id="actionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog modal-lg">
+        <div class="modal-dialog modal-sm">
             <div class="modal-content">
                 <div class="modal-header">
                     <h5 class="modal-title">Tenant Actions</h5>
@@ -254,40 +254,42 @@
 
                     @if($status == 'Pending')
                         <a href="#" class="btn btn-primary btn-sm mb-2 me-2" id="approveBtn">
-                            <i class="ri-checkbox-circle-line"></i> Approve Tenant
+                            <i class="ri-checkbox-circle-line"></i> Approve tenant
                         </a>
+                    @else 
+
+                    <input type="text" class="form-control btn-sm mb-2 me-2" value="Tenant alreay approved" disabled>
+                     
                     @endif
 
-                    <a href="#" class="btn btn-warning btn-sm mb-2 me-2">
+                    <a href="#" class="btn btn-warning form-control btn-sm mb-2 me-2">
                         @if(optional($tenantData)->put_on_hold == 'Yes')
-                            <i class="ri-lock-unlock-line"></i> Remove Hold
+                            <i class="ri-lock-unlock-line"></i> Remove on hold
                         @else
-                            <i class="ri-lock-2-line"></i> Put on Hold
+                            <i class="ri-lock-2-line"></i> Put on hold
                         @endif
                     </a>
 
-                    <a href="#" class="btn btn-dark btn-sm mb-2 me-2">
-                        <i class="ri-calendar-2-line"></i> Change Payment Dates
+                    <a href="#" class="btn btn-dark form-control btn-sm mb-2 me-2">
+                        <i class="ri-calendar-2-line"></i> Change payment dates
                     </a>
 
-                    <a href="#" class="btn btn-secondary btn-sm mb-2 me-2">
-                        <i class="ri-exchange-dollar-line"></i> Change Plan
+                    <a href="#" class="btn btn-secondary form-control btn-sm mb-2 me-2">
+                        <i class="ri-exchange-dollar-line"></i> Change subscription plan
                     </a>
 
-                    <a href="#" class="btn btn-success btn-sm mb-2 me-2">
-                        <i class="ri-notification-2-line"></i> Send Reminder
+
+                    <a href="#" class="btn btn-success form-control btn-sm mb-2 me-2 send-invoice-trigger">
+                        <i class="ri-file-pdf-2-line"></i> Send system invoice
                     </a>
 
-                    <a href="#" class="btn btn-info btn-sm mb-2 me-2 send-invoice-trigger">
-                        <i class="ri-file-pdf-2-line"></i> Send Invoice
+                    
+                    <a href="#" class="btn btn-info form-control btn-sm mb-2 me-2 send-invoice-trigger">
+                        <i class="ri-file-pdf-2-line"></i> Send custom invoice
                     </a>
-
-                    <a href="{{route('master.tenant.send.invoice')}}" class="btn btn-light btn-sm mb-2 me-2">
-                        <i class="ri-global-line"></i> Change URL
-                    </a>
-
-                    <a href="#" class="btn btn-danger btn-sm mb-2 me-2">
-                        <i class="ri-delete-bin-2-line"></i> Delete Tenant
+                
+                    <a href="#" class="btn btn-danger form-control btn-sm mb-2 me-2">
+                        <i class="ri-delete-bin-2-line"></i> Delete tenant
                     </a>
                 </div>
             </div>

@@ -61,9 +61,7 @@
     }
     .card-header h4 i { margin-right: .25rem; }
 
-    /* ──────────────────────────────────────
-       Fixed header
-       ────────────────────────────────────── */
+    /* Fixed header */
     table.dataTable.fixedHeader-floating,
     table.dataTable.fixedHeader-locked {
         background: #fff !important;
@@ -73,9 +71,7 @@
         background: #e2e2e9 !important;
     }
 
-    /* ──────────────────────────────────────
-       Tabs
-       ────────────────────────────────────── */
+    /* Tabs */
     .tab-header-container {
         background: #f8f9fa;
         border-top: 1px solid #dee2e6;
@@ -108,98 +104,22 @@
         padding-top: 0.75rem;
     }
 
-    /* ──────────────────────────────────────
-       Action icons
-       ────────────────────────────────────── */
-    .action-icon {
-        font-size: 17px;
-        font-weight: bold;
-        margin: 0 4px;
-        text-decoration: none;
+    /* File icon */
+    .file-icon {
+        font-size: 28px;
     }
 
-    /* ──────────────────────────────────────
-       Top Controls
-       ────────────────────────────────────── */
-    .top-controls {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 0.75rem;
-        gap: 1rem;
-    }
-
-    .client-filter {
-        width: 200px;
-        height: 38px;
-        font-size: 0.875rem;
-        padding: 0 12px;
-        border: 1px solid #ced4da;
-        border-radius: 6px;
-        background-color: #fff;
-        color: #495057;
-        appearance: none;
-        background-image: url("data:image/svg+xml;charset=UTF-8,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%236c757d' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3e%3cpolyline points='6,9 12,15 18,9'%3e%3c/polyline%3e%3c/svg%3e");
-        background-repeat: no-repeat;
-        background-position: right 10px center;
-        background-size: 12px;
-        transition: border-color 0.2s ease;
-    }
-    .client-filter:focus {
-        outline: none;
-        border-color: #4B5EBD;
-        box-shadow: 0 0 0 3px rgba(75, 94, 189, 0.15);
-    }
-
-    /* ──────────────────────────────────────
-       SELECTED TOTAL – SWEET, MODERN, SINGLE LINE
-       ────────────────────────────────────── */
-    .selected-total {
-        display: flex;
-        align-items: center;
-        gap: 8px;
-        background: #f0f9ff;
-        padding: 8px 16px;
-        border: 1px solid #0ea5e9;
-        border-radius: 12px;
-        height: 44px;
-        font-size: 0.875rem;
-        min-width: 260px;
-        white-space: nowrap;
-        box-shadow: 0 2px 6px rgba(14, 165, 233, 0.15);
-        transition: all 0.2s ease;
-    }
-    .selected-total:hover {
-        background: #e0f2fe;
-        box-shadow: 0 3px 8px rgba(14, 165, 233, 0.2);
-        transform: translateY(-1px);
-    }
-    .selected-total i {
-        color: #0284c7;
-        font-size: 1.25rem;
-    }
-    .selected-total .label-text {
-        color: #0369a1;
-        font-weight: 600;
-        font-size: 0.875rem;
-        letter-spacing: 0.3px;
-    }
-    .selected-total .amount {
-        font-weight: 700;
-        color: #1e40af;
-        font-size: 1rem;
-        min-width: 110px;
-        text-align: right;
-        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    /* Preview improvements */
+    #previewBody {
+        min-height: 75vh;
+        background: #f8f9fa;
     }
 </style>
 
-<div class="progress" id="progressBar"
-     role="progressbar" aria-label="Animated striped"
+<div class="progress" id="progressBar" role="progressbar" aria-label="Animated striped"
      aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"
      style="height:8px; transform:rotate(180deg); display:none">
-    <div class="progress-bar progress-bar-striped progress-bar-animated"
-         style="width:100%"></div>
+    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
 </div>
 
 <div class="content-page">
@@ -209,7 +129,6 @@
             <div class="row mb-3"></div>
 
             <div class="card">
-                {{-- Header --}}
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="header-title mb-0">
                          <i class="ri-building-line"></i> Company Info
@@ -244,6 +163,7 @@
                 <div class="card-body">
                     <div class="tab-content">
 
+                        <!-- General Tab -->
                         <div class="tab-pane show active" id="general">
                             <?php $generalData = DB::table('company_info')->where('id',1)->first(); ?>
                             <form action="#" class="form-horizontal" id="generalDataForm" method="post">
@@ -292,6 +212,7 @@
                             </form>   
                         </div>
 
+                        <!-- Contact Tab -->
                         <div class="tab-pane" id="contact">
                             <?php $contactData = DB::table('company_info')->where('id',1)->first(); ?>
                             <form class="form-horizontal" action="#" method="post" id="contactDataForm">
@@ -334,6 +255,7 @@
                             </form>   
                         </div>
 
+                        <!-- Files Tab -->
                         <div class="tab-pane" id="files">
                             <div class="files-controls d-flex justify-content-between align-items-center mb-3">
                                 <div class="add-new-group">
@@ -398,12 +320,9 @@
                                                     <td>
                                                         <div class="d-flex align-items-center gap-2">
                                                             @if($isImage)
-                                                                <img src="{{ asset('master-files/files/' . $file->filename) }}"
-                                                                    width="40" height="40"
-                                                                    class="rounded"
-                                                                    style="object-fit:cover">
+                                                                <i class="ri-image-line file-icon text-success"></i>
                                                             @else
-                                                                <i class="ri-file-text-line fs-24 text-primary"></i>
+                                                                <i class="ri-file-text-line file-icon text-primary"></i>
                                                             @endif
 
                                                             <div>
@@ -421,8 +340,8 @@
                                                             <ul class="dropdown-menu dropdown-menu-end">
                                                                 <li>
                                                                     <a class="dropdown-item preview-file" href="#"
-                                                                    data-url="{{ asset('master-files/files/' . $file->filename) }}"
-                                                                    data-ext="{{ $ext }}">
+                                                                       data-url="{{ asset('files/master/company/' . $file->filename) }}"
+                                                                       data-ext="{{ $ext }}">
                                                                         <i class="ri-eye-line me-2"></i> View
                                                                     </a>
                                                                 </li>
@@ -435,7 +354,7 @@
                                                                 </li>
                                                                 <li>
                                                                     <a class="dropdown-item"
-                                                                    href="{{ route('master.company.download.file', $file->id) }}">
+                                                                    href="{{ route('master.company.download.file') }}?id={{ $file->id }}">
                                                                         <i class="ri-download-2-line me-2"></i> Download
                                                                     </a>
                                                                 </li>
@@ -458,17 +377,17 @@
                             </div>
                         </div>
 
-                    </div> <!-- /.tab-content -->
-                </div> <!-- /.card-body -->
-            </div> <!-- /.card -->
+                    </div>
+                </div>
+            </div>
 
-        </div> <!-- /.container-fluid -->
-    </div> <!-- /.content -->
-</div> <!-- /.content-page -->
+        </div>
+    </div>
+</div>
 
+<!-- ==================== ALL MODALS ==================== -->
 
-<!-- ==================== ALL MODALS (unchanged, only proper closing) ==================== -->
-
+<!-- Upload Document Modal -->
 <div class="modal fade" id="uploadDocumentModal" tabindex="-1">
     <div class="modal-dialog">
         <form id="uploadDocumentForm" enctype="multipart/form-data">
@@ -487,6 +406,7 @@
     </div>
 </div>
 
+<!-- Upload Image Modal -->
 <div class="modal fade" id="uploadImageModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -503,6 +423,7 @@
     </div>
 </div>
 
+<!-- Crop Modal -->
 <div class="modal modal-flex" id="cropModal" tabindex="-1" data-bs-backdrop="static">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -518,6 +439,7 @@
     </div>
 </div>
 
+<!-- Edit File Name Modal -->
 <div class="modal fade" id="editFileModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -531,7 +453,7 @@
                     <input type="hidden" name="id" id="editFileId">
                     <div class="mb-3">
                         <label class="form-label fw-bold">New Name</label>
-                        <input type="text" class="form-control" name="name" id="editNameInput" autocomplete="off">
+                        <input type="text" class="form-control" name="name" id="editNameInput" autocomplete="off" required>
                     </div>
                     <div class="d-flex justify-content-end gap-2">
                         <button type="button" class="btn btn-light" data-bs-dismiss="modal">Cancel</button>
@@ -545,6 +467,7 @@
     </div>
 </div>
 
+<!-- Company Info Modal -->
 <div class="modal fade" id="companyInfoModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -564,6 +487,7 @@
     </div>
 </div>
 
+<!-- PREVIEW MODAL - Updated with dynamic iframe -->
 <div class="modal fade" id="previewModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
@@ -571,13 +495,14 @@
                 <h5 class="modal-title">File Preview - <span id="previewFileName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <iframe id="previewIframe" style="width:100%; height:70vh; border:none;"></iframe>
+            <div class="modal-body p-0" id="previewBody">
+                <!-- New iframe created dynamically here -->
             </div>
         </div>
     </div>
 </div>
 
+<!-- Delete Modal -->
 <div class="modal fade" id="deleteFileModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog" style="max-width:350px; margin:1.75rem auto;">
         <div class="modal-content">
@@ -607,7 +532,6 @@
 </div>
 @endsection
 
-
 @section('scripts')
 <script src="https://cdnjs.cloudflare.com/ajax/libs/toastr.js/2.1.4/toastr.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.6.2/cropper.min.js"></script>
@@ -618,11 +542,10 @@ $(document).ready(function() {
 
     $("#companyInfoBtn").click(e => { e.preventDefault(); $("#companyInfoModal").modal('show'); });
 
-    // ──────── MULTIPLE DELETE – EXACT EVENTS-TABLE STYLE ────────
-    const $selectAll     = $('#selectAllFiles');
-    const $checkboxes    = $('.file-checkbox');
-    const $bulkBtn       = $('#bulkDeleteBtn');
-    const $count         = $('#selectedCount');
+    const $selectAll = $('#selectAllFiles');
+    const $checkboxes = $('.file-checkbox');
+    const $bulkBtn = $('#bulkDeleteBtn');
+    const $count = $('#selectedCount');
 
     function refreshUI() {
         const checked = $checkboxes.filter(':checked').length;
@@ -640,6 +563,11 @@ $(document).ready(function() {
         refreshUI();
     });
 
+    function rebind() {
+        $checkboxes.off('change').on('change', refreshUI);
+        $selectAll.off('change').on('change', refreshUI);
+    }
+
     $bulkBtn.click(function() {
         const ids = $checkboxes.filter(':checked').map(function() { return this.value; }).get();
         $('#deleteBulkIds').val(ids);
@@ -648,11 +576,6 @@ $(document).ready(function() {
         $('#bulkDeleteText').show();
         $('#deleteFileModal').modal('show');
     });
-
-    function rebind() {
-        $checkboxes.off('change').on('change', refreshUI);
-        $selectAll.off('change').on('change', refreshUI);
-    }
 
     $(document).on('click', '.delete-file', function(e) {
         e.preventDefault();
@@ -669,9 +592,10 @@ $(document).ready(function() {
         const bulkIds = $('#deleteBulkIds').val();
         const singleId = $('#deleteFileId').val();
 
-        let url  = bulkIds ? "{{ route('master.company.files.bulk-delete') }}" : '/master/company/delete/' + singleId;
+        let url = bulkIds ? "{{ route('master.company.files.bulk-delete') }}" : "{{ route('master.company.delete.file') }}";
         let data = { _token: $('meta[name="csrf-token"]').attr('content') };
         if (bulkIds) data.ids = bulkIds.split(',');
+        else data.id = singleId;
 
         $('#progressBar').show();
 
@@ -680,7 +604,7 @@ $(document).ready(function() {
             method: 'POST',
             data: data,
             success: () => {
-                toastr.success(bulkIds ? 'Selected files deleted' : 'File deleted');
+                toastr.success(bulkIds ? 'Selected files deleted' : 'File deleted successfully');
                 $('#deleteFileModal').modal('hide');
                 loadFiles();
             },
@@ -693,27 +617,25 @@ $(document).ready(function() {
 
     $('#updateGeneralDataBtn').click(function(e) {
         e.preventDefault(); const self = $(this); self.prop("disabled", true);
-        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
         $.ajax({
             type: "POST", url: "{{ route('master.company.general.info.update') }}",
             data: $("#generalDataForm").serialize(), timeout: 60000,
             beforeSend: () => $('#progressBar').show(),
             complete: () => { $('#progressBar').hide(); self.prop("disabled", false); },
             success: data => toastr[data.status === 201 ? 'success' : 'error'](data.success || data.error),
-            error: xhr => toastr.error('Error')
+            error: () => toastr.error('Error')
         });
     });
 
     $('#updateContactDataBtn').click(function(e) {
         e.preventDefault(); const self = $(this); self.prop("disabled", true);
-        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
         $.ajax({
             type: "POST", url: "{{ route('master.company.contact.info.update') }}",
             data: $("#contactDataForm").serialize(), timeout: 60000,
             beforeSend: () => $('#progressBar').show(),
             complete: () => { $('#progressBar').hide(); self.prop("disabled", false); },
             success: data => toastr[data.status === 201 ? 'success' : 'error'](data.success || data.error),
-            error: xhr => toastr.error('Error')
+            error: () => toastr.error('Error')
         });
     });
 
@@ -815,6 +737,7 @@ $(document).ready(function() {
 
     $('#cropModal').on('hidden.bs.modal', () => { if (cropper) cropper.destroy(); });
 
+    // Edit Name
     $(document).on('click', '.edit-file', function(e) {
         e.preventDefault();
         const id = $(this).data('id');
@@ -826,34 +749,106 @@ $(document).ready(function() {
 
     $('#editFileForm').on('submit', function(e) {
         e.preventDefault();
-        const id = $('#editFileId').val();
         $.ajax({
-            url: '/master/company/edit/name/' + id,
+            url: "{{ route('master.company.edit.file.name') }}",
             method: 'POST',
             data: $(this).serialize(),
             headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') },
             beforeSend: () => $('#progressBar').show(),
-            success: () => {
-                toastr.success('Name updated');
-                $('#editFileModal').modal('hide');
-                loadFiles();
+            success: function(data) {
+                if (data.status === 201) {
+                    toastr.success(data.success || 'Name updated successfully');
+                    $('#editFileModal').modal('hide');
+                    loadFiles();
+                } else {
+                    toastr.error(data.error || 'Update failed');
+                }
             },
-            error: () => toastr.error('Update failed'),
+            error: function(xhr) {
+                if (xhr.status === 422) {
+                    toastr.error(xhr.responseJSON.errors ? xhr.responseJSON.errors.join('<br>') : 'Validation failed');
+                } else {
+                    toastr.error('Update failed');
+                }
+            },
             complete: () => $('#progressBar').hide()
         });
     });
 
+    // ==================== CLEAN PREVIEW - New Iframe Every Time ====================
     $(document).on('click', '.preview-file', function(e) {
         e.preventDefault();
-        let url = $(this).data('url');
-        const ext = $(this).data('ext');
-        const name = $(this).closest('tr').find('.file-name').text();
-        if (['doc','docx'].includes(ext)) {
-            url = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
-        }
-        $('#previewIframe').attr('src', url);
+
+        const url  = $(this).data('url');
+        const ext  = $(this).data('ext').toLowerCase();
+        const name = $(this).closest('tr').find('.file-name').text().trim();
+
         $('#previewFileName').text(name);
-        $('#previewModal').modal('show');
+
+        const $modal = $('#previewModal');
+        const $body  = $('#previewBody');
+
+        // Remove any old iframe
+        $body.empty();
+
+        // Create fresh iframe
+        const $iframe = $('<iframe>', {
+            id: 'previewIframe',
+            style: 'width:100%; height:75vh; border:none; background:#f8f9fa;',
+            frameborder: '0'
+        });
+
+        $body.append($iframe);
+
+        // Set content after iframe is ready
+        setTimeout(() => {
+            if (['jpg','jpeg','png','gif'].includes(ext)) {
+                const html = `
+                    <!DOCTYPE html>
+                    <html>
+                    <head>
+                        <style>
+                            body { 
+                                margin:0; 
+                                padding:20px; 
+                                background:#f8f9fa; 
+                                display:flex; 
+                                align-items:center; 
+                                justify-content:center; 
+                                min-height:100vh; 
+                                overflow:auto;
+                            }
+                            img { 
+                                max-width:100%; 
+                                max-height:90vh; 
+                                object-fit:contain; 
+                                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
+                            }
+                        </style>
+                    </head>
+                    <body>
+                        <img src="${url}" alt="${name}">
+                    </body>
+                    </html>
+                `;
+                $iframe.attr('srcdoc', html);
+            } 
+            else if (ext === 'pdf') {
+                $iframe.attr('src', url);
+            } 
+            else {
+                // DOC/DOCX
+                const viewerUrl = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
+                $iframe.attr('src', viewerUrl);
+            }
+
+            $modal.modal('show');
+        }, 80);
+    });
+
+    // Clean up when modal is closed
+    $('#previewModal').on('hidden.bs.modal', function () {
+        $('#previewBody').empty();
     });
 
 });

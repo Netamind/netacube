@@ -268,8 +268,12 @@
                     </li>
 
                 
-                    <li class="side-nav-title mt-2">COMMON</li>
+                   
 
+                    <!-- TECHNICAL -->
+                    <li class="side-nav-title mt-2">Technical</li>
+
+                    
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#sidebarInvoices" aria-expanded="false" class="side-nav-link">
                             <i class="ri-receipt-line"></i>
@@ -286,17 +290,13 @@
                         </div>
                     </li>
 
-
-                    <!-- TECHNICAL -->
-                    <li class="side-nav-title mt-2">Technical</li>
-
                     <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#sidebarSecurity" aria-expanded="false" class="side-nav-link">
+                        <a data-bs-toggle="collapse" href="#sidebarTechnical" aria-expanded="false" class="side-nav-link">
                             <i class="ri-database-2-line"></i>
                             <span>Migrations</span>
                             <span class="menu-arrow"></span>
                         </a>
-                        <div class="collapse" id="sidebarSecurity">
+                        <div class="collapse" id="sidebarTechnical">
                             <ul class="side-nav-second-level">
                                 <li><a href="{{ route('master.tenant.migrations') }}">Tenant</a></li>
                                <li><a href="{{ route('master.global.migrations') }}">Global</a></li>

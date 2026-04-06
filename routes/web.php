@@ -42,6 +42,15 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy'] ], functio
 
 
  //Route::post('/temporal-route-name', [TenantCommonController::class, 'masterLogout'])->name('tenant.super.admin.branches'); 
+
+
+ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy']], function () {
+
+
+
+
+ });
+
                                                                                                                                                                                                                                                                                                                  
 
 Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.admin']], function () {
@@ -67,6 +76,16 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::get('/admin/company-info',        [TenantAdminController::class, 'showCompanyInfoView'])->name('tenant.admin.company.info');
     Route::post('/admin/update-company-general-info', [TenantAdminController::class, 'updateCompanyGeneralInfo'])->name('tenant.admin.company.general.info.update');
     Route::post('/admin/update-company-contact-info', [TenantAdminController::class, 'updateCompanyContactInfo'])->name('tenant.admin.company.contact.info.update');
+    Route::get('/admin/company/files/list',  [TenantAdminController::class, 'listCompanyFiles'])->name('tenant.admin.company.files.list');
+    Route::post('/admin/company/upload/document', [TenantAdminController::class, 'uploadDocument'])->name('tenant.admin.company.upload.document');
+    Route::post('/admin/company/upload/image',    [TenantAdminController::class, 'uploadImage'])->name('tenant.admin.company.upload.image');
+    Route::post('/admin/company/files/edit',  [TenantAdminController::class, 'updateName'])->name('tenant.admin.company.edit.name');
+    Route::post('/admin/company/files/delete',     [TenantAdminController::class, 'deleteFile'])->name('tenant.admin.company.delete.file');
+    Route::get('/admin/company/files/download',    [TenantAdminController::class, 'downloadFile'])->name('tenant.admin.company.download.file');
+    Route::post('/admin/company/files/bulk-delete',[TenantAdminController::class, 'bulkDeleteFiles'])->name('tenant.admin.company.files.bulk-delete');
+
+
+
 
     Route::get('/admin/payment-methods',     [TenantAdminController::class, 'showPaymentMethodsView'])->name('tenant.admin.payment.methods');
     Route::post('/admin/insert-payment-method', [TenantAdminController::class, 'insertPaymentMethod'])->name('tenant.admin.payment.method.insert');
@@ -81,14 +100,6 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/admin/event-delete/{id}',  [TenantAdminController::class, 'deleteEvent'])->name('tenant.admin.delete.event');
     Route::get('/admin/events-table',        [TenantAdminController::class, 'showEventsTable'])->name('tenant.admin.events.table');
     Route::post('/admin/events-bulk-delete', [TenantAdminController::class, 'bulkDeleteEvents'])->name('tenant.admin.bulk.delete.events');
-
-    Route::get('/admin/company/files/list',  [TenantAdminController::class, 'listCompanyFiles'])->name('tenant.admin.company.files.list');
-    Route::post('/admin/company/upload/document', [TenantAdminController::class, 'uploadDocument'])->name('tenant.admin.company.upload.document');
-    Route::post('/admin/company/upload/image',    [TenantAdminController::class, 'uploadImage'])->name('tenant.admin.company.upload.image');
-    Route::post('/admin/company/edit/name/{id}',  [TenantAdminController::class, 'updateName'])->name('tenant.admin.company.edit.name');
-    Route::post('/admin/company/delete/{id}',     [TenantAdminController::class, 'deleteFile'])->name('tenant.admin.company.delete.file');
-    Route::get('/admin/company/download/{id}',    [TenantAdminController::class, 'downloadFile'])->name('tenant.admin.company.download.file');
-    Route::post('/admin/company/files/bulk-delete',[TenantAdminController::class, 'bulkDeleteFiles'])->name('tenant.admin.company.files.bulk-delete');
 
     Route::get('/admin/currency',            [TenantAdminController::class, 'showCurrencyView'])->name('tenant.admin.currency');
     Route::post('/admin/insert-currency',    [TenantAdminController::class, 'insertCurrency'])->name('tenant.admin.currency.insert');
@@ -193,6 +204,20 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::get('/reset-password-view', [MasterAuthController::class, 'resetPasswordView'])->name('master.reset.password.view');
     Route::post('/submit-password-reset', [MasterAuthController::class, 'submitPasswordReset'])->name('master.submit.password.reset');
 
+    
+
+    Route::get('/company-info', [MasterController::class, 'showCompanyInfoView'])->name('master.company.info');
+    Route::post('/update-company-general-info', [MasterController::class, 'updateCompanyGeneralInfo'])->name('master.company.general.info.update');
+    Route::post('/update-company-contact-info', [MasterController::class, 'updateCompanyContactInfo'])->name('master.company.contact.info.update');
+    Route::get('/company/files/list', [MasterController::class, 'listCompanyFiles']) ->name('master.company.files.list');
+    Route::post('/company/upload/document', [MasterController::class, 'uploadDocument'])->name('master.company.upload.document');
+    Route::post('/company/upload/image', [MasterController::class, 'uploadImage'])->name('master.company.upload.image');
+    Route::post('/company/edit/file/name', [MasterController::class, 'updateName'])->name('master.company.edit.file.name');
+    Route::post('/company/delete/file', [MasterController::class, 'deleteFile'])->name('master.company.delete.file');
+    Route::get('/company/download/file', [MasterController::class, 'downloadFile'])->name('master.company.download.file');
+    Route::post('company/files/bulk-delete', [MasterController::class, 'bulkDeleteFiles'])->name('master.company.files.bulk-delete');
+
+
 
     Route::get('/events-view', [MasterController::class, 'showMasterEvents'])->name('master.events');
     Route::get('/events-data', [MasterController::class, 'fetchMasterEvents'])->name('master.fetch.events');
@@ -209,9 +234,6 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::post('/profile-change-password', [MasterAuthController::class, 'profileChangePassword'])->name('master.profile.change.password');
     Route::post('/update-employee-info', [MasterAuthController::class, 'updateEmployeeInfo'])->name('master.update.employee.info');
     Route::post('/employee-change-password', [MasterAuthController::class, 'employeeChangePassword'])->name('master.employee.change.password');
-    Route::get('/company-info', [MasterController::class, 'showCompanyInfoView'])->name('master.company.info');
-    Route::post('/update-company-general-info', [MasterController::class, 'updateCompanyGeneralInfo'])->name('master.company.general.info.update');
-    Route::post('/update-company-contact-info', [MasterController::class, 'updateCompanyContactInfo'])->name('master.company.contact.info.update');
 
    
     Route::get('/subscription-plans', [MasterController::class, 'showSubscriptionPlansView'])->name('master.subscription.plans');
@@ -236,16 +258,6 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::post('/update-payment-method', [MasterController::class, 'updatePaymentMethod'])->name('master.payment.method.update');
     Route::post('/delete-payment-method', [MasterController::class, 'deletePaymentMethod'])->name('master.payment.method.delete');
 
-    
-
-    Route::get('/company/files/list', [MasterController::class, 'listCompanyFiles']) ->name('master.company.files.list');
-    Route::post('/company/upload/document', [MasterController::class, 'uploadDocument'])->name('master.company.upload.document');
-    Route::post('/company/upload/image', [MasterController::class, 'uploadImage'])->name('master.company.upload.image');
-    Route::post('/company/edit/name/{id}', [MasterController::class, 'updateName'])->name('master.company.edit.name');
-    Route::post('/company/delete/{id}', [MasterController::class, 'deleteFile'])->name('master.company.delete.file');
-    Route::get('/company/download/{id}', [MasterController::class, 'downloadFile'])->name('master.company.download.file');
-    Route::post('company/files/bulk-delete', [MasterController::class, 'bulkDeleteFiles'])->name('master.company.files.bulk-delete');
-
 
 
     Route::get('/invoice-templates-view', [MasterController::class, 'showInvoiceTemplatesView'])->name('master.invoice.templates');
@@ -263,8 +275,8 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::get('/tenant-details', [MasterTenantController::class, 'showTenantDetailsView'])->name('master.tenant.details');
     Route::post('/update-tenant-details', [MasterTenantController::class, 'updateTenantDetails'])->name('master.tenant.details.update');
     Route::post('/master/tenant/approve', [MasterTenantController::class, 'approveTenant'])->name('master.tenant.approve');
-    Route::post('/approve-tenant-local', [MasterTenantController::class, 'approveTenantLocal'])->name('master.tenant.approve.local');
-    Route::post('/approve-tenant-remote', [MasterTenantController::class, 'approveTenantRemote'])->name('master.tenant.approve.remote');
+    //Route::post('/approve-tenant-local', [MasterTenantController::class, 'approveTenantLocal'])->name('master.tenant.approve.local');
+    //Route::post('/approve-tenant-remote', [MasterTenantController::class, 'approveTenantRemote'])->name('master.tenant.approve.remote');
 
     Route::get('/tenant/invoices-view', [MasterTenantInvoicesController::class, 'showTenantInvoicesView'])->name('master.tenant.invoices');
     Route::post('/tenant/send-invoice', [MasterTenantInvoicesController::class, 'masterSendInvoiceFromTenantDetails'])->name('master.tenant.send.invoice');
@@ -280,8 +292,6 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::post('/tenant-deliverynotes', [MasterTenantController::class, 'masterAddTenant'])->name('master.tenant.deliverynotes'); 
     Route::post('/tenant-receipts', [MasterTenantController::class, 'masterAddTenant'])->name('master.tenant.receipts'); 
     
-
-    Route::get('/point-of-sales', [MasterController::class, 'showPointOfSalesView'])->name('master.point.of.sales');
 
 
     Route::get('/currency', [MasterController::class, 'showCurrencyView'])->name('master.currency');

@@ -471,57 +471,74 @@ public function deleteSubscriptionPlan(Request $request)
     }
 
 
-
-public function uploadDocument(Request $request)
-   {
-    $validator = $request->validate([
-        'name' => 'required|string|max:255',
-        'file' => 'required|file|mimes:pdf,doc,docx|max:10240',
-    ]);
-
-    $file = $request->file('file');
-    $fileSize = $file->getSize(); 
-    $extension = $file->getClientOriginalExtension();
-    $firstFive = substr($request->name, 0, 5);
-    $filename = $firstFive . '_' . Str::random(6) . '.' . $extension;
-    $path = public_path('files/master/company');
-
-    $data = [
-        'name' => $request->name,
-        'filename' => $filename,
-        'path' => 'files/master/company/' . $filename,
-        'size' => $fileSize,
-        'created_at' => now(),
-        'updated_at' => now()
-    ];
-
-    if ($validator) {
-       $file->move($path, $filename);
-        $inserted = DB::table('company_files')->insert($data);
-        if ($inserted) {
-            return response()->json(['success' => 'Document uploaded successfully', 'status' => 201]);
-        } else {
-            return response()->json(['error' => 'Failed to upload document', 'status' => 500]);
-        }
-    } else {
-        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
-    }
-}
     
+
+ public function uploadDocument(Request $request)
+    {
+        $file = $request->file('file');
+        $fileSize = $file ? $file->getSize() : 0;
+        $extension = $file ? $file->getClientOriginalExtension() : '';
+
+        $firstFive = substr($request->name ?? '', 0, 5);
+        $filename = $firstFive . '_' . Str::random(8) . '.' . $extension;
+
+        $data = [
+            'name'       => $request->name,
+            'filename'   => $filename,
+            'path'       => 'files/master/company/' . $filename,
+            'size'       => $fileSize,
+            'created_at' => now(),
+            'updated_at' => now()
+        ];
+
+        $validator = $request->validate([
+            'name' => 'required|string|max:255',
+            'file' => 'required|file|mimes:pdf,doc,docx|max:10240',
+        ]);
+
+        if ($validator) {
+            $path = public_path('files/master/company');
+            if (!File::exists($path)) {
+                File::makeDirectory($path, 0755, true);
+            }
+
+            $file->move($path, $filename);
+
+            $inserted = DB::table('company_files')->insert($data);
+
+            if ($inserted) {
+                return response()->json([
+                    'success' => 'Document uploaded successfully',
+                    'status'  => 201
+                ]);
+            } else {
+                return response()->json([
+                    'error'  => 'Failed to upload document',
+                    'status' => 500
+                ]);
+            }
+        } else {
+            return response()->json([
+                'errors' => $validator->errors()->all(),
+                'status' => 422
+            ]);
+        }
+    }
+
     public function uploadImage(Request $request)
     {
         $blob = $request->file('file');
-        $firstFive = substr($request->name, 0, 5);
-        $filename =   $firstFive . '_' . Str::random(8) . '.jpg';
+        $firstFive = substr($request->name ?? '', 0, 5);
+        $filename = $firstFive . '_' . Str::random(10) . '.jpg';
         $fullPath = public_path('files/master/company/' . $filename);
-        file_put_contents($fullPath, file_get_contents($blob->getRealPath()));
-        $fileSize = file_exists($fullPath) ? filesize($fullPath) : 0;
+
+        $fileSize = 0;
 
         $data = [
-            'name' => $request->name,
-            'filename' => $filename,
-            'path' => 'files/master/company/' . $filename,
-            'size' => $fileSize,
+            'name'       => $request->name,
+            'filename'   => $filename,
+            'path'       => 'files/master/company/' . $filename,
+            'size'       => $fileSize,
             'created_at' => now(),
             'updated_at' => now()
         ];
@@ -532,118 +549,167 @@ public function uploadDocument(Request $request)
         ]);
 
         if ($validator) {
+            if (!File::exists(public_path('files/master/company'))) {
+                File::makeDirectory(public_path('files/master/company'), 0755, true);
+            }
+
+            file_put_contents($fullPath, file_get_contents($blob->getRealPath()));
+            $fileSize = file_exists($fullPath) ? filesize($fullPath) : 0;
+            $data['size'] = $fileSize;
+
             $inserted = DB::table('company_files')->insert($data);
+
             if ($inserted) {
-                return response()->json(['success' => 'Image uploaded successfully', 'status' => 201]);
+                return response()->json([
+                    'success' => 'Image uploaded successfully',
+                    'status'  => 201
+                ]);
             } else {
-                return response()->json(['error' => 'Failed to upload image', 'status' => 500]);
+                return response()->json([
+                    'error'  => 'Failed to upload image',
+                    'status' => 500
+                ]);
             }
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json([
+                'errors' => $validator->errors()->all(),
+                'status' => 422
+            ]);
         }
     }
 
-    public function editName($id)
-    {
-        $file = DB::table('company_files')->find($id);
-        return $file
-            ? response()->json(['file' => $file])
-            : response()->json(['error' => 'File not found', 'status' => 404]);
-    }
-
-    public function updateName(Request $request, $id)
+    public function updateName(Request $request)
     {
         $data = ['name' => $request->name];
 
         $validator = $request->validate([
+            'id'   => 'required|integer|exists:company_files,id',
             'name' => 'required|string|max:255',
         ]);
 
         if ($validator) {
-            $updated = DB::table('company_files')->where('id', $id)->update($data);
+            $updated = DB::table('company_files')
+                        ->where('id', $request->id)
+                        ->update($data);
+
             if ($updated) {
-                return response()->json(['success' => 'File name updated successfully', 'status' => 201]);
+                return response()->json([
+                    'success' => 'File name updated successfully',
+                    'status'  => 201
+                ]);
             } else {
-                return response()->json(['error' => 'No changes made or file not found', 'status' => 409]);
+                return response()->json([
+                    'error'  => 'No changes made or file not found',
+                    'status' => 409
+                ]);
             }
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json([
+                'errors' => $validator->errors()->all(),
+                'status' => 422
+            ]);
         }
     }
 
-    public function deleteFile($id)
+    public function deleteFile(Request $request)
     {
-        $file = DB::table('company_files')->find($id);
+        $validator = $request->validate([
+            'id' => 'required|integer|exists:company_files,id',
+        ]);
+
+        $file = DB::table('company_files')->find($request->id);
+
         if (!$file) {
-            return response()->json(['error' => 'File not found', 'status' => 404]);
+            return response()->json([
+                'error'  => 'File not found',
+                'status' => 404
+            ]);
         }
 
         File::delete(public_path('files/master/company/' . $file->filename));
-        $deleted = DB::table('company_files')->where('id', $id)->delete();
 
-        return $deleted
-            ? response()->json(['success' => 'File deleted successfully', 'status' => 201])
-            : response()->json(['error' => 'Failed to delete file', 'status' => 500]);
-    }
+        $deleted = DB::table('company_files')->where('id', $request->id)->delete();
 
-    public function downloadFile($id)
-    {
-        $file = DB::table('company_files')->find($id);
-        if (!$file) {
-            return response()->json(['error' => 'File record not found', 'status' => 404]);
-        }
-        $path = public_path('files/master/company/' . $file->filename);
-        if (!File::exists($path)) {
-            return response()->json(['error' => 'File not found on server', 'status' => 404]);
-        }
-        $ext = strtolower(pathinfo($file->filename, PATHINFO_EXTENSION));
-        $downloadName = $file->name . '.' . $ext;
-        return response()->download($path, $downloadName);
-    }
-
-    public function editCompanyFileName(Request $request)
-    {
-        $data = ['name' => $request->name];
-
-        $validator = $request->validate([
-            'id' => 'required|integer|exists:company_files,id',
-            'name' => 'required|string|max:255',
-        ]);
-
-        if ($validator) {
-            $updated = DB::table('company_files')->where('id', $request->id)->update($data);
-            if ($updated) {
-                return response()->json(['success' => 'File name updated successfully', 'status' => 201]);
-            } else {
-                return response()->json(['error' => 'No changes made or file not found', 'status' => 409]);
-            }
+        if ($deleted) {
+            return response()->json([
+                'success' => 'File deleted successfully',
+                'status'  => 201
+            ]);
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json([
+                'error'  => 'Failed to delete file',
+                'status' => 500
+            ]);
         }
     }
 
     public function bulkDeleteFiles(Request $request)
     {
         $validator = $request->validate([
-            'ids' => 'required|array',
+            'ids'   => 'required|array',
             'ids.*' => 'required|integer|exists:company_files,id',
         ]);
 
         if ($validator) {
             $files = DB::table('company_files')->whereIn('id', $request->ids)->get();
+
             foreach ($files as $file) {
                 File::delete(public_path('files/master/company/' . $file->filename));
             }
+
             $deleted = DB::table('company_files')->whereIn('id', $request->ids)->delete();
+
             if ($deleted > 0) {
-                return response()->json(['success' => 'Selected files deleted', 'status' => 201]);
+                return response()->json([
+                    'success' => 'Selected files deleted',
+                    'status'  => 201
+                ]);
             } else {
-                return response()->json(['error' => 'No files found or permission denied.', 'status' => 404]);
+                return response()->json([
+                    'error'  => 'No files found or permission denied.',
+                    'status' => 404
+                ]);
             }
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json([
+                'errors' => $validator->errors()->all(),
+                'status' => 422
+            ]);
         }
     }
+
+    public function downloadFile(Request $request)
+    {
+        $validator = $request->validate([
+            'id' => 'required|integer|exists:company_files,id',
+        ]);
+
+        $file = DB::table('company_files')->find($request->id);
+
+        if (!$file) {
+            return response()->json([
+                'error'  => 'File record not found',
+                'status' => 404
+            ]);
+        }
+
+        $path = public_path('files/master/company/' . $file->filename);
+
+        if (!File::exists($path)) {
+            return response()->json([
+                'error'  => 'File not found on server',
+                'status' => 404
+            ]);
+        }
+
+        $ext = strtolower(pathinfo($file->filename, PATHINFO_EXTENSION));
+        $downloadName = $file->name . '.' . $ext;
+
+        return response()->download($path, $downloadName);
+    }
+
+
+
 
 
     /**
@@ -1226,12 +1292,6 @@ public function previewInvoiceTemplatePdf($filename)
 
 
     
-    public function   showPointOfSalesView(){
- 
-        return view('master.point-of-sales');
-
-    }
-
 
     public function showCurrencyView(){
     

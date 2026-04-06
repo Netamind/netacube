@@ -242,7 +242,7 @@
                         <a href="#" class="btn btn-light text-primary fs-16" id="downloadModalBtn" title="Download Options">
                             <i class="ri-download-line"></i>
                         </a>
-                        <a href="{{ route('master.point.of.sales') }}" class="btn btn-light text-success fs-16" title="Create New Invoice">
+                        <a href="#" class="btn btn-light text-success fs-16" title="Create New Invoice">
                             <i class="ri-add-circle-line"></i>
                         </a>
                     </div>

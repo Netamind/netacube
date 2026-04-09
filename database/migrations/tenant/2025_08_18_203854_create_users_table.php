@@ -45,7 +45,7 @@ class CreateUsersTable extends Migration
             'phone' => '0000000000',
             'email' => 'admin@gmail.com',
             'password' => Hash::make('1234'),
-            'role' => 'SuperAdmin',
+            'role' => 'Admin',
         ]);    
     }
     /**

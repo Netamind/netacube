@@ -223,6 +223,27 @@
     .tab-pane table.dataTable {
         width: 100% !important;
     }
+
+    /* Text Align Center for all columns except first */
+    table.dataTable thead th:not(:first-child),
+    table.dataTable tbody td:not(:first-child) {
+        text-align: center !important;
+    }
+
+    /* Status badges */
+    .badge-status-pending   { background:#fef3c7; color:#92400e; border:1px solid #fcd34d; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
+    .badge-status-paid      { background:#d1fae5; color:#065f46; border:1px solid #6ee7b7; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
+    .badge-status-overdue   { background:#fee2e2; color:#991b1b; border:1px solid #fca5a5; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
+    .badge-status-cancelled { background:#f3f4f6; color:#6b7280; border:1px solid #d1d5db; border-radius:6px; padding:3px 10px; font-size:12px; font-weight:600; }
+
+    /* Plan pill */
+    .plan-pill { background:#ede9fe; color:#5b21b6; border-radius:20px; padding:2px 10px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+
+    /* Payment method pill */
+    .method-pill { background:#e0f2fe; color:#0369a1; border-radius:20px; padding:2px 10px; font-size:11.5px; font-weight:600; white-space:nowrap; }
+
+    /* Description truncate */
+    .desc-cell { max-width:160px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; display:inline-block; vertical-align:middle; }
 </style>
 
 <div class="content-page">
@@ -241,9 +262,6 @@
                         </a>
                         <a href="#" class="btn btn-light text-primary fs-16" id="downloadModalBtn" title="Download Options">
                             <i class="ri-download-line"></i>
-                        </a>
-                        <a href="#" class="btn btn-light text-success fs-16" title="Create New Invoice">
-                            <i class="ri-add-circle-line"></i>
                         </a>
                     </div>
                 </div>
@@ -271,9 +289,9 @@
 
                     $allInvoices = DB::table('tenant_invoices')->get();
 
-                    $running = collect();
-                    $paid = collect();
-                    $overdue = collect();
+                    $running   = collect();
+                    $paid      = collect();
+                    $overdue   = collect();
                     $cancelled = collect();
 
                     foreach ($allInvoices as $inv) {
@@ -284,15 +302,18 @@
                         $inv->plan_days = $plan ? $plan->plan_days : null;
 
                         $display = $tenant->full_name . ' (' . ($tenant->business_name ?? 'Personal') . ')';
-                        $inv->tenant_display = $display;
-                        $inv->tenant_id_filter = $tenant->id;
-                        $inv->tenant_email = $tenant->email ?? '';
-                        $inv->tenant_full_name = $tenant->full_name;
+                        $inv->tenant_display      = $display;
+                        $inv->tenant_id_filter    = $tenant->id;
+                        $inv->tenant_email        = $tenant->email ?? '';
+                        $inv->tenant_full_name    = $tenant->full_name;
                         $inv->tenant_business_name = $tenant->business_name ?? 'Personal';
+
+                        // Decode JSON fields
+                        $inv->plan_data           = is_string($inv->plan) ? json_decode($inv->plan, true) : (array)$inv->plan;
+                        $inv->payment_method_data = is_string($inv->payment_method) ? json_decode($inv->payment_method, true) : (array)($inv->payment_method ?? []);
 
                         $due = $inv->due_date ? Carbon::parse($inv->due_date) : null;
 
-                        // Exact enum values from migration
                         if ($inv->status === 'Paid') {
                             $paid->push($inv);
                         } elseif ($inv->status === 'Cancelled') {
@@ -300,7 +321,6 @@
                         } elseif ($inv->status === 'Overdue') {
                             $overdue->push($inv);
                         } elseif ($inv->status === 'Pending') {
-                            // Pending invoices that are overdue go to Overdue tab
                             if ($due && $due->lt($today)) {
                                 $overdue->push($inv);
                             } else {
@@ -308,24 +328,55 @@
                             }
                         }
                     }
+
+                    // Helper closures (closures avoid "Cannot redeclare" on Blade cache refresh)
+                    $statusBadge = function(string $status): string {
+                        $map = [
+                            'Pending'   => 'pending',
+                            'Paid'      => 'paid',
+                            'Overdue'   => 'overdue',
+                            'Cancelled' => 'cancelled',
+                        ];
+                        $cls = $map[$status] ?? 'pending';
+                        return "<span class='badge-status-{$cls}'>{$status}</span>";
+                    };
+
+                    $planPill = function(array $plan): string {
+                        $name   = htmlspecialchars($plan['plan_name']        ?? '—');
+                        $period = htmlspecialchars($plan['plan_period_name'] ?? '');
+                        return "<span class='plan-pill' title='{$name}'>{$name}" . ($period ? " · {$period}" : '') . "</span>";
+                    };
+
+                    $methodPill = function(array $pm): string {
+                        $type = htmlspecialchars($pm['method_type'] ?? '');
+                        if (!$type) return '<span class="text-muted small">—</span>';
+                        $acct  = htmlspecialchars($pm['account_number'] ?? '');
+                        $label = $type . ($acct ? ' ···' . substr($acct, -4) : '');
+                        return "<span class='method-pill'>{$label}</span>";
+                    };
                 @endphp
 
                 <div class="card-body">
                     <div class="tab-content">
 
-                        <!-- Running Tab -->
+                        {{-- ============================================================
+                             RUNNING TAB  (status = Pending, due_date >= today)
+                             ============================================================ --}}
                         <div class="tab-pane show active" id="running">
                             <div class="top-controls">
                                 <div>
-                                    <select class="client-filter" id="clientFilterRunning">
-                                        <option value="all">All Tenants (Select All)</option>
-                                        <option value="">All Tenants</option>
-                                        @foreach($tenantsWithInvoices as $t)
-                                            <option value="{{ $t->id }}">
-                                                {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <form id="tenantSelectionFormRunning" method="GET" action="#">
+                                        <input type="hidden" name="tab" value="running">
+                                        <select class="client-filter" id="clientFilterRunning" name="tenant_id">
+                                            <option value="all">All Tenants (Select All)</option>
+                                            <option value="">All Tenants</option>
+                                            @foreach($tenantsWithInvoices as $t)
+                                                <option value="{{ $t->id }}" {{ request('tenant_id') == $t->id && request('tab') === 'running' ? 'selected' : '' }}>
+                                                    {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </form>
                                 </div>
                                 <div class="selected-total" id="selectedTotalRunning">
                                     <i class="ri-wallet-line text-primary fs-18"></i>
@@ -335,10 +386,13 @@
                             <table id="runningTable" class="table table-sm table-striped row-border order-column w-100">
                                 <thead style="background-color:#e2e2e9">
                                     <tr>
-                                        <th style="width:300px;"><input type="checkbox" id="selectAllRunning">&nbsp;&nbsp;Tenant</th>
+                                        <th style="width:220px; text-align:left !important;"><input type="checkbox" id="selectAllRunning">&nbsp;&nbsp;Tenant</th>
                                         <th>Invoice #</th>
                                         <th>Amount</th>
                                         <th>Currency</th>
+                                        <th>Description</th>
+                                        <th>Plan</th>
+                                        <th>Payment Method</th>
                                         <th>Due Date</th>
                                         <th>Status</th>
                                         <th>Action</th>
@@ -346,16 +400,25 @@
                                 </thead>
                                 <tbody>
                                     @foreach($running as $inv)
-                                        <tr id="invoiceRow{{ $inv->id }}" data-invoice-id="{{ $inv->id }}" data-tenant-name="{{ $inv->tenant_full_name }}" data-business-name="{{ $inv->tenant_business_name }}" data-tenant-email="{{ $inv->tenant_email }}" data-amount="{{ $inv->amount }}" data-plan-days="{{ $inv->plan_days ?? 0 }}">
-                                            <td>
+                                        <tr id="invoiceRow{{ $inv->id }}"
+                                            data-invoice-id="{{ $inv->id }}"
+                                            data-tenant-name="{{ $inv->tenant_full_name }}"
+                                            data-business-name="{{ $inv->tenant_business_name }}"
+                                            data-tenant-email="{{ $inv->tenant_email }}"
+                                            data-amount="{{ $inv->amount }}"
+                                            data-plan-days="{{ $inv->plan_days ?? 0 }}">
+                                            <td style="text-align:left !important;">
                                                 <input type="checkbox" class="invoice-checkbox-running" data-amount="{{ $inv->amount }}">
                                                 &nbsp;&nbsp;{{ $inv->tenant_display }}
                                             </td>
                                             <td>{{ $inv->invoice_number }}</td>
-                                            <td>{{ $inv->amount }}</td>
+                                            <td>{{ number_format($inv->amount, 2) }}</td>
                                             <td>{{ $inv->currency }}</td>
+                                            <td><span class="desc-cell" title="{{ $inv->description }}">{{ $inv->description ?? '—' }}</span></td>
+                                            <td>{!! $planPill($inv->plan_data) !!}</td>
+                                            <td>{!! $methodPill($inv->payment_method_data) !!}</td>
                                             <td>{{ $inv->due_date ? Carbon::parse($inv->due_date)->format('d M Y') : 'N/A' }}</td>
-                                            <td>{{ $inv->status }}</td>
+                                            <td>{!! $statusBadge($inv->status) !!}</td>
                                             <td class="action-cell">
                                                 <i class="ri-more-2-fill action-icon action-toggle"></i>
                                                 <div class="action-dropdown">
@@ -372,19 +435,24 @@
                             </table>
                         </div>
 
-                        <!-- Paid Tab -->
+                        {{-- ============================================================
+                             PAID TAB  (status = Paid)
+                             ============================================================ --}}
                         <div class="tab-pane" id="paid">
                             <div class="top-controls">
                                 <div>
-                                    <select class="client-filter" id="clientFilterPaid">
-                                        <option value="all">All Tenants (Select All)</option>
-                                        <option value="">All Tenants</option>
-                                        @foreach($tenantsWithInvoices as $t)
-                                            <option value="{{ $t->id }}">
-                                                {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <form id="tenantSelectionFormPaid" method="GET" action="#">
+                                        <input type="hidden" name="tab" value="paid">
+                                        <select class="client-filter" id="clientFilterPaid" name="tenant_id">
+                                            <option value="all">All Tenants (Select All)</option>
+                                            <option value="">All Tenants</option>
+                                            @foreach($tenantsWithInvoices as $t)
+                                                <option value="{{ $t->id }}" {{ request('tenant_id') == $t->id && request('tab') === 'paid' ? 'selected' : '' }}>
+                                                    {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </form>
                                 </div>
                                 <div class="selected-total" id="selectedTotalPaid">
                                     <i class="ri-wallet-line text-primary fs-18"></i>
@@ -394,10 +462,13 @@
                             <table id="paidTable" class="table table-sm table-striped row-border order-column w-100">
                                 <thead style="background-color:#e2e2e9">
                                     <tr>
-                                        <th style="width:300px;"><input type="checkbox" id="selectAllPaid">&nbsp;&nbsp;Tenant</th>
+                                        <th style="width:220px; text-align:left !important;"><input type="checkbox" id="selectAllPaid">&nbsp;&nbsp;Tenant</th>
                                         <th>Invoice #</th>
                                         <th>Amount</th>
                                         <th>Currency</th>
+                                        <th>Description</th>
+                                        <th>Plan</th>
+                                        <th>Payment Method</th>
                                         <th>Due Date</th>
                                         <th>Status</th>
                                         <th>Action</th>
@@ -405,16 +476,25 @@
                                 </thead>
                                 <tbody>
                                     @foreach($paid as $inv)
-                                        <tr id="invoiceRow{{ $inv->id }}" data-invoice-id="{{ $inv->id }}" data-tenant-name="{{ $inv->tenant_full_name }}" data-business-name="{{ $inv->tenant_business_name }}" data-tenant-email="{{ $inv->tenant_email }}" data-amount="{{ $inv->amount }}" data-plan-days="{{ $inv->plan_days ?? 0 }}">
-                                            <td>
+                                        <tr id="invoiceRow{{ $inv->id }}"
+                                            data-invoice-id="{{ $inv->id }}"
+                                            data-tenant-name="{{ $inv->tenant_full_name }}"
+                                            data-business-name="{{ $inv->tenant_business_name }}"
+                                            data-tenant-email="{{ $inv->tenant_email }}"
+                                            data-amount="{{ $inv->amount }}"
+                                            data-plan-days="{{ $inv->plan_days ?? 0 }}">
+                                            <td style="text-align:left !important;">
                                                 <input type="checkbox" class="invoice-checkbox-paid" data-amount="{{ $inv->amount }}">
                                                 &nbsp;&nbsp;{{ $inv->tenant_display }}
                                             </td>
                                             <td>{{ $inv->invoice_number }}</td>
-                                            <td>{{ $inv->amount }}</td>
+                                            <td>{{ number_format($inv->amount, 2) }}</td>
                                             <td>{{ $inv->currency }}</td>
+                                            <td><span class="desc-cell" title="{{ $inv->description }}">{{ $inv->description ?? '—' }}</span></td>
+                                            <td>{!! $planPill($inv->plan_data) !!}</td>
+                                            <td>{!! $methodPill($inv->payment_method_data) !!}</td>
                                             <td>{{ $inv->due_date ? Carbon::parse($inv->due_date)->format('d M Y') : 'N/A' }}</td>
-                                            <td>{{ $inv->status }}</td>
+                                            <td>{!! $statusBadge($inv->status) !!}</td>
                                             <td class="action-cell">
                                                 <i class="ri-more-2-fill action-icon action-toggle"></i>
                                                 <div class="action-dropdown">
@@ -429,19 +509,24 @@
                             </table>
                         </div>
 
-                        <!-- Overdue Tab -->
+                        {{-- ============================================================
+                             OVERDUE TAB  (status = Overdue  OR  status = Pending with past due_date)
+                             ============================================================ --}}
                         <div class="tab-pane" id="overdue">
                             <div class="top-controls">
                                 <div>
-                                    <select class="client-filter" id="clientFilterOverdue">
-                                        <option value="all">All Tenants (Select All)</option>
-                                        <option value="">All Tenants</option>
-                                        @foreach($tenantsWithInvoices as $t)
-                                            <option value="{{ $t->id }}">
-                                                {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <form id="tenantSelectionFormOverdue" method="GET" action="#">
+                                        <input type="hidden" name="tab" value="overdue">
+                                        <select class="client-filter" id="clientFilterOverdue" name="tenant_id">
+                                            <option value="all">All Tenants (Select All)</option>
+                                            <option value="">All Tenants</option>
+                                            @foreach($tenantsWithInvoices as $t)
+                                                <option value="{{ $t->id }}" {{ request('tenant_id') == $t->id && request('tab') === 'overdue' ? 'selected' : '' }}>
+                                                    {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </form>
                                 </div>
                                 <div class="selected-total" id="selectedTotalOverdue">
                                     <i class="ri-wallet-line text-primary fs-18"></i>
@@ -451,10 +536,13 @@
                             <table id="overdueTable" class="table table-sm table-striped row-border order-column w-100">
                                 <thead style="background-color:#e2e2e9">
                                     <tr>
-                                        <th style="width:300px;"><input type="checkbox" id="selectAllOverdue">&nbsp;&nbsp;Tenant</th>
+                                        <th style="width:220px; text-align:left !important;"><input type="checkbox" id="selectAllOverdue">&nbsp;&nbsp;Tenant</th>
                                         <th>Invoice #</th>
                                         <th>Amount</th>
                                         <th>Currency</th>
+                                        <th>Description</th>
+                                        <th>Plan</th>
+                                        <th>Payment Method</th>
                                         <th>Due Date</th>
                                         <th>Status</th>
                                         <th>Action</th>
@@ -462,16 +550,25 @@
                                 </thead>
                                 <tbody>
                                     @foreach($overdue as $inv)
-                                        <tr id="invoiceRow{{ $inv->id }}" data-invoice-id="{{ $inv->id }}" data-tenant-name="{{ $inv->tenant_full_name }}" data-business-name="{{ $inv->tenant_business_name }}" data-tenant-email="{{ $inv->tenant_email }}" data-amount="{{ $inv->amount }}" data-plan-days="{{ $inv->plan_days ?? 0 }}">
-                                            <td>
+                                        <tr id="invoiceRow{{ $inv->id }}"
+                                            data-invoice-id="{{ $inv->id }}"
+                                            data-tenant-name="{{ $inv->tenant_full_name }}"
+                                            data-business-name="{{ $inv->tenant_business_name }}"
+                                            data-tenant-email="{{ $inv->tenant_email }}"
+                                            data-amount="{{ $inv->amount }}"
+                                            data-plan-days="{{ $inv->plan_days ?? 0 }}">
+                                            <td style="text-align:left !important;">
                                                 <input type="checkbox" class="invoice-checkbox-overdue" data-amount="{{ $inv->amount }}">
                                                 &nbsp;&nbsp;{{ $inv->tenant_display }}
                                             </td>
                                             <td>{{ $inv->invoice_number }}</td>
-                                            <td>{{ $inv->amount }}</td>
+                                            <td>{{ number_format($inv->amount, 2) }}</td>
                                             <td>{{ $inv->currency }}</td>
+                                            <td><span class="desc-cell" title="{{ $inv->description }}">{{ $inv->description ?? '—' }}</span></td>
+                                            <td>{!! $planPill($inv->plan_data) !!}</td>
+                                            <td>{!! $methodPill($inv->payment_method_data) !!}</td>
                                             <td>{{ $inv->due_date ? Carbon::parse($inv->due_date)->format('d M Y') : 'N/A' }}</td>
-                                            <td>{{ $inv->status }}</td>
+                                            <td>{!! $statusBadge($inv->status) !!}</td>
                                             <td class="action-cell">
                                                 <i class="ri-more-2-fill action-icon action-toggle"></i>
                                                 <div class="action-dropdown">
@@ -488,19 +585,24 @@
                             </table>
                         </div>
 
-                        <!-- Cancelled Tab -->
+                        {{-- ============================================================
+                             CANCELLED TAB  (status = Cancelled)
+                             ============================================================ --}}
                         <div class="tab-pane" id="cancelled">
                             <div class="top-controls">
                                 <div>
-                                    <select class="client-filter" id="clientFilterCancelled">
-                                        <option value="all">All Tenants (Select All)</option>
-                                        <option value="">All Tenants</option>
-                                        @foreach($tenantsWithInvoices as $t)
-                                            <option value="{{ $t->id }}">
-                                                {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
-                                            </option>
-                                        @endforeach
-                                    </select>
+                                    <form id="tenantSelectionFormCancelled" method="GET" action="#">
+                                        <input type="hidden" name="tab" value="cancelled">
+                                        <select class="client-filter" id="clientFilterCancelled" name="tenant_id">
+                                            <option value="all">All Tenants (Select All)</option>
+                                            <option value="">All Tenants</option>
+                                            @foreach($tenantsWithInvoices as $t)
+                                                <option value="{{ $t->id }}" {{ request('tenant_id') == $t->id && request('tab') === 'cancelled' ? 'selected' : '' }}>
+                                                    {{ htmlspecialchars($t->full_name) }} ({{ htmlspecialchars($t->business_name ?? 'Personal') }})
+                                                </option>
+                                            @endforeach
+                                        </select>
+                                    </form>
                                 </div>
                                 <div class="selected-total" id="selectedTotalCancelled">
                                     <i class="ri-wallet-line text-primary fs-18"></i>
@@ -510,10 +612,13 @@
                             <table id="cancelledTable" class="table table-sm table-striped row-border order-column w-100">
                                 <thead style="background-color:#e2e2e9">
                                     <tr>
-                                        <th style="width:300px;"><input type="checkbox" id="selectAllCancelled">&nbsp;&nbsp;Tenant</th>
+                                        <th style="width:220px; text-align:left !important;"><input type="checkbox" id="selectAllCancelled">&nbsp;&nbsp;Tenant</th>
                                         <th>Invoice #</th>
                                         <th>Amount</th>
                                         <th>Currency</th>
+                                        <th>Description</th>
+                                        <th>Plan</th>
+                                        <th>Payment Method</th>
                                         <th>Due Date</th>
                                         <th>Status</th>
                                         <th>Action</th>
@@ -521,16 +626,25 @@
                                 </thead>
                                 <tbody>
                                     @foreach($cancelled as $inv)
-                                        <tr id="invoiceRow{{ $inv->id }}" data-invoice-id="{{ $inv->id }}" data-tenant-name="{{ $inv->tenant_full_name }}" data-business-name="{{ $inv->tenant_business_name }}" data-tenant-email="{{ $inv->tenant_email }}" data-amount="{{ $inv->amount }}" data-plan-days="{{ $inv->plan_days ?? 0 }}">
-                                            <td>
+                                        <tr id="invoiceRow{{ $inv->id }}"
+                                            data-invoice-id="{{ $inv->id }}"
+                                            data-tenant-name="{{ $inv->tenant_full_name }}"
+                                            data-business-name="{{ $inv->tenant_business_name }}"
+                                            data-tenant-email="{{ $inv->tenant_email }}"
+                                            data-amount="{{ $inv->amount }}"
+                                            data-plan-days="{{ $inv->plan_days ?? 0 }}">
+                                            <td style="text-align:left !important;">
                                                 <input type="checkbox" class="invoice-checkbox-cancelled" data-amount="{{ $inv->amount }}">
                                                 &nbsp;&nbsp;{{ $inv->tenant_display }}
                                             </td>
                                             <td>{{ $inv->invoice_number }}</td>
-                                            <td>{{ $inv->amount }}</td>
+                                            <td>{{ number_format($inv->amount, 2) }}</td>
                                             <td>{{ $inv->currency }}</td>
+                                            <td><span class="desc-cell" title="{{ $inv->description }}">{{ $inv->description ?? '—' }}</span></td>
+                                            <td>{!! $planPill($inv->plan_data) !!}</td>
+                                            <td>{!! $methodPill($inv->payment_method_data) !!}</td>
                                             <td>{{ $inv->due_date ? Carbon::parse($inv->due_date)->format('d M Y') : 'N/A' }}</td>
-                                            <td>{{ $inv->status }}</td>
+                                            <td>{!! $statusBadge($inv->status) !!}</td>
                                             <td class="action-cell">
                                                 <i class="ri-more-2-fill action-icon action-toggle"></i>
                                                 <div class="action-dropdown">
@@ -680,6 +794,13 @@
             </div>
             <div class="modal-body">
                 Manage tenant invoices: view, download, mark as paid, send reminders, or cancel.
+                <hr>
+                <ul class="mb-0 small">
+                    <li><strong>Running</strong> — Pending invoices whose due date has not yet passed.</li>
+                    <li><strong>Paid</strong> — Invoices marked as paid.</li>
+                    <li><strong>Overdue</strong> — Pending invoices whose due date has passed, plus any explicitly set to Overdue.</li>
+                    <li><strong>Cancelled</strong> — Invoices that have been cancelled.</li>
+                </ul>
             </div>
         </div>
     </div>
@@ -706,70 +827,64 @@ $(document).ready(function () {
         }
     };
 
-    const runningTable = $('#runningTable').DataTable(commonConfig);
-    const paidTable = $('#paidTable').DataTable(commonConfig);
-    const overdueTable = $('#overdueTable').DataTable(commonConfig);
+    const runningTable   = $('#runningTable').DataTable(commonConfig);
+    const paidTable      = $('#paidTable').DataTable(commonConfig);
+    const overdueTable   = $('#overdueTable').DataTable(commonConfig);
     const cancelledTable = $('#cancelledTable').DataTable(commonConfig);
 
+    // ── Export buttons ────────────────────────────────────────────────────────
     new $.fn.dataTable.Buttons(runningTable, { buttons: [
-        { extend: 'excelHtml5', title: 'Running Invoices', text: 'Excel' },
-        { extend: 'csvHtml5', title: 'Running Invoices', text: 'CSV' },
-        { extend: 'pdfHtml5', title: 'Running Invoices', text: 'PDF' }
+        { extend: 'excelHtml5', title: 'Running Invoices',   text: 'Excel' },
+        { extend: 'csvHtml5',   title: 'Running Invoices',   text: 'CSV'   },
+        { extend: 'pdfHtml5',   title: 'Running Invoices',   text: 'PDF'   }
     ]}).container().appendTo('#runningButtons');
 
     new $.fn.dataTable.Buttons(paidTable, { buttons: [
-        { extend: 'excelHtml5', title: 'Paid Invoices', text: 'Excel' },
-        { extend: 'csvHtml5', title: 'Paid Invoices', text: 'CSV' },
-        { extend: 'pdfHtml5', title: 'Paid Invoices', text: 'PDF' }
+        { extend: 'excelHtml5', title: 'Paid Invoices',      text: 'Excel' },
+        { extend: 'csvHtml5',   title: 'Paid Invoices',      text: 'CSV'   },
+        { extend: 'pdfHtml5',   title: 'Paid Invoices',      text: 'PDF'   }
     ]}).container().appendTo('#paidButtons');
 
     new $.fn.dataTable.Buttons(overdueTable, { buttons: [
-        { extend: 'excelHtml5', title: 'Overdue Invoices', text: 'Excel' },
-        { extend: 'csvHtml5', title: 'Overdue Invoices', text: 'CSV' },
-        { extend: 'pdfHtml5', title: 'Overdue Invoices', text: 'PDF' }
+        { extend: 'excelHtml5', title: 'Overdue Invoices',   text: 'Excel' },
+        { extend: 'csvHtml5',   title: 'Overdue Invoices',   text: 'CSV'   },
+        { extend: 'pdfHtml5',   title: 'Overdue Invoices',   text: 'PDF'   }
     ]}).container().appendTo('#overdueButtons');
 
     new $.fn.dataTable.Buttons(cancelledTable, { buttons: [
         { extend: 'excelHtml5', title: 'Cancelled Invoices', text: 'Excel' },
-        { extend: 'csvHtml5', title: 'Cancelled Invoices', text: 'CSV' },
-        { extend: 'pdfHtml5', title: 'Cancelled Invoices', text: 'PDF' }
+        { extend: 'csvHtml5',   title: 'Cancelled Invoices', text: 'CSV'   },
+        { extend: 'pdfHtml5',   title: 'Cancelled Invoices', text: 'PDF'   }
     ]}).container().appendTo('#cancelledButtons');
 
+    // ── Download modal trigger ────────────────────────────────────────────────
     $('#downloadModalBtn').on('click', function(e) {
         e.preventDefault();
         $('#downloadModal').modal('show');
     });
 
+    // ── Tab switch: adjust columns + recalc total ─────────────────────────────
     $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
         const target = $(e.target).attr("href").substring(1);
-        const tableMap = {
-            running: runningTable,
-            paid: paidTable,
-            overdue: overdueTable,
-            cancelled: cancelledTable
-        };
-        if (tableMap[target]) {
-            tableMap[target].columns.adjust().draw(false);
-        }
+        const tableMap = { running: runningTable, paid: paidTable, overdue: overdueTable, cancelled: cancelledTable };
+        if (tableMap[target]) tableMap[target].columns.adjust().draw(false);
         updateSelectedTotal(target);
     });
 
+    // ── Action dropdown positioning ───────────────────────────────────────────
     $(document).on('click', '.action-toggle', function(e) {
         e.stopPropagation();
-        const $icon = $(this);
+        const $icon     = $(this);
         const $dropdown = $icon.siblings('.action-dropdown');
         $('.action-dropdown').not($dropdown).removeClass('show flip');
-        if ($dropdown.hasClass('show')) {
-            $dropdown.removeClass('show flip');
-            return;
-        }
+        if ($dropdown.hasClass('show')) { $dropdown.removeClass('show flip'); return; }
         $dropdown.addClass('show');
-        const iconRect = this.getBoundingClientRect();
+        const iconRect      = this.getBoundingClientRect();
         const dropdownWidth = $dropdown.outerWidth(true);
         const dropdownHeight = $dropdown.outerHeight(true) || 280;
-        const iconCenterX = iconRect.left + iconRect.width / 2;
-        const spaceBelow = window.innerHeight - iconRect.bottom;
-        const spaceAbove = iconRect.top;
+        const iconCenterX   = iconRect.left + iconRect.width / 2;
+        const spaceBelow    = window.innerHeight - iconRect.bottom;
+        const spaceAbove    = iconRect.top;
         let top, bottom;
         if (spaceBelow >= dropdownHeight + 20) {
             top = iconRect.bottom + 10 + window.scrollY;
@@ -781,23 +896,16 @@ $(document).ready(function () {
             top = iconRect.bottom + 10 + window.scrollY;
             $dropdown.removeClass('flip');
         }
-        $dropdown.css({
-            left: iconCenterX - dropdownWidth / 2,
-            top: top || 'auto',
-            bottom: bottom || 'auto'
-        });
+        $dropdown.css({ left: iconCenterX - dropdownWidth / 2, top: top || 'auto', bottom: bottom || 'auto' });
     });
 
     $(document).on('click', function(e) {
-        if (!$(e.target).closest('.action-cell').length) {
-            $('.action-dropdown').removeClass('show flip');
-        }
+        if (!$(e.target).closest('.action-cell').length) $('.action-dropdown').removeClass('show flip');
     });
 
-    $(window).on('scroll resize', function() {
-        $('.action-dropdown').removeClass('show flip');
-    });
+    $(window).on('scroll resize', function() { $('.action-dropdown').removeClass('show flip'); });
 
+    // ── Selected-total calculator ─────────────────────────────────────────────
     function updateSelectedTotal(tab) {
         let total = 0;
         $(`#${tab}Table tbody input[type="checkbox"]:checked`).each(function() {
@@ -815,117 +923,108 @@ $(document).ready(function () {
     });
 
     $('[id^="selectAll"]').on('change', function() {
-        const tab = $(this).attr('id').replace('selectAll', '').toLowerCase();
+        const tab     = $(this).attr('id').replace('selectAll', '').toLowerCase();
         const checked = this.checked;
         $(`#${tab}Table tbody input[type="checkbox"]`).prop('checked', checked);
         updateSelectedTotal(tab);
     });
 
-    $('a[data-bs-toggle="tab"]').on('shown.bs.tab', function (e) {
-        const target = $(e.target).attr("href").substring(1);
-        updateSelectedTotal(target);
-    });
-
+    // ── Tenant filter (Select2) — submit form on change ───────────────────────
     $('.client-filter').select2({ placeholder: "All Tenants", width: '100%' });
 
+    // Map each select to its form
+    const filterFormMap = {
+        clientFilterRunning:   'tenantSelectionFormRunning',
+        clientFilterPaid:      'tenantSelectionFormPaid',
+        clientFilterOverdue:   'tenantSelectionFormOverdue',
+        clientFilterCancelled: 'tenantSelectionFormCancelled',
+    };
 
+    $.each(filterFormMap, function(selectId, formId) {
+        $('#' + selectId).on('change', function() {
+            const val = $(this).val();
+            // "all" means select-all (no server filter, just check all boxes)
+            if (val === 'all') {
+                const tab = selectId.replace('clientFilter', '').toLowerCase();
+                $(`#${tab}Table tbody input[type="checkbox"]`).prop('checked', true);
+                updateSelectedTotal(tab);
+                return;
+            }
+            // Any other value: submit the form to reload with server-side filter
+            $('#' + formId).submit();
+        });
+    });
+
+    // ── View PDF ──────────────────────────────────────────────────────────────
     $(document).on('click', '.view-pdf', function() {
-    const id = $(this).closest('tr').data('invoice-id');
-    const url = `{{ route('master.tenant.invoices.pdf', '') }}/${id}`;
-
-    $.ajax({
-        url: url,
-        method: 'GET',
-        xhrFields: {
-            responseType: 'blob'
-        },
-        success: function(blob, status, xhr) {
-            const contentType = xhr.getResponseHeader('content-type');
-            if (contentType && contentType.includes('application/pdf')) {
-                const objectUrl = URL.createObjectURL(blob);
-                $('#pdfFrame').attr('src', objectUrl);
-                $('#pdfModal').modal('show');
-            } else {
-                // JSON error response
-                blob.text().then(text => {
-                    try {
-                        const response = JSON.parse(text);
-                        toastr.error(response.message || 'Could not load invoice preview.');
-                    } catch (e) {
-                        toastr.error('Unexpected error while loading preview.');
-                    }
-                });
-            }
-        },
-        error: function(xhr) {
-            let msg = 'Failed to load preview.';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                msg = xhr.responseJSON.message;
-            }
-            toastr.error(msg);
-        }
+        const id  = $(this).closest('tr').data('invoice-id');
+        const url = `{{ route('master.tenant.invoices.pdf', '') }}/${id}`;
+        $.ajax({
+            url, method: 'GET', xhrFields: { responseType: 'blob' },
+            success: function(blob, status, xhr) {
+                const contentType = xhr.getResponseHeader('content-type');
+                if (contentType && contentType.includes('application/pdf')) {
+                    $('#pdfFrame').attr('src', URL.createObjectURL(blob));
+                    $('#pdfModal').modal('show');
+                } else {
+                    blob.text().then(text => {
+                        try { toastr.error(JSON.parse(text).message || 'Could not load preview.'); }
+                        catch(e) { toastr.error('Unexpected error while loading preview.'); }
+                    });
+                }
+            },
+            error: (xhr) => toastr.error(xhr.responseJSON?.message || 'Failed to load preview.')
+        });
     });
-});
 
-$(document).on('click', '.download-pdf', function(e) {
-    e.preventDefault();
-    const id = $(this).closest('tr').data('invoice-id');
-    const url = `{{ route('master.tenant.invoices.download', '') }}/${id}`;
-
-    $.ajax({
-        url: url,
-        method: 'GET',
-        xhrFields: {
-            responseType: 'blob'
-        },
-        success: function(blob, status, xhr) {
-            const contentType = xhr.getResponseHeader('content-type');
-            if (contentType && contentType.includes('application/pdf')) {
-                const link = document.createElement('a');
-                const objectUrl = URL.createObjectURL(blob);
-                link.href = objectUrl;
-                link.download = `invoice_${id}.pdf`;
-                document.body.appendChild(link);
-                link.click();
-                document.body.removeChild(link);
-                URL.revokeObjectURL(objectUrl);
-            } else {
-                blob.text().then(text => {
-                    try {
-                        const response = JSON.parse(text);
-                        toastr.error(response.message || 'Could not download invoice.');
-                    } catch (e) {
-                        toastr.error('Unexpected error during download.');
-                    }
-                });
-            }
-        },
-        error: function(xhr) {
-            let msg = 'Failed to download invoice.';
-            if (xhr.responseJSON && xhr.responseJSON.message) {
-                msg = xhr.responseJSON.message;
-            }
-            toastr.error(msg);
-        }
+    // ── Download PDF ──────────────────────────────────────────────────────────
+    $(document).on('click', '.download-pdf', function(e) {
+        e.preventDefault();
+        const id  = $(this).closest('tr').data('invoice-id');
+        const url = `{{ route('master.tenant.invoices.download', '') }}/${id}`;
+        $.ajax({
+            url, method: 'GET', xhrFields: { responseType: 'blob' },
+            success: function(blob, status, xhr) {
+                const contentType = xhr.getResponseHeader('content-type');
+                if (contentType && contentType.includes('application/pdf')) {
+                    const link = document.createElement('a');
+                    link.href  = URL.createObjectURL(blob);
+                    link.download = `invoice_${id}.pdf`;
+                    document.body.appendChild(link);
+                    link.click();
+                    document.body.removeChild(link);
+                    URL.revokeObjectURL(link.href);
+                } else {
+                    blob.text().then(text => {
+                        try { toastr.error(JSON.parse(text).message || 'Could not download invoice.'); }
+                        catch(e) { toastr.error('Unexpected error during download.'); }
+                    });
+                }
+            },
+            error: (xhr) => toastr.error(xhr.responseJSON?.message || 'Failed to download invoice.')
+        });
     });
-});
 
+    // ── Mark as Paid ──────────────────────────────────────────────────────────
     $(document).on('click', '.mark-paid', function() {
-        const row = $(this).closest('tr');
-        const invoiceId = row.data('invoice-id');
+        const row        = $(this).closest('tr');
+        const invoiceId  = row.data('invoice-id');
         const currentTab = $('div.tab-pane.active').attr('id');
-        const currentTable = (currentTab === 'running' || currentTab === 'overdue') ? (currentTab === 'running' ? runningTable : overdueTable) : null;
+        const currentTable = currentTab === 'running' ? runningTable : (currentTab === 'overdue' ? overdueTable : null);
 
         $('#paidClientName').val(row.data('tenant-name'));
         $('#paidBusinessName').val(row.data('business-name'));
         $('#paidInvoiceNumber').val(row.find('td:eq(1)').text().trim());
+
         const planDays = row.data('plan-days');
         if (planDays > 0) {
             $('#paidDays').val(planDays);
-            $('#paidDaysMessage').text('Based on subscription plan: ' + planDays + ' days. You can adjust if needed.').removeClass('text-warning').addClass('text-info');
+            $('#paidDaysMessage').text('Based on subscription plan: ' + planDays + ' days. You can adjust if needed.')
+                .removeClass('text-warning').addClass('text-info');
         } else {
             $('#paidDays').val('');
-            $('#paidDaysMessage').text('No subscription plan found for this tenant. Please enter custom number of days.').removeClass('text-info').addClass('text-warning');
+            $('#paidDaysMessage').text('No subscription plan found. Please enter custom number of days.')
+                .removeClass('text-info').addClass('text-warning');
         }
         $('#markPaidForm').data('url', `{{ route('master.tenant.invoices.pay', '') }}/${invoiceId}`);
         $('#markPaidForm').data('row', row);
@@ -935,35 +1034,30 @@ $(document).on('click', '.download-pdf', function(e) {
 
     $('#markPaidForm').on('submit', function(e) {
         e.preventDefault();
-        const btn = $(this).find('button[type="submit"]');
+        const btn   = $(this).find('button[type="submit"]');
         btn.prop('disabled', true);
-        const row = $(this).data('row');
+        const row   = $(this).data('row');
         const table = $(this).data('table');
-
         $.ajax({
-            type: 'POST',
-            url: $(this).data('url'),
+            type: 'POST', url: $(this).data('url'),
             data: $(this).serialize() + '&_token={{ csrf_token() }}',
             success: (data) => {
                 if (data.success) {
                     toastr.success(data.success, 'Success');
-                    if (table) {
-                        table.row(row).remove().draw(false);
-                    }
+                    if (table) table.row(row).remove().draw(false);
                     $('#markPaidModal').modal('hide');
                 }
             },
             error: (xhr) => toastr.error(xhr.responseJSON?.error || 'Failed to mark as paid.')
-        }).always(() => {
-            btn.prop('disabled', false);
-        });
+        }).always(() => btn.prop('disabled', false));
     });
 
+    // ── Cancel Invoice ────────────────────────────────────────────────────────
     $(document).on('click', '.cancel-invoice', function() {
-        const row = $(this).closest('tr');
-        const invoiceId = row.data('invoice-id');
+        const row        = $(this).closest('tr');
+        const invoiceId  = row.data('invoice-id');
         const currentTab = $('div.tab-pane.active').attr('id');
-        const currentTable = (currentTab === 'running' || currentTab === 'overdue') ? (currentTab === 'running' ? runningTable : overdueTable) : null;
+        const currentTable = currentTab === 'running' ? runningTable : (currentTab === 'overdue' ? overdueTable : null);
 
         $('#cancelInvoiceNumber').text(row.find('td:eq(1)').text().trim());
         $('#cancelInvoiceForm').data('url', `{{ route('master.tenant.invoices.cancel', '') }}/${invoiceId}`);
@@ -974,30 +1068,25 @@ $(document).on('click', '.download-pdf', function(e) {
 
     $('#cancelInvoiceForm').on('submit', function(e) {
         e.preventDefault();
-        const btn = $(this).find('button[type="submit"]');
+        const btn   = $(this).find('button[type="submit"]');
         btn.prop('disabled', true);
-        const row = $(this).data('row');
+        const row   = $(this).data('row');
         const table = $(this).data('table');
-
         $.ajax({
-            type: 'POST',
-            url: $(this).data('url'),
+            type: 'POST', url: $(this).data('url'),
             data: { _token: '{{ csrf_token() }}' },
             success: (data) => {
                 if (data.success) {
                     toastr.success(data.success, 'Cancelled');
-                    if (table) {
-                        table.row(row).remove().draw(false);
-                    }
+                    if (table) table.row(row).remove().draw(false);
                     $('#cancelInvoiceModal').modal('hide');
                 }
             },
             error: (xhr) => toastr.error(xhr.responseJSON?.error || 'Failed to cancel.')
-        }).always(() => {
-            btn.prop('disabled', false);
-        });
+        }).always(() => btn.prop('disabled', false));
     });
 
+    // ── Send Email ────────────────────────────────────────────────────────────
     $(document).on('click', '.send-email', function() {
         const row = $(this).closest('tr');
         $('#emailClientName').val(row.data('tenant-name'));
@@ -1013,19 +1102,14 @@ $(document).on('click', '.download-pdf', function(e) {
         const btn = $(this).find('button[type="submit"]');
         btn.prop('disabled', true);
         $.ajax({
-            type: 'POST',
-            url: $(this).data('url'),
+            type: 'POST', url: $(this).data('url'),
             data: { _token: '{{ csrf_token() }}' },
-            success: (data) => {
-                toastr.success(data.success || 'Email sent successfully!', 'Success');
-                $('#sendEmailModal').modal('hide');
-            },
+            success: (data) => { toastr.success(data.success || 'Email sent!', 'Success'); $('#sendEmailModal').modal('hide'); },
             error: (xhr) => toastr.error(xhr.responseJSON?.error || 'Failed to send email.')
-        }).always(() => {
-            btn.prop('disabled', false);
-        });
+        }).always(() => btn.prop('disabled', false));
     });
 
+    // ── Info button ───────────────────────────────────────────────────────────
     $('#infoBtn').on('click', (e) => { e.preventDefault(); $('#infoModal').modal('show'); });
 });
 </script>

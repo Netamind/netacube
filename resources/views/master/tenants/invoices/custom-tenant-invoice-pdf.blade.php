@@ -7,7 +7,7 @@
     <style>
         *{margin:0;padding:0;box-sizing:border-box;}
         body{
-            font-family:DejaVu Sans,sans-serif;
+            font-family:DejaVu Sans,sans-serif;      
             font-size:9.5pt;color:#333;line-height:1.4;
             background:#fff;padding:18px;
         }
@@ -102,19 +102,15 @@
             <td>
                 <h3>Bill To</h3>
                 <p><strong>{{ $tenant->full_name ?? 'Tenant' }}</strong></p>
-
                 @if(!empty($tenant->business_name))
                     <p><strong>{{ $tenant->business_name }}</strong></p>
                 @endif
-
                 @if(!empty($tenant->postal_address))
                     <p>{{ $tenant->postal_address }}</p>
                 @endif
-
                 @if(!empty($tenant->email))
                     <p>{{ $tenant->email }}</p>
                 @endif
-
                 @if(!empty($tenant->phone_number))
                     <p>{{ $tenant->phone_number }}</p>
                 @endif
@@ -122,14 +118,9 @@
             <td>
                 <h3>Payment Details</h3>
                 <?php
-                    $payment_json = $invoice->payment_method ?? '';
-                    $payment = [];
-                    if (is_string($payment_json) && trim($payment_json) !== '') {
-                        $decoded = json_decode($payment_json, true);
-                        $payment = is_array($decoded) ? $decoded : [];
-                    } elseif (is_array($payment_json)) {
-                        $payment = $payment_json;
-                    }
+                    $payment = is_string($invoice->payment_method) 
+                        ? json_decode($invoice->payment_method, true) 
+                        : (is_array($invoice->payment_method) ? $invoice->payment_method : []);
                     $methodType = strtoupper($payment['method_type'] ?? '');
                 ?>
 
@@ -142,7 +133,6 @@
                         <p>Account Number: <strong>{{ $payment['account_number'] ?? '' }}</strong></p>
                         <p>Account Type: <strong>{{ $payment['account_type'] ?? '' }}</strong></p>
                         <p>Branch: <strong>{{ $payment['account_branch'] ?? '' }}</strong></p>
-                        <!--<p>Swift Code: <strong>{{ $payment['account_swift_code'] ?? '' }}</strong></p>-->
 
                     @elseif($methodType === 'MOBILE')
                         <p>Operator: <strong>{{ $payment['mobile_operator'] ?? '—' }}</strong></p>
@@ -174,20 +164,26 @@
                 <td style="text-align:center;">1</td>
                 <td style="padding-left:14px;">
                     @php
-                        $plan_json = $invoice->plan ?? '';
                         $planData = [];
-                        if (is_string($plan_json) && trim($plan_json) !== '') {
-                            $decoded = json_decode($plan_json, true);
+                        if (is_string($invoice->plan) && trim($invoice->plan) !== '') {
+                            $decoded = json_decode($invoice->plan, true);
                             $planData = is_array($decoded) ? $decoded : [];
-                        } elseif (is_array($plan_json)) {
-                            $planData = $plan_json;
                         }
 
-                        $planName   = $planData['plan_name']   ?? 'Subscription';
-                        $planPeriod = $planData['plan_period_name'] ?? $planData['plan_period'] ?? '';
+                        // Simple check: Is this a custom invoice?
+                        $isCustom = isset($planData['plan_name']) && $planData['plan_name'] === 'Custom';
                     @endphp
-                    <strong>Netacube Subscription</strong>
-                    <br><small>{{ $planName }} — {{ $planPeriod }}</small>
+
+                    @if($isCustom)
+                        <!-- Show the exact description entered by the user -->
+                        <strong>{{ $description ?? $invoice->description ?? 'Custom Invoice' }}</strong>
+                    @else
+                        <strong>Netacube Subscription</strong>
+                        <br><small>
+                            {{ $planData['plan_name'] ?? 'Subscription' }} — 
+                            {{ $planData['plan_period_name'] ?? $planData['plan_period'] ?? '' }}
+                        </small>
+                    @endif
                 </td>
                 <td style="text-align:center;padding-right:14px;">
                     {{ number_format($invoice->amount ?? 0, 2) }} {{ $invoice->currency }}
@@ -206,15 +202,15 @@
 
     <div class="notes">
         <h4>Payment Terms</h4>
-        <p>Payment is due within <strong>14 days</strong> from the invoice date.</p>
-        <p>Please make all payments to the payment details provided above.</p>
-        <p>Thank you for choosing Netamind Technology — we value your business!</p>
+        <p>Payment is due on or before <strong>{{ \Carbon\Carbon::parse($invoice->due_date)->format('d M Y') }}</strong>.</p>
+        <p>Please make all payments using the details provided above.</p>
+        <p>Thank you for your business!</p>
     </div>
 
     <div class="footer">
         <p><strong>Netamind Technology</strong> | PO Box 20257, Mzuzu, Malawi</p>
-        <p>Phone: +265992522601 | Email: info@netamind.tech | Web: www.netamind.com</p>
-        <p>This is a computer-generated invoice • Generated on  {{ \Carbon\Carbon::parse($invoice->created_at)->format('d M Y') }}</p>
+        <p>Phone: +265992522601 | Email: info@netamind.com | Web: www.netamind.com</p>
+        <p>This is a computer-generated invoice • Generated on {{ \Carbon\Carbon::parse($invoice->created_at)->format('d M Y') }}</p>
     </div>
 </div>
 </body>

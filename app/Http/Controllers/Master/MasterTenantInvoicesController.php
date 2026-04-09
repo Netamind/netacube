@@ -17,263 +17,244 @@ class MasterTenantInvoicesController extends Controller
     }
 
 
-public function masterSendInvoiceFromTenantDetails(Request $request)
-{
-    $request->validate([
-        'tenant_id'      => 'required|exists:tenants,id',
-        'payment_method' => 'required|exists:payment_methods,id',
-    ]);
-
-    $tenant = DB::table('tenants')->where('id', $request->tenant_id)->first();
-    if (!$tenant) {
-        return response()->json(['error' => 'Tenant not found.'], 404);
-    }
-
-    // Prevent multiple pending invoices
-    $existingPending = DB::table('tenant_invoices')
-        ->where('tenant_id', $tenant->id)
-        ->where('status', 'Pending')
-        ->first();
-
-    if ($existingPending) {
-        return response()->json([
-            'error' => 'This tenant already has a pending invoice (#' . $existingPending->invoice_number . '). '
-                     . 'You can resend it from the Invoices section.'
-        ], 422);
-    }
-
-    // Must have a subscription plan
-    if (!$tenant->subscription_plan) {
-        return response()->json(['error' => 'Tenant has no subscription plan assigned.'], 422);
-    }
-
-    $plan = DB::table('subscription_plans')
-        ->where('id', $tenant->subscription_plan)
-        ->first();
-
-    if (!$plan) {
-        return response()->json(['error' => 'Subscription plan not found.'], 404);
-    }
-
-    $amount   = (float) $plan->plan_amount;
-    $currency = strtoupper($plan->plan_currency);
-
-    $planJson = [
-        'plan_name'          => $plan->plan_name,
-        'plan_period'        => $plan->plan_period,
-        'plan_period_name'   => $plan->plan_period_name,
-        'plan_amount'        => $plan->plan_amount,
-        'plan_currency'      => $plan->plan_currency,
-        'plan_currency_name' => $plan->plan_currency_name ?? $plan->plan_currency,
-        'plan_description'   => $plan->plan_description ?? 'Netacube Subscription',
-    ];
-
-    $paymentMethod = DB::table('payment_methods')->find($request->payment_method);
-    if (!$paymentMethod) {
-        return response()->json(['error' => 'Payment method not found.'], 400);
-    }
-
-    $paymentMethodJson = ['method_type' => $paymentMethod->method_type];
-
-    if ($paymentMethod->method_type === 'Bank') {
-        $paymentMethodJson += [
-            'bank_name'          => $paymentMethod->bank_name,
-            'account_name'       => $paymentMethod->account_name,
-            'account_number'     => $paymentMethod->account_number,
-            'account_type'       => $paymentMethod->account_type,
-            'account_branch'     => $paymentMethod->account_branch,
-            //'account_swift_code' => $paymentMethod->account_swift_code,
-        ];
-    } elseif ($paymentMethod->method_type === 'Mobile') {
-        $paymentMethodJson += [
-            'mobile_operator'    => $paymentMethod->mobile_operator,
-            'mobile_number'      => $paymentMethod->mobile_number,
-            'mobile_number_name' => $paymentMethod->mobile_number_name,
-        ];
-    } elseif ($paymentMethod->method_type === 'Paypal') {
-        $paymentMethodJson += [
-            'paypal_name'     => $paymentMethod->paypal_name,
-            'paypal_email'    => $paymentMethod->paypal_email,
-            'paypal_me_link'  => $paymentMethod->paypal_me_link,
-        ];
-    }
-
-    try {
-        $year = now()->format('Y');
-
-        $count = DB::table('tenant_invoices')->whereYear('created_at', $year)->count() + 1;
-
-        $invoiceNumber = "INV-{$year}-" . str_pad($count, 6, '0', STR_PAD_LEFT);
-
-        $dueDate = $tenant->next_payment_date 
-            ? Carbon::parse($tenant->next_payment_date) 
-            : now()->addDays(14);
-
-        $invoiceData = [
-            'tenant_id'      => $tenant->id,
-            'invoice_number' => $invoiceNumber,
-            'amount'         => $amount,
-            'currency'       => $currency,
-            'description'    => null,
-            'plan'           => json_encode($planJson),
-            'payment_method' => json_encode($paymentMethodJson),
-            'status'         => 'Pending',
-            'due_date'       => $dueDate,
-            'created_at'     => now(),
-            'updated_at'     => now(),
-        ];
-
-        DB::table('tenant_invoices')->insert($invoiceData);
-
-        $invoice = (object) array_merge($invoiceData, [
-            'id' => DB::getPdo()->lastInsertId(),
+    public function masterSendInvoiceFromTenantDetails(Request $request)
+    {
+        $request->validate([
+            'tenant_id'      => 'required|exists:tenants,id',
+            'payment_method' => 'required|exists:payment_methods,id',
         ]);
 
-        $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', [
-            'tenant'  => $tenant,
-            'invoice' => $invoice,
-        ])->setPaper('a4')->setOptions(['defaultFont' => 'DejaVu Sans']);
-
-        $emailData = [
-            'tenant'         => $tenant,
-            'invoice'        => $invoice,
-            'full_name'      => $tenant->full_name,
-            'business_name'  => $tenant->business_name ?? 'Personal',
-            'email'          => $tenant->email,
-            'phone_number'   => $tenant->phone_number ?? '',
-            'amount'         => $amount,
-            'currency'       => $currency,
-            'invoice_number' => $invoiceNumber,
-            'current_date'   => now()->format('d M Y'),
-            'due_date'       => $dueDate->format('d M Y'),
-            'plan'           => $planJson,
-            'payment_method' => $paymentMethodJson,
-        ];
-
-        try {
-            Mail::send('master.tenants.invoices.tenant-invoice-email', $emailData, function ($message) use ($tenant, $pdf, $invoiceNumber) {
-                $message->to($tenant->email)
-                        ->subject('Invoice ' . $invoiceNumber . ' - ' . config('app.name'))
-                        ->attachData($pdf->output(), "Invoice-{$invoiceNumber}.pdf", [
-                            'mime' => 'application/pdf',
-                        ]);
-            });
-        } catch (\Exception $mailException) {
-            \Log::error('Invoice email failed: ' . $mailException->getMessage());
-            return response()->json([
-                'success' => 'Invoice created but email failed to send.',
-                'invoice_number' => $invoiceNumber
-            ], 201);
+        $tenant = DB::table('tenants')->where('id', $request->tenant_id)->first();
+        if (!$tenant) {
+            return response()->json(['error' => 'Tenant not found.'], 404);
         }
 
-        return response()->json([
-            'success'        => 'Invoice created and sent successfully!',
-            'invoice_number' => $invoiceNumber
-        ], 201);
+        // Prevent multiple pending invoices
+        $existingPending = DB::table('tenant_invoices')
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'Pending')
+            ->first();
 
-    } catch (\Exception $e) {
-        \Log::error('Invoice creation/send failed: ' . $e->getMessage());
-        return response()->json(['error' => 'Failed to create and send invoice.'], 500);
-    }
-}
+        if ($existingPending) {
+            return response()->json([
+                'error' => 'This tenant already has a pending invoice (#' . $existingPending->invoice_number . '). '
+                         . 'You can resend it from the Invoices section.'
+            ], 422);
+        }
 
-public function tenantInvoicePdfPreview($id)
-{
-    $invoice = DB::table('tenant_invoices')->find($id);
+        // Must have a subscription plan
+        if (!$tenant->subscription_plan) {
+            return response()->json(['error' => 'Tenant has no subscription plan assigned.'], 422);
+        }
 
-    if (!$invoice) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Invoice not found.'
-        ], 404);
-    }
+        $plan = DB::table('subscription_plans')
+            ->where('id', $tenant->subscription_plan)
+            ->first();
 
-    $tenant = DB::table('tenants')->find($invoice->tenant_id);
+        if (!$plan) {
+            return response()->json(['error' => 'Subscription plan not found.'], 404);
+        }
 
-    if (!$tenant) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Tenant not found.'
-        ], 404);
-    }
+        $amount   = (float) $plan->plan_amount;
+        $currency = strtoupper($plan->plan_currency);
 
-    $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', compact('invoice', 'tenant'))
-              ->setPaper('a4')
-              ->setOptions(['defaultFont' => 'DejaVu Sans']);
+        $planJson = [
+            'plan_name'          => $plan->plan_name,
+            'plan_period'        => $plan->plan_period,
+            'plan_period_name'   => $plan->plan_period_name,
+            'plan_amount'        => $plan->plan_amount,
+            'plan_currency'      => $plan->plan_currency,
+            'plan_currency_name' => $plan->plan_currency_name ?? $plan->plan_currency,
+            'plan_description'   => $plan->plan_description ?? 'Netacube Subscription',
+        ];
 
-    return $pdf->stream('invoice_' . $invoice->invoice_number . '.pdf');
-}
+        $paymentMethod = DB::table('payment_methods')->find($request->payment_method);
+        if (!$paymentMethod) {
+            return response()->json(['error' => 'Payment method not found.'], 400);
+        }
 
-public function tenantInvoiceDownloadPdf($id)
-{
-    $invoice = DB::table('tenant_invoices')->find($id);
+        $paymentMethodJson = ['method_type' => $paymentMethod->method_type];
 
-    if (!$invoice) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Invoice not found.'
-        ], 404);
-    }
+        if ($paymentMethod->method_type === 'Bank') {
+            $paymentMethodJson += [
+                'bank_name'      => $paymentMethod->bank_name,
+                'account_name'   => $paymentMethod->account_name,
+                'account_number' => $paymentMethod->account_number,
+                'account_type'   => $paymentMethod->account_type,
+                'account_branch' => $paymentMethod->account_branch,
+            ];
+        } elseif ($paymentMethod->method_type === 'Mobile') {
+            $paymentMethodJson += [
+                'mobile_operator'    => $paymentMethod->mobile_operator,
+                'mobile_number'      => $paymentMethod->mobile_number,
+                'mobile_number_name' => $paymentMethod->mobile_number_name,
+            ];
+        } elseif ($paymentMethod->method_type === 'Paypal') {
+            $paymentMethodJson += [
+                'paypal_name'    => $paymentMethod->paypal_name,
+                'paypal_email'   => $paymentMethod->paypal_email,
+                'paypal_me_link' => $paymentMethod->paypal_me_link,
+            ];
+        }
 
-    $tenant = DB::table('tenants')->find($invoice->tenant_id);
+        try {
+            $year  = now()->format('Y');
+            $count = DB::table('tenant_invoices')->whereYear('created_at', $year)->count() + 1;
+            $invoiceNumber = "INV-{$year}-" . str_pad($count, 6, '0', STR_PAD_LEFT);
 
-    if (!$tenant) {
-        return response()->json([
-            'success' => false,
-            'message' => 'Tenant not found.'
-        ], 404);
-    }
+            // FIX: Only use next_payment_date if it is strictly in the future.
+            // If the stored date is today or already past, it would immediately
+            // land in the Overdue bucket. Always fall back to now + 14 days.
+            $parsedNextPayment = $tenant->next_payment_date
+                ? Carbon::parse($tenant->next_payment_date)
+                : null;
 
-    $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', compact('invoice', 'tenant'))
-              ->setPaper('a4')
-              ->setOptions(['defaultFont' => 'DejaVu Sans']);
+            $dueDate = ($parsedNextPayment && $parsedNextPayment->isFuture())
+                ? $parsedNextPayment
+                : now()->addDays(14);
 
-    return $pdf->download('invoice_' . $invoice->invoice_number . '.pdf');
-}
+            $invoiceData = [
+                'tenant_id'      => $tenant->id,
+                'invoice_number' => $invoiceNumber,
+                'amount'         => $amount,
+                'currency'       => $currency,
+                'description'    => null,
+                'plan'           => json_encode($planJson),
+                'payment_method' => json_encode($paymentMethodJson),
+                'status'         => 'Pending',
+                'due_date'       => $dueDate->toDateString(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ];
 
-public function tenantInvoiceMarkAsPaid($id, Request $request)
-{
-    $request->validate(['days' => 'required|integer|min:1']);
+            DB::table('tenant_invoices')->insert($invoiceData);
 
-    $invoice = DB::table('tenant_invoices')->find($id);
-
-    if (!$invoice) {
-        return response()->json(['error' => 'Invoice not found.'], 404);
-    }
-
-    // Parse the invoice's original due date
-    $currentDueDate = Carbon::parse($invoice->due_date);
-
-    // Calculate the new next payment date
-    $newNextPaymentDate = $currentDueDate->copy()->addDays($request->days);
-
-    // Use transaction to ensure all updates succeed or none do
-    DB::transaction(function () use ($invoice, $currentDueDate, $newNextPaymentDate) {
-        // 1. Mark the invoice as Paid (do NOT change its due_date)
-        DB::table('tenant_invoices')
-            ->where('id', $invoice->id)
-            ->update([
-                'status'     => 'Paid',
-                'updated_at' => now(),
+            $invoice = (object) array_merge($invoiceData, [
+                'id' => DB::getPdo()->lastInsertId(),
             ]);
 
-        // 2. Update the tenant record
-        DB::table('tenants')
-            ->where('id', $invoice->tenant_id)
-            ->update([
-                'put_on_hold'       => 'No',                         
-                'next_payment_date' => $newNextPaymentDate,
-                'last_payment_date' => $currentDueDate,               
-                'updated_at'        => now(),
-            ]);
-    });
+            $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', [
+                'tenant'  => $tenant,
+                'invoice' => $invoice,
+            ])->setPaper('a4')->setOptions(['defaultFont' => 'DejaVu Sans']);
 
-    return response()->json([
-        'success'      => 'Invoice marked as paid successfully.',
-        'new_due_date' => $newNextPaymentDate->format('d M Y'),
-        'message'      => "Tenant status set to Approved. Next payment due on {$newNextPaymentDate->format('d M Y')}",
-    ]);
-}
+            $emailData = [
+                'tenant'         => $tenant,
+                'invoice'        => $invoice,
+                'full_name'      => $tenant->full_name,
+                'business_name'  => $tenant->business_name ?? 'Personal',
+                'email'          => $tenant->email,
+                'phone_number'   => $tenant->phone_number ?? '',
+                'amount'         => $amount,
+                'currency'       => $currency,
+                'invoice_number' => $invoiceNumber,
+                'current_date'   => now()->format('d M Y'),
+                'due_date'       => $dueDate->format('d M Y'),
+                'plan'           => $planJson,
+                'payment_method' => $paymentMethodJson,
+            ];
+
+            try {
+                Mail::send('master.tenants.invoices.tenant-invoice-email', $emailData, function ($message) use ($tenant, $pdf, $invoiceNumber) {
+                    $message->to($tenant->email)
+                            ->subject('Invoice ' . $invoiceNumber . ' - ' . config('app.name'))
+                            ->attachData($pdf->output(), "Invoice-{$invoiceNumber}.pdf", [
+                                'mime' => 'application/pdf',
+                            ]);
+                });
+            } catch (\Exception $mailException) {
+                \Log::error('Invoice email failed: ' . $mailException->getMessage());
+                return response()->json([
+                    'success'        => 'Invoice created but email failed to send.',
+                    'invoice_number' => $invoiceNumber
+                ], 201);
+            }
+
+            return response()->json([
+                'success'        => 'Invoice created and sent successfully!',
+                'invoice_number' => $invoiceNumber
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Log::error('Invoice creation/send failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to create and send invoice.'], 500);
+        }
+    }
+
+
+    /**
+     * Preview Invoice PDF - Loads correct view (Custom or System)
+     */
+    public function tenantInvoicePdfPreview($id)
+    {
+        $invoice = DB::table('tenant_invoices')->find($id);
+        if (!$invoice) {
+            return response()->json(['success' => false, 'message' => 'Invoice not found.'], 404);
+        }
+
+        $tenant = DB::table('tenants')->find($invoice->tenant_id);
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
+        }
+
+        $planData = is_string($invoice->plan) ? json_decode($invoice->plan, true) : [];
+        $planName = $planData['plan_name'] ?? '';
+
+        \Log::info('Invoice PDF Preview - ID: ' . $id, [
+            'plan_json' => $invoice->plan,
+            'plan_name' => $planName,
+            'isCustom'  => ($planName === 'Custom') ? 'YES' : 'NO'
+        ]);
+
+        if ($planName === 'Custom') {
+            $pdf = Pdf::loadView('master.tenants.invoices.custom-tenant-invoice-pdf', compact('invoice', 'tenant'))
+                      ->setPaper('a4')
+                      ->setOptions(['defaultFont' => 'DejaVu Sans']);
+        } else {
+            $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', compact('invoice', 'tenant'))
+                      ->setPaper('a4')
+                      ->setOptions(['defaultFont' => 'DejaVu Sans']);
+        }
+
+        return $pdf->stream('invoice_' . $invoice->invoice_number . '.pdf');
+    }
+
+    /**
+     * Download Invoice PDF - Loads correct view (Custom or System)
+     */
+    public function tenantInvoiceDownloadPdf($id)
+    {
+        $invoice = DB::table('tenant_invoices')->find($id);
+        if (!$invoice) {
+            return response()->json(['success' => false, 'message' => 'Invoice not found.'], 404);
+        }
+
+        $tenant = DB::table('tenants')->find($invoice->tenant_id);
+        if (!$tenant) {
+            return response()->json(['success' => false, 'message' => 'Tenant not found.'], 404);
+        }
+
+        $planData = is_string($invoice->plan) ? json_decode($invoice->plan, true) : [];
+        $planName = $planData['plan_name'] ?? '';
+
+        \Log::info('Invoice PDF Download - ID: ' . $id, [
+            'plan_json' => $invoice->plan,
+            'plan_name' => $planName,
+            'isCustom'  => ($planName === 'Custom') ? 'YES' : 'NO'
+        ]);
+
+        if ($planName === 'Custom') {
+            $pdf = Pdf::loadView('master.tenants.invoices.custom-tenant-invoice-pdf', compact('invoice', 'tenant'))
+                      ->setPaper('a4')
+                      ->setOptions(['defaultFont' => 'DejaVu Sans']);
+        } else {
+            $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', compact('invoice', 'tenant'))
+                      ->setPaper('a4')
+                      ->setOptions(['defaultFont' => 'DejaVu Sans']);
+        }
+
+        return $pdf->download('invoice_' . $invoice->invoice_number . '.pdf');
+    }
 
 
     public function tenantInvoiceCancel($id)
@@ -339,6 +320,153 @@ public function tenantInvoiceMarkAsPaid($id, Request $request)
         } catch (\Exception $e) {
             \Log::error('Failed to resend invoice email: ' . $e->getMessage() . "\n" . $e->getTraceAsString());
             return response()->json(['error' => 'Failed to send email. Please try again.'], 500);
+        }
+    }
+
+
+    /**
+     * Send CUSTOM Invoice Only (Separate method)
+     */
+    public function masterSendCustomInvoice(Request $request)
+    {
+        $request->validate([
+            'tenant_id'      => 'required|exists:tenants,id',
+            'payment_method' => 'required|exists:payment_methods,id',
+            'description'    => 'required|string|max:1000',
+            'amount'         => 'required|numeric|min:0.01',
+            'currency'       => 'required|exists:currency,code',
+            'due_date'       => 'nullable|date|after_or_equal:today',
+        ]);
+
+        $tenant = DB::table('tenants')->where('id', $request->tenant_id)->first();
+        if (!$tenant) {
+            return response()->json(['error' => 'Tenant not found.'], 404);
+        }
+
+        // Prevent multiple pending invoices
+        $existingPending = DB::table('tenant_invoices')
+            ->where('tenant_id', $tenant->id)
+            ->where('status', 'Pending')
+            ->first();
+
+        if ($existingPending) {
+            return response()->json([
+                'error' => 'This tenant already has a pending invoice (#' . $existingPending->invoice_number . '). '
+                         . 'Please resolve it first.'
+            ], 422);
+        }
+
+        $paymentMethod = DB::table('payment_methods')->find($request->payment_method);
+        if (!$paymentMethod) {
+            return response()->json(['error' => 'Payment method not found.'], 400);
+        }
+
+        // Build Payment Method JSON
+        $paymentMethodJson = ['method_type' => $paymentMethod->method_type];
+
+        if ($paymentMethod->method_type === 'Bank') {
+            $paymentMethodJson += [
+                'bank_name'      => $paymentMethod->bank_name,
+                'account_name'   => $paymentMethod->account_name,
+                'account_number' => $paymentMethod->account_number,
+                'account_type'   => $paymentMethod->account_type,
+                'account_branch' => $paymentMethod->account_branch,
+            ];
+        } elseif ($paymentMethod->method_type === 'Mobile') {
+            $paymentMethodJson += [
+                'mobile_operator'    => $paymentMethod->mobile_operator,
+                'mobile_number'      => $paymentMethod->mobile_number,
+                'mobile_number_name' => $paymentMethod->mobile_number_name,
+            ];
+        } elseif ($paymentMethod->method_type === 'Paypal') {
+            $paymentMethodJson += [
+                'paypal_name'    => $paymentMethod->paypal_name,
+                'paypal_email'   => $paymentMethod->paypal_email,
+                'paypal_me_link' => $paymentMethod->paypal_me_link,
+            ];
+        }
+
+        $amount      = (float) $request->amount;
+        $currency    = strtoupper($request->currency);
+        $description = trim($request->description);
+
+        // FIX: If the user supplied a due_date from the form, use it (validation already
+        // ensures it is after_or_equal:today). If they left it blank, default to +14 days.
+        // Either way we never store a date that is already in the past.
+        $dueDate = $request->filled('due_date')
+            ? Carbon::parse($request->due_date)
+            : now()->addDays(14);
+
+        try {
+            $year  = now()->format('Y');
+            $count = DB::table('tenant_invoices')->whereYear('created_at', $year)->count() + 1;
+            $invoiceNumber = "INV-{$year}-" . str_pad($count, 6, '0', STR_PAD_LEFT);
+
+            $customPlanJson = json_encode([
+                'plan_name'        => 'Custom',
+                'plan_period'      => 'One-time',
+                'plan_period_name' => 'Custom',
+                'plan_amount'      => (string) $amount,
+                'plan_currency'    => $currency,
+                'plan_description' => $description,
+            ]);
+
+            $invoiceData = [
+                'tenant_id'      => $tenant->id,
+                'invoice_number' => $invoiceNumber,
+                'amount'         => $amount,
+                'currency'       => $currency,
+                'description'    => $description,
+                'plan'           => $customPlanJson,
+                'payment_method' => json_encode($paymentMethodJson),
+                'status'         => 'Pending',
+                'due_date'       => $dueDate->toDateString(),
+                'created_at'     => now(),
+                'updated_at'     => now(),
+            ];
+
+            DB::table('tenant_invoices')->insert($invoiceData);
+
+            $invoice = (object) array_merge($invoiceData, [
+                'id' => DB::getPdo()->lastInsertId(),
+            ]);
+
+            $data = [
+                'tenant'         => $tenant,
+                'invoice'        => $invoice,
+                'full_name'      => $tenant->full_name,
+                'business_name'  => $tenant->business_name ?? 'Personal',
+                'email'          => $tenant->email,
+                'phone_number'   => $tenant->phone_number ?? '',
+                'amount'         => $amount,
+                'currency'       => $currency,
+                'invoice_number' => $invoiceNumber,
+                'current_date'   => now()->format('d M Y'),
+                'due_date'       => $dueDate->format('d M Y'),
+                'description'    => $description,
+                'payment_method' => $paymentMethodJson,
+            ];
+
+            $pdf = Pdf::loadView('master.tenants.invoices.custom-tenant-invoice-pdf', $data)
+                      ->setPaper('a4')
+                      ->setOptions(['defaultFont' => 'DejaVu Sans']);
+
+            Mail::send('master.tenants.invoices.custom-tenant-invoice-email', $data, function ($message) use ($tenant, $pdf, $invoiceNumber) {
+                $message->to($tenant->email)
+                        ->subject('Invoice ' . $invoiceNumber . ' - Netamind Technology')
+                        ->attachData($pdf->output(), "Invoice-{$invoiceNumber}.pdf", [
+                            'mime' => 'application/pdf',
+                        ]);
+            });
+
+            return response()->json([
+                'success'        => 'Custom invoice created and sent successfully!',
+                'invoice_number' => $invoiceNumber
+            ], 201);
+
+        } catch (\Exception $e) {
+            \Log::error('Custom Invoice failed: ' . $e->getMessage());
+            return response()->json(['error' => 'Failed to create and send custom invoice.'], 500);
         }
     }
 }

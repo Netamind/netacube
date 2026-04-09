@@ -1,4 +1,5 @@
 @extends('master.dashboard')
+
 @section('content')
 <style>
     .dt-buttons .btn {
@@ -58,6 +59,13 @@
     .card-header .btn-light:hover {
         background-color: #f8f9fa;
         transition: background-color 0.2s ease-in-out;
+    }
+
+    .custom-invoice-section {
+        background: #f8f9fa;
+        border: 1px solid #dee2e6;
+        border-radius: 8px;
+        padding: 1.25rem;
     }
 </style>
 
@@ -257,9 +265,7 @@
                             <i class="ri-checkbox-circle-line"></i> Approve tenant
                         </a>
                     @else 
-
-                    <input type="text" class="form-control btn-sm mb-2 me-2" value="Tenant alreay approved" disabled>
-                     
+                        <input type="text" class="form-control btn-sm mb-2 me-2" value="Tenant already approved" disabled>
                     @endif
 
                     <a href="#" class="btn btn-warning form-control btn-sm mb-2 me-2">
@@ -278,13 +284,11 @@
                         <i class="ri-exchange-dollar-line"></i> Change subscription plan
                     </a>
 
-
-                    <a href="#" class="btn btn-success form-control btn-sm mb-2 me-2 send-invoice-trigger">
+                    <a href="#" class="btn btn-success form-control btn-sm mb-2 me-2 send-invoice-trigger" data-type="system">
                         <i class="ri-file-pdf-2-line"></i> Send system invoice
                     </a>
 
-                    
-                    <a href="#" class="btn btn-info form-control btn-sm mb-2 me-2 send-invoice-trigger">
+                    <a href="#" class="btn btn-info form-control btn-sm mb-2 me-2 send-invoice-trigger" data-type="custom">
                         <i class="ri-file-pdf-2-line"></i> Send custom invoice
                     </a>
                 
@@ -297,7 +301,7 @@
     </div>
 </section>
 
-<!-- Single Approve Modal (used for both local & remote) -->
+<!-- Approve Modal -->
 <section>
     <div class="modal fade" id="approveModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
         <div class="modal-dialog">
@@ -342,18 +346,21 @@
     </div>
 </section>
 
-<!-- Send Invoice Modal -->
+<!-- Send Invoice Modal (Supports both System and Custom) -->
 <section>
     <div class="modal fade" id="sendInvoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-        <div class="modal-dialog">
+        <div class="modal-dialog modal-lg">
             <div class="modal-content">
                 <div class="modal-header">
-                    <h5 class="modal-title"><i class="ri-file-pdf-2-line"></i> Send Invoice</h5>
+                    <h5 class="modal-title" id="modalTitle">
+                        <i class="ri-file-pdf-2-line"></i> Send Invoice
+                    </h5>
                     <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
                 </div>
                 <form id="sendInvoiceForm">
                     @csrf
                     <input type="hidden" name="tenant_id" value="{{ request('id') }}">
+                    <input type="hidden" name="is_custom" id="is_custom" value="0">
 
                     <div class="modal-body">
                         <div class="row mb-3">
@@ -364,10 +371,9 @@
                             </div>
                         </div>
 
-                        <div class="border p-3 rounded bg-light mb-3">
-                            <div class="fw-bold text-success mb-2">
-                            Subscription Plan
-                            </div>
+                        <!-- System Invoice Section -->
+                        <div id="systemSection" class="border p-3 rounded bg-light mb-3">
+                            <div class="fw-bold text-success mb-2">Subscription Plan</div>
                             <div class="row">
                                 <div class="col-md-12 mb-2">
                                     <label class="form-label">Plan</label>
@@ -382,12 +388,47 @@
                             </div>
                         </div>
 
-                        <!-- Payment Method Field -->
+                        <!-- Custom Invoice Fields -->
+                        <div id="customSection" class="custom-invoice-section mb-3" style="display: none;">
+                            <div class="row">
+                                <div class="col-12 mb-3">
+                                    <label class="form-label">Description <span class="text-danger">*</span></label>
+                                    <textarea class="form-control" name="description" id="description" rows="4"
+                                              placeholder="Enter invoice description (e.g., One-time setup fee, Website maintenance, etc.)" required></textarea>
+                                </div>
+
+                                <div class="col-md-6">
+                                    <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                    <div class="input-group">
+                                        <span class="input-group-text" id="currencySymbol">USD</span>
+                                        <input type="number" step="0.01" min="0.01" class="form-control" 
+                                               name="amount" id="amount" placeholder="0.00" required>
+                                    </div>
+                                </div>
+                                <div class="col-md-6">
+                                    <label class="form-label">Currency <span class="text-danger">*</span></label>
+                                    <select class="form-select" name="currency" id="currency" required>
+                                        <option value="">-- Select Currency --</option>
+                                        @foreach(DB::table('currency')->orderBy('name')->get() as $curr)
+                                            <option value="{{ $curr->code }}">{{ $curr->name }} ({{ $curr->code }})</option>
+                                        @endforeach
+                                    </select>
+                                </div>
+
+                                <div class="col-12 mt-3">
+                                    <label class="form-label">Due Date</label>
+                                    <input type="date" class="form-control" name="due_date" 
+                                           value="{{ now()->addDays(14)->format('Y-m-d') }}">
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Payment Method (common) -->
                         <div class="mb-3">
                             <label class="form-label">Payment Method <span class="text-danger">*</span></label>
                             <select class="form-select" name="payment_method" required>
                                 <option value="">-- Select Payment Method --</option>
-                                @foreach(\DB::table('payment_methods')->orderBy('method_type')->get() as $method)
+                                @foreach(DB::table('payment_methods')->orderBy('method_type')->get() as $method)
                                     <option value="{{ $method->id }}">
                                         {{ $method->method_type }}
                                         @if($method->method_type === 'Bank')
@@ -415,10 +456,9 @@
     </div>
 </section>
 
-@endsection 
+@endsection
 
 @section('scripts')
-
 <script>
 $(document).ready(function() {
     toastr.options = {
@@ -434,31 +474,46 @@ $(document).ready(function() {
         $('#actionsModal').modal('show');
     });
 
-    // ── Single Approve Button Handler ───────────────────────────────
+    // Approve Tenant
     $('#approveBtn').click(e => {
         e.preventDefault();
         $('#approveModal').modal('show');
         $('#actionsModal').modal('hide');
     });
 
-    // Open Send Invoice Modal
+    // Open Send Invoice Modal - Distinguish System vs Custom
     $('.send-invoice-trigger').on('click', function(e) {
         e.preventDefault();
         $('#actionsModal').modal('hide');
+
+        const type = $(this).data('type'); // 'system' or 'custom'
+
+        $('#is_custom').val(type === 'custom' ? 1 : 0);
+        $('#modalTitle').html(type === 'custom' 
+            ? '<i class="ri-file-pdf-2-line"></i> Send Custom Invoice' 
+            : '<i class="ri-file-pdf-2-line"></i> Send System Invoice'
+        );
+
+        if (type === 'custom') {
+            $('#systemSection').hide();
+            $('#customSection').show();
+        } else {
+            $('#systemSection').show();
+            $('#customSection').hide();
+        }
+
         setTimeout(() => $('#sendInvoiceModal').modal('show'), 350);
     });
 
     // ==================== UPDATE TENANT DETAILS ====================
     $('#updateDataBtn').click(function(e) {
         var self = $(this);
-        $(this).prop("disabled", true);
+        self.prop("disabled", true);
         var form = document.getElementById("tenantForm");
         e.preventDefault();
 
         $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
         });
 
         $.ajax({
@@ -466,47 +521,30 @@ $(document).ready(function() {
             url: "{{ route('master.tenant.details.update') }}",
             data: $(form).serialize(),
             timeout: 60000,
-            beforeSend: function() {
-                $('#progressBar').show();
-            },
-            complete: function() {
-                $('#progressBar').hide();
-                self.prop("disabled", false);
-            },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete: function() { $('#progressBar').hide(); self.prop("disabled", false); },
             success: function(data) {
                 if (data.status === 201) {
                     toastr.success(data.success, 'Success', { timeOut: 5000, progressBar: true });
                 } else if (data.status === 409) {
                     toastr.info(data.error, 'No Changes', { timeOut: 5000, progressBar: true });
-                } else {
-                    toastr.info('Unexpected response.', 'Info', { timeOut: 5000, progressBar: true });
                 }
             },
-            error: function(xhr, status, error) {
-                // ... (same error handling as before) ...
+            error: function(xhr, status) {
                 if (status === 'timeout') {
-                    toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 0) {
-                    toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', { timeOut: 5000, progressBar: true });
+                    toastr.error('Request timed out.', 'Timeout');
                 } else if (xhr.status === 422) {
-                    var errorPassage = '';
-                    var errors = xhr.responseJSON.errors;
-                    $.each(errors, function(key, value) {
-                        errorPassage += value + '\n';
-                    });
-                    toastr.error(errorPassage, 'Validation Errors', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 404) {
-                    toastr.error(xhr.responseJSON?.error || 'Tenant not found.', 'Not Found', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 500) {
-                    toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error', { timeOut: 5000, progressBar: true });
+                    let msg = '';
+                    $.each(xhr.responseJSON.errors || {}, (k, v) => msg += v + '<br>');
+                    toastr.error(msg, 'Validation Error');
                 } else {
-                    toastr.error('Unspecified error occurred. Try again later.', 'Error', { timeOut: 5000, progressBar: true });
+                    toastr.error('An error occurred.', 'Error');
                 }
             }
         });
     });
 
-    // ==================== APPROVE TENANT (single handler) ====================
+    // ==================== APPROVE TENANT ====================
     $('#submitApproveBtn').click(function(e) {
         var self = $(this);
         self.prop("disabled", true);
@@ -514,101 +552,61 @@ $(document).ready(function() {
         e.preventDefault();
 
         $.ajaxSetup({
-            headers: {
-                'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
-            }
+            headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') }
         });
 
         $.ajax({
             type: "POST",
-            url: "{{ route('master.tenant.approve') }}",   // ← your new unified route
+            url: "{{ route('master.tenant.approve') }}",
             data: $(form).serialize(),
             timeout: 60000,
-            beforeSend: function() {
-                $('#progressBar').show();
-            },
-            complete: function() {
-                $('#progressBar').hide();
-                self.prop("disabled", false);
-            },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete: function() { $('#progressBar').hide(); self.prop("disabled", false); },
             success: function(data) {
                 if (data.status === 201) {
-                    toastr.success(data.success, 'Success', {
-                        timeOut: 5000,
-                        progressBar: true
-                    });
+                    toastr.success(data.success, 'Success');
                     $('#approveModal').modal('hide');
                     setTimeout(() => location.reload(), 1500);
                 } else if (data.status === 203) {
-                    toastr.info(data.errors[0], 'Already Approved', {
-                        timeOut: 5000,
-                        progressBar: true
-                    });
+                    toastr.info(data.errors[0], 'Already Approved');
                     $('#approveModal').modal('hide');
-                } else {
-                    toastr.info('Unexpected response.', 'Info', {
-                        timeOut: 5000,
-                        progressBar: true
-                    });
                 }
             },
-            error: function(xhr, status, error) {
-                // Reuse the same detailed error handling as before
-                if (status === 'timeout') {
-                    toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 0) {
-                    toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 422) {
-                    var errorPassage = '';
-                    var errors = xhr.responseJSON.errors;
-                    $.each(errors, function(key, value) {
-                        errorPassage += value + '\n';
-                    });
-                    toastr.error(errorPassage, 'Validation Errors', { timeOut: 5000, progressBar: true });
-                } else if (xhr.status === 404) {
-                    toastr.error(xhr.responseJSON?.errors?.[0] || 'Tenant not found.', 'Not Found', { timeOut: 5000, progressBar: true });
-                } 
-
-                else if (xhr.status === 500) {
-                    let errorMsg = 'Server error occurred. Please try again.';
-                    
-                    // Try to get the real message from Laravel's JSON response
-                    if (xhr.responseJSON && xhr.responseJSON.errors && xhr.responseJSON.errors.length > 0) {
-                        errorMsg = xhr.responseJSON.errors[0];   // ← this will show "Unresolved application environment..."
-                    } else if (xhr.responseJSON && xhr.responseJSON.message) {
-                        errorMsg = xhr.responseJSON.message;
-                    }
-                    
-                    toastr.error(errorMsg, 'Error', {
-                        timeOut: 8000,
-                        progressBar: true,
-                        closeButton: true
-                    });
-                   }
-                
-                else {
-                    toastr.error('Unspecified error occurred. Try again later.', 'Error', { timeOut: 5000, progressBar: true });
+            error: function(xhr) {
+                if (xhr.status === 422) {
+                    let msg = '';
+                    $.each(xhr.responseJSON.errors || {}, (k, v) => msg += v + '<br>');
+                    toastr.error(msg, 'Validation Error');
+                } else {
+                    toastr.error('An error occurred.', 'Error');
                 }
             }
         });
     });
 
-    // Send Invoice handler remains unchanged
+    // ==================== SEND INVOICE (System or Custom) ====================
     $('#sendInvoiceBtn').on('click', function(e) {
         e.preventDefault();
         var $btn = $(this);
         $btn.prop('disabled', true);
 
+        var isCustom = $('#is_custom').val() == "1";
+        var url = isCustom 
+            ? '{{ route("master.tenant.send.custom.invoice") }}' 
+            : '{{ route("master.tenant.send.invoice") }}';
+
         var formData = $('#sendInvoiceForm').serialize();
-        formData += '&useSubscriptionPlan=1';
 
         $.ajax({
             type: 'POST',
-            url: '{{ route("master.tenant.send.invoice") }}',
+            url: url,
             data: formData,
             timeout: 60000,
             beforeSend: function() { $('#progressBar').show(); },
-            complete: function() { $('#progressBar').hide(); $btn.prop('disabled', false); },
+            complete: function() { 
+                $('#progressBar').hide(); 
+                $btn.prop('disabled', false); 
+            },
             success: function(data) {
                 var msg = data.success || 'Invoice created and sent successfully!';
                 if (data.invoice_number) {
@@ -621,14 +619,7 @@ $(document).ready(function() {
             error: function(xhr) {
                 var errorMessage = 'An unexpected error occurred.';
                 if (xhr.status === 422 && xhr.responseJSON) {
-                    if (xhr.responseJSON.error) {
-                        errorMessage = xhr.responseJSON.error;
-                    } else if (xhr.responseJSON.errors) {
-                        errorMessage = '';
-                        $.each(xhr.responseJSON.errors, function(field, msgs) {
-                            errorMessage += (Array.isArray(msgs) ? msgs.join('<br>') : msgs) + '<br>';
-                        });
-                    }
+                    errorMessage = xhr.responseJSON.error || Object.values(xhr.responseJSON.errors || {}).flat().join('<br>');
                 } else if (xhr.status === 404) {
                     errorMessage = xhr.responseJSON?.error || 'Tenant not found.';
                 } else if (xhr.status === 500) {
@@ -641,5 +632,4 @@ $(document).ready(function() {
 
 });
 </script>
-
 @endsection

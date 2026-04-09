@@ -280,6 +280,7 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
 
     Route::get('/tenant/invoices-view', [MasterTenantInvoicesController::class, 'showTenantInvoicesView'])->name('master.tenant.invoices');
     Route::post('/tenant/send-invoice', [MasterTenantInvoicesController::class, 'masterSendInvoiceFromTenantDetails'])->name('master.tenant.send.invoice');
+    Route::post('/master/tenant/send-custom-invoice', [MasterTenantInvoicesController::class, 'masterSendCustomInvoice'])->name('master.tenant.send.custom.invoice');
     Route::get('/tenant/invoices/pdf/{id}', [MasterTenantInvoicesController::class, 'tenantInvoicePdfPreview'])->name('master.tenant.invoices.pdf');
     Route::get('/tenant/invoices/download/{id}', [MasterTenantInvoicesController::class, 'tenantInvoiceDownloadPdf'])->name('master.tenant.invoices.download');
     Route::post('/tenant/invoices/pay/{id}', [MasterTenantInvoicesController::class, 'tenantInvoiceMarkAsPaid'])->name('master.tenant.invoices.pay');

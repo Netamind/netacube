@@ -216,6 +216,8 @@ class MasterTenantController extends Controller
             return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
     }
+
+
     public function updateTenantDetails(Request $request)
     {
         $data = [
@@ -247,6 +249,128 @@ class MasterTenantController extends Controller
         }
     }
 
+
+public function deleteTenant(Request $request, CpanelService $cpanel = null)
+{
+    $validator = $request->validate([
+        'id' => 'required|integer|exists:tenants,id',
+    ]);
+
+    if ($validator) {
+        $tenantModel = DB::table('tenants')->where('id', $request->id)->first();
+
+        if (!$tenantModel) {
+            return response()->json(['error' => 'Tenant not found.', 'status' => 404]);
+        }
+
+        $databaseName = $tenantModel->data;
+
+        try {
+            $isLocal = app()->environment('local');
+
+            if ($databaseName) {
+                if ($isLocal) {
+                    DB::connection('mysql')->statement("DROP DATABASE IF EXISTS `$databaseName`");
+                } else {
+                    if ($cpanel && $cpanel->databaseExists($databaseName)) {
+                        $cpanel->deleteDatabase($databaseName);
+                        $cpanel->deleteUser($databaseName);
+                    }
+                }
+            }
+
+            DB::beginTransaction();
+            $deleted = DB::table('tenants')->where('id', $request->id)->delete();
+            DB::commit();
+
+            if ($deleted) {
+                return response()->json(['success' => 'Tenant deleted successfully.', 'status' => 201]);
+            } else {
+                return response()->json(['error' => 'An error occurred, tenant could not be deleted.', 'status' => 409]);
+            }
+
+        } catch (\Exception $e) {
+            DB::rollBack();
+            return response()->json(['errors' => [$e->getMessage()], 'status' => 500]);
+        }
+
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+
+
+public function toggleTenantHold(Request $request)
+{
+    $validator = $request->validate([
+        'id' => 'required|integer|exists:tenants,id',
+    ]);
+
+    if ($validator) {
+        $tenant = DB::table('tenants')->where('id', $request->id)->first();
+        $newStatus = $tenant->put_on_hold === 'Yes' ? 'No' : 'Yes';
+
+        $updated = DB::table('tenants')->where('id', $request->id)->update([
+            'put_on_hold' => $newStatus,
+        ]);
+
+        if ($updated) {
+            $message = $newStatus === 'Yes' ? 'Tenant has been put on hold.' : 'Tenant hold has been removed.';
+            return response()->json(['success' => $message, 'status' => 201, 'put_on_hold' => $newStatus]);
+        } else {
+            return response()->json(['error' => 'No change detected.', 'status' => 409]);
+        }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+public function updatePaymentDates(Request $request)
+{
+    $validator = $request->validate([
+        'id'                => 'required|integer|exists:tenants,id',
+        'last_payment_date' => 'required|date',
+        'next_payment_date' => 'required|date|after:last_payment_date',
+    ]);
+
+    if ($validator) {
+        $updated = DB::table('tenants')->where('id', $request->id)->update([
+            'last_payment_date' => $request->last_payment_date,
+            'next_payment_date' => $request->next_payment_date,
+        ]);
+
+        if ($updated) {
+            return response()->json(['success' => 'Payment dates updated successfully.', 'status' => 201]);
+        } else {
+            return response()->json(['error' => 'No change detected.', 'status' => 409]);
+        }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+
+public function updateSubscriptionPlan(Request $request)
+{
+    $validator = $request->validate([
+        'id'                  => 'required|integer|exists:tenants,id',
+        'subscription_plan'   => 'required|integer|exists:subscription_plans,id',
+    ]);
+
+    if ($validator) {
+        $updated = DB::table('tenants')->where('id', $request->id)->update([
+            'subscription_plan' => $request->subscription_plan,
+        ]);
+
+        if ($updated) {
+            return response()->json(['success' => 'Subscription plan updated successfully.', 'status' => 201]);
+        } else {
+            return response()->json(['error' => 'No change detected.', 'status' => 409]);
+        }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
 
 
 }

@@ -275,6 +275,11 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     Route::get('/tenant-details', [MasterTenantController::class, 'showTenantDetailsView'])->name('master.tenant.details');
     Route::post('/update-tenant-details', [MasterTenantController::class, 'updateTenantDetails'])->name('master.tenant.details.update');
     Route::post('/master/tenant/approve', [MasterTenantController::class, 'approveTenant'])->name('master.tenant.approve');
+    Route::post('/master/tenant/delete', [MasterTenantController::class, 'deleteTenant'])->name('master.tenant.delete');
+
+    Route::post('/master/tenant/hold', [MasterTenantController::class, 'toggleTenantHold'])->name('master.tenant.hold');
+    Route::post('/master/tenant/payment-dates', [MasterTenantController::class, 'updatePaymentDates'])->name('master.tenant.payment.dates');
+    Route::post('/master/tenant/subscription-plan', [MasterTenantController::class, 'updateSubscriptionPlan'])->name('master.tenant.subscription.plan');
     //Route::post('/approve-tenant-local', [MasterTenantController::class, 'approveTenantLocal'])->name('master.tenant.approve.local');
     //Route::post('/approve-tenant-remote', [MasterTenantController::class, 'approveTenantRemote'])->name('master.tenant.approve.remote');
 

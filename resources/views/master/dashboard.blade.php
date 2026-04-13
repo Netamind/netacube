@@ -282,10 +282,10 @@
                         </a>
                         <div class="collapse" id="sidebarInvoices">
                             <ul class="side-nav-second-level"> 
-                                <li><a href="{{ route('master.invoice.templates') }}">Invoices</a></li>
-                               <!-- <li><a href="{{ route('master.invoice.templates') }}">Deliverynotes</a></li>
-                                <li><a href="{{ route('master.invoice.templates') }}">Quotations</a></li>
-                                <li><a href="{{ route('master.invoice.templates') }}">Receipts</a></li>-->
+                                <li><a href="{{ route('master.invoice.template.view') }}">Invoices</a></li>
+                               <!-- <li><a href="{{ route('master.invoice.template.view') }}">Deliverynotes</a></li>
+                                <li><a href="{{ route('master.invoice.template.view') }}">Quotations</a></li>
+                                <li><a href="{{ route('master.invoice.template.view') }}">Receipts</a></li>-->
                             </ul>
                         </div>
                     </li>

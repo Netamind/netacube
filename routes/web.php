@@ -12,6 +12,7 @@ use App\Http\Controllers\Tenant\TenantCommonController;
 use App\Http\Controllers\Tenant\TenantSuperAdminController;
 use App\Http\Controllers\Tenant\TenantRetailAdminController;
 use App\Http\Controllers\Tenant\TenantWholesaleAdminController;
+use App\Http\Controllers\Master\InvoiceTemplateController;
 
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
@@ -246,8 +247,9 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
      Route::get('/employee-details', [MasterController::class, 'showEmployeesDetailsView'])->name('master.employee.details');            
      Route::post('/employee/insert', [MasterController::class, 'insertEmployee'])->name('master.employee.insert');               
      Route::post('/employee/update', [MasterController::class, 'updateEmployee'])->name('master.employee.update');               
-     Route::post('/employee/delete', [MasterController::class, 'deleteEmployee'])->name('master.employee.delete');               
-     Route::get('/employee/{id}/pdf', [MasterController::class, 'pdf'])->name('master.employee.pdf');
+     Route::post('/employee/delete', [MasterController::class, 'deleteEmployee'])->name('master.employee.delete');     
+     Route::get('/master/employee/{id}/pdf', [MasterController::class, 'downloadEployeeProfile']) ->name('master.employee.pdf');          
+
 
 
 
@@ -260,13 +262,21 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
 
 
 
-    Route::get('/invoice-templates-view', [MasterController::class, 'showInvoiceTemplatesView'])->name('master.invoice.templates');
+    /*Route::get('/invoice-templates-view', [MasterController::class, 'showInvoiceTemplatesView'])->name('master.invoice.templates');
     Route::post('/insert-invoice-template', [MasterController::class, 'insertInvoiceTemplate'])->name('master.invoice.template.insert');
     Route::post('/update-invoice-template', [MasterController::class, 'updateInvoiceTemplate'])->name('master.invoice.template.update');
     Route::post('/delete-invoice-template', [MasterController::class, 'deleteInvoiceTemplate'])->name('master.invoice.template.delete');
     Route::get('/preview-invoice-template/{filename}', [MasterController::class, 'previewInvoiceTemplate'])->name('preview.invoice');
-    Route::get('/preview/invoice-template/pdf/{filename}', [MasterController::class, 'previewInvoiceTemplatePdf'])->name('preview.invoice.pdf');
-
+    Route::get('/preview/invoice-template/pdf/{filename}', [MasterController::class, 'previewInvoiceTemplatePdf'])->name('preview.invoice.pdf');*/
+// ── Invoice Templates ─────────────────────────────────────────
+    Route::get('/invoice-templates',               [InvoiceTemplateController::class, 'showInvoiceTemplatesView'])    ->name('master.invoice.template.view');
+    Route::post('/invoice-templates/insert',       [InvoiceTemplateController::class, 'insertInvoiceTemplate'])       ->name('master.invoice.template.insert');
+    Route::post('/invoice-templates/update',       [InvoiceTemplateController::class, 'updateInvoiceTemplate'])       ->name('master.invoice.template.update');
+    Route::post('/invoice-templates/delete',       [InvoiceTemplateController::class, 'deleteInvoiceTemplate'])       ->name('master.invoice.template.delete');
+    Route::post('/invoice-templates/get-content',  [InvoiceTemplateController::class, 'getInvoiceTemplateContent'])  ->name('master.invoice.template.get_content');
+    Route::post('/invoice-templates/save-content', [InvoiceTemplateController::class, 'saveInvoiceTemplateContent']) ->name('master.invoice.template.save_content');
+    Route::get('/invoice-templates/preview',       [InvoiceTemplateController::class, 'previewInvoiceTemplate'])     ->name('master.invoice.template.preview');
+    Route::get('/invoice-templates/pdf/{id}',      [InvoiceTemplateController::class, 'generateInvoiceTemplatePdf']) ->name('master.invoice.template.generate_pdf');
 
 
 

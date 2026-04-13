@@ -1382,4 +1382,23 @@ public function deleteCurrency(Request $request)
 }
 
 
+
+
+public function downloadEployeeProfile($id)
+{
+    $user = DB::table('users')->where('id', $id)->first();
+
+    if (!$user) {
+        abort(404, 'Employee not found');
+    }
+
+    $pdf = Pdf::loadView('master.employee-pdf', compact('user'))
+              ->setPaper('a4', 'portrait');
+
+    $filename = 'employee_' . str_replace(' ', '_', strtolower($user->name)) . '_' . $id . '.pdf';
+
+    return $pdf->download($filename);
+}
+
+
 }

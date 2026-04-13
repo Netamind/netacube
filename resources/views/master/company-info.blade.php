@@ -113,6 +113,7 @@
     #previewBody {
         min-height: 75vh;
         background: #f8f9fa;
+        position: relative;
     }
 </style>
 
@@ -321,8 +322,22 @@
                                                         <div class="d-flex align-items-center gap-2">
                                                             @if($isImage)
                                                                 <i class="ri-image-line file-icon text-success"></i>
+                                                            @elseif(in_array($ext, ['xls','xlsx']))
+                                                                <i class="ri-file-excel-line file-icon text-success"></i>
+                                                            @elseif(in_array($ext, ['doc','docx']))
+                                                                <i class="ri-file-word-line file-icon text-primary"></i>
+                                                            @elseif($ext === 'pdf')
+                                                                <i class="ri-file-pdf-line file-icon text-danger"></i>
+                                                            @elseif(in_array($ext, ['ppt','pptx']))
+                                                                <i class="ri-file-ppt-line file-icon text-warning"></i>
+                                                            @elseif(in_array($ext, ['mp4','webm','ogg','ogv']))
+                                                                <i class="ri-video-line file-icon text-info"></i>
+                                                            @elseif(in_array($ext, ['mp3','wav','aac']))
+                                                                <i class="ri-music-line file-icon text-purple"></i>
+                                                            @elseif(in_array($ext, ['txt','log','csv','json','xml']))
+                                                                <i class="ri-file-text-line file-icon text-secondary"></i>
                                                             @else
-                                                                <i class="ri-file-text-line file-icon text-primary"></i>
+                                                                <i class="ri-file-line file-icon text-muted"></i>
                                                             @endif
 
                                                             <div>
@@ -398,7 +413,7 @@
                 </div>
                 <div class="modal-body">
                     <div class="mb-3"><label class="form-label">Name</label><input type="text" name="name" class="form-control" required></div>
-                    <div class="mb-3"><label class="form-label">File</label><input type="file" name="file" class="form-control" accept=".pdf,.doc,.docx" required></div>
+                    <div class="mb-3"><label class="form-label">File</label><input type="file" name="file" class="form-control" accept=".pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.csv,.txt" required></div>
                 </div>
                 <div class="modal-footer"><button type="submit" class="btn btn-primary">Upload</button></div>
             </div>
@@ -487,16 +502,16 @@
     </div>
 </div>
 
-<!-- PREVIEW MODAL - Updated with dynamic iframe -->
+<!-- PREVIEW MODAL -->
 <div class="modal fade" id="previewModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-xl">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">File Preview - <span id="previewFileName"></span></h5>
+                <h5 class="modal-title">File Preview &mdash; <span id="previewFileName"></span></h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body p-0" id="previewBody">
-                <!-- New iframe created dynamically here -->
+                <!-- Content injected dynamically -->
             </div>
         </div>
     </div>
@@ -542,6 +557,7 @@ $(document).ready(function() {
 
     $("#companyInfoBtn").click(e => { e.preventDefault(); $("#companyInfoModal").modal('show'); });
 
+    // ==================== CHECKBOX / BULK ====================
     const $selectAll = $('#selectAllFiles');
     const $checkboxes = $('.file-checkbox');
     const $bulkBtn = $('#bulkDeleteBtn');
@@ -577,6 +593,7 @@ $(document).ready(function() {
         $('#deleteFileModal').modal('show');
     });
 
+    // ==================== DELETE ====================
     $(document).on('click', '.delete-file', function(e) {
         e.preventDefault();
         $('#deleteFileId').val($(this).data('id'));
@@ -615,6 +632,7 @@ $(document).ready(function() {
 
     $('#cancelDeleteFileBtn').click(e => { e.preventDefault(); $('#deleteFileModal').modal('hide'); });
 
+    // ==================== GENERAL / CONTACT UPDATE ====================
     $('#updateGeneralDataBtn').click(function(e) {
         e.preventDefault(); const self = $(this); self.prop("disabled", true);
         $.ajax({
@@ -639,7 +657,9 @@ $(document).ready(function() {
         });
     });
 
+    // ==================== FILES ====================
     let cropper;
+
     function loadFiles() {
         $('#filesTbody').load(location.pathname + ' #filesTbody > *', function() {
             rebind();
@@ -647,7 +667,7 @@ $(document).ready(function() {
         });
     }
 
-    let st; 
+    let st;
     $('#filesSearch').on('keyup', () => {
         clearTimeout(st);
         st = setTimeout(function() {
@@ -694,6 +714,7 @@ $(document).ready(function() {
         });
     });
 
+    // ==================== IMAGE CROP ====================
     $('#startCropBtn').click(() => {
         const file = $('#imageFileInput')[0].files[0];
         const name = $('#imageNameInput').val().trim();
@@ -737,13 +758,11 @@ $(document).ready(function() {
 
     $('#cropModal').on('hidden.bs.modal', () => { if (cropper) cropper.destroy(); });
 
-    // Edit Name
+    // ==================== EDIT FILE NAME ====================
     $(document).on('click', '.edit-file', function(e) {
         e.preventDefault();
-        const id = $(this).data('id');
-        const name = $(this).data('name');
-        $('#editFileId').val(id);
-        $('#editNameInput').val(name);
+        $('#editFileId').val($(this).data('id'));
+        $('#editNameInput').val($(this).data('name'));
         $('#editFileModal').modal('show');
     });
 
@@ -775,7 +794,32 @@ $(document).ready(function() {
         });
     });
 
-    // ==================== CLEAN PREVIEW - New Iframe Every Time ====================
+    // ==================== FILE PREVIEW ====================
+
+    // Helper: create a clean full-height iframe
+    function makeIframe() {
+        return $('<iframe>', {
+            style: 'width:100%; height:75vh; border:none; background:#f8f9fa;',
+            frameborder: '0'
+        });
+    }
+
+    // Helper: show unsupported file type message with download button
+    function showUnsupported(ext, url, name) {
+        $('#previewBody').html(`
+            <div class="d-flex align-items-center justify-content-center" style="height:75vh;">
+                <div class="text-center">
+                    <i class="ri-file-unknow-line text-muted" style="font-size:72px;"></i>
+                    <div class="mt-3 fw-bold fs-5">${name}</div>
+                    <p class="text-muted mt-2">Preview is not available for <strong>.${ext}</strong> files.</p>
+                    <a href="${url}" download class="btn btn-primary mt-2">
+                        <i class="ri-download-2-line me-1"></i> Download File
+                    </a>
+                </div>
+            </div>
+        `);
+    }
+
     $(document).on('click', '.preview-file', function(e) {
         e.preventDefault();
 
@@ -788,67 +832,126 @@ $(document).ready(function() {
         const $modal = $('#previewModal');
         const $body  = $('#previewBody');
 
-        // Remove any old iframe
-        $body.empty();
+        // Clear previous content
+        $body.empty().css('position', 'relative');
 
-        // Create fresh iframe
-        const $iframe = $('<iframe>', {
-            id: 'previewIframe',
-            style: 'width:100%; height:75vh; border:none; background:#f8f9fa;',
-            frameborder: '0'
-        });
+        // ── File type groups ──────────────────────────────────────────
+        const imageExts  = ['jpg','jpeg','png','gif','webp','bmp','svg'];
+        const pdfExts    = ['pdf'];
+        const googleExts = ['doc','docx','xls','xlsx','ppt','pptx','csv','odt','ods','odp'];
+        const videoExts  = ['mp4','webm','ogv'];
+        const audioExts  = ['mp3','wav','ogg','aac'];
+        const textExts   = ['txt','log','json','xml','html','htm','css','js','ts','md','yaml','yml','ini','env'];
 
-        $body.append($iframe);
+        if (imageExts.includes(ext)) {
+            // ── IMAGE ──
+            const html = `<!DOCTYPE html><html><head><style>
+                body{margin:0;padding:20px;background:#f8f9fa;display:flex;
+                     align-items:center;justify-content:center;min-height:100vh;overflow:auto;}
+                img{max-width:100%;max-height:90vh;object-fit:contain;
+                    box-shadow:0 4px 20px rgba(0,0,0,.12);border-radius:4px;}
+            </style></head><body><img src="${url}" alt="${name}"></body></html>`;
+            const $iframe = makeIframe();
+            $body.append($iframe);
+            setTimeout(() => $iframe.attr('srcdoc', html), 80);
 
-        // Set content after iframe is ready
-        setTimeout(() => {
-            if (['jpg','jpeg','png','gif'].includes(ext)) {
-                const html = `
-                    <!DOCTYPE html>
-                    <html>
-                    <head>
-                        <style>
-                            body { 
-                                margin:0; 
-                                padding:20px; 
-                                background:#f8f9fa; 
-                                display:flex; 
-                                align-items:center; 
-                                justify-content:center; 
-                                min-height:100vh; 
-                                overflow:auto;
-                            }
-                            img { 
-                                max-width:100%; 
-                                max-height:90vh; 
-                                object-fit:contain; 
-                                box-shadow: 0 4px 20px rgba(0,0,0,0.1);
-                            }
-                        </style>
-                    </head>
-                    <body>
-                        <img src="${url}" alt="${name}">
-                    </body>
-                    </html>
-                `;
-                $iframe.attr('srcdoc', html);
-            } 
-            else if (ext === 'pdf') {
-                $iframe.attr('src', url);
-            } 
-            else {
-                // DOC/DOCX
-                const viewerUrl = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
-                $iframe.attr('src', viewerUrl);
-            }
+        } else if (pdfExts.includes(ext)) {
+            // ── PDF: native browser renderer ──
+            const $iframe = makeIframe();
+            $body.append($iframe);
+            setTimeout(() => $iframe.attr('src', url), 80);
 
-            $modal.modal('show');
-        }, 80);
+        } else if (googleExts.includes(ext)) {
+            // ── Office / Spreadsheet / Presentation / CSV: Google Docs Viewer ──
+            const viewerUrl = 'https://docs.google.com/gview?url=' + encodeURIComponent(url) + '&embedded=true';
+            const $iframe = makeIframe();
+
+            // Loading overlay
+            $body.append(`
+                <div id="previewLoader" style="
+                    position:absolute;top:0;left:0;right:0;bottom:0;
+                    display:flex;flex-direction:column;align-items:center;justify-content:center;
+                    background:#f8f9fa;z-index:10;">
+                    <div class="spinner-border text-primary mb-3" role="status"></div>
+                    <div class="text-muted">Loading preview&hellip;</div>
+                    <small class="text-muted mt-2">
+                        Taking too long?
+                        <a href="${url}" target="_blank">Open in new tab</a> or
+                        <a href="${url}" download>Download</a>
+                    </small>
+                </div>
+            `);
+            $body.append($iframe);
+
+            setTimeout(() => {
+                $iframe.attr('src', viewerUrl).on('load', () => {
+                    $('#previewLoader').fadeOut(300);
+                });
+            }, 80);
+
+        } else if (videoExts.includes(ext)) {
+            // ── VIDEO ──
+            $body.html(`
+                <video controls autoplay style="width:100%;height:75vh;background:#000;display:block;">
+                    <source src="${url}" type="video/${ext === 'ogv' ? 'ogg' : ext}">
+                    Your browser does not support this video format.
+                </video>
+            `);
+
+        } else if (audioExts.includes(ext)) {
+            // ── AUDIO ──
+            $body.html(`
+                <div class="d-flex align-items-center justify-content-center" style="height:75vh;background:#f8f9fa;">
+                    <div class="text-center">
+                        <i class="ri-music-2-line" style="font-size:72px;color:#4B5EBD;"></i>
+                        <div class="mt-3 fw-bold fs-5">${name}</div>
+                        <audio controls class="mt-3" style="width:340px;outline:none;">
+                            <source src="${url}">
+                            Your browser does not support audio playback.
+                        </audio>
+                    </div>
+                </div>
+            `);
+
+        } else if (textExts.includes(ext)) {
+            // ── PLAIN TEXT / CODE: fetch and render ──
+            $body.html(`
+                <div class="d-flex align-items-center justify-content-center" style="height:75vh;">
+                    <div class="spinner-border text-primary" role="status"></div>
+                </div>
+            `);
+            fetch(url)
+                .then(r => {
+                    if (!r.ok) throw new Error('Fetch failed');
+                    return r.text();
+                })
+                .then(text => {
+                    const escaped = text
+                        .replace(/&/g,'&amp;')
+                        .replace(/</g,'&lt;')
+                        .replace(/>/g,'&gt;');
+                    $body.html(`
+                        <pre style="
+                            margin:0;padding:20px;font-size:13px;line-height:1.6;
+                            white-space:pre-wrap;word-break:break-all;
+                            height:75vh;overflow:auto;
+                            background:#282c34;color:#abb2bf;font-family:monospace;"><!--
+                        -->${escaped}</pre>
+                    `);
+                })
+                .catch(() => showUnsupported(ext, url, name));
+
+        } else {
+            // ── UNSUPPORTED ──
+            showUnsupported(ext, url, name);
+        }
+
+        $modal.modal('show');
     });
 
-    // Clean up when modal is closed
+    // Clean up when preview modal closes (stop video/audio, remove iframe)
     $('#previewModal').on('hidden.bs.modal', function () {
-        $('#previewBody').empty();
+        $('#previewBody').empty().css('position', '');
     });
 
 });

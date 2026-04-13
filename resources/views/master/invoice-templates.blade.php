@@ -1,9 +1,6 @@
 @extends('master.dashboard')
 @section('content')
 
-{{-- ══════════════════════════════════════════════════════════
-     CodeMirror — loaded from CDN, no npm needed
-     ══════════════════════════════════════════════════════════ --}}
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
 <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
@@ -82,8 +79,8 @@
 #templateCards { margin-top: 0.8rem !important; }
 
 .template-card {
-    width: 300px;
-    height: 400px;
+    width: 380px;
+    height: 480px;
     background: #fff;
     border: none;
     border-radius: 16px;
@@ -102,28 +99,30 @@
     height: 4px;
     background: linear-gradient(90deg, #4B5EBD, #6c7bd8);
     border-radius: 16px 16px 0 0;
+    z-index: 1;
 }
 .template-card:hover {
-    transform: translateY(-10px);
-    box-shadow: 0 16px 32px rgba(0,0,0,0.18);
+    transform: translateY(-8px);
+    box-shadow: 0 20px 40px rgba(0,0,0,0.18);
 }
 
 /* Card header */
 .card-header-section {
-    padding: 1.2rem 1.2rem 0.75rem;
+    padding: 1rem 1.2rem 0.65rem;
     text-align: center;
+    flex-shrink: 0;
 }
 .card-title {
-    font-size: 1.15rem;
+    font-size: 1.05rem;
     font-weight: 700;
     color: #2c3e50;
-    margin: 0 0 0.4rem;
+    margin: 0 0 0.35rem;
     line-height: 1.3;
 }
 .badge-default {
-    font-size: 0.7rem;
+    font-size: 0.68rem;
     font-weight: 600;
-    padding: 0.3em 0.8em;
+    padding: 0.25em 0.75em;
     border-radius: 50px;
     background: #28a745;
     color: #fff;
@@ -132,54 +131,99 @@
     box-shadow: 0 2px 4px rgba(40,167,69,0.3);
 }
 
-/* Card mini-preview area */
+/* ── Preview area ── */
 .card-preview {
     flex: 1;
-    padding: 0.75rem;
-    background: #f8f9fb;
+    background: #e8eaf0;
+    overflow: hidden;
+    position: relative;
     display: flex;
     align-items: center;
     justify-content: center;
-    overflow: hidden;
 }
-.card-preview-iframe {
-    width: 100%;
-    height: 100%;
-    border: 1px solid #e0e0e0;
-    border-radius: 8px;
+
+/*
+ * The hidden off-screen iframe used for html2canvas rendering.
+ * It needs to be in the DOM and visible (just off-screen) for
+ * html2canvas to read its rendered content correctly.
+ */
+.card-render-iframe {
+    position: fixed;
+    left: -9999px;
+    top: 0;
+    width: 900px;
+    height: 1100px;
+    border: none;
     background: #fff;
     pointer-events: none;
-    box-shadow: inset 0 2px 6px rgba(0,0,0,0.06);
+    visibility: hidden;
 }
+
+/*
+ * The canvas thumbnail — displayed inside the card.
+ * object-fit: cover crops the canvas to fill the preview area nicely.
+ */
+.card-preview-canvas {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    object-position: top center;
+    display: block;
+}
+
+/* Shimmer loading state */
+.card-preview-shimmer {
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(90deg, #e8eaf0 25%, #f0f2f7 50%, #e8eaf0 75%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s infinite;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    color: #9da5b4;
+}
+.card-preview-shimmer i    { font-size: 2rem; }
+.card-preview-shimmer span { font-size: 0.75rem; }
+@keyframes shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+/* Empty state */
 .card-preview-empty {
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 0.4rem;
+    gap: 0.5rem;
     color: #adb5bd;
     height: 100%;
+    width: 100%;
 }
 .card-preview-empty i    { font-size: 2.5rem; }
-.card-preview-empty span { font-size: 0.8rem; }
+.card-preview-empty span { font-size: 0.8rem; text-align: center; padding: 0 1rem; }
 
 /* Card action buttons */
 .card-actions {
-    padding: 0.85rem;
+    padding: 0.75rem;
     display: flex;
     justify-content: center;
     gap: 10px;
     background: #f9f9f9;
     border-top: 1px solid #eee;
+    flex-shrink: 0;
 }
 .btn-icon {
-    width: 44px;
-    height: 44px;
+    width: 42px;
+    height: 42px;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     border-radius: 50%;
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     transition: all 0.3s ease;
     box-shadow: 0 4px 10px rgba(0,0,0,0.12);
     position: relative;
@@ -198,16 +242,16 @@
 .btn-icon:active::after { width: 200px; height: 200px; }
 
 .btn-preview { background: linear-gradient(135deg,#e3f2fd,#bbdefb); color: #1565c0; }
-.btn-preview:hover { background: linear-gradient(135deg,#bbdefb,#90caf9); transform: scale(1.18); box-shadow: 0 6px 16px rgba(21,101,192,0.4); }
+.btn-preview:hover { background: linear-gradient(135deg,#bbdefb,#90caf9); transform: scale(1.15); box-shadow: 0 6px 16px rgba(21,101,192,0.4); }
 
 .btn-code { background: linear-gradient(135deg,#f3e5f5,#e1bee7); color: #6a1b9a; }
-.btn-code:hover { background: linear-gradient(135deg,#e1bee7,#ce93d8); transform: scale(1.18); box-shadow: 0 6px 16px rgba(106,27,154,0.4); }
+.btn-code:hover { background: linear-gradient(135deg,#e1bee7,#ce93d8); transform: scale(1.15); box-shadow: 0 6px 16px rgba(106,27,154,0.4); }
 
 .btn-edit { background: linear-gradient(135deg,#e8f5e8,#c8e6c9); color: #2e7d32; }
-.btn-edit:hover { background: linear-gradient(135deg,#c8e6c9,#a5d6a7); transform: scale(1.18); box-shadow: 0 6px 16px rgba(46,125,50,0.4); }
+.btn-edit:hover { background: linear-gradient(135deg,#c8e6c9,#a5d6a7); transform: scale(1.15); box-shadow: 0 6px 16px rgba(46,125,50,0.4); }
 
 .btn-delete { background: linear-gradient(135deg,#ffebee,#ffcdd2); color: #c62828; }
-.btn-delete:hover { background: linear-gradient(135deg,#ffcdd2,#ef9a9a); transform: scale(1.18); box-shadow: 0 6px 16px rgba(198,40,40,0.4); }
+.btn-delete:hover { background: linear-gradient(135deg,#ffcdd2,#ef9a9a); transform: scale(1.15); box-shadow: 0 6px 16px rgba(198,40,40,0.4); }
 
 /* ══════════════════════════════════════════════════════════
    FULL PREVIEW MODAL
@@ -244,10 +288,8 @@
 }
 #codeEditorModal .modal-body { padding: 0; background: #1e1e2e; }
 
-/* Split layout */
 .editor-layout { display: flex; height: 84vh; overflow: hidden; }
 
-/* Left — CodeMirror pane */
 .editor-pane {
     width: 55%;
     display: flex;
@@ -297,7 +339,6 @@
     line-height: 1.65;
 }
 
-/* Loading overlay inside editor pane */
 #editorLoadingOverlay {
     position: absolute; inset: 0;
     background: rgba(30,30,46,0.88);
@@ -319,7 +360,6 @@
 }
 @keyframes spin { to { transform: rotate(360deg); } }
 
-/* Keyboard hints bar */
 .editor-bottom-bar {
     display: flex;
     align-items: center;
@@ -339,7 +379,6 @@
     border: 1px solid #45475a;
 }
 
-/* Right — live preview pane */
 .preview-pane { width: 45%; display: flex; flex-direction: column; }
 .preview-pane-toolbar {
     display: flex;
@@ -387,7 +426,7 @@
 {{-- ══════════ CARDS ══════════ --}}
 <div class="row g-3 mt-1" id="templateCards">
     @foreach($templates as $tpl)
-        <div class="col-md-4 col-lg-3 d-flex justify-content-center template-card-wrapper" id="card{{ $tpl->id }}">
+        <div class="col-md-6 col-lg-4 d-flex justify-content-center template-card-wrapper" id="card{{ $tpl->id }}">
             <div class="template-card">
 
                 <div class="card-header-section">
@@ -397,16 +436,24 @@
                     @endif
                 </div>
 
-                <div class="card-preview">
+                <div class="card-preview" id="preview-area-{{ $tpl->id }}">
                     @if($tpl->content)
-                        <iframe class="card-preview-iframe"
-                                srcdoc="{{ htmlspecialchars($tpl->content, ENT_QUOTES, 'UTF-8') }}"
-                                sandbox="allow-same-origin"
-                                loading="lazy"></iframe>
+                        {{-- Shimmer shown while canvas renders --}}
+                        <div class="card-preview-shimmer" id="shimmer-{{ $tpl->id }}">
+                            <i class="ri-file-text-line"></i>
+                            <span>Rendering preview…</span>
+                        </div>
+                        {{-- Canvas injected here by JS --}}
+                        {{-- Hidden iframe used for rendering --}}
+                        <iframe
+                            class="card-render-iframe"
+                            id="render-iframe-{{ $tpl->id }}"
+                            data-target="{{ $tpl->id }}"
+                            sandbox="allow-same-origin allow-scripts"></iframe>
                     @else
                         <div class="card-preview-empty">
                             <i class="ri-file-edit-line"></i>
-                            <span>No content yet — click <i class="ri-code-s-slash-line"></i></span>
+                            <span>No content yet.<br>Click <i class="ri-code-s-slash-line"></i> to add HTML.</span>
                         </div>
                     @endif
                 </div>
@@ -496,7 +543,7 @@
                     </div>
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="button" class="btn btn-secondary" id="cancelAddTemplateBtn">Cancel</button>
-                        <button type="button" class="btn btn-primary"   id="submitAddTemplateBtn">
+                        <button type="button" class="btn btn-primary" id="submitAddTemplateBtn">
                             <i class="ri-save-line"></i> Create
                         </button>
                     </div>
@@ -530,7 +577,7 @@
                     </div>
                     <div class="d-flex justify-content-end gap-2 mt-3">
                         <button type="button" class="btn btn-secondary" id="cancelEditTemplateBtn">Cancel</button>
-                        <button type="button" class="btn btn-primary"   id="submitEditTemplateBtn">
+                        <button type="button" class="btn btn-primary" id="submitEditTemplateBtn">
                             <i class="ri-save-line"></i> Update
                         </button>
                     </div>
@@ -552,7 +599,7 @@
                 <h6 class="text-muted">This will permanently remove the template and all its content.</h6>
                 <input type="hidden" id="deleteTemplateId">
                 <div class="mt-3 d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-info"   id="cancelDeleteTemplateBtn">No, Keep It</button>
+                    <button type="button" class="btn btn-info" id="cancelDeleteTemplateBtn">No, Keep It</button>
                     <button type="button" class="btn btn-danger" id="submitDeleteTemplateBtn">
                         <i class="ri-delete-bin-line"></i> Yes, Delete
                     </button>
@@ -590,9 +637,7 @@
     <div class="modal-dialog" style="max-width:98vw;width:1400px;margin:0.75rem auto">
         <div class="modal-content">
 
-            {{-- Dark header --}}
             <div class="modal-header">
-                {{-- macOS-style traffic dots --}}
                 <div class="d-flex align-items-center gap-2">
                     <span style="width:12px;height:12px;border-radius:50%;background:#ff5f56;display:inline-block"></span>
                     <span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;display:inline-block"></span>
@@ -678,6 +723,9 @@
     </div>
 </div>
 
+{{-- html2canvas for rendering invoice HTML into a canvas thumbnail --}}
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+
 @endsection
 
 @section('scripts')
@@ -686,7 +734,6 @@ $(document).ready(function () {
 
     toastr.options = { closeButton: true, progressBar: true, timeOut: 5000 };
 
-    // ── Route map (names stay stable even if URLs change) ────────
     const ROUTES = {
         insert:      '{{ route("master.invoice.template.insert") }}',
         update:      '{{ route("master.invoice.template.update") }}',
@@ -696,6 +743,132 @@ $(document).ready(function () {
         preview:     '{{ route("master.invoice.template.preview") }}',
     };
     const CSRF = '{{ csrf_token() }}';
+
+    // ══════════════════════════════════════════════════════════════
+    //  THUMBNAIL ENGINE
+    //
+    //  How it works:
+    //  1. Each card has a hidden off-screen iframe (.card-render-iframe).
+    //  2. We write the template HTML into the iframe via srcdoc (JS assignment).
+    //  3. After the iframe loads, we run html2canvas on its document.body.
+    //  4. html2canvas returns a <canvas> which we display in the card preview.
+    //  5. The shimmer disappears and the canvas thumbnail fades in.
+    //
+    //  This gives a real pixel-accurate screenshot of the rendered HTML,
+    //  not a scaled-down iframe that shows text as tiny unreadable lines.
+    // ══════════════════════════════════════════════════════════════
+
+    /**
+     * Render a canvas thumbnail for a given template id and HTML content.
+     * @param {number|string} id      - template id
+     * @param {string}        content - raw HTML string
+     */
+    function renderThumbnail(id, content) {
+        if (!content || !content.trim()) return;
+
+        const iframe = document.getElementById('render-iframe-' + id);
+        if (!iframe) return;
+
+        // Make iframe visible to the rendering engine (still off-screen)
+        iframe.style.visibility = 'hidden';
+
+        // Write content into the iframe
+        iframe.srcdoc = content;
+
+        iframe.onload = function () {
+            try {
+                const iDoc  = iframe.contentDocument || iframe.contentWindow.document;
+                const iBody = iDoc.body || iDoc.documentElement;
+
+                html2canvas(iBody, {
+                    width         : 900,
+                    height        : 1100,
+                    scale         : 0.45,          // render at 45% — crisp enough, fast enough
+                    useCORS       : true,
+                    allowTaint    : true,
+                    backgroundColor: '#ffffff',
+                    logging       : false,
+                    windowWidth   : 900,
+                    windowHeight  : 1100,
+                }).then(function (canvas) {
+                    const area    = document.getElementById('preview-area-' + id);
+                    const shimmer = document.getElementById('shimmer-' + id);
+                    if (!area) return;
+
+                    // Style the canvas so it fills the preview area like a document thumbnail
+                    canvas.style.width        = '100%';
+                    canvas.style.height       = '100%';
+                    canvas.style.objectFit    = 'cover';
+                    canvas.style.objectPosition = 'top center';
+                    canvas.style.display      = 'block';
+                    canvas.style.opacity      = '0';
+                    canvas.style.transition   = 'opacity 0.4s ease';
+                    canvas.classList.add('card-preview-canvas');
+
+                    area.appendChild(canvas);
+
+                    // Fade in canvas, fade out shimmer
+                    requestAnimationFrame(function () {
+                        canvas.style.opacity = '1';
+                        if (shimmer) {
+                            shimmer.style.transition = 'opacity 0.3s ease';
+                            shimmer.style.opacity    = '0';
+                            setTimeout(function () { shimmer.remove(); }, 350);
+                        }
+                    });
+
+                }).catch(function (err) {
+                    console.warn('html2canvas failed for template ' + id, err);
+                    showFallbackThumbnail(id);
+                });
+
+            } catch (e) {
+                console.warn('iframe access error for template ' + id, e);
+                showFallbackThumbnail(id);
+            }
+        };
+
+        iframe.onerror = function () {
+            showFallbackThumbnail(id);
+        };
+    }
+
+    /**
+     * If html2canvas fails, show a clean "document lines" placeholder
+     * instead of leaving the shimmer spinning forever.
+     */
+    function showFallbackThumbnail(id) {
+        const shimmer = document.getElementById('shimmer-' + id);
+        if (shimmer) {
+            shimmer.innerHTML = `
+                <i class="ri-file-text-line" style="font-size:2.5rem;color:#bbb"></i>
+                <span style="font-size:0.75rem;color:#aaa">Click <i class="ri-eye-line"></i> to preview</span>`;
+            shimmer.style.animation = 'none';
+            shimmer.style.background = '#f0f2f7';
+        }
+    }
+
+    // ── Kick off thumbnail rendering for all server-rendered cards ──
+    // We stagger them slightly so they don't all fire at once and
+    // overwhelm the browser's rendering pipeline.
+    (function initThumbnails() {
+        const iframes = document.querySelectorAll('.card-render-iframe[data-target]');
+        iframes.forEach(function (iframe, index) {
+            const id      = iframe.getAttribute('data-target');
+            const content = {!! json_encode(
+                $templates->mapWithKeys(fn($t) => [$t->id => $t->content])
+            ) !!}[id];
+
+            if (content) {
+                // Stagger: 200ms between each card render
+                setTimeout(function () {
+                    renderThumbnail(id, content);
+                }, index * 200);
+            } else {
+                showFallbackThumbnail(id);
+            }
+        });
+    })();
 
     // ── Search ────────────────────────────────────────────────────
     $('#searchInput').on('input', function () {
@@ -709,30 +882,41 @@ $(document).ready(function () {
 
     // ── Helpers ───────────────────────────────────────────────────
     const escText = s => $('<span>').text(s).html();
-    const escAttr = s => s
-        .replace(/&/g, '&amp;')
-        .replace(/"/g, '&quot;')
-        .replace(/'/g, '&#39;');
 
+    /**
+     * Build the card HTML for a newly created/updated template.
+     * The hidden render iframe is included; renderThumbnail() is called
+     * separately after the card is in the DOM.
+     */
     function buildCard(t) {
-        const badge   = t.is_default
+        const badge = t.is_default
             ? `<span class="badge-default">Default</span>`
             : '';
-        const preview = t.content
-            ? `<iframe class="card-preview-iframe" srcdoc="${escAttr(t.content)}" sandbox="allow-same-origin" loading="lazy"></iframe>`
+
+        const previewInner = t.content
+            ? `<div class="card-preview-shimmer" id="shimmer-${t.id}">
+                   <i class="ri-file-text-line"></i>
+                   <span>Rendering preview…</span>
+               </div>
+               <iframe class="card-render-iframe"
+                       id="render-iframe-${t.id}"
+                       data-target="${t.id}"
+                       sandbox="allow-same-origin allow-scripts"></iframe>`
             : `<div class="card-preview-empty">
                    <i class="ri-file-edit-line"></i>
-                   <span>No content yet — click <i class="ri-code-s-slash-line"></i></span>
+                   <span>No content yet.<br>Click <i class="ri-code-s-slash-line"></i> to add HTML.</span>
                </div>`;
 
         return `
-        <div class="col-md-4 col-lg-3 d-flex justify-content-center template-card-wrapper" id="card${t.id}">
+        <div class="col-md-6 col-lg-4 d-flex justify-content-center template-card-wrapper" id="card${t.id}">
             <div class="template-card">
                 <div class="card-header-section">
                     <h5 class="card-title">${escText(t.name)}</h5>
                     ${badge}
                 </div>
-                <div class="card-preview">${preview}</div>
+                <div class="card-preview" id="preview-area-${t.id}">
+                    ${previewInner}
+                </div>
                 <div class="card-actions">
                     <a href="#" class="btn btn-icon btn-preview previewBtn"
                        data-id="${t.id}" data-name="${escText(t.name)}" title="Full Preview">
@@ -756,12 +940,10 @@ $(document).ready(function () {
         </div>`;
     }
 
-    // ── Open info / add modal ─────────────────────────────────────
-    $('#infoBtn').on('click', e => {
-        e.preventDefault();
-        $('#infoModal').modal('show');
-    });
+    // ── Info modal ────────────────────────────────────────────────
+    $('#infoBtn').on('click', e => { e.preventDefault(); $('#infoModal').modal('show'); });
 
+    // ── New template ──────────────────────────────────────────────
     $('#newTemplateBtn').on('click', e => {
         e.preventDefault();
         $('#addTemplateForm')[0].reset();
@@ -784,6 +966,8 @@ $(document).ready(function () {
                     toastr.success(res.success);
                     if (res.template.is_default) $('.badge-default').remove();
                     $('#templateCards').append(buildCard(res.template));
+                    // Give DOM a tick to settle before rendering
+                    setTimeout(() => renderThumbnail(res.template.id, res.template.content), 100);
                     $('#addTemplateModal').modal('hide');
                 } else {
                     toastr.error(res.error || 'Failed to create template.');
@@ -817,6 +1001,7 @@ $(document).ready(function () {
                     toastr.success(res.success);
                     if (res.template.is_default) $('.badge-default').remove();
                     $('#card' + res.template.id).replaceWith(buildCard(res.template));
+                    setTimeout(() => renderThumbnail(res.template.id, res.template.content), 100);
                     $('#editTemplateModal').modal('hide');
                 } else {
                     toastr.error(res.error || 'Failed to update template.');
@@ -876,7 +1061,6 @@ $(document).ready(function () {
     let isDirty            = false;
     let debounceTimer      = null;
 
-    // Initialise CodeMirror once (lazy — only when editor is first opened)
     function initialiseCM() {
         if (cmEditor) return;
 
@@ -913,7 +1097,6 @@ $(document).ready(function () {
         });
     }
 
-    // Open editor modal
     $(document).on('click', '.codeEditorBtn', function (e) {
         e.preventDefault();
         activeTemplateId   = $(this).data('id');
@@ -927,7 +1110,6 @@ $(document).ready(function () {
 
         $('#codeEditorModal').modal('show');
 
-        // Wait until modal is fully visible so CodeMirror can measure its dimensions
         $('#codeEditorModal').one('shown.bs.modal', function () {
             initialiseCM();
             cmEditor.refresh();
@@ -951,12 +1133,11 @@ $(document).ready(function () {
                 })
                 .always(() => {
                     $('#editorLoadingOverlay').hide();
-                    isDirty = false; // reset — loading doesn't count as a change
+                    isDirty = false;
                 });
         });
     });
 
-    // Save content to DB
     function saveTemplateCode() {
         if (!cmEditor) return;
 
@@ -973,7 +1154,8 @@ $(document).ready(function () {
                 toastr.success(res.success);
                 isDirty = false;
                 setEditorStatus('saved', 'Saved');
-                updateCardMiniPreview(activeTemplateId, cmEditor.getValue());
+                // Re-render the card thumbnail with the freshly saved content
+                refreshCardThumbnail(activeTemplateId, cmEditor.getValue());
                 refreshLivePreview();
             } else {
                 toastr.error(res.error || 'Save failed.');
@@ -989,19 +1171,47 @@ $(document).ready(function () {
 
     $('#saveCodeBtn').on('click', saveTemplateCode);
 
-    // Push updated content into the card's mini iframe (no page reload)
-    function updateCardMiniPreview(id, content) {
-        const $preview = $('#card' + id).find('.card-preview');
-        let $iframe    = $preview.find('iframe.card-preview-iframe');
+    /**
+     * Re-render the mini thumbnail on the card after saving in the editor.
+     * Replaces any existing canvas with a fresh shimmer + new render.
+     */
+    function refreshCardThumbnail(id, content) {
+        const area = document.getElementById('preview-area-' + id);
+        if (!area) return;
 
-        if ($iframe.length === 0) {
-            $preview.html('<iframe class="card-preview-iframe" sandbox="allow-same-origin" loading="lazy"></iframe>');
-            $iframe = $preview.find('iframe');
+        // Remove old canvas if present
+        const oldCanvas = area.querySelector('canvas');
+        if (oldCanvas) oldCanvas.remove();
+
+        // Restore shimmer
+        let shimmer = document.getElementById('shimmer-' + id);
+        if (!shimmer) {
+            shimmer = document.createElement('div');
+            shimmer.id        = 'shimmer-' + id;
+            shimmer.className = 'card-preview-shimmer';
+            shimmer.innerHTML = '<i class="ri-file-text-line"></i><span>Rendering preview…</span>';
+            area.appendChild(shimmer);
+        } else {
+            shimmer.style.opacity   = '1';
+            shimmer.style.animation = '';
+            shimmer.style.background = '';
+            shimmer.innerHTML = '<i class="ri-file-text-line"></i><span>Rendering preview…</span>';
         }
-        $iframe[0].srcdoc = content;
+
+        // Ensure the hidden render iframe exists
+        let iframe = document.getElementById('render-iframe-' + id);
+        if (!iframe) {
+            iframe = document.createElement('iframe');
+            iframe.id          = 'render-iframe-' + id;
+            iframe.className   = 'card-render-iframe';
+            iframe.setAttribute('data-target', id);
+            iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
+            area.appendChild(iframe);
+        }
+
+        setTimeout(() => renderThumbnail(id, content), 50);
     }
 
-    // Render editor content into the right pane via srcdoc (no server round-trip)
     function refreshLivePreview() {
         if (!cmEditor) return;
         document.getElementById('livePreviewFrame').srcdoc = cmEditor.getValue();
@@ -1009,7 +1219,6 @@ $(document).ready(function () {
 
     $('#refreshPreviewBtn').on('click', refreshLivePreview);
 
-    // Warn before closing with unsaved changes
     $('#codeEditorModal').on('hide.bs.modal', function (e) {
         if (isDirty && !confirm('You have unsaved changes. Close anyway?')) {
             e.preventDefault();
@@ -1019,7 +1228,6 @@ $(document).ready(function () {
         isDirty = false;
     });
 
-    // Wrap toggle
     $('#wrapToggleBtn').on('click', function () {
         if (!cmEditor) return;
         const nowWrapped = !cmEditor.getOption('lineWrapping');
@@ -1027,7 +1235,6 @@ $(document).ready(function () {
         $(this).toggleClass('active', nowWrapped);
     });
 
-    // Basic auto-format (re-indent all lines)
     $('#formatBtn').on('click', function () {
         if (!cmEditor) return;
         const total = cmEditor.lineCount();
@@ -1035,7 +1242,6 @@ $(document).ready(function () {
         toastr.info('Code re-indented.');
     });
 
-    // Editor status badge helper
     function setEditorStatus(type, text) {
         $('#editorStatus').attr('class', 'editor-status ' + type).text(text);
     }

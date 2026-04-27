@@ -1,730 +1,486 @@
 @extends('master.dashboard')
 @section('content')
-
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.css">
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/theme/dracula.min.css">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/codemirror.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/htmlmixed/htmlmixed.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/xml/xml.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/javascript/javascript.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/mode/css/css.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/edit/matchbrackets.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/edit/closetag.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/codemirror/5.65.17/addon/comment/comment.min.js"></script>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
-
 <style>
-/* ══════════════════════════════════════════════════════════
-   TOP BAR
-   ══════════════════════════════════════════════════════════ */
+.dt-buttons .btn {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: #5bc0de;
+  color: #5bc0de;
+}
+
+.dt-buttons .btn:hover {
+  background: #5bc0de !important;
+  color: #fff;
+}
+
 .card-header {
-    padding: 0.5rem 1.5rem !important;
-    background: linear-gradient(to right, #4B5EBD, #576CC0);
-    color: #fff;
-    border-radius: 10px 10px 0 0;
+  padding: 0.5rem 1.5rem !important;
+  background: linear-gradient(to right, #4B5EBD, #576CC0);
+  color: #fff;
 }
-.card-header h4 {
-    color: #fff;
-    font-weight: 600;
-    margin: 0;
-    font-size: 1.1rem;
+
+.card-body {
+  padding: 0 1.5rem 1.5rem 1.5rem !important;
 }
+
 .card-header .btn-light {
-    height: 28px;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 1rem;
-}
-.card-header .btn-light:hover { background-color: #f8f9fa; }
-
-/* ══════════════════════════════════════════════════════════
-   CONTROLS BAR
-   ══════════════════════════════════════════════════════════ */
-.controls-section {
-    background: #fff;
-    padding: 1.2rem 1.5rem;
-    border-radius: 0 0 10px 10px;
-    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-    margin-top: -1px;
-}
-.controls-row {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-#searchInput {
-    max-width: 300px;
-    border-radius: 20px;
-    padding-left: 2.5rem;
-    background: #f8f9fa url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='%236c757d' viewBox='0 0 16 16'%3E%3Cpath d='M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z'/%3E%3C/svg%3E") no-repeat 0.75rem center;
-    background-size: 16px;
-    transition: all 0.2s;
-}
-#searchInput:focus {
-    background-color: #fff;
-    box-shadow: 0 0 0 0.2rem rgba(75,94,189,0.25);
-}
-@media (max-width: 768px) {
-    .controls-row { flex-direction: column; align-items: stretch; }
-    #searchInput  { max-width: 100%; }
+  height: 28px;
+  padding: 0 10px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1;
 }
 
-/* ══════════════════════════════════════════════════════════
-   TEMPLATE CARDS
-   ══════════════════════════════════════════════════════════ */
-#templateCards { margin-top: 0.8rem !important; }
+.card-header .btn-light:hover {
+  background-color: #f8f9fa;
+  transition: background-color 0.2s ease-in-out;
+}
+
+.card {
+  border: none;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+  border-radius: 10px;
+}
+
+.card-header h4 {
+  color: #fff;
+  font-weight: 600;
+  margin-bottom: 0;
+  display: flex;
+  align-items: center;
+}
+
+.card-header h4 i {
+  margin-right: 0.25rem;
+}
+
+/* ── Template card grid ── */
+.templates-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 1.25rem;
+  padding: 1.5rem 0 0.5rem;
+}
 
 .template-card {
-    width: 380px;
-    height: 480px;
-    background: #fff;
-    border: none;
-    border-radius: 16px;
-    box-shadow: 0 8px 24px rgba(0,0,0,0.12);
-    transition: all 0.3s cubic-bezier(0.25,0.8,0.25,1);
-    display: flex;
-    flex-direction: column;
-    overflow: hidden;
-    margin: 0.5rem auto;
-    position: relative;
+  border: 1.5px solid #e3e6f0;
+  border-radius: 10px;
+  overflow: hidden;
+  background: #fff;
+  box-shadow: 0 2px 8px rgba(75,94,189,0.07);
+  transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
+  display: flex;
+  flex-direction: column;
 }
-.template-card::before {
-    content: '';
-    position: absolute;
-    top: 0; left: 0; right: 0;
-    height: 4px;
-    background: linear-gradient(90deg, #4B5EBD, #6c7bd8);
-    border-radius: 16px 16px 0 0;
-    z-index: 1;
-}
+
 .template-card:hover {
-    transform: translateY(-8px);
-    box-shadow: 0 20px 40px rgba(0,0,0,0.18);
+  box-shadow: 0 6px 20px rgba(75,94,189,0.16);
+  transform: translateY(-3px);
+  border-color: #4B5EBD;
 }
 
-/* Card header */
-.card-header-section {
-    padding: 1rem 1.2rem 0.65rem;
-    text-align: center;
-    flex-shrink: 0;
-}
-.card-title {
-    font-size: 1.05rem;
-    font-weight: 700;
-    color: #2c3e50;
-    margin: 0 0 0.35rem;
-    line-height: 1.3;
-}
-.badge-default {
-    font-size: 0.68rem;
-    font-weight: 600;
-    padding: 0.25em 0.75em;
-    border-radius: 50px;
-    background: #28a745;
-    color: #fff;
-    text-transform: uppercase;
-    letter-spacing: 0.7px;
-    box-shadow: 0 2px 4px rgba(40,167,69,0.3);
+/* Thumbnail / preview area */
+.template-thumbnail {
+  position: relative;
+  height: 160px;
+  background: #f0f2fa;
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex-direction: column;
+  border-bottom: 1px solid #e3e6f0;
+  cursor: pointer;
 }
 
-/* ── Preview area ── */
-.card-preview {
-    flex: 1;
-    background: #e8eaf0;
-    overflow: hidden;
-    position: relative;
-    display: flex;
-    align-items: center;
-    justify-content: center;
+.template-thumbnail .tmpl-icon {
+  font-size: 3rem;
+  color: #c5cadf;
+  transition: color 0.2s;
 }
 
-/*
- * The hidden off-screen iframe used for html2canvas rendering.
- * It needs to be in the DOM and visible (just off-screen) for
- * html2canvas to read its rendered content correctly.
- */
-.card-render-iframe {
-    position: fixed;
-    left: -9999px;
-    top: 0;
-    width: 900px;
-    height: 1100px;
-    border: none;
-    background: #fff;
-    pointer-events: none;
-    visibility: hidden;
+.template-card:hover .template-thumbnail .tmpl-icon {
+  color: #4B5EBD;
 }
 
-/*
- * The canvas thumbnail — displayed inside the card.
- * object-fit: cover crops the canvas to fill the preview area nicely.
- */
-.card-preview-canvas {
-    width: 100%;
-    height: 100%;
-    object-fit: cover;
-    object-position: top center;
-    display: block;
+.template-thumbnail .tmpl-view-label {
+  font-size: 10.5px;
+  color: #b0b8d1;
+  margin-top: 6px;
+  font-family: monospace;
+  background: #e8eaf4;
+  padding: 2px 8px;
+  border-radius: 20px;
 }
 
-/* Shimmer loading state */
-.card-preview-shimmer {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(90deg, #e8eaf0 25%, #f0f2f7 50%, #e8eaf0 75%);
-    background-size: 200% 100%;
-    animation: shimmer 1.4s infinite;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    color: #9da5b4;
-}
-.card-preview-shimmer i    { font-size: 2rem; }
-.card-preview-shimmer span { font-size: 0.75rem; }
-@keyframes shimmer {
-    0%   { background-position: 200% 0; }
-    100% { background-position: -200% 0; }
+.template-thumbnail .thumb-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(75,94,189,0);
+  transition: background 0.2s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
 }
 
-/* Empty state */
-.card-preview-empty {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    gap: 0.5rem;
-    color: #adb5bd;
-    height: 100%;
-    width: 100%;
+.template-card:hover .thumb-overlay {
+  background: rgba(75,94,189,0.08);
 }
-.card-preview-empty i    { font-size: 2.5rem; }
-.card-preview-empty span { font-size: 0.8rem; text-align: center; padding: 0 1rem; }
+
+.template-thumbnail .thumb-overlay .eye-icon {
+  font-size: 2rem;
+  color: #4B5EBD;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+
+.template-card:hover .thumb-overlay .eye-icon {
+  opacity: 1;
+}
+
+/* Card info */
+.template-info {
+  padding: 0.65rem 0.9rem 0.5rem;
+  flex: 1;
+}
+
+.template-info .tmpl-name {
+  font-weight: 600;
+  font-size: 13.5px;
+  color: #2d3a6e;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  margin-bottom: 3px;
+}
+
+.template-info .tmpl-desc {
+  font-size: 11.5px;
+  color: #8d95b0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
 
 /* Card action buttons */
-.card-actions {
-    padding: 0.75rem;
-    display: flex;
-    justify-content: center;
-    gap: 10px;
-    background: #f9f9f9;
-    border-top: 1px solid #eee;
-    flex-shrink: 0;
-}
-.btn-icon {
-    width: 42px;
-    height: 42px;
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 50%;
-    font-size: 1.1rem;
-    transition: all 0.3s ease;
-    box-shadow: 0 4px 10px rgba(0,0,0,0.12);
-    position: relative;
-    overflow: hidden;
-}
-.btn-icon::after {
-    content: '';
-    position: absolute;
-    top: 50%; left: 50%;
-    width: 0; height: 0;
-    background: rgba(255,255,255,0.3);
-    border-radius: 50%;
-    transform: translate(-50%,-50%);
-    transition: width 0.4s, height 0.4s;
-}
-.btn-icon:active::after { width: 200px; height: 200px; }
-
-.btn-preview { background: linear-gradient(135deg,#e3f2fd,#bbdefb); color: #1565c0; }
-.btn-preview:hover { background: linear-gradient(135deg,#bbdefb,#90caf9); transform: scale(1.15); box-shadow: 0 6px 16px rgba(21,101,192,0.4); }
-
-.btn-code { background: linear-gradient(135deg,#f3e5f5,#e1bee7); color: #6a1b9a; }
-.btn-code:hover { background: linear-gradient(135deg,#e1bee7,#ce93d8); transform: scale(1.15); box-shadow: 0 6px 16px rgba(106,27,154,0.4); }
-
-.btn-edit { background: linear-gradient(135deg,#e8f5e8,#c8e6c9); color: #2e7d32; }
-.btn-edit:hover { background: linear-gradient(135deg,#c8e6c9,#a5d6a7); transform: scale(1.15); box-shadow: 0 6px 16px rgba(46,125,50,0.4); }
-
-.btn-delete { background: linear-gradient(135deg,#ffebee,#ffcdd2); color: #c62828; }
-.btn-delete:hover { background: linear-gradient(135deg,#ffcdd2,#ef9a9a); transform: scale(1.15); box-shadow: 0 6px 16px rgba(198,40,40,0.4); }
-
-/* ══════════════════════════════════════════════════════════
-   FULL PREVIEW MODAL
-   ══════════════════════════════════════════════════════════ */
-#previewModal .modal-dialog { max-width: 900px; margin: 1.75rem auto; }
-#previewModal .preview-scroll { overflow: auto; max-height: 82vh; }
-#previewModal .preview-scroll iframe {
-    width: 100%; height: 800px; border: none; display: block;
+.template-actions {
+  display: flex;
+  border-top: 1px solid #e3e6f0;
 }
 
-/* ══════════════════════════════════════════════════════════
-   CODE EDITOR MODAL
-   ══════════════════════════════════════════════════════════ */
-#codeEditorModal .modal-dialog {
-    max-width: 98vw;
-    width: 1400px;
-    margin: 0.75rem auto;
-}
-#codeEditorModal .modal-content {
-    border-radius: 12px;
-    overflow: hidden;
-    border: none;
-    box-shadow: 0 20px 60px rgba(0,0,0,0.4);
-}
-#codeEditorModal .modal-header {
-    background: #1e1e2e;
-    border-bottom: 1px solid #313244;
-    padding: 0.65rem 1.25rem;
-}
-#codeEditorModal .modal-title {
-    color: #cdd6f4;
-    font-size: 0.92rem;
-    font-weight: 600;
-}
-#codeEditorModal .modal-body { padding: 0; background: #1e1e2e; }
-
-.editor-layout { display: flex; height: 84vh; overflow: hidden; }
-
-.editor-pane {
-    width: 55%;
-    display: flex;
-    flex-direction: column;
-    border-right: 2px solid #313244;
-    background: #1e1e2e;
-}
-.editor-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.45rem 1rem;
-    background: #181825;
-    border-bottom: 1px solid #313244;
-    flex-shrink: 0;
-}
-.editor-toolbar .tl { display: flex; align-items: center; gap: 0.5rem; }
-.editor-toolbar .tr { display: flex; align-items: center; gap: 0.5rem; }
-.lang-badge {
-    background: #45475a;
-    color: #cdd6f4;
-    font-size: 0.7rem;
-    font-weight: 600;
-    padding: 0.2em 0.7em;
-    border-radius: 4px;
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-.editor-filename { color: #a6adc8; font-size: 0.8rem; }
-
-.editor-status {
-    font-size: 0.72rem;
-    padding: 0.2em 0.7em;
-    border-radius: 4px;
-    font-weight: 700;
-}
-.editor-status.saved   { background: #a6e3a1; color: #1e1e2e; }
-.editor-status.unsaved { background: #f38ba8; color: #1e1e2e; }
-.editor-status.saving  { background: #fab387; color: #1e1e2e; }
-.editor-status.loading { background: #89b4fa; color: #1e1e2e; }
-
-#codeEditorWrapper { flex: 1; overflow: hidden; position: relative; }
-#codeEditorWrapper .CodeMirror {
-    height: 100%;
-    font-size: 13.5px;
-    font-family: 'JetBrains Mono', 'Fira Code', monospace;
-    line-height: 1.65;
+.template-actions a {
+  flex: 1;
+  text-align: center;
+  padding: 7px 0;
+  font-size: 12.5px;
+  color: #6c757d;
+  text-decoration: none;
+  transition: background 0.15s, color 0.15s;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
 }
 
-#editorLoadingOverlay {
-    position: absolute; inset: 0;
-    background: rgba(30,30,46,0.88);
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    z-index: 10;
-    color: #cdd6f4;
-    gap: 0.75rem;
-    font-size: 0.9rem;
-}
-.editor-spinner {
-    width: 34px; height: 34px;
-    border: 3px solid #45475a;
-    border-top-color: #89b4fa;
-    border-radius: 50%;
-    animation: spin 0.8s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.editor-bottom-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.5rem 1rem;
-    background: #181825;
-    border-top: 1px solid #313244;
-    flex-shrink: 0;
-}
-.editor-bottom-bar .hints { color: #585b70; font-size: 0.72rem; }
-.editor-bottom-bar .hints kbd {
-    background: #313244;
-    color: #cdd6f4;
-    padding: 0.1em 0.35em;
-    border-radius: 3px;
-    font-size: 0.7rem;
-    border: 1px solid #45475a;
+.template-actions a:not(:last-child) {
+  border-right: 1px solid #e3e6f0;
 }
 
-.preview-pane { width: 45%; display: flex; flex-direction: column; }
-.preview-pane-toolbar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    padding: 0.45rem 1rem;
-    background: #181825;
-    border-bottom: 1px solid #313244;
-    flex-shrink: 0;
+.template-actions a.btn-tmpl-preview:hover  { background: #eef0fb; color: #4B5EBD; }
+.template-actions a.btn-tmpl-edit:hover     { background: #e8f7fd; color: #17a2b8; }
+.template-actions a.btn-tmpl-delete:hover   { background: #fdeaea; color: #dc3545; }
+
+/* Empty state */
+.empty-templates {
+  padding: 3.5rem 1rem;
+  text-align: center;
+  color: #b0b8d1;
 }
-.preview-pane-toolbar span { color: #a6adc8; font-size: 0.8rem; }
-#livePreviewFrame { flex: 1; border: none; width: 100%; background: #fff; }
+
+.empty-templates i {
+  font-size: 3.5rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.empty-templates p {
+  margin-bottom: 1rem;
+  font-size: 15px;
+}
+
+/* Preview modal */
+#previewModal .modal-dialog { max-width: 880px; }
+
+#previewModal .modal-header {
+  background: linear-gradient(to right, #4B5EBD, #576CC0);
+  color: #fff;
+  padding: 0.5rem 1rem;
+}
+
+#previewModal .modal-header .btn-close { filter: invert(1); }
+#previewModal .modal-title { font-size: 15px; font-weight: 600; }
+
+#previewModalBody {
+  padding: 0;
+  height: 72vh;
+  overflow: hidden;
+}
+
+#previewModalBody iframe {
+  width: 100%;
+  height: 100%;
+  border: none;
+}
 </style>
 
-{{-- Progress bar --}}
-<div class="progress" id="progressBar" style="height:8px;display:none">
-    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+<div class="progress" id="progressBar" role="progressbar" aria-label="Animated striped" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" style="height: 8px; transform: rotate(180deg); display:none">
+    <div class="progress-bar progress-bar-striped progress-bar-animated" style="width: 100%"></div>
 </div>
 
 <div class="content-page">
 <div class="content">
 <div class="container-fluid">
+
 <div class="row mb-3"></div>
 
-{{-- ══════════ TOP BAR ══════════ --}}
 <div class="card">
-    <div class="card-header d-flex justify-content-between align-items-center">
-        <h4 class="header-title mb-0">
-            <i class="ri-file-list-3-line"></i> Invoice Templates
-        </h4>
-        <a href="#" class="btn btn-light text-primary" id="infoBtn" title="How it works">
-            <i class="ri-information-line"></i>
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="header-title mb-0">
+      <i class="ri-file-list-3-line"></i> Invoice Templates
+    </h4>
+    <div class="d-flex align-items-center">
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newTemplateBtn" title="Add new template">
+        <i class="ri-add-circle-line"></i>
+      </a>
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info">
+        <i class="ri-information-line"></i>
+      </a>
+    </div>
+    <?php
+      $templates = DB::table('invoice_templates')->get();
+    ?>
+  </div>
+
+  <div class="card-body">
+    @if($templates->isEmpty())
+      <div class="empty-templates" id="emptyState">
+        <i class="ri-file-list-3-line"></i>
+        <p>No invoice templates yet.<br>Click <strong>+</strong> to add your first template.</p>
+        <a href="#" class="btn btn-primary btn-sm" id="newTemplateBtnEmpty">
+          <i class="ri-add-circle-line me-1"></i> Add Template
         </a>
+      </div>
+    @else
+      <div class="templates-grid" id="templatesGrid">
+        @foreach($templates as $tmpl)
+          <div class="template-card" id="tmplcard-{{ $tmpl->id }}">
+            <div class="template-thumbnail previewTemplateBtn"
+                 data-id="{{ $tmpl->id }}"
+                 data-name="{{ $tmpl->name }}"
+                 title="Click to preview">
+              <i class="ri-file-text-line tmpl-icon"></i>
+              <span class="tmpl-view-label">{{ $tmpl->view_name }}.blade.php</span>
+              <div class="thumb-overlay">
+                <i class="ri-eye-line eye-icon"></i>
+              </div>
+            </div>
+            <div class="template-info">
+              <div class="tmpl-name">{{ $tmpl->name }}</div>
+              <div class="tmpl-desc">{{ $tmpl->description ?: '—' }}</div>
+            </div>
+            <div class="template-actions">
+              <a href="#"
+                 class="btn-tmpl-preview previewTemplateBtn"
+                 data-id="{{ $tmpl->id }}"
+                 data-name="{{ $tmpl->name }}"
+                 title="Preview">
+                <i class="ri-eye-line"></i> Preview
+              </a>
+              <a href="#"
+                 class="btn-tmpl-edit editTemplateBtn"
+                 data-id="{{ $tmpl->id }}"
+                 data-name="{{ $tmpl->name }}"
+                 data-view="{{ $tmpl->view_name }}"
+                 data-description="{{ $tmpl->description }}"
+                 title="Edit">
+                <i class="ri-edit-box-line"></i> Edit
+              </a>
+              <a href="#"
+                 class="btn-tmpl-delete deleteTemplateBtn"
+                 data-id="{{ $tmpl->id }}"
+                 data-name="{{ $tmpl->name }}"
+                 title="Delete">
+                <i class="ri-delete-bin-line"></i> Delete
+              </a>
+            </div>
+          </div>
+        @endforeach
+      </div>
+    @endif
+  </div>
+</div>
+
+</div>
+</div>
+</div>
+
+{{-- ── Info Modal ── --}}
+<section>
+<div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title">Invoice Templates</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Manage your invoice templates. Each template maps to a Blade view stored under
+        <code>resources/views/templates/invoice/</code>.
+        Use <strong>+</strong> to register a new template, <strong>Preview</strong> to inspect it,
+        <strong>Edit</strong> to update its details, and <strong>Delete</strong> to remove it.
+      </div>
     </div>
-    <div class="controls-section">
-        <div class="controls-row">
-            <a href="#" class="btn btn-primary" id="newTemplateBtn">
-                <i class="ri-add-circle-line"></i> Add New Template
+  </div>
+</div>
+</section>
+
+{{-- ── Add New Template Modal ── --}}
+<section>
+<div class="modal fade" id="newTemplateModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="ri-add-circle-line me-1"></i> Add New Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="newTemplateForm" action="#" method="post">
+          @csrf
+          <div class="mb-3">
+            <label class="form-label control-label">Template Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="new-name" name="name"
+                   placeholder="e.g. Modern Blue" required autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label class="form-label control-label">Blade View Name <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text text-muted" style="font-size:12px">templates/invoice/</span>
+              <input type="text" class="form-control" id="new-view" name="view_name"
+                     placeholder="modern_blue" required autocomplete="off">
+              <span class="input-group-text text-muted" style="font-size:12px">.blade.php</span>
+            </div>
+            <div class="form-text">The Blade file must already exist at the path above.</div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label control-label">Description</label>
+            <textarea class="form-control" id="new-description" name="description" rows="2"
+                      placeholder="Brief description of this template..."></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <a href="#" class="btn btn-secondary" id="cancelNewTemplateBtn">Cancel</a>
+        <a href="#" class="btn btn-primary" id="submitNewTemplateBtn">
+          <i class="ri-save-line me-1"></i> Save
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+{{-- ── Edit Template Modal ── --}}
+<section>
+<div class="modal fade" id="editTemplateModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="ri-edit-box-line me-1"></i> Update Template</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <form id="editTemplateForm" action="#" method="post">
+          @csrf
+          <input type="hidden" id="edit-id" name="id">
+          <div class="mb-3">
+            <label class="form-label control-label">Template Name <span class="text-danger">*</span></label>
+            <input type="text" class="form-control" id="edit-name" name="name" required autocomplete="off">
+          </div>
+          <div class="mb-3">
+            <label class="form-label control-label">Blade View Name <span class="text-danger">*</span></label>
+            <div class="input-group">
+              <span class="input-group-text text-muted" style="font-size:12px">templates/invoice/</span>
+              <input type="text" class="form-control" id="edit-view" name="view_name" required autocomplete="off">
+              <span class="input-group-text text-muted" style="font-size:12px">.blade.php</span>
+            </div>
+          </div>
+          <div class="mb-3">
+            <label class="form-label control-label">Description</label>
+            <textarea class="form-control" id="edit-description" name="description" rows="2"></textarea>
+          </div>
+        </form>
+      </div>
+      <div class="modal-footer border-0 pt-0">
+        <a href="#" class="btn btn-secondary" id="cancelEditTemplateBtn">Cancel</a>
+        <a href="#" class="btn btn-primary" id="submitEditTemplateBtn">
+          <i class="ri-save-line me-1"></i> Update
+        </a>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+{{-- ── Preview Modal ── --}}
+<section>
+<div class="modal fade" id="previewModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog modal-xl">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title"><i class="ri-eye-line me-1"></i> <span id="previewModalTitle">Preview</span></h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body" id="previewModalBody">
+        <iframe id="previewIframe" src="" title="Invoice Preview"></iframe>
+      </div>
+    </div>
+  </div>
+</div>
+</section>
+
+{{-- ── Delete Confirm Modal ── --}}
+<section>
+<div class="modal fade" id="deleteTemplateModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:350px; margin:1.75rem auto;">
+    <div class="modal-content">
+      <div class="modal-body text-center pb-4">
+        <i class="ri-error-warning-line text-danger" style="font-size:70px"></i>
+        <form id="deleteTemplateForm" action="#" method="post">
+          @csrf
+          <div class="form-group">
+            <h4 class="mt-1">Are you sure you want to delete <span id="deleteTmplLabel"></span>?</h4>
+          </div>
+          <div class="form-group">
+            <h5>You won't be able to revert this!</h5>
+          </div>
+          <input type="hidden" id="deleteTmplId" name="id">
+          <input type="hidden" id="deleteTmplCard">
+          <div class="form-group">
+            <a href="#" class="btn btn-danger" id="confirmDeleteTmplBtn" style="margin-top:10px;margin-bottom:10px;margin-right:5px">
+              Yes, Delete it
             </a>
-            <input type="text" class="form-control" id="searchInput" placeholder="Search templates…">
-        </div>
+            <a href="#" class="btn btn-info" id="cancelDeleteTmplBtn" style="margin-top:10px;margin-bottom:10px;">
+              No, Keep it
+            </a>
+          </div>
+        </form>
+      </div>
     </div>
+  </div>
 </div>
-
-{{-- ══════════ CARDS ══════════ --}}
-<div class="row g-3 mt-1" id="templateCards">
-    @foreach($templates as $tpl)
-        <div class="col-md-6 col-lg-4 d-flex justify-content-center template-card-wrapper" id="card{{ $tpl->id }}">
-            <div class="template-card">
-
-                <div class="card-header-section">
-                    <h5 class="card-title">{{ $tpl->name }}</h5>
-                    @if($tpl->is_default)
-                        <span class="badge-default">Default</span>
-                    @endif
-                </div>
-
-                <div class="card-preview" id="preview-area-{{ $tpl->id }}">
-                    @if($tpl->content)
-                        {{-- Shimmer shown while canvas renders --}}
-                        <div class="card-preview-shimmer" id="shimmer-{{ $tpl->id }}">
-                            <i class="ri-file-text-line"></i>
-                            <span>Rendering preview…</span>
-                        </div>
-                        {{-- Canvas injected here by JS --}}
-                        {{-- Hidden iframe used for rendering --}}
-                        <iframe
-                            class="card-render-iframe"
-                            id="render-iframe-{{ $tpl->id }}"
-                            data-target="{{ $tpl->id }}"
-                            sandbox="allow-same-origin allow-scripts"></iframe>
-                    @else
-                        <div class="card-preview-empty">
-                            <i class="ri-file-edit-line"></i>
-                            <span>No content yet.<br>Click <i class="ri-code-s-slash-line"></i> to add HTML.</span>
-                        </div>
-                    @endif
-                </div>
-
-                <div class="card-actions">
-                    <a href="#" class="btn btn-icon btn-preview previewBtn"
-                       data-id="{{ $tpl->id }}"
-                       data-name="{{ $tpl->name }}"
-                       title="Full Preview">
-                        <i class="ri-eye-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-code codeEditorBtn"
-                       data-id="{{ $tpl->id }}"
-                       data-name="{{ $tpl->name }}"
-                       title="Edit HTML / CSS">
-                        <i class="ri-code-s-slash-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-edit editTemplateBtn"
-                       data-id="{{ $tpl->id }}"
-                       data-name="{{ $tpl->name }}"
-                       data-default="{{ $tpl->is_default ? '1' : '0' }}"
-                       title="Settings">
-                        <i class="ri-settings-3-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-delete deleteTemplateBtn"
-                       data-id="{{ $tpl->id }}"
-                       data-name="{{ $tpl->name }}"
-                       title="Delete">
-                        <i class="ri-delete-bin-line"></i>
-                    </a>
-                </div>
-
-            </div>
-        </div>
-    @endforeach
-</div>
-
-</div>
-</div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     INFO MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="infoModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="ri-information-line"></i> Invoice Templates</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <ul class="mb-0" style="line-height:2">
-                    <li>Templates are stored <strong>entirely in the database</strong> — no blade files involved.</li>
-                    <li>Click <strong><i class="ri-code-s-slash-line"></i></strong> to open the built-in HTML/CSS editor.</li>
-                    <li>The right pane shows a <strong>live preview</strong> as you type.</li>
-                    <li><kbd>Ctrl+S</kbd> / <kbd>Cmd+S</kbd> saves without clicking the button.</li>
-                    <li>Click <strong><i class="ri-eye-line"></i></strong> to open the full rendered preview.</li>
-                    <li>Click <strong><i class="ri-settings-3-line"></i></strong> to rename or change the default flag.</li>
-                </ul>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     ADD MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="addTemplateModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="ri-add-circle-line"></i> Add New Template</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="addTemplateForm">
-                    @csrf
-                    <div class="mb-3">
-                        <label class="form-label">Template Name <span class="text-danger">*</span></label>
-                        <input class="form-control" name="name" required placeholder="e.g. Standard Invoice">
-                        <div class="form-text">Must be unique across all templates.</div>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="is_default" value="1" id="addIsDefault">
-                        <label class="form-check-label" for="addIsDefault">Set as default template</label>
-                    </div>
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                        <button type="button" class="btn btn-secondary" id="cancelAddTemplateBtn">Cancel</button>
-                        <button type="button" class="btn btn-primary" id="submitAddTemplateBtn">
-                            <i class="ri-save-line"></i> Create
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     EDIT SETTINGS MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="editTemplateModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title"><i class="ri-settings-3-line"></i> Template Settings</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <form id="editTemplateForm">
-                    @csrf
-                    <input type="hidden" name="id" id="editTemplateId">
-                    <div class="mb-3">
-                        <label class="form-label">Template Name <span class="text-danger">*</span></label>
-                        <input class="form-control" name="name" id="editTemplateName" required>
-                    </div>
-                    <div class="form-check mb-3">
-                        <input class="form-check-input" type="checkbox" name="is_default" value="1" id="editTemplateIsDefault">
-                        <label class="form-check-label" for="editTemplateIsDefault">Set as default template</label>
-                    </div>
-                    <div class="d-flex justify-content-end gap-2 mt-3">
-                        <button type="button" class="btn btn-secondary" id="cancelEditTemplateBtn">Cancel</button>
-                        <button type="button" class="btn btn-primary" id="submitEditTemplateBtn">
-                            <i class="ri-save-line"></i> Update
-                        </button>
-                    </div>
-                </form>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     DELETE MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="deleteTemplateModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog" style="max-width:370px;margin:1.75rem auto">
-        <div class="modal-content">
-            <div class="modal-body text-center pt-4 pb-4">
-                <i class="ri-error-warning-line text-danger" style="font-size:70px"></i>
-                <h4 class="mt-2">Delete <span id="deleteTemplateName" class="text-danger"></span>?</h4>
-                <h6 class="text-muted">This will permanently remove the template and all its content.</h6>
-                <input type="hidden" id="deleteTemplateId">
-                <div class="mt-3 d-flex justify-content-center gap-2">
-                    <button type="button" class="btn btn-info" id="cancelDeleteTemplateBtn">No, Keep It</button>
-                    <button type="button" class="btn btn-danger" id="submitDeleteTemplateBtn">
-                        <i class="ri-delete-bin-line"></i> Yes, Delete
-                    </button>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     FULL PREVIEW MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="previewModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog" style="max-width:900px;margin:1.75rem auto">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">
-                    <i class="ri-eye-line"></i> Preview: <span id="previewModalTitle"></span>
-                </h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div class="preview-scroll">
-                    <iframe id="previewFrame" style="width:100%;height:800px;border:none;display:block;"></iframe>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════
-     CODE EDITOR MODAL
-     ══════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="codeEditorModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-    <div class="modal-dialog" style="max-width:98vw;width:1400px;margin:0.75rem auto">
-        <div class="modal-content">
-
-            <div class="modal-header">
-                <div class="d-flex align-items-center gap-2">
-                    <span style="width:12px;height:12px;border-radius:50%;background:#ff5f56;display:inline-block"></span>
-                    <span style="width:12px;height:12px;border-radius:50%;background:#ffbd2e;display:inline-block"></span>
-                    <span style="width:12px;height:12px;border-radius:50%;background:#27c93f;display:inline-block"></span>
-                    <span class="modal-title ms-2" id="codeEditorTitle">Editing: —</span>
-                </div>
-                <div class="d-flex align-items-center gap-2">
-                    <span class="editor-status loading" id="editorStatus">Loading…</span>
-                    <button class="btn btn-sm btn-outline-secondary text-white border-secondary" id="saveCodeBtn">
-                        <i class="ri-save-line"></i> Save
-                    </button>
-                    <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
-                </div>
-            </div>
-
-            <div class="modal-body">
-                <div class="editor-layout">
-
-                    {{-- Left: CodeMirror --}}
-                    <div class="editor-pane">
-                        <div class="editor-toolbar">
-                            <div class="tl">
-                                <span class="lang-badge">HTML / CSS</span>
-                                <span class="editor-filename" id="editorSubtitle">—</span>
-                            </div>
-                            <div class="tr">
-                                <button class="btn btn-sm btn-outline-secondary text-secondary border-secondary"
-                                        id="wrapToggleBtn"
-                                        style="font-size:0.73rem;padding:0.15rem 0.5rem"
-                                        title="Toggle line wrap">
-                                    <i class="ri-text-wrap"></i> Wrap
-                                </button>
-                                <button class="btn btn-sm btn-outline-secondary text-secondary border-secondary"
-                                        id="formatBtn"
-                                        style="font-size:0.73rem;padding:0.15rem 0.5rem"
-                                        title="Re-indent all lines">
-                                    <i class="ri-layout-left-line"></i> Format
-                                </button>
-                            </div>
-                        </div>
-
-                        <div id="codeEditorWrapper">
-                            <textarea id="codeEditorTextarea"></textarea>
-                            <div id="editorLoadingOverlay">
-                                <div class="editor-spinner"></div>
-                                <span>Loading template…</span>
-                            </div>
-                        </div>
-
-                        <div class="editor-bottom-bar">
-                            <span class="hints">
-                                <kbd>Ctrl+S</kbd> Save &nbsp;·&nbsp;
-                                <kbd>Ctrl+/</kbd> Comment &nbsp;·&nbsp;
-                                <kbd>Ctrl+Z</kbd> Undo &nbsp;·&nbsp;
-                                <kbd>Tab</kbd> Indent
-                            </span>
-                            <span class="hints" id="cursorPos">Ln 1, Col 1</span>
-                        </div>
-                    </div>
-
-                    {{-- Right: Live preview --}}
-                    <div class="preview-pane">
-                        <div class="preview-pane-toolbar">
-                            <span>
-                                <i class="ri-eye-line" style="color:#89b4fa"></i>
-                                &nbsp; Live Preview
-                            </span>
-                            <button class="btn btn-sm btn-outline-secondary text-secondary border-secondary"
-                                    id="refreshPreviewBtn"
-                                    style="font-size:0.73rem;padding:0.15rem 0.5rem">
-                                <i class="ri-refresh-line"></i> Refresh
-                            </button>
-                        </div>
-                        <iframe id="livePreviewFrame"
-                                src="about:blank"
-                                sandbox="allow-same-origin allow-scripts"></iframe>
-                    </div>
-
-                </div>
-            </div>
-
-        </div>
-    </div>
-</div>
-
-{{-- html2canvas for rendering invoice HTML into a canvas thumbnail --}}
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+</section>
 
 @endsection
 
@@ -732,518 +488,284 @@
 <script>
 $(document).ready(function () {
 
-    toastr.options = { closeButton: true, progressBar: true, timeOut: 5000 };
-
-    const ROUTES = {
-        insert:      '{{ route("master.invoice.template.insert") }}',
-        update:      '{{ route("master.invoice.template.update") }}',
-        delete:      '{{ route("master.invoice.template.delete") }}',
-        getContent:  '{{ route("master.invoice.template.get_content") }}',
-        saveContent: '{{ route("master.invoice.template.save_content") }}',
-        preview:     '{{ route("master.invoice.template.preview") }}',
+    toastr.options = {
+        closeButton: true,
+        progressBar: true,
+        showMethod: 'slideDown',
+        timeOut: 5000,
+        allowHtml: true
     };
-    const CSRF = '{{ csrf_token() }}';
 
-    // ══════════════════════════════════════════════════════════════
-    //  THUMBNAIL ENGINE
-    //
-    //  How it works:
-    //  1. Each card has a hidden off-screen iframe (.card-render-iframe).
-    //  2. We write the template HTML into the iframe via srcdoc (JS assignment).
-    //  3. After the iframe loads, we run html2canvas on its document.body.
-    //  4. html2canvas returns a <canvas> which we display in the card preview.
-    //  5. The shimmer disappears and the canvas thumbnail fades in.
-    //
-    //  This gives a real pixel-accurate screenshot of the rendered HTML,
-    //  not a scaled-down iframe that shows text as tiny unreadable lines.
-    // ══════════════════════════════════════════════════════════════
-
-    /**
-     * Render a canvas thumbnail for a given template id and HTML content.
-     * @param {number|string} id      - template id
-     * @param {string}        content - raw HTML string
-     */
-    function renderThumbnail(id, content) {
-        if (!content || !content.trim()) return;
-
-        const iframe = document.getElementById('render-iframe-' + id);
-        if (!iframe) return;
-
-        // Make iframe visible to the rendering engine (still off-screen)
-        iframe.style.visibility = 'hidden';
-
-        // Write content into the iframe
-        iframe.srcdoc = content;
-
-        iframe.onload = function () {
-            try {
-                const iDoc  = iframe.contentDocument || iframe.contentWindow.document;
-                const iBody = iDoc.body || iDoc.documentElement;
-
-                html2canvas(iBody, {
-                    width         : 900,
-                    height        : 1100,
-                    scale         : 0.45,          // render at 45% — crisp enough, fast enough
-                    useCORS       : true,
-                    allowTaint    : true,
-                    backgroundColor: '#ffffff',
-                    logging       : false,
-                    windowWidth   : 900,
-                    windowHeight  : 1100,
-                }).then(function (canvas) {
-                    const area    = document.getElementById('preview-area-' + id);
-                    const shimmer = document.getElementById('shimmer-' + id);
-                    if (!area) return;
-
-                    // Style the canvas so it fills the preview area like a document thumbnail
-                    canvas.style.width        = '100%';
-                    canvas.style.height       = '100%';
-                    canvas.style.objectFit    = 'cover';
-                    canvas.style.objectPosition = 'top center';
-                    canvas.style.display      = 'block';
-                    canvas.style.opacity      = '0';
-                    canvas.style.transition   = 'opacity 0.4s ease';
-                    canvas.classList.add('card-preview-canvas');
-
-                    area.appendChild(canvas);
-
-                    // Fade in canvas, fade out shimmer
-                    requestAnimationFrame(function () {
-                        canvas.style.opacity = '1';
-                        if (shimmer) {
-                            shimmer.style.transition = 'opacity 0.3s ease';
-                            shimmer.style.opacity    = '0';
-                            setTimeout(function () { shimmer.remove(); }, 350);
-                        }
-                    });
-
-                }).catch(function (err) {
-                    console.warn('html2canvas failed for template ' + id, err);
-                    showFallbackThumbnail(id);
-                });
-
-            } catch (e) {
-                console.warn('iframe access error for template ' + id, e);
-                showFallbackThumbnail(id);
-            }
-        };
-
-        iframe.onerror = function () {
-            showFallbackThumbnail(id);
-        };
-    }
-
-    /**
-     * If html2canvas fails, show a clean "document lines" placeholder
-     * instead of leaving the shimmer spinning forever.
-     */
-    function showFallbackThumbnail(id) {
-        const shimmer = document.getElementById('shimmer-' + id);
-        if (shimmer) {
-            shimmer.innerHTML = `
-                <i class="ri-file-text-line" style="font-size:2.5rem;color:#bbb"></i>
-                <span style="font-size:0.75rem;color:#aaa">Click <i class="ri-eye-line"></i> to preview</span>`;
-            shimmer.style.animation = 'none';
-            shimmer.style.background = '#f0f2f7';
-        }
-    }
-
-    // ── Kick off thumbnail rendering for all server-rendered cards ──
-    // We stagger them slightly so they don't all fire at once and
-    // overwhelm the browser's rendering pipeline.
-    (function initThumbnails() {
-        const iframes = document.querySelectorAll('.card-render-iframe[data-target]');
-        iframes.forEach(function (iframe, index) {
-            const id      = iframe.getAttribute('data-target');
-            const content = {!! json_encode(
-                $templates->mapWithKeys(fn($t) => [$t->id => $t->content])
-            ) !!}[id];
-
-            if (content) {
-                // Stagger: 200ms between each card render
-                setTimeout(function () {
-                    renderThumbnail(id, content);
-                }, index * 200);
-            } else {
-                showFallbackThumbnail(id);
-            }
-        });
-    })();
-
-    // ── Search ────────────────────────────────────────────────────
-    $('#searchInput').on('input', function () {
-        const q = $(this).val().toLowerCase().trim();
-        $('.template-card-wrapper').each(function () {
-            const name  = $(this).find('.card-title').text().toLowerCase();
-            const isDef = $(this).find('.badge-default').length > 0;
-            $(this).toggle(!q || name.includes(q) || (q === 'default' && isDef));
-        });
-    });
-
-    // ── Helpers ───────────────────────────────────────────────────
-    const escText = s => $('<span>').text(s).html();
-
-    /**
-     * Build the card HTML for a newly created/updated template.
-     * The hidden render iframe is included; renderThumbnail() is called
-     * separately after the card is in the DOM.
-     */
-    function buildCard(t) {
-        const badge = t.is_default
-            ? `<span class="badge-default">Default</span>`
-            : '';
-
-        const previewInner = t.content
-            ? `<div class="card-preview-shimmer" id="shimmer-${t.id}">
-                   <i class="ri-file-text-line"></i>
-                   <span>Rendering preview…</span>
-               </div>
-               <iframe class="card-render-iframe"
-                       id="render-iframe-${t.id}"
-                       data-target="${t.id}"
-                       sandbox="allow-same-origin allow-scripts"></iframe>`
-            : `<div class="card-preview-empty">
-                   <i class="ri-file-edit-line"></i>
-                   <span>No content yet.<br>Click <i class="ri-code-s-slash-line"></i> to add HTML.</span>
-               </div>`;
-
-        return `
-        <div class="col-md-6 col-lg-4 d-flex justify-content-center template-card-wrapper" id="card${t.id}">
-            <div class="template-card">
-                <div class="card-header-section">
-                    <h5 class="card-title">${escText(t.name)}</h5>
-                    ${badge}
-                </div>
-                <div class="card-preview" id="preview-area-${t.id}">
-                    ${previewInner}
-                </div>
-                <div class="card-actions">
-                    <a href="#" class="btn btn-icon btn-preview previewBtn"
-                       data-id="${t.id}" data-name="${escText(t.name)}" title="Full Preview">
-                        <i class="ri-eye-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-code codeEditorBtn"
-                       data-id="${t.id}" data-name="${escText(t.name)}" title="Edit HTML / CSS">
-                        <i class="ri-code-s-slash-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-edit editTemplateBtn"
-                       data-id="${t.id}" data-name="${escText(t.name)}"
-                       data-default="${t.is_default ? '1' : '0'}" title="Settings">
-                        <i class="ri-settings-3-line"></i>
-                    </a>
-                    <a href="#" class="btn btn-icon btn-delete deleteTemplateBtn"
-                       data-id="${t.id}" data-name="${escText(t.name)}" title="Delete">
-                        <i class="ri-delete-bin-line"></i>
-                    </a>
-                </div>
-            </div>
-        </div>`;
-    }
-
-    // ── Info modal ────────────────────────────────────────────────
-    $('#infoBtn').on('click', e => { e.preventDefault(); $('#infoModal').modal('show'); });
-
-    // ── New template ──────────────────────────────────────────────
-    $('#newTemplateBtn').on('click', e => {
+    // ── Info ──────────────────────────────────────────────────
+    $('#infoBtn').click(function (e) {
         e.preventDefault();
-        $('#addTemplateForm')[0].reset();
-        $('#addTemplateModal').modal('show');
+        $('#infoModal').modal('show');
     });
 
-    $('#cancelAddTemplateBtn').on('click', () => {
-        $('#addTemplateForm')[0].reset();
-        $('#addTemplateModal').modal('hide');
+    // ── Open Add Modal ────────────────────────────────────────
+    $(document).on('click', '#newTemplateBtn, #newTemplateBtnEmpty', function (e) {
+        e.preventDefault();
+        $('#newTemplateForm')[0].reset();
+        $('#newTemplateModal').modal('show');
     });
 
-    // ── ADD ───────────────────────────────────────────────────────
-    $('#submitAddTemplateBtn').on('click', function () {
-        const $btn = $(this).prop('disabled', true);
-        $('#progressBar').show();
+    // Auto-slug view name from template name
+    $('#new-name').on('input', function () {
+        var slug = $(this).val()
+            .toLowerCase()
+            .replace(/[^a-z0-9\s_]/g, '')
+            .trim()
+            .replace(/\s+/g, '_');
+        $('#new-view').val(slug);
+    });
 
-        $.post(ROUTES.insert, $('#addTemplateForm').serialize())
-            .done(res => {
-                if (res.status === 201) {
-                    toastr.success(res.success);
-                    if (res.template.is_default) $('.badge-default').remove();
-                    $('#templateCards').append(buildCard(res.template));
-                    // Give DOM a tick to settle before rendering
-                    setTimeout(() => renderThumbnail(res.template.id, res.template.content), 100);
-                    $('#addTemplateModal').modal('hide');
+    $('#cancelNewTemplateBtn').click(function (e) {
+        e.preventDefault();
+        $('#newTemplateModal').modal('hide');
+    });
+
+    // ── Submit: Add New Template ──────────────────────────────
+    $('#submitNewTemplateBtn').click(function (e) {
+        e.preventDefault();
+        var self = $(this);
+
+        var name        = $.trim($('#new-name').val());
+        var view_name   = $.trim($('#new-view').val());
+        var description = $.trim($('#new-description').val());
+
+        if (!name || !view_name) {
+            toastr.error('Template name and blade view name are required.', 'Validation Error');
+            return;
+        }
+
+        self.prop('disabled', true);
+
+        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ route("master.invoice.template.insert") }}',
+            data: { name: name, view_name: view_name, description: description },
+            timeout: 60000,
+            beforeSend: function () { $('#progressBar').show(); },
+            complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function (data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $('#newTemplateModal').modal('hide');
+                    if ($('#templatesGrid').length === 0) {
+                        $('#emptyState').replaceWith('<div class="templates-grid" id="templatesGrid"></div>');
+                    }
+                    $('#templatesGrid').prepend(buildCard(data.template));
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
                 } else {
-                    toastr.error(res.error || 'Failed to create template.');
+                    toastr.info('Unspecified error occurred.', 'Error');
                 }
-            })
-            .fail(() => toastr.error('Request failed. Please try again.'))
-            .always(() => { $btn.prop('disabled', false); $('#progressBar').hide(); });
+            },
+            error: handleAjaxError
+        });
     });
 
-    // ── EDIT SETTINGS ─────────────────────────────────────────────
+    // ── Open Edit Modal ───────────────────────────────────────
     $(document).on('click', '.editTemplateBtn', function (e) {
         e.preventDefault();
-        $('#editTemplateId').val($(this).data('id'));
-        $('#editTemplateName').val($(this).data('name'));
-        $('#editTemplateIsDefault').prop('checked', String($(this).data('default')) === '1');
+        $('#edit-id').val($(this).data('id'));
+        $('#edit-name').val($(this).data('name'));
+        $('#edit-view').val($(this).data('view'));
+        $('#edit-description').val($(this).data('description') || '');
         $('#editTemplateModal').modal('show');
     });
 
-    $('#cancelEditTemplateBtn').on('click', () => {
-        $('#editTemplateForm')[0].reset();
+    $('#cancelEditTemplateBtn').click(function (e) {
+        e.preventDefault();
         $('#editTemplateModal').modal('hide');
     });
 
-    $('#submitEditTemplateBtn').on('click', function () {
-        const $btn = $(this).prop('disabled', true);
-        $('#progressBar').show();
+    // ── Submit: Update Template ───────────────────────────────
+    $('#submitEditTemplateBtn').click(function (e) {
+        e.preventDefault();
+        var self = $(this);
 
-        $.post(ROUTES.update, $('#editTemplateForm').serialize())
-            .done(res => {
-                if (res.status === 201) {
-                    toastr.success(res.success);
-                    if (res.template.is_default) $('.badge-default').remove();
-                    $('#card' + res.template.id).replaceWith(buildCard(res.template));
-                    setTimeout(() => renderThumbnail(res.template.id, res.template.content), 100);
+        var id          = $('#edit-id').val();
+        var name        = $.trim($('#edit-name').val());
+        var view_name   = $.trim($('#edit-view').val());
+        var description = $.trim($('#edit-description').val());
+
+        if (!name || !view_name) {
+            toastr.error('Template name and blade view name are required.', 'Validation Error');
+            return;
+        }
+
+        self.prop('disabled', true);
+
+        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ route("master.invoice.template.update") }}',
+            data: { id: id, name: name, view_name: view_name, description: description },
+            timeout: 60000,
+            beforeSend: function () { $('#progressBar').show(); },
+            complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function (data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
                     $('#editTemplateModal').modal('hide');
+                    $('#tmplcard-' + data.template.id).replaceWith(buildCard(data.template));
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
                 } else {
-                    toastr.error(res.error || 'Failed to update template.');
+                    toastr.info('Unspecified error occurred.', 'Error');
                 }
-            })
-            .fail(() => toastr.error('Request failed. Please try again.'))
-            .always(() => { $btn.prop('disabled', false); $('#progressBar').hide(); });
+            },
+            error: handleAjaxError
+        });
     });
 
-    // ── DELETE ────────────────────────────────────────────────────
-    $(document).on('click', '.deleteTemplateBtn', function (e) {
+    // ── Preview ───────────────────────────────────────────────
+    $(document).on('click', '.previewTemplateBtn', function (e) {
         e.preventDefault();
-        $('#deleteTemplateName').text($(this).data('name'));
-        $('#deleteTemplateId').val($(this).data('id'));
-        $('#deleteTemplateModal').modal('show');
-    });
-
-    $('#cancelDeleteTemplateBtn').on('click', () => $('#deleteTemplateModal').modal('hide'));
-
-    $('#submitDeleteTemplateBtn').on('click', function () {
-        const $btn = $(this).prop('disabled', true);
-        const id   = $('#deleteTemplateId').val();
-        $('#progressBar').show();
-
-        $.post(ROUTES.delete, { id, _token: CSRF })
-            .done(res => {
-                if (res.status === 201) {
-                    toastr.success(res.success);
-                    $('#card' + id).remove();
-                    $('#deleteTemplateModal').modal('hide');
-                } else {
-                    toastr.error(res.error || 'Failed to delete template.');
-                }
-            })
-            .fail(() => toastr.error('Request failed. Please try again.'))
-            .always(() => { $btn.prop('disabled', false); $('#progressBar').hide(); });
-    });
-
-    // ── FULL PREVIEW ──────────────────────────────────────────────
-    $(document).on('click', '.previewBtn', function (e) {
-        e.preventDefault();
-        $('#previewModalTitle').text($(this).data('name'));
-        $('#previewFrame').attr('src', ROUTES.preview + '?id=' + $(this).data('id'));
+        var id   = $(this).data('id');
+        var name = $(this).data('name');
+        var url  = '{{ route("master.invoice.template.preview") }}?id=' + id;
+        $('#previewModalTitle').text(name);
+        $('#previewIframe').attr('src', url);
         $('#previewModal').modal('show');
     });
 
-    $('#previewModal').on('hide.bs.modal', () => {
-        $('#previewFrame').attr('src', 'about:blank');
+    $('#previewModal').on('hidden.bs.modal', function () {
+        $('#previewIframe').attr('src', '');
     });
 
-    // ══════════════════════════════════════════════════════════════
-    //  CODE EDITOR
-    // ══════════════════════════════════════════════════════════════
-    let cmEditor           = null;
-    let activeTemplateId   = null;
-    let activeTemplateName = null;
-    let isDirty            = false;
-    let debounceTimer      = null;
-
-    function initialiseCM() {
-        if (cmEditor) return;
-
-        cmEditor = CodeMirror.fromTextArea(
-            document.getElementById('codeEditorTextarea'),
-            {
-                mode          : 'htmlmixed',
-                theme         : 'dracula',
-                lineNumbers   : true,
-                matchBrackets : true,
-                autoCloseTags : true,
-                indentUnit    : 4,
-                tabSize       : 4,
-                indentWithTabs: false,
-                lineWrapping  : false,
-                extraKeys     : {
-                    'Ctrl-S': saveTemplateCode,
-                    'Cmd-S' : saveTemplateCode,
-                    'Ctrl-/': cm => cm.execCommand('toggleComment'),
-                    'Cmd-/' : cm => cm.execCommand('toggleComment'),
-                },
-            }
-        );
-
-        cmEditor.on('change', () => {
-            if (!isDirty) { isDirty = true; setEditorStatus('unsaved', 'Unsaved'); }
-            clearTimeout(debounceTimer);
-            debounceTimer = setTimeout(refreshLivePreview, 1200);
-        });
-
-        cmEditor.on('cursorActivity', () => {
-            const c = cmEditor.getCursor();
-            $('#cursorPos').text(`Ln ${c.line + 1}, Col ${c.ch + 1}`);
-        });
-    }
-
-    $(document).on('click', '.codeEditorBtn', function (e) {
+    // ── Open Delete Confirm ───────────────────────────────────
+    $(document).on('click', '.deleteTemplateBtn', function (e) {
         e.preventDefault();
-        activeTemplateId   = $(this).data('id');
-        activeTemplateName = $(this).data('name');
+        var id   = $(this).data('id');
+        var name = $(this).data('name');
+        $('#deleteTmplId').val(id);
+        $('#deleteTmplCard').val('tmplcard-' + id);
+        $('#deleteTmplLabel').html('<strong>' + escHtml(name) + '</strong>');
+        $('#deleteTemplateModal').modal('show');
+    });
 
-        $('#codeEditorTitle').text('Editing: ' + activeTemplateName);
-        $('#editorSubtitle').text('Template #' + activeTemplateId);
-        setEditorStatus('loading', 'Loading…');
-        $('#editorLoadingOverlay').show();
-        isDirty = false;
+    $('#cancelDeleteTmplBtn').click(function (e) {
+        e.preventDefault();
+        toastr.info('Your data is safe', 'Great!');
+        $('#deleteTemplateModal').modal('hide');
+    });
 
-        $('#codeEditorModal').modal('show');
+    // ── Submit: Delete ────────────────────────────────────────
+    $('#confirmDeleteTmplBtn').click(function (e) {
+        e.preventDefault();
+        var self = $(this);
+        self.prop('disabled', true);
 
-        $('#codeEditorModal').one('shown.bs.modal', function () {
-            initialiseCM();
-            cmEditor.refresh();
+        var id   = $('#deleteTmplId').val();
+        var card = $('#deleteTmplCard').val();
 
-            $.post(ROUTES.getContent, { id: activeTemplateId, _token: CSRF })
-                .done(res => {
-                    if (res.status === 200) {
-                        cmEditor.setValue(res.content || '');
-                        cmEditor.clearHistory();
-                        cmEditor.setCursor(0, 0);
-                        setEditorStatus('saved', 'Saved');
-                        refreshLivePreview();
-                    } else {
-                        toastr.error(res.error || 'Could not load template content.');
-                        setEditorStatus('unsaved', 'Error');
-                    }
-                })
-                .fail(() => {
-                    toastr.error('Failed to fetch template content.');
-                    setEditorStatus('unsaved', 'Error');
-                })
-                .always(() => {
-                    $('#editorLoadingOverlay').hide();
-                    isDirty = false;
-                });
+        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ route("master.invoice.template.delete") }}',
+            data: { id: id },
+            timeout: 60000,
+            beforeSend: function () { $('#progressBar').show(); },
+            complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function (data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Deleted');
+                    $('#deleteTemplateModal').modal('hide');
+                    $('#' + card).fadeOut(300, function () {
+                        $(this).remove();
+                        if ($('.template-card').length === 0) {
+                            $('#templatesGrid').replaceWith(`
+                              <div class="empty-templates" id="emptyState">
+                                <i class="ri-file-list-3-line"></i>
+                                <p>No invoice templates yet.<br>Click <strong>+</strong> to add your first template.</p>
+                                <a href="#" class="btn btn-primary btn-sm" id="newTemplateBtnEmpty">
+                                  <i class="ri-add-circle-line me-1"></i> Add Template
+                                </a>
+                              </div>`);
+                        }
+                    });
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
+                } else {
+                    toastr.info('Unspecified error occurred.', 'Error');
+                }
+            },
+            error: handleAjaxError
         });
     });
 
-    function saveTemplateCode() {
-        if (!cmEditor) return;
-
-        setEditorStatus('saving', 'Saving…');
-        $('#saveCodeBtn').prop('disabled', true);
-
-        $.post(ROUTES.saveContent, {
-            id      : activeTemplateId,
-            content : cmEditor.getValue(),
-            _token  : CSRF,
-        })
-        .done(res => {
-            if (res.status === 201) {
-                toastr.success(res.success);
-                isDirty = false;
-                setEditorStatus('saved', 'Saved');
-                // Re-render the card thumbnail with the freshly saved content
-                refreshCardThumbnail(activeTemplateId, cmEditor.getValue());
-                refreshLivePreview();
-            } else {
-                toastr.error(res.error || 'Save failed.');
-                setEditorStatus('unsaved', 'Error');
-            }
-        })
-        .fail(() => {
-            toastr.error('Save request failed.');
-            setEditorStatus('unsaved', 'Error');
-        })
-        .always(() => $('#saveCodeBtn').prop('disabled', false));
+    // ── Helpers ───────────────────────────────────────────────
+    function buildCard(t) {
+        var previewUrl = '{{ route("master.invoice.template.preview") }}?id=' + t.id;
+        return `
+          <div class="template-card" id="tmplcard-${t.id}">
+            <div class="template-thumbnail previewTemplateBtn"
+                 data-id="${t.id}"
+                 data-name="${escHtml(t.name)}"
+                 title="Click to preview">
+              <i class="ri-file-text-line tmpl-icon"></i>
+              <span class="tmpl-view-label">${escHtml(t.view_name)}.blade.php</span>
+              <div class="thumb-overlay">
+                <i class="ri-eye-line eye-icon"></i>
+              </div>
+            </div>
+            <div class="template-info">
+              <div class="tmpl-name">${escHtml(t.name)}</div>
+              <div class="tmpl-desc">${escHtml(t.description || '—')}</div>
+            </div>
+            <div class="template-actions">
+              <a href="#"
+                 class="btn-tmpl-preview previewTemplateBtn"
+                 data-id="${t.id}"
+                 data-name="${escHtml(t.name)}"
+                 title="Preview">
+                <i class="ri-eye-line"></i> Preview
+              </a>
+              <a href="#"
+                 class="btn-tmpl-edit editTemplateBtn"
+                 data-id="${t.id}"
+                 data-name="${escHtml(t.name)}"
+                 data-view="${escHtml(t.view_name)}"
+                 data-description="${escHtml(t.description || '')}"
+                 title="Edit">
+                <i class="ri-edit-box-line"></i> Edit
+              </a>
+              <a href="#"
+                 class="btn-tmpl-delete deleteTemplateBtn"
+                 data-id="${t.id}"
+                 data-name="${escHtml(t.name)}"
+                 title="Delete">
+                <i class="ri-delete-bin-line"></i> Delete
+              </a>
+            </div>
+          </div>`;
     }
 
-    $('#saveCodeBtn').on('click', saveTemplateCode);
+    function escHtml(str) {
+        return $('<div>').text(str || '').html();
+    }
 
-    /**
-     * Re-render the mini thumbnail on the card after saving in the editor.
-     * Replaces any existing canvas with a fresh shimmer + new render.
-     */
-    function refreshCardThumbnail(id, content) {
-        const area = document.getElementById('preview-area-' + id);
-        if (!area) return;
-
-        // Remove old canvas if present
-        const oldCanvas = area.querySelector('canvas');
-        if (oldCanvas) oldCanvas.remove();
-
-        // Restore shimmer
-        let shimmer = document.getElementById('shimmer-' + id);
-        if (!shimmer) {
-            shimmer = document.createElement('div');
-            shimmer.id        = 'shimmer-' + id;
-            shimmer.className = 'card-preview-shimmer';
-            shimmer.innerHTML = '<i class="ri-file-text-line"></i><span>Rendering preview…</span>';
-            area.appendChild(shimmer);
+    function handleAjaxError(xhr, status) {
+        if (status === 'timeout') {
+            toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error');
+        } else if (xhr.status === 0) {
+            toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error');
+        } else if (xhr.status === 422) {
+            var errorPassage = '';
+            var errors = xhr.responseJSON ? (xhr.responseJSON.errors || {}) : {};
+            $.each(errors, function (key, value) { errorPassage += value + '<br>'; });
+            toastr.error(errorPassage || 'Validation failed.', 'Validation Errors');
+        } else if (xhr.status === 500) {
+            toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error');
         } else {
-            shimmer.style.opacity   = '1';
-            shimmer.style.animation = '';
-            shimmer.style.background = '';
-            shimmer.innerHTML = '<i class="ri-file-text-line"></i><span>Rendering preview…</span>';
+            toastr.error('Unspecified error occurred. Try again later.', 'Unspecified Error');
         }
-
-        // Ensure the hidden render iframe exists
-        let iframe = document.getElementById('render-iframe-' + id);
-        if (!iframe) {
-            iframe = document.createElement('iframe');
-            iframe.id          = 'render-iframe-' + id;
-            iframe.className   = 'card-render-iframe';
-            iframe.setAttribute('data-target', id);
-            iframe.setAttribute('sandbox', 'allow-same-origin allow-scripts');
-            area.appendChild(iframe);
-        }
-
-        setTimeout(() => renderThumbnail(id, content), 50);
-    }
-
-    function refreshLivePreview() {
-        if (!cmEditor) return;
-        document.getElementById('livePreviewFrame').srcdoc = cmEditor.getValue();
-    }
-
-    $('#refreshPreviewBtn').on('click', refreshLivePreview);
-
-    $('#codeEditorModal').on('hide.bs.modal', function (e) {
-        if (isDirty && !confirm('You have unsaved changes. Close anyway?')) {
-            e.preventDefault();
-            return;
-        }
-        $('#livePreviewFrame').attr('src', 'about:blank');
-        isDirty = false;
-    });
-
-    $('#wrapToggleBtn').on('click', function () {
-        if (!cmEditor) return;
-        const nowWrapped = !cmEditor.getOption('lineWrapping');
-        cmEditor.setOption('lineWrapping', nowWrapped);
-        $(this).toggleClass('active', nowWrapped);
-    });
-
-    $('#formatBtn').on('click', function () {
-        if (!cmEditor) return;
-        const total = cmEditor.lineCount();
-        for (let i = 0; i < total; i++) cmEditor.indentLine(i, 'smart');
-        toastr.info('Code re-indented.');
-    });
-
-    function setEditorStatus(type, text) {
-        $('#editorStatus').attr('class', 'editor-status ' + type).text(text);
     }
 
 });

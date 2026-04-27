@@ -11,8 +11,8 @@ return new class extends Migration
         Schema::create('invoice_templates', function (Blueprint $table) {
             $table->id();
             $table->string('name')->unique();
-            $table->boolean('is_default')->default(false);
-            $table->longText('content')->nullable();   // HTML/CSS edited from dashboard
+            $table->string('view_name')->unique();
+            $table->longText('description')->nullable();   
             $table->timestamp('created_at')->nullable();
             $table->timestamp('updated_at')->nullable();
         });

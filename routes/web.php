@@ -10,7 +10,10 @@ use App\Http\Controllers\Tenant\TenantAuthController;
 use App\Http\Controllers\Tenant\TenantAdminController;
 use App\Http\Controllers\Tenant\TenantCommonController;
 use App\Http\Controllers\Master\InvoiceTemplateController;
+use App\Http\Controllers\Operations\Retail\RetailOperationsController;
 use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
+use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
+
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
 Route::get('/get-started', [WebsiteController::class, 'showGetStartedView']);
@@ -124,14 +127,30 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 
 
- Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations']], function () {
+ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','retail.allowed']], function () {
 
-  Route::get('/operations/wholesale',                     [WholesaleOperationsController::class, 'showWholesaleOperationsDashboard'])->name('wholesale.operations.dashboard');
+  Route::get('/operations/retail',                     [RetailOperationsController::class, 'showDashboardView'])->name('retail.operations.dashboard');
 
 
  });
 
 
+
+ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','wholesale.allowed']], function () {
+
+  Route::get('/operations/wholesale',                     [WholesaleOperationsController::class, 'showDashboardView'])->name('wholesale.operations.dashboard');
+
+
+ });
+
+
+
+ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','finance.allowed']], function () {
+
+  Route::get('/operations/financial-services',                     [FinanceOperationsController::class, 'showDashboardView'])->name('finance.operations.dashboard');
+
+
+ });
 
 
 

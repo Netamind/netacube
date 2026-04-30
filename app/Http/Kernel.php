@@ -69,6 +69,13 @@ class Kernel extends HttpKernel
         'master.admin'  => \App\Http\Middleware\MasterAdmin::class,
         'tenant.admin'  => \App\Http\Middleware\TenantAdmin::class,
         'tenant.operations'  => \App\Http\Middleware\TenantOperations::class,
+        'retail.allowed'  => \App\Http\Middleware\RetailAllowed::class,
+        'wholesale.allowed'  => \App\Http\Middleware\WholesaleAllowed::class,
+        'finance.allowed'  => \App\Http\Middleware\FinanceAllowed::class,
+
+
+
+
 
 
              

@@ -56,29 +56,25 @@
             <div class="topbar container-fluid">
                 <div class="d-flex align-items-center gap-lg-2 gap-1">
 
-                    <!-- Topbar Brand Logo -->
                     <div class="logo-topbar">
-                        <a href="{{ route('tenant.admin.dashboard') }}" class="logo-light">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
+                        <a href="#" class="logo-light">
+                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
                         </a>
-                        <a href="{{ route('tenant.admin.dashboard') }}" class="logo-dark">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
+                        <a href="#" class="logo-dark">
+                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
                         </a>
                     </div>
 
-                    <!-- Sidebar Menu Toggle Button -->
                     <button class="button-toggle-menu">
                         <i class="ri-menu-2-fill"></i>
                     </button>
 
-                    <!-- Horizontal Menu Toggle Button -->
                     <button class="navbar-toggle" data-bs-toggle="collapse" data-bs-target="#topnav-menu-content">
                         <div class="lines"><span></span><span></span><span></span></div>
                     </button>
 
-                    <!-- Topbar Search Form -->
                     <div class="app-search dropdown d-none d-lg-block">
                         <form>
                             <div class="input-group">
@@ -123,7 +119,6 @@
                         </a>
                     </li>
 
-                    <!-- User Dropdown -->
                     <li class="dropdown me-md-2">
                         <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button">
                             <span class="account-user-avatar">
@@ -131,14 +126,15 @@
                             </span>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
-                            <a href="{{ route('tenant.admin.profile') }}" class="dropdown-item">
+                            <a href="#" class="dropdown-item">
                                 <i class="ri-account-circle-fill align-middle me-1"></i>
                                 <span>Profile</span>
                             </a>
                             <a href="#" class="dropdown-item" onclick="document.getElementById('logout-form').submit();">
-                                <i class="ri-logout-box-fill align-middle me-1"></i> <span>Logout</span>
+                                <i class="ri-logout-box-fill align-middle me-1"></i>
+                                <span>Sign Out</span>
                             </a>
-                            <form id="logout-form" action="{{ route('tenant.logout') }}" method="POST" class="d-none">
+                            <form id="logout-form" action="#" method="POST" class="d-none">
                                 @csrf
                             </form>
                         </div>
@@ -151,17 +147,15 @@
         <!-- ========== Left Sidebar Start ========== -->
         <div class="leftside-menu">
 
-            <!-- Brand Logo -->
-            <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-light" style="text-align:left;padding-left:20px;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:55px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
+            <a href="#" class="logo logo-light" style="text-align:left;padding-left:20px;">
+                <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
             </a>
-            <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-dark" style="text-align:left;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:35px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
+            <a href="#" class="logo logo-dark" style="text-align:left;">
+                <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
             </a>
 
-            <!-- Sidebar Toggle Buttons -->
             <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
                 <i class="ri-checkbox-blank-circle-line align-middle"></i>
             </div>
@@ -169,10 +163,9 @@
                 <i class="ri-close-fill align-middle"></i>
             </div>
 
-            <!-- Sidebar Menu -->
             <div class="h-100" id="leftside-menu-container" data-simplebar>
                 <div class="leftbar-user p-3 text-white">
-                    <a href="{{ route('tenant.admin.profile') }}" class="d-flex align-items-center text-reset">
+                    <a href="#" class="d-flex align-items-center text-reset">
                         <div class="flex-shrink-0">
                             <i class="ri-user-fill align-middle" style="color:#f2f2f2"></i>
                         </div>
@@ -189,132 +182,334 @@
                 <!--- Sidemenu -->
                 <ul class="side-nav">
 
-                    <!-- GENERAL -->
+                    <!-- ==================== GENERAL ==================== -->
+                    {{--
+                        High-level landing area for operations staff.
+                        "Operations Dashboard" gives a real-time overview of
+                        stock health, procurement status, and team activity.
+                        "Announcements" surfaces head-office notices, policy
+                        updates, and price change alerts to all operations staff.
+                    --}}
                     <li class="side-nav-title mt-1">General</li>
-
+  
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.admin.dashboard') }}" class="side-nav-link">
+                        <a href="#" class="side-nav-link">
                             <i class="ri-dashboard-2-fill"></i>
-                            <span> Dashboard </span>
+                            <span> Retail </span>
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="{{ route('tenant.admin.events') }}" class="side-nav-link">
+                     <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
                             <i class="ri-calendar-event-fill"></i>
                             <span> Events </span>
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#sidebarAdmin" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-building-4-line"></i>
-                            <span> Company </span>
-                            <span class="menu-arrow"></span>
-                        </a>
-                        <div class="collapse" id="sidebarAdmin">
-                            <ul class="side-nav-second-level">
-                                <li><a href="{{ route('tenant.admin.company.info') }}">Info</a></li>
-                                <li><a href="{{ route('tenant.admin.employees') }}">Employees</a></li>
-                                <li><a href="{{ route('tenant.admin.roles') }}">Roles</a></li>
-                                <li><a href="{{ route('tenant.admin.permissions') }}">Permissions</a></li>
-                                <li><a href="{{ route('tenant.admin.currency') }}">Currency</a></li>
-                                <li><a href="{{ route('tenant.admin.sectors') }}">Sectors</a></li>
-                                <li><a href="{{ route('tenant.admin.categories') }}">Categories</a></li>
-                                <li><a href="{{ route('tenant.admin.branches') }}">Branches</a></li>
-                            </ul>
-                        </div>
-                    </li>
-                
-                    <li class="side-nav-title mt-2">Sectors</li>
+                    <!-- ==================== STOCK MANAGEMENT ==================== -->
+                    {{--
+                        The core responsibility of retail operations — knowing exactly
+                        what stock is on hand, where it is, and what condition it is in.
+
+                        "Stock Levels"      — real-time on-hand quantities per product/branch
+                        "Goods Received"    — capture inbound deliveries from warehouse/suppliers
+                        "Stock Adjustments" — corrections for damage, miscounts, write-offs
+                        "Stocktaking"       — schedule and record physical stock counts
+                        "Expiry Tracking"   — flag items approaching or past sell-by date
+                        "Shrinkage"         — record and investigate theft, spoilage, losses
+                        "Audit Logs"        — immutable history of every stock movement
+                    --}}
+                    <li class="side-nav-title mt-2">Stock Management</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('retail.operations.dashboard') }}" class="side-nav-link">
-                            <i class="ri-shopping-cart-2-fill"></i>
-                            <span> Retail </span>
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-archive-2-fill"></i>
+                            <span> Stock Levels </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('wholesale.operations.dashboard') }}" class="side-nav-link">
+                        <a href="#" class="side-nav-link">
                             <i class="ri-truck-fill"></i>
-                            <span> Wholesale </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="{{ route('finance.operations.dashboard') }}" class="side-nav-link">
-                            <i class="ri-money-dollar-circle-fill"></i>
-                            <span> Finance </span>
-                        </a>
-                    </li>
-
-                    <!--<li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-briefcase-4-fill"></i>
-                            <span> Consultancy </span>
+                            <span> Goods Received </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-hospital-line"></i>
-                            <span> Healthcare </span>
+                            <i class="ri-swap-box-fill"></i>
+                            <span> Stock Adjustments </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-hotel-fill"></i>
-                            <span> Hospitality </span>
+                            <i class="ri-file-list-2-line"></i>
+                            <span> Stocktaking </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-building-2-fill"></i>
-                            <span> Properties </span>
+                            <i class="ri-alarm-warning-fill"></i>
+                            <span> Expiry Tracking </span>
                         </a>
-                    </li> -->
+                    </li>
 
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-error-warning-fill"></i>
+                            <span> Shrinkage </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-equalizer-fill"></i>
+                            <span> Audit Logs </span>
+                        </a>
+                    </li>
+
+                    <!-- ==================== PRODUCTS ==================== -->
+                    {{--
+                        The master product catalogue — owned and maintained by operations.
+
+                        "Product Catalogue"  — full list of stocked items with descriptions,
+                                              barcodes, units of measure, and shelf location
+                        "Categories"         — department and shelf groupings for organisation
+                        "Pricing & Margins"  — set and review retail selling prices vs cost price
+                        "Barcodes & Labels"  — generate and print shelf edge and price labels
+                    --}}
+                    <li class="side-nav-title mt-2">Products</li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-stack-fill"></i>
+                            <span> Product Catalogue </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-folder-3-fill"></i>
+                            <span> Categories </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-price-tag-3-fill"></i>
+                            <span> Pricing & Margins </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-barcode-fill"></i>
+                            <span> Barcodes & Labels </span>
+                        </a>
+                    </li>
+
+                    <!-- ==================== PROCUREMENT ==================== -->
+                    {{--
+                        Managing the flow of stock into the retail branch.
+
+                        "Suppliers"        — supplier directory, contacts, and payment terms
+                        "Purchase Orders"  — formal orders raised to external suppliers
+                        "Reorder Requests" — internal requests to warehouse for stock top-up
+                        "Delivery Notes"   — documents accompanying inbound stock deliveries
+                        "Receiving Log"    — full history of all stock receipts and deliveries
+                    --}}
+                    <li class="side-nav-title mt-2">Procurement</li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-store-fill"></i>
+                            <span> Suppliers </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-file-list-3-fill"></i>
+                            <span> Purchase Orders </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-refresh-fill"></i>
+                            <span> Reorder Requests </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-file-copy-2-fill"></i>
+                            <span> Delivery Notes </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-route-fill"></i>
+                            <span> Receiving Log </span>
+                        </a>
+                    </li>
+
+                    <!-- ==================== CUSTOMERS ==================== -->
+                    {{--
+                        Customer relationship management from the operations side.
+                        Operations owns the customer master data, credit limits,
+                        and loyalty programme configuration — not day-to-day sales.
+
+                        "Customer Directory" — registered customer profiles and contacts
+                        "Loyalty Programme"  — points configuration, tiers, reward rules
+                        "Store Credit"       — credit balances issued to customers
+                        "Customer Accounts"  — statement of account for credit customers
+                    --}}
+                    <li class="side-nav-title mt-2">Customers</li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-group-fill"></i>
+                            <span> Customer Directory </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-vip-crown-fill"></i>
+                            <span> Loyalty Programme </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-copper-coin-fill"></i>
+                            <span> Store Credit </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-bank-card-fill"></i>
+                            <span> Customer Accounts </span>
+                        </a>
+                    </li>
+
+                    <!-- ==================== REPORTS ==================== -->
+                    {{--
+                        Operations-level reporting — focused on stock health,
+                        cost control, supplier performance, and margin management.
+                        These are management reports, not cashier-level transaction views.
+
+                        "Stock Valuation"    — total monetary value of on-hand stock
+                        "Shrinkage Report"   — quantified losses by product, category, period
+                        "Expiry Report"      — items at risk of or past expiry by branch
+                        "Margin Analysis"    — gross profit per product line or category
+                        "Supplier Report"    — delivery performance and purchase history
+                        "Reorder Report"     — products below minimum stock threshold
+                        "Stock Movement"     — full in/out history per product or period
+                        "Debtors"            — amounts owed by credit customers
+                        "Payables"           — amounts owed to suppliers
+                        "Loyalty Summary"    — points issued, redeemed, and outstanding balances
+                    --}}
+                    <li class="side-nav-title mt-2">Reports</li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-pie-chart-fill"></i>
+                            <span> Stock Valuation </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-error-warning-line"></i>
+                            <span> Shrinkage Report </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-alarm-warning-line"></i>
+                            <span> Expiry Report </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-line-chart-fill"></i>
+                            <span> Margin Analysis </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-store-3-fill"></i>
+                            <span> Supplier Report </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-alert-fill"></i>
+                            <span> Reorder Report </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-bar-chart-fill"></i>
+                            <span> Stock Movement </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-bill-fill"></i>
+                            <span> Debtors </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-file-chart-fill"></i>
+                            <span> Payables </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-vip-diamond-fill"></i>
+                            <span> Loyalty Summary </span>
+                        </a>
+                    </li>
+
+                    <!-- ==================== SYSTEM ==================== -->
                     <li class="side-nav-title mt-2">System</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.admin.system.settings') }}" class="side-nav-link">
+                        <a href="#" class="side-nav-link">
                             <i class="ri-settings-4-fill"></i>
-                            <span>Settings</span>
+                            <span> Settings </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.admin.system.subscription') }}" class="side-nav-link">
-                            <i class="ri-vip-crown-fill"></i>
-                            <span>Subscription</span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="{{ route('tenant.admin.system.helpcenter') }}" class="side-nav-link">
+                        <a href="#" class="side-nav-link">
                             <i class="ri-question-answer-fill"></i>
-                            <span>Helpcenter</span>
+                            <span> Support </span>
                         </a>
                     </li>
 
-            
-
-                     
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link"    onclick="document.getElementById('logout-form').submit();">
-                           <i class="ri-logout-box-r-line"></i>
-                            <span>Logout</span>
+                        <a href="#" class="side-nav-link" onclick="document.getElementById('logout-form').submit();">
+                            <i class="ri-logout-box-r-line"></i>
+                            <span> Logout </span>
                         </a>
                     </li>
-
-
-
-
-
-
 
                 </ul>
                 <div class="clearfix"></div>
@@ -414,7 +609,7 @@
                     <button type="button" class="btn btn-light w-100" id="reset-layout">Reset</button>
                 </div>
                 <div class="col-6">
-                    <a href="#" class="btn btn-primary w-100" onclick="document.getElementById('logout-form').submit();">Logout</a>
+                    <a href="#" class="btn btn-primary w-100" onclick="document.getElementById('logout-form').submit();">Sign Out</a>
                 </div>
             </div>
         </div>

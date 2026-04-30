@@ -196,7 +196,7 @@
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
                             <i class="ri-dashboard-2-fill"></i>
-                            <span> Dashboard </span>
+                            <span> Wholesale </span>
                         </a>
                     </li>
 

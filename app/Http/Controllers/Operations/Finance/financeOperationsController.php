@@ -1,6 +1,6 @@
 <?php
 
-namespace App\Http\Controllers\Operations\Wholesale;
+namespace App\Http\Controllers\Operations\Finance;
 
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
@@ -19,16 +19,16 @@ use Illuminate\Validation\Rule;
 use DB;
 use Auth;
 
-class WholesaleOperationsController extends Controller
+class FinanceOperationsController extends Controller
 {
     public function showDashboardView()
     {
-        return view('operations.wholesale.dashboard');
+        return view('operations.finance.dashboard');
     }
 
     public function showProfileView()
     {
-         return view('operations.wholesale.profile');
+         return view('operations.finance.profile');
     }
 
     

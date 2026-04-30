@@ -249,7 +249,7 @@
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
+                    <!--<li class="side-nav-item">
                         <a href="#" class="side-nav-link">
                             <i class="ri-briefcase-4-fill"></i>
                             <span> Consultancy </span>
@@ -275,7 +275,7 @@
                             <i class="ri-building-2-fill"></i>
                             <span> Properties </span>
                         </a>
-                    </li>
+                    </li> -->
 
                     <li class="side-nav-title mt-2">System</li>
 

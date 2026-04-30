@@ -1576,7 +1576,22 @@ public function showSystemSubscriptionView(){
 return view('tenants.admin.subscription');
 
 }
+public function downloadEployeeProfile($tenantName, $id)
+{
+    $user = DB::connection('tenant')->table('users')->where('id', $id)->first();
 
+    if (!$user) {
+        abort(404, 'Employee not found');
+    }
 
+    $companyName = DB::connection('tenant')->table('company_info')->where('id', 1)->value('business_name');
+
+    $pdf = Pdf::loadView('tenants.common.employee-pdf', compact('user', 'companyName'))
+              ->setPaper('a4', 'portrait');
+
+    $filename = 'employee_' . str_replace(' ', '_', strtolower($user->name)) . '_' . $id . '.pdf';
+
+    return $pdf->download($filename);
+}
     
 }

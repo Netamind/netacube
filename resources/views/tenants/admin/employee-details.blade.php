@@ -89,7 +89,7 @@
                            class="btn btn-light text-primary" title="Back to Employees">
                             <i class="ri-arrow-left-line"></i>
                         </a>
-                        <a href="{{ route('tenant.admin.employee.pdf', $user->id) }}" target="_blank"
+                        <a href="{{ route('tenant.admin.employee.pdf', $user->id) }}" 
                            class="btn btn-light text-primary" title="Download PDF">
                             <i class="ri-download-line"></i>
                         </a>

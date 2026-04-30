@@ -59,12 +59,12 @@
                     <!-- Topbar Brand Logo -->
                     <div class="logo-topbar">
                         <a href="{{ route('tenant.admin.dashboard') }}" class="logo-light">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
                         </a>
                         <a href="{{ route('tenant.admin.dashboard') }}" class="logo-dark">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
                         </a>
                     </div>
 
@@ -153,12 +153,12 @@
 
             <!-- Brand Logo -->
             <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-light" style="text-align:left;padding-left:20px;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/super.png') }}" alt="" style="height:35px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:55px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
             </a>
             <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-dark" style="text-align:left;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/super.png') }}" alt="" style="height:35px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:35px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
             </a>
 
             <!-- Sidebar Toggle Buttons -->
@@ -236,7 +236,7 @@
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a href="{{ route('wholesale.operations.dashboard') }}" class="side-nav-link">
                             <i class="ri-truck-fill"></i>
                             <span> Wholesale </span>
                         </a>

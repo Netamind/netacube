@@ -216,7 +216,7 @@
         <tr>
 
         <?php
-        $companyName = DB::table('company_info')->where('id',1)->value('business_name');
+        $companyName = DB::connection('tenant')->table('company_info')->where('id',1)->value('business_name');
         ?>
             <td style="vertical-align: top;">
                 <div class="company-name">{{ $companyName  }}</div>

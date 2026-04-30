@@ -9,11 +9,8 @@ use App\Http\Controllers\Master\TenantMigrationController;
 use App\Http\Controllers\Tenant\TenantAuthController;
 use App\Http\Controllers\Tenant\TenantAdminController;
 use App\Http\Controllers\Tenant\TenantCommonController;
-use App\Http\Controllers\Tenant\TenantSuperAdminController;
-use App\Http\Controllers\Tenant\TenantRetailAdminController;
-use App\Http\Controllers\Tenant\TenantWholesaleAdminController;
 use App\Http\Controllers\Master\InvoiceTemplateController;
-
+use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
 Route::get('/get-started', [WebsiteController::class, 'showGetStartedView']);
@@ -41,18 +38,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy'] ], functio
   Route::post('/tenant-logout', [TenantCommonController::class, 'tenantLogout'])->name('tenant.logout'); 
 });
 
-
- //Route::post('/temporal-route-name', [TenantCommonController::class, 'masterLogout'])->name('tenant.super.admin.branches'); 
-
-
- Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy']], function () {
-
-
-
-
- });
-
-                                                                                                                                                                                                                                                                                                                 
+                                                                                                                                                                                                                                                                                                           
 
 Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.admin']], function () {
 
@@ -70,9 +56,10 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/admin/employee/insert',    [TenantAdminController::class, 'insertEmployee'])->name('tenant.admin.employee.insert');
     Route::post('/admin/employee/update',    [TenantAdminController::class, 'updateEmployee'])->name('tenant.admin.employee.update');
     Route::post('/admin/employee/delete',    [TenantAdminController::class, 'deleteEmployee'])->name('tenant.admin.employee.delete');
-    Route::get('/admin/employee/{id}/pdf',   [TenantAdminController::class, 'employeePdf'])->name('tenant.admin.employee.pdf');
     Route::get('/admin/employee-details',    [TenantAdminController::class, 'showEmployeeDetailsView'])->name('tenant.admin.employee.details');
     Route::post('/admin/employee/details/update', [TenantAdminController::class, 'updateEmployeeDetails'])->name('tenant.admin.employee.details.update');
+    Route::get('/admin/employee/{id}/pdf', [TenantAdminController::class, 'downloadEployeeProfile']) ->name('tenant.admin.employee.pdf');          
+
 
     Route::get('/admin/company-info',        [TenantAdminController::class, 'showCompanyInfoView'])->name('tenant.admin.company.info');
     Route::post('/admin/update-company-general-info', [TenantAdminController::class, 'updateCompanyGeneralInfo'])->name('tenant.admin.company.general.info.update');
@@ -137,6 +124,14 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 
 
+ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations']], function () {
+
+  Route::get('/operations/wholesale',                     [WholesaleOperationsController::class, 'showWholesaleOperationsDashboard'])->name('wholesale.operations.dashboard');
+
+
+ });
+
+
 
 
 
@@ -197,6 +192,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () {
 
     Route::get('/dashboard', [MasterController::class, 'showMasterDashboard'])->name('master.dashboard');
+
     Route::get('/support-center', [MasterController::class, 'showMasterSupportCenter'])->name('master.support.center');
     Route::get('/roles', [MasterController::class, 'showRolesView'])->name('master.roles');
     Route::get('/profile', [MasterController::class, 'showProfileView'])->name('master.profile');

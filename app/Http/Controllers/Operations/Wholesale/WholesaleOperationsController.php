@@ -1,5 +1,7 @@
 <?php
-namespace App\Http\Controllers\Wholesale;
+
+namespace App\Http\Controllers\Operations\Wholesale;
+
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Validator;
@@ -19,7 +21,15 @@ use Auth;
 
 class WholesaleOperationsController extends Controller
 {
-    public function  showDashboardView(){
-    return view('wholesale.operations.dashboard');
+    public function showWholesaleOperationsDashboard()
+    {
+        return view('operations.wholesale.dashboard');
     }
+
+    public function showWholesaleOperationsProfileView()
+    {
+         return view('operations.wholesale.profile');
+    }
+
+    
 }

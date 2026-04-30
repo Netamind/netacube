@@ -58,13 +58,13 @@
 
                     <!-- Topbar Brand Logo -->
                     <div class="logo-topbar">
-                        <a href="{{ route('tenant.super.admin.dashboard') }}" class="logo-light">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                        <a href="{{ route('wholesale.operations.dashboard') }}" class="logo-light">
+                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
                         </a>
-                        <a href="{{ route('tenant.super.admin.dashboard') }}" class="logo-dark">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+                        <a href="{{ route('wholesale.operations.dashboard') }}" class="logo-dark">
+                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png')}}"                                                                                     icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png')}}"                                                                                 icon.png') }}" alt=""></span>
                         </a>
                     </div>
 
@@ -131,7 +131,7 @@
                             </span>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
-                            <a href="{{ route('tenant.super.admin.profile') }}" class="dropdown-item">
+                            <a href="{{ route('tenant.admin.profile') }}" class="dropdown-item">
                                 <i class="ri-account-circle-fill align-middle me-1"></i>
                                 <span>Profile</span>
                             </a>
@@ -152,13 +152,13 @@
         <div class="leftside-menu">
 
             <!-- Brand Logo -->
-            <a href="{{ route('tenant.super.admin.dashboard') }}" class="logo logo-light" style="text-align:left;padding-left:20px;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wholesale.png') }}" alt="" style="height:35px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+            <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-light" style="text-align:left;padding-left:20px;">
+                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:55px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
             </a>
-            <a href="{{ route('tenant.super.admin.dashboard') }}" class="logo logo-dark" style="text-align:left;">
-                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wholesale.png') }}" alt="" style="height:35px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon2.png') }}" alt=""></span>
+            <a href="{{ route('tenant.admin.dashboard') }}" class="logo logo-dark" style="text-align:left;">
+                <span class="logo-lg"><img src="{{ asset('tenants/admin/images/wadmin.png') }}" alt="" style="height:35px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
             </a>
 
             <!-- Sidebar Toggle Buttons -->
@@ -172,7 +172,7 @@
             <!-- Sidebar Menu -->
             <div class="h-100" id="leftside-menu-container" data-simplebar>
                 <div class="leftbar-user p-3 text-white">
-                    <a href="{{ route('tenant.super.admin.profile') }}" class="d-flex align-items-center text-reset">
+                    <a href="{{ route('tenant.admin.profile') }}" class="d-flex align-items-center text-reset">
                         <div class="flex-shrink-0">
                             <i class="ri-user-fill align-middle" style="color:#f2f2f2"></i>
                         </div>
@@ -193,103 +193,128 @@
                     <li class="side-nav-title mt-1">General</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.dashboard') }}" class="side-nav-link">
+                        <a href="{{ route('tenant.admin.dashboard') }}" class="side-nav-link">
                             <i class="ri-dashboard-2-fill"></i>
                             <span> Dashboard </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.events') }}" class="side-nav-link">
-                            <i class="ri-calendar-check-line"></i>
+                        <a href="{{ route('tenant.admin.events') }}" class="side-nav-link">
+                            <i class="ri-calendar-event-fill"></i>
                             <span> Events </span>
                         </a>
                     </li>
+
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.employees') }}" class="side-nav-link">
-                            <i class="ri-team-line"></i>
-                            <span> Employees </span>
+                        <a data-bs-toggle="collapse" href="#sidebarAdmin" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-building-4-line"></i>
+                            <span> Company </span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarAdmin">
+                            <ul class="side-nav-second-level">
+                                <li><a href="{{ route('tenant.admin.company.info') }}">Info</a></li>
+                                <li><a href="{{ route('tenant.admin.employees') }}">Employees</a></li>
+                                <li><a href="{{ route('tenant.admin.roles') }}">Roles</a></li>
+                                <li><a href="{{ route('tenant.admin.permissions') }}">Permissions</a></li>
+                                <li><a href="{{ route('tenant.admin.currency') }}">Currency</a></li>
+                                <li><a href="{{ route('tenant.admin.sectors') }}">Sectors</a></li>
+                                <li><a href="{{ route('tenant.admin.categories') }}">Categories</a></li>
+                                <li><a href="{{ route('tenant.admin.branches') }}">Branches</a></li>
+                            </ul>
+                        </div>
                     </li>
-
-                    <!-- BUSINESS SECTORS -->
-                    <li class="side-nav-title mt-2">Business Sectors</li>
+                
+                    <li class="side-nav-title mt-2">Sectors</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.retail.admin.dashboard') }}" class="side-nav-link">
-                            <i class="ri-shopping-cart-line"></i>
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-shopping-cart-2-fill"></i>
                             <span> Retail </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-truck-line"></i>
+                        <a href="{{ route('wholesale.operations.dashboard') }}" class="side-nav-link">
+                            <i class="ri-truck-fill"></i>
                             <span> Wholesale </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-service-line"></i>
-                            <span> Services </span>
+                            <i class="ri-money-dollar-circle-fill"></i>
+                            <span> Finance </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-heart-pulse-line"></i>
+                            <i class="ri-briefcase-4-fill"></i>
+                            <span> Consultancy </span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-hospital-line"></i>
                             <span> Healthcare </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-hotel-line"></i>
+                            <i class="ri-hotel-fill"></i>
                             <span> Hospitality </span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-building-2-line"></i>
+                            <i class="ri-building-2-fill"></i>
                             <span> Properties </span>
                         </a>
                     </li>
 
-
-                    <!-- ADMIN & SETUP -->
-                    <li class="side-nav-title mt-2">Admin & Setup</li>
+                    <li class="side-nav-title mt-2">System</li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.company.info') }}" class="side-nav-link">
-                            <i class="ri-building-line"></i>
-                            <span> Company </span>
+                        <a href="{{ route('tenant.admin.system.settings') }}" class="side-nav-link">
+                            <i class="ri-settings-4-fill"></i>
+                            <span>Settings</span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="{{ route('tenant.super.admin.roles') }}" class="side-nav-link">
-                            <i class="ri-shield-check-line"></i>
-                            <span> Roles </span>
-                        </a>
-                    </li>
-
-                    
-                    <!-- HR -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-team-line"></i>
-                            <span> HR </span>
+                        <a href="{{ route('tenant.admin.system.subscription') }}" class="side-nav-link">
+                            <i class="ri-vip-crown-fill"></i>
+                            <span>Subscription</span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-settings-3-line"></i>
-                            <span> Settings </span>
+                        <a href="{{ route('tenant.admin.system.helpcenter') }}" class="side-nav-link">
+                            <i class="ri-question-answer-fill"></i>
+                            <span>Helpcenter</span>
                         </a>
                     </li>
+
+            
+
+                     
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link"    onclick="document.getElementById('logout-form').submit();">
+                           <i class="ri-logout-box-r-line"></i>
+                            <span>Logout</span>
+                        </a>
+                    </li>
+
+
+
+
+
+
 
                 </ul>
                 <div class="clearfix"></div>
@@ -297,7 +322,7 @@
         </div>
         <!-- ========== Left Sidebar End ========== -->
 
-        @yield('content', View::make('tenants.super-admin.default'))
+        @yield('content', View::make('tenants.admin.default'))
 
     </div>
     <!-- END wrapper -->

@@ -68,6 +68,7 @@ class Kernel extends HttpKernel
         'tenancy' => \App\Http\Middleware\InitializeTenancyByPath::class,     
         'master.admin'  => \App\Http\Middleware\MasterAdmin::class,
         'tenant.admin'  => \App\Http\Middleware\TenantAdmin::class,
+        'tenant.operations'  => \App\Http\Middleware\TenantOperations::class,
 
 
              

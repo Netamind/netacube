@@ -283,9 +283,9 @@
                     <li class="side-nav-title mt-2">Products</li>
 
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a  href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
                             <i class="ri-stack-fill"></i>
-                            <span> Product Catalogue </span>
+                            <span>Baseproducts</span>
                         </a>
                     </li>
 
@@ -517,7 +517,7 @@
         </div>
         <!-- ========== Left Sidebar End ========== -->
 
-        @yield('content', View::make('tenants.admin.default'))
+        @yield('content', View::make('operations.retail.default'))
 
     </div>
     <!-- END wrapper -->

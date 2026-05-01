@@ -11,6 +11,7 @@ use App\Http\Controllers\Tenant\TenantAdminController;
 use App\Http\Controllers\Tenant\TenantCommonController;
 use App\Http\Controllers\Master\InvoiceTemplateController;
 use App\Http\Controllers\Operations\Retail\RetailOperationsController;
+use App\Http\Controllers\Operations\Retail\BaseproductsController;
 use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 
@@ -129,10 +130,17 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
  Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','retail.allowed']], function () {
 
-  Route::get('/operations/retail',                     [RetailOperationsController::class, 'showDashboardView'])->name('retail.operations.dashboard');
+Route::get('/operations/retail',                         [RetailOperationsController::class, 'showDashboardView'])->name('retail.operations.dashboard');
+Route::get( 'operations/retail/baseproducts',                   [BaseproductsController::class, 'showBaseproductsView']     )->name('retail.operations.baseproducts');
+Route::post('operations/retail/baseproducts/insert',            [BaseproductsController::class, 'insertBaseproduct']        )->name('retail.operations.baseproducts.insert');
+Route::post('operations/retail/baseproducts/update',            [BaseproductsController::class, 'updateBaseproduct']        )->name('retail.operations.baseproducts.update');
+Route::post('operations/retail/baseproducts/delete',            [BaseproductsController::class, 'deleteBaseproduct']        )->name('retail.operations.baseproducts.delete');
+Route::post('operations/retail/baseproducts/bulkdelete',        [BaseproductsController::class, 'bulkDeleteBaseproducts']   )->name('retail.operations.baseproducts.bulkdelete');
+Route::post('operations/retail/baseproducts/bulkstatus',        [BaseproductsController::class, 'bulkStatusBaseproducts']   )->name('retail.operations.baseproducts.bulkstatus');
+Route::post('operations/retail/baseproducts/bulksupplier',      [BaseproductsController::class, 'bulkSupplierBaseproducts'] )->name('retail.operations.baseproducts.bulksupplier');
+Route::post('operations/retail/baseproducts/import/row',        [BaseproductsController::class, 'importBaseproductRow']     )->name('retail.operations.baseproducts.import.row');
 
-
- });
+});
 
 
 

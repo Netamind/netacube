@@ -139,6 +139,11 @@ Route::post('operations/retail/baseproducts/bulkdelete',        [BaseproductsCon
 Route::post('operations/retail/baseproducts/bulkstatus',        [BaseproductsController::class, 'bulkStatusBaseproducts']   )->name('retail.operations.baseproducts.bulkstatus');
 Route::post('operations/retail/baseproducts/bulksupplier',      [BaseproductsController::class, 'bulkSupplierBaseproducts'] )->name('retail.operations.baseproducts.bulksupplier');
 Route::post('operations/retail/baseproducts/import/row',        [BaseproductsController::class, 'importBaseproductRow']     )->name('retail.operations.baseproducts.import.row');
+Route::post('/retail/operations/baseproducts/bulktax',          [BaseproductsController::class, 'bulkTaxBaseproducts'])->name('retail.operations.baseproducts.bulktax');
+Route::post('/retail/operations/baseproducts/bulktype',         [BaseproductsController::class, 'bulkTypeBaseproducts'])->name('retail.operations.baseproducts.bulktype');
+ 
+
+
 
 });
 

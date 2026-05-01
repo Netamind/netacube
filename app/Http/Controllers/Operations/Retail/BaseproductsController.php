@@ -20,21 +20,39 @@ class BaseproductsController extends Controller
 
 
     // ─────────────────────────────────────────────────────────────────────────
+    //  VALID MRA EIS TAX RATE IDs
+    //
+    //  MRA EIS (Electronic Invoice System) defines tax rate IDs via the
+    //  get-latest-configuration endpoint (globalConfiguration.taxRates[]).
+    //  Only taxRateIds returned in your terminal's activatedTaxRateIds array
+    //  are valid for use in invoiceLineItems[].taxRateId.
+    //
+    //  Known IDs as of Malawi EIS documentation:
+    //    A   = Standard VAT (17.5% effective 2024)   → invoiceLineItems[].taxRateId = "A"
+    //    B   = Reduced VAT rate (if activated)
+    //    C   = Zero-rated / specific exemptions
+    //    E   = VAT Exempt by nature (unprocessed food, medical, agricultural)
+    //    TL  = Tourism Levy (1%) — hospitality sector
+    //
+    //  IMPORTANT: Do not hard-code tax percentages in application logic.
+    //  Always resolve the actual percentage from get-latest-configuration.
+    //  The rate for ID "A" changed from 16.5% to 17.5% and may change again.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    private const VALID_TAX_RATE_IDS = ['A', 'B', 'C', 'E', 'TL'];
+
+
+    // ─────────────────────────────────────────────────────────────────────────
     //  PRIVATE HELPER — shape the product array for every JSON response.
-    //  Joins category name from categories table.
+    //
+    //  NOTE: The retail_base_products table stores category as a plain string
+    //  column (not a foreign key to categories). The schema uses:
+    //    $table->string('category')->nullable();
+    //  There is NO category_id column on this table.
     // ─────────────────────────────────────────────────────────────────────────
 
     private function formatProduct($product): array
     {
-        // $product may already have category_name from a join, or we can look it up
-        $categoryName = null;
-        if (isset($product->category_name)) {
-            $categoryName = $product->category_name;
-        } elseif (!empty($product->category_id)) {
-            $cat = DB::connection('tenant')->table('categories')->where('id', $product->category_id)->first();
-            $categoryName = $cat ? $cat->category : null;
-        }
-
         return [
             'id'                      => $product->id,
             'row'                     => 'row' . $product->id,
@@ -54,8 +72,8 @@ class BaseproductsController extends Controller
             'mra_product_code'        => $product->mra_product_code,
             'mra_tax_rate_id'         => $product->mra_tax_rate_id,
             'is_vat_exempt_by_nature' => (int) $product->is_vat_exempt_by_nature,
-            'category_id'             => $product->category_id,
-            'category_name'           => $categoryName,
+            // category is a plain string column — no join needed
+            'category'                => $product->category,
             'subcategory'             => $product->subcategory,
             'is_active'               => (int) $product->is_active,
         ];
@@ -64,10 +82,16 @@ class BaseproductsController extends Controller
 
     // ─────────────────────────────────────────────────────────────────────────
     //  INSERT
+    //
+    //  category is stored as a string directly (e.g. "Beverages").
+    //  The categories table is used only in the view for dropdown population;
+    //  it is NOT referenced as a foreign key here.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function insertBaseproduct(Request $request)
     {
+        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
+
         $request->validate([
             'name'                    => 'required|string|max:255',
             'description'             => 'nullable|string|max:2000',
@@ -83,9 +107,10 @@ class BaseproductsController extends Controller
             'default_selling_price'   => 'nullable|numeric|min:0',
             'default_cost_price'      => 'nullable|numeric|min:0',
             'mra_product_code'        => 'nullable|string|max:50',
-            'mra_tax_rate_id'         => 'required|string|in:A,E,TL',
+            'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
             'is_vat_exempt_by_nature' => 'nullable|boolean',
-            'category_id'             => 'nullable|integer|exists:tenant.categories,id',
+            // category is a plain string — no exists() constraint
+            'category'                => 'nullable|string|max:255',
             'subcategory'             => 'nullable|string|max:255',
             'is_active'               => 'nullable|boolean',
         ]);
@@ -105,9 +130,10 @@ class BaseproductsController extends Controller
             'default_selling_price'   => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
             'default_cost_price'      => ($request->default_cost_price  !== null && $request->default_cost_price  !== '') ? $request->default_cost_price      : null,
             'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
-            'mra_tax_rate_id'         => trim($request->mra_tax_rate_id),
+            'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
             'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            'category_id'             => $request->category_id        ? (int) $request->category_id                  : null,
+            // category stored as string directly
+            'category'                => $request->category           ? trim($request->category)                      : null,
             'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
             'is_active'               => (int) ($request->is_active ?? 1),
             'created_at'              => now(),
@@ -118,10 +144,8 @@ class BaseproductsController extends Controller
 
         if ($insertId) {
             $product = DB::connection('tenant')
-                ->table('retail_base_products as p')
-                ->leftJoin('categories as c', 'p.category_id', '=', 'c.id')
-                ->select('p.*', 'c.category as category_name')
-                ->where('p.id', $insertId)
+                ->table('retail_base_products')
+                ->where('id', $insertId)
                 ->first();
 
             return response()->json([
@@ -141,6 +165,8 @@ class BaseproductsController extends Controller
 
     public function updateBaseproduct(Request $request)
     {
+        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
+
         $request->validate([
             'id'                      => 'required|integer|exists:tenant.retail_base_products,id',
             'name'                    => 'required|string|max:255',
@@ -157,9 +183,10 @@ class BaseproductsController extends Controller
             'default_selling_price'   => 'nullable|numeric|min:0',
             'default_cost_price'      => 'nullable|numeric|min:0',
             'mra_product_code'        => 'nullable|string|max:50',
-            'mra_tax_rate_id'         => 'required|string|in:A,E,TL',
+            'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
             'is_vat_exempt_by_nature' => 'nullable|boolean',
-            'category_id'             => 'nullable|integer|exists:tenant.categories,id',
+            // category is a plain string — no exists() constraint
+            'category'                => 'nullable|string|max:255',
             'subcategory'             => 'nullable|string|max:255',
             'is_active'               => 'nullable|boolean',
         ]);
@@ -179,9 +206,10 @@ class BaseproductsController extends Controller
             'default_selling_price'   => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
             'default_cost_price'      => ($request->default_cost_price  !== null && $request->default_cost_price  !== '') ? $request->default_cost_price      : null,
             'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
-            'mra_tax_rate_id'         => trim($request->mra_tax_rate_id),
+            'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
             'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            'category_id'             => $request->category_id        ? (int) $request->category_id                  : null,
+            // category stored as string directly
+            'category'                => $request->category           ? trim($request->category)                      : null,
             'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
             'is_active'               => (int) ($request->is_active ?? 1),
             'updated_at'              => now(),
@@ -191,10 +219,8 @@ class BaseproductsController extends Controller
 
         if ($updated !== false) {
             $product = DB::connection('tenant')
-                ->table('retail_base_products as p')
-                ->leftJoin('categories as c', 'p.category_id', '=', 'c.id')
-                ->select('p.*', 'c.category as category_name')
-                ->where('p.id', $request->id)
+                ->table('retail_base_products')
+                ->where('id', $request->id)
                 ->first();
 
             return response()->json([
@@ -283,7 +309,7 @@ class BaseproductsController extends Controller
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  BULK STATUS (activate / deactivate)  — no page reload
+    //  BULK STATUS (activate / deactivate)
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkStatusBaseproducts(Request $request)
@@ -303,10 +329,8 @@ class BaseproductsController extends Controller
             ]);
 
         $products = DB::connection('tenant')
-            ->table('retail_base_products as p')
-            ->leftJoin('categories as c', 'p.category_id', '=', 'c.id')
-            ->select('p.*', 'c.category as category_name')
-            ->whereIn('p.id', $request->ids)
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
             ->get();
 
         $label     = $request->is_active ? 'activated' : 'deactivated';
@@ -322,7 +346,86 @@ class BaseproductsController extends Controller
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  BULK CHANGE SUPPLIER
+    //  BULK TAX RATE
+    //
+    //  Validates against the known EIS tax rate IDs. Note: the actual tax
+    //  percentage for each ID is resolved at invoice time via
+    //  get-latest-configuration, not stored here.
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function bulkTaxBaseproducts(Request $request)
+    {
+        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
+
+        $request->validate([
+            'ids'             => 'required|array',
+            'ids.*'           => 'required|integer|exists:tenant.retail_base_products,id',
+            'mra_tax_rate_id' => 'required|string|in:' . $validTaxIds,
+        ]);
+
+        DB::connection('tenant')
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
+            ->update([
+                'mra_tax_rate_id' => strtoupper(trim($request->mra_tax_rate_id)),
+                'updated_at'      => now(),
+            ]);
+
+        $products = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
+            ->get();
+
+        $count     = $products->count();
+        $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
+
+        return response()->json([
+            'success'  => 'Tax rate updated to "' . strtoupper($request->mra_tax_rate_id) . '" for ' . $count . ' product' . ($count > 1 ? 's' : '') . '.',
+            'status'   => 201,
+            'products' => $formatted,
+        ]);
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  BULK TYPE (product / service)
+    // ─────────────────────────────────────────────────────────────────────────
+
+    public function bulkTypeBaseproducts(Request $request)
+    {
+        $request->validate([
+            'ids'        => 'required|array',
+            'ids.*'      => 'required|integer|exists:tenant.retail_base_products,id',
+            'is_product' => 'required|boolean',
+        ]);
+
+        DB::connection('tenant')
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
+            ->update([
+                'is_product'  => (int) $request->is_product,
+                'updated_at'  => now(),
+            ]);
+
+        $products = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
+            ->get();
+
+        $count     = $products->count();
+        $label     = $request->is_product ? 'Product' : 'Service';
+        $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
+
+        return response()->json([
+            'success'  => $count . ' product' . ($count > 1 ? 's' : '') . ' set to "' . $label . '" successfully.',
+            'status'   => 201,
+            'products' => $formatted,
+        ]);
+    }
+
+
+    // ─────────────────────────────────────────────────────────────────────────
+    //  BULK SUPPLIER
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkSupplierBaseproducts(Request $request)
@@ -344,10 +447,8 @@ class BaseproductsController extends Controller
             ]);
 
         $products = DB::connection('tenant')
-            ->table('retail_base_products as p')
-            ->leftJoin('categories as c', 'p.category_id', '=', 'c.id')
-            ->select('p.*', 'c.category as category_name')
-            ->whereIn('p.id', $request->ids)
+            ->table('retail_base_products')
+            ->whereIn('id', $request->ids)
             ->get();
 
         $count     = $products->count();
@@ -364,16 +465,19 @@ class BaseproductsController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     //  IMPORT — single row (called sequentially from JS for each CSV row)
     //
-    //  Accepts category_name (string from CSV) and resolves to category_id.
+    //  category is stored as a plain string on the table — no lookup needed.
     //  Skips rows where:
     //    • name is blank
     //    • internal_code already exists (duplicate guard)
+    //
+    //  Tax rate defaults to "A" (Standard VAT) if not supplied or invalid.
+    //  The actual tax percentage is resolved at invoice time from
+    //  get-latest-configuration — we store only the rate ID here.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function importBaseproductRow(Request $request)
     {
-        // Basic validation — soft-fail (return status 409) rather than hard-abort
-        // so the JS loop can continue to the next row.
+        // Soft-fail so the JS loop continues to the next row
         if (empty($request->name) || trim($request->name) === '') {
             return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
         }
@@ -392,44 +496,39 @@ class BaseproductsController extends Controller
             }
         }
 
-        // Resolve category name → id
-        $categoryId = null;
-        if (!empty($request->category_name)) {
-            $cat = DB::connection('tenant')
-                ->table('categories')
-                ->whereRaw('LOWER(category) = ?', [strtolower(trim($request->category_name))])
-                ->first();
-            $categoryId = $cat ? $cat->id : null;
-        }
-
-        // Normalise mra_tax_rate_id
+        // Normalise mra_tax_rate_id — default to "A" if not supplied or unrecognised
         $taxRate = strtoupper(trim($request->mra_tax_rate_id ?? 'A'));
-        if (!in_array($taxRate, ['A', 'E', 'TL'])) $taxRate = 'A';
+        if (!in_array($taxRate, self::VALID_TAX_RATE_IDS)) {
+            $taxRate = 'A';
+        }
 
         // Normalise unit_of_measure
         $validUnits = ['Each','kg','g','Litre','ml','Box','Carton','Pack','Pair','Dozen','Bag','Bottle','Metre','Service'];
         $unit = trim($request->unit_of_measure ?? 'Each');
-        if (!in_array($unit, $validUnits)) $unit = 'Each';
+        if (!in_array($unit, $validUnits)) {
+            $unit = 'Each';
+        }
 
         $data = [
             'name'                    => trim($request->name),
-            'description'             => $request->description       ? trim($request->description)                   : null,
-            'brand'                   => $request->brand              ? trim($request->brand)                         : null,
-            'supplier'                => $request->supplier           ? trim($request->supplier)                      : null,
-            'manufacturer'            => $request->manufacturer       ? trim($request->manufacturer)                  : null,
+            'description'             => $request->description       ? trim($request->description)                        : null,
+            'brand'                   => $request->brand              ? trim($request->brand)                              : null,
+            'supplier'                => $request->supplier           ? trim($request->supplier)                           : null,
+            'manufacturer'            => $request->manufacturer       ? trim($request->manufacturer)                       : null,
             'country_of_origin'       => $request->country_of_origin  ? strtoupper(substr(trim($request->country_of_origin), 0, 2)) : null,
-            'internal_code'           => $request->internal_code      ? trim($request->internal_code)                 : null,
+            'internal_code'           => $request->internal_code      ? trim($request->internal_code)                      : null,
             'unit_of_measure'         => $unit,
             'weight_kg'               => is_numeric($request->weight_kg)    ? (float) $request->weight_kg    : null,
             'volume_litres'           => is_numeric($request->volume_litres) ? (float) $request->volume_litres : null,
             'is_product'              => in_array($request->is_product, ['0', 0, false], true) ? 0 : 1,
             'default_selling_price'   => is_numeric($request->default_selling_price) ? (float) $request->default_selling_price : null,
             'default_cost_price'      => is_numeric($request->default_cost_price)    ? (float) $request->default_cost_price    : null,
-            'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
+            'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)                   : null,
             'mra_tax_rate_id'         => $taxRate,
             'is_vat_exempt_by_nature' => in_array($request->is_vat_exempt_by_nature, ['1', 1, true], true) ? 1 : 0,
-            'category_id'             => $categoryId,
-            'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
+            // category is a plain string — store directly, no ID lookup required
+            'category'                => $request->category           ? trim($request->category)                           : null,
+            'subcategory'             => $request->subcategory        ? trim($request->subcategory)                        : null,
             'is_active'               => in_array($request->is_active, ['0', 0, false], true) ? 0 : 1,
             'created_at'              => now(),
             'updated_at'              => now(),
@@ -439,10 +538,8 @@ class BaseproductsController extends Controller
 
         if ($insertId) {
             $product = DB::connection('tenant')
-                ->table('retail_base_products as p')
-                ->leftJoin('categories as c', 'p.category_id', '=', 'c.id')
-                ->select('p.*', 'c.category as category_name')
-                ->where('p.id', $insertId)
+                ->table('retail_base_products')
+                ->where('id', $insertId)
                 ->first();
 
             return response()->json([

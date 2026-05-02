@@ -14,6 +14,7 @@ use App\Http\Controllers\Operations\Retail\RetailOperationsController;
 use App\Http\Controllers\Operations\Retail\BaseproductsController;
 use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
+use App\Http\Controllers\Master\MraTaxConfigController;
 
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
@@ -26,6 +27,11 @@ Route::get('/help-center', [WebsiteController::class, 'showHelpcenterView']);
 Route::post('client-registration', [WebsiteController::class, 'clientRegistration'])->name('client.registration');
 Route::get('/login', [WebsiteController::class, 'showLoginByCodeView'])->name('login.by.code.view');
 Route::post('/submit-login-by-code', [TenantCommonController::class, 'loginByCode'])->name('submit.login.by.code');
+
+
+Route::get('/csrf-refresh', function () {
+    return response()->json(['token' => csrf_token()]);
+});
 
 
 
@@ -346,4 +352,7 @@ Route::group(['prefix' => 'master', 'middleware' =>'master.admin'], function () 
     // Global Migration Management
     Route::get('/tenant/global-migrations', [TenantMigrationController::class, 'showGlobalMigrations'])->name('master.global.migrations');
     Route::post('/tenant/global-migrations/run-pending-all', [TenantMigrationController::class, 'runPendingForAll'])->name('master.global.migrations.run-pending-all');
+
+
+
 });

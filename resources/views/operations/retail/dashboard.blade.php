@@ -67,14 +67,17 @@
                         </a>
                     </div>
 
+                    <!-- Sidebar toggle (hamburger) -->
                     <button class="button-toggle-menu">
                         <i class="ri-menu-2-fill"></i>
                     </button>
 
+                    <!-- Mobile navbar toggle -->
                     <button class="navbar-toggle" data-bs-toggle="collapse" data-bs-target="#topnav-menu-content">
                         <div class="lines"><span></span><span></span><span></span></div>
                     </button>
 
+                    <!-- Desktop global search -->
                     <div class="app-search dropdown d-none d-lg-block">
                         <form>
                             <div class="input-group">
@@ -87,6 +90,8 @@
                 </div>
 
                 <ul class="topbar-menu d-flex align-items-center gap-3">
+
+                    <!-- Mobile search (collapsed under sm) -->
                     <li class="dropdown d-lg-none">
                         <a class="nav-link dropdown-toggle arrow-none" data-bs-toggle="dropdown" href="#" role="button">
                             <i class="ri-search-line fs-22"></i>
@@ -98,6 +103,7 @@
                         </div>
                     </li>
 
+                    <!-- App launcher -->
                     <li class="dropdown d-none d-sm-inline-block">
                         <a class="nav-link dropdown-toggle arrow-none" data-bs-toggle="dropdown" href="#" role="button">
                             <i class="ri-apps-2-fill fs-22"></i>
@@ -107,18 +113,21 @@
                         </div>
                     </li>
 
+                    <!-- Theme settings panel trigger -->
                     <li class="d-none d-sm-inline-block">
                         <a class="nav-link" data-bs-toggle="offcanvas" href="#theme-settings-offcanvas">
                             <i class="ri-settings-3-fill fs-22"></i>
                         </a>
                     </li>
 
+                    <!-- Fullscreen toggle -->
                     <li class="d-none d-md-inline-block">
                         <a class="nav-link" href="#" data-toggle="fullscreen">
                             <i class="ri-fullscreen-line fs-22"></i>
                         </a>
                     </li>
 
+                    <!-- User account dropdown -->
                     <li class="dropdown me-md-2">
                         <a class="nav-link dropdown-toggle arrow-none nav-user px-2" data-bs-toggle="dropdown" href="#" role="button">
                             <span class="account-user-avatar">
@@ -131,7 +140,7 @@
                                 <span>Profile</span>
                             </a>
                             <a href="#" class="dropdown-item" onclick="document.getElementById('logout-form').submit();">
-                                <i class="ri-logout-box-fill align-middle me-1"></i>
+                                <i class="ri-logout-box-r-fill align-middle me-1"></i>
                                 <span>Sign Out</span>
                             </a>
                             <form id="logout-form" action="#" method="POST" class="d-none">
@@ -147,6 +156,7 @@
         <!-- ========== Left Sidebar Start ========== -->
         <div class="leftside-menu">
 
+            <!-- Sidebar brand logo (full & icon-only variants) -->
             <a href="#" class="logo logo-light" style="text-align:left;padding-left:20px;">
                 <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
                 <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
@@ -156,6 +166,7 @@
                 <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
             </a>
 
+            <!-- Toggle buttons for condensed / full sidebar -->
             <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
                 <i class="ri-checkbox-blank-circle-line align-middle"></i>
             </div>
@@ -164,6 +175,8 @@
             </div>
 
             <div class="h-100" id="leftside-menu-container" data-simplebar>
+
+                <!-- Authenticated user identity block -->
                 <div class="leftbar-user p-3 text-white">
                     <a href="#" class="d-flex align-items-center text-reset">
                         <div class="flex-shrink-0">
@@ -182,291 +195,367 @@
                 <!--- Sidemenu -->
                 <ul class="side-nav">
 
+                    {{--
+                    ============================================================
+                    SIDEBAR STRUCTURE OVERVIEW
+                    ============================================================
+                    GENERAL              — Dashboard, Events, Categories, Branches,
+                                           Suppliers, Baseproducts (flat links)
+                    STOCK MANAGEMENT     — Inventory, Allocation, Orders,
+                                           Stocktaking (dropdowns)
+                    SALES                — Today (flat), History, Summary (dropdowns)
+                    ORDERS & DELIVERIES  — (section heading; sub-items live in
+                                           Stock Management for now)
+                    EXPENDITURES         — Expenses, Payables (dropdowns)
+                    REPORTS              — Stock, Finances, Sales, Supplier (dropdowns)
+                    SYSTEM               — Settings (dropdown), Support, Logout (flat)
+                    ============================================================
+                    --}}
+
+
                     <!-- ==================== GENERAL ==================== -->
-                
+                    <!-- Top-level utility links: dashboard overview + org-wide reference data -->
                     <li class="side-nav-title mt-1">General</li>
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-dashboard-2-line"></i>
-                                <span>Dashboard</span>
-                            </a>
-                        </li>
 
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-calendar-event-line"></i>
-                                <span>Events</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
-                                <i class="ri-store-2-line"></i>
-                                <span>Branches</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
-                                <i class="ri-truck-line"></i>
-                                <span>Suppliers</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
-                                <i class="ri-price-tag-3-line"></i>
-                                <span>Products</span>
-                            </a>
-                        </li>
-
-                    <!-- ==================== STOCK MANAGEMENT ==================== -->
-                
-                    <li class="side-nav-title mt-2">Stock Management</li>
-
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-archive-2-line"></i>
-                                <span>Inventory</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-swap-box-line"></i>
-                                <span>Transfers</span>
-                            </a>
-                        </li>
-
+                    <!-- Main dashboard / home screen -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-route-fill"></i>
-                            <span>Product Tracking</span>
+                            <i class="ri-dashboard-3-line"></i>
+                            <span>Dashboard (Retail)</span>
                         </a>
                     </li>
 
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-file-list-2-line"></i>
-                                <span>Stocktaking</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-tools-line"></i>
-                                <span>Adjustments</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-bar-chart-box-line"></i>
-                                <span>Shopvalues</span>
-                            </a>
-                        </li>
-
-                        <li class="side-nav-item">
-                            <a href="#" class="side-nav-link">
-                                <i class="ri-equalizer-line"></i>
-                                <span>Audit Logs</span>
-                            </a>
-                        </li>
-
-
-                                            
-                    <!-- ==================== SALES ==================== -->
-                    <li class="side-nav-title mt-2">Sales</li>
-
+                    <!-- Business calendar: promotions, deliveries, closures -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-live-fill"></i>
-                            <span>Live</span>
+                            <i class="ri-calendar-event-fill"></i>
+                            <span>Events</span>
                         </a>
                     </li>
 
+                    <!-- Product category hierarchy management -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-history-fill"></i>
-                            <span>History</span>
+                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                            <i class="ri-list-check-3"></i>
+                            <span>Categories</span>
                         </a>
                     </li>
 
+                    <!-- Branch / store location registry -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-store-3-fill"></i>
+                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                            <i class="ri-store-3-line"></i>
                             <span>Branches</span>
                         </a>
                     </li>
 
+                    <!-- Supplier / vendor directory -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-scales-3-fill"></i>
-                            <span>Balancing</span>
+                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                            <i class="ri-building-2-line"></i>
+                            <span>Suppliers</span>
                         </a>
                     </li>
 
+                    <!-- Master product catalogue (SKU / base item definitions) -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-pie-chart-2-fill"></i>
-                            <span>Breakdown</span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-file-chart-fill"></i>
-                            <span>Summary</span>
+                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                            <i class="ri-box-3-line"></i>
+                            <span>Baseproducts</span>
                         </a>
                     </li>
 
 
-
-
-
-
-
-          
-                    <!-- ==================== PROCUREMENT ==================== -->
+                    <!-- ==================== STOCK MANAGEMENT ==================== -->
                     {{--
-                        Managing the flow of stock into the retail branch.
-
-                        "Suppliers"        — supplier directory, contacts, and payment terms
-                        "Purchase Orders"  — formal orders raised to external suppliers
-                        "Reorder Requests" — internal requests to warehouse for stock top-up
-                        "Delivery Notes"   — documents accompanying inbound stock deliveries
-                        "Receiving Log"    — full history of all stock receipts and deliveries
+                        Covers the full physical stock lifecycle:
+                          Inventory   — levels, transactions, transfers, shop values, audit trail
+                          Allocation  — GRN workflow: receive → verify → flag discrepancies
+                          Orders      — purchase order creation and processing
+                          Stocktaking — periodic partial / full counts
                     --}}
-                    <li class="side-nav-title mt-2">Procurement</li>
+                    <li class="side-nav-title mt-2">Stock Management</li>
 
+                    <!-- Inventory: real-time stock levels, movement history, shop valuations, audit log -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarInventory" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-stack-line"></i>
+                            <span>Inventory</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarInventory">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Inventory</a></li>       {{-- Current stock levels per branch/SKU --}}
+                                <li><a href="#">Transactions</a></li>    {{-- All in/out stock movements --}}
+                                <li><a href="#">Transfers</a></li>       {{-- Inter-branch stock transfers --}}
+                                <li><a href="#">Shopvalues</a></li>      {{-- Retail value of stock on shelf --}}
+                                <li><a href="#">Audit Logs</a></li>      {{-- Change history and user actions --}}
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Allocation: live GRN workflow — receive delivery, verify quantities, log discrepancies & price changes -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarDeliveryNotes" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-truck-line"></i>
+                            <span>Allocation</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarDeliveryNotes">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Actioncenter</a></li>    {{-- Live GRN processing queue --}}
+                                <li><a href="#">Deliverynotes</a></li>   {{-- Attached supplier delivery documents --}}
+                                <li><a href="#">Discrepancies</a></li>   {{-- Short deliveries / over-deliveries --}}
+                                <li><a href="#">Pricechanges</a></li>    {{-- Supplier cost changes on receipt --}}
+                                <li><a href="#">Summary</a></li>         {{-- Allocation totals at a glance --}}
+                                <li><a href="#">History</a></li>         {{-- Past GRN records --}}
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Orders: raise and process purchase orders, viewed by supplier or category -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarAllOrders" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-shopping-cart-2-line"></i>
+                            <span>Orders</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarAllOrders">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Supplier wise</a></li>   {{-- Orders grouped by supplier --}}
+                                <li><a href="#">Category wise</a></li>   {{-- Orders grouped by product category --}}
+                                <li><a href="#">Process Orders</a></li>  {{-- Approve / dispatch pending orders --}}
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Stocktaking: scheduled partial or full physical counts and historical results -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarStocktaking" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-clipboard-line"></i>
+                            <span>Stocktaking</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarStocktaking">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Partial stocktaking</a></li>  {{-- Spot-count a subset of SKUs --}}
+                                <li><a href="#">Full Stocktaking</a></li>     {{-- Complete branch-wide count --}}
+                                <li><a href="#">History</a></li>              {{-- Past stocktake results & variances --}}
+                            </ul>
+                        </div>
+                    </li>
+
+
+                    <!-- ==================== SALES ==================== -->
+                    {{--
+                        Today   — live real-time POS view (flat link, no drill-down needed)
+                        History — all recorded sales: system, interval, manual, with discrepancies & invoices
+                        Summary — aggregated views by day / month / custom range for management review
+                    --}}
+                    <li class="side-nav-title mt-2">Sales</li>
+
+                    <!-- Today: live sales feed for the current trading day -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-store-fill"></i>
-                            <span> Suppliers </span>
+                            <i class="ri-pulse-line"></i>
+                            <span>Today</span>
                         </a>
                     </li>
 
+                    <!-- History: full transaction log across all sale types -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-file-list-3-fill"></i>
-                            <span> Purchase Orders </span>
+                        <a data-bs-toggle="collapse" href="#sidebarSalesHistory" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-history-line"></i>
+                            <span>History</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarSalesHistory">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">System Sales</a></li>       {{-- POS-recorded transactions --}}
+                                <li><a href="#">Interval Sales</a></li>     {{-- Sales captured over defined intervals --}}
+                                <li><a href="#">Manual Sales</a></li>       {{-- Manually entered / offline sales --}}
+                                <li><a href="#">Discrepancies</a></li>      {{-- Voids, overrides, mismatches --}}
+                                <li><a href="#">invoices</a></li>           {{-- Customer-facing sales invoices --}}
+                            </ul>
+                        </div>
                     </li>
 
+                    <!-- Summary: aggregated sales snapshots for management reporting -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-refresh-fill"></i>
-                            <span> Reorder Requests </span>
+                        <a data-bs-toggle="collapse" href="#sidebarSalesSummary" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-bar-chart-grouped-line"></i>
+                            <span>Summary</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarSalesSummary">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Groups</a></li>          {{-- Sales by product group / department --}}
+                                <li><a href="#">Daily Summary</a></li>   {{-- Day-by-day sales totals --}}
+                                <li><a href="#">Monthly Summary</a></li> {{-- Month-by-month aggregates --}}
+                                <li><a href="#">Custom Range</a></li>    {{-- User-defined date range report --}}
+                            </ul>
+                        </div>
                     </li>
 
+
+                    <!-- ==================== ORDERS & DELIVERIES ==================== -->
+                    {{--
+                        Section heading retained for navigation clarity.
+                        Operational sub-items (Orders, Allocation) live under Stock Management
+                        where the physical stock workflow is managed end-to-end.
+                    --}}
+                    <li class="side-nav-title mt-2">Orders &amp; Deliveries</li>
+
+
+                    <!-- ==================== EXPENDITURES ==================== -->
+                    {{--
+                        Expenses  — categories, direct purchases, recurring costs, petty cash
+                        Payables  — outstanding supplier invoices and payment history
+                    --}}
+                    <li class="side-nav-title mt-2">Expenditures</li>
+
+                    <!-- Expenses: all outgoing business costs, including petty cash -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-file-copy-2-fill"></i>
-                            <span> Delivery Notes </span>
+                        <a data-bs-toggle="collapse" href="#sidebarExpenses" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-secure-payment-line"></i>
+                            <span>Expenses</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarExpenses">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Categories</a></li>   {{-- Expense type definitions --}}
+                                <li><a href="#">Purchases</a></li>    {{-- One-off expense entries --}}
+                                <li><a href="#">Reccuring</a></li>    {{-- Scheduled / standing expenses --}}
+                                <li><a href="#">Pettycash</a></li>    {{-- Small cash disbursement log --}}
+                            </ul>
+                        </div>
                     </li>
 
+                    <!-- Payables: amounts owed to suppliers — open invoices and payment history -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-route-fill"></i>
-                            <span> Receiving Log </span>
+                        <a data-bs-toggle="collapse" href="#sidebarPayables" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-bank-card-line"></i>
+                            <span>Payables</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarPayables">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Invoices</a></li>  {{-- Unpaid / outstanding supplier invoices --}}
+                                <li><a href="#">History</a></li>   {{-- Settled payment records --}}
+                            </ul>
+                        </div>
                     </li>
 
-                  
 
                     <!-- ==================== REPORTS ==================== -->
-    
+                    {{--
+                        Stock     — valuation, movement, shrinkage, expiry, reorder triggers
+                        Finances  — P&L, margin, expenditure summary, debtors, payables
+                        Sales     — branch and product performance, customer analysis
+                        Supplier  — purchase volumes and invoice reconciliation per supplier
+                    --}}
                     <li class="side-nav-title mt-2">Reports</li>
 
+                    <!-- Stock reports: physical inventory health and reorder intelligence -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-pie-chart-fill"></i>
-                            <span> Stock Valuation </span>
+                        <a data-bs-toggle="collapse" href="#sidebarStockReports" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-archive-drawer-line"></i>
+                            <span>Stock</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarStockReports">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Valuation</a></li>   {{-- Current stock value at cost & retail --}}
+                                <li><a href="#">Movement</a></li>    {{-- Stock flow in/out over time --}}
+                                <li><a href="#">Shrinkage</a></li>   {{-- Losses: theft, damage, waste --}}
+                                <li><a href="#">Expiry</a></li>      {{-- Items approaching or past expiry date --}}
+                                <li><a href="#">Reordering</a></li>  {{-- SKUs below reorder threshold --}}
+                            </ul>
+                        </div>
                     </li>
 
+                    <!-- Financial reports: profitability, margins, outstanding balances -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-error-warning-line"></i>
-                            <span> Shrinkage Report </span>
+                        <a data-bs-toggle="collapse" href="#sidebarFinancialReports" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-line-chart-line"></i>
+                            <span>Finances</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarFinancialReports">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Profit & Loss</a></li>           {{-- Revenue minus costs for a period --}}
+                                <li><a href="#">Margin Analysis</a></li>          {{-- Gross margin by product / category --}}
+                                <li><a href="#">Expenditure Summary</a></li>      {{-- Total spend breakdown --}}
+                                <li><a href="#">Debtors</a></li>                  {{-- Amounts owed to the business --}}
+                                <li><a href="#">Payables</a></li>                 {{-- Amounts the business owes --}}
+                            </ul>
+                        </div>
                     </li>
 
+                    <!-- Sales analytics: branch performance, product rankings, customer trends -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-alarm-warning-line"></i>
-                            <span> Expiry Report </span>
+                        <a data-bs-toggle="collapse" href="#sidebarAnalytics" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-bar-chart-2-line"></i>
+                            <span>Sales</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarAnalytics">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Branch Performance</a></li>   {{-- Revenue & units sold per branch --}}
+                                <li><a href="#">Product Performance</a></li>  {{-- Top / bottom selling SKUs --}}
+                                <li><a href="#">Branch Customers</a></li>     {{-- Customer visit and spend patterns --}}
+                            </ul>
+                        </div>
                     </li>
 
+                    <!-- Supplier reports: procurement spend and invoice reconciliation -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-line-chart-fill"></i>
-                            <span> Margin Analysis </span>
+                        <a data-bs-toggle="collapse" href="#sidebarSupplierReports" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-community-line"></i>
+                            <span>Supplier</span>
+                            <span class="menu-arrow"></span>
                         </a>
+                        <div class="collapse" id="sidebarSupplierReports">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Purchases</a></li>  {{-- Total ordered / received per supplier --}}
+                                <li><a href="#">Invoices</a></li>   {{-- Invoice matching and reconciliation --}}
+                            </ul>
+                        </div>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-store-3-fill"></i>
-                            <span> Supplier Report </span>
-                        </a>
-                    </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-alert-fill"></i>
-                            <span> Reorder Report </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-bar-chart-fill"></i>
-                            <span> Stock Movement </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-bill-fill"></i>
-                            <span> Debtors </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-file-chart-fill"></i>
-                            <span> Payables </span>
-                        </a>
-                    </li>
-
-        
                     <!-- ==================== SYSTEM ==================== -->
+                    <!-- Application configuration and session management -->
                     <li class="side-nav-title mt-2">System</li>
 
+                    <!-- Settings: general configuration and accessibility preferences -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarSettings" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-settings-4-line"></i>
+                            <span>Settings</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarSettings">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">General</a></li>        {{-- System-wide configuration options --}}
+                                <li><a href="#">Accessibility</a></li>  {{-- Display, language, and a11y settings --}}
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Support: raise a ticket or access help documentation -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-settings-4-fill"></i>
-                            <span> Settings </span>
+                            <i class="ri-customer-service-2-line"></i>
+                            <span>Support</span>
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-question-answer-fill"></i>
-                            <span> Support </span>
-                        </a>
-                    </li>
-
+                    <!-- Logout: end the authenticated session -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link" onclick="document.getElementById('logout-form').submit();">
                             <i class="ri-logout-box-r-line"></i>
-                            <span> Logout </span>
+                            <span>Logout</span>
                         </a>
                     </li>
 
@@ -481,7 +570,7 @@
     </div>
     <!-- END wrapper -->
 
-    <!-- Theme Settings -->
+    <!-- Theme Settings Offcanvas -->
     <div class="offcanvas offcanvas-end" tabindex="-1" id="theme-settings-offcanvas">
         <div class="d-flex align-items-center bg-primary p-3 offcanvas-header">
             <h5 class="text-white m-0">Theme Settings</h5>

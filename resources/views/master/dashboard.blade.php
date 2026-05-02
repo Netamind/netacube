@@ -304,6 +304,32 @@
                         </div>
                     </li>
 
+
+
+
+                
+
+
+                     <li class="side-nav-title mt-2">System</li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-settings-4-fill"></i>
+                            <span>Settings</span>
+                        </a>
+                    </li>
+
+
+                     
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link"    onclick="document.getElementById('logout-form').submit();">
+                           <i class="ri-logout-box-r-line"></i>
+                            <span>Logout</span>
+                        </a>
+                    </li>
+
+
+
                 </ul>
                 <div class="clearfix"></div>
             </div>

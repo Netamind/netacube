@@ -183,133 +183,152 @@
                 <ul class="side-nav">
 
                     <!-- ==================== GENERAL ==================== -->
-                    {{--
-                        High-level landing area for operations staff.
-                        "Operations Dashboard" gives a real-time overview of
-                        stock health, procurement status, and team activity.
-                        "Announcements" surfaces head-office notices, policy
-                        updates, and price change alerts to all operations staff.
-                    --}}
+                
                     <li class="side-nav-title mt-1">General</li>
-  
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-dashboard-2-fill"></i>
-                            <span> Retail </span>
-                        </a>
-                    </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-dashboard-2-line"></i>
+                                <span>Dashboard</span>
+                            </a>
+                        </li>
 
-                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-calendar-event-fill"></i>
-                            <span> Events </span>
-                        </a>
-                    </li>
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-calendar-event-line"></i>
+                                <span>Events</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                                <i class="ri-store-2-line"></i>
+                                <span>Branches</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                                <i class="ri-truck-line"></i>
+                                <span>Suppliers</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                                <i class="ri-price-tag-3-line"></i>
+                                <span>Products</span>
+                            </a>
+                        </li>
 
                     <!-- ==================== STOCK MANAGEMENT ==================== -->
-                    {{--
-                        The core responsibility of retail operations — knowing exactly
-                        what stock is on hand, where it is, and what condition it is in.
-
-                        "Stock Levels"      — real-time on-hand quantities per product/branch
-                        "Goods Received"    — capture inbound deliveries from warehouse/suppliers
-                        "Stock Adjustments" — corrections for damage, miscounts, write-offs
-                        "Stocktaking"       — schedule and record physical stock counts
-                        "Expiry Tracking"   — flag items approaching or past sell-by date
-                        "Shrinkage"         — record and investigate theft, spoilage, losses
-                        "Audit Logs"        — immutable history of every stock movement
-                    --}}
+                
                     <li class="side-nav-title mt-2">Stock Management</li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-archive-2-fill"></i>
-                            <span> Stock Levels </span>
-                        </a>
-                    </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-archive-2-line"></i>
+                                <span>Inventory</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-swap-box-line"></i>
+                                <span>Transfers</span>
+                            </a>
+                        </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-truck-fill"></i>
-                            <span> Goods Received </span>
+                            <i class="ri-route-fill"></i>
+                            <span>Product Tracking</span>
                         </a>
                     </li>
+
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-file-list-2-line"></i>
+                                <span>Stocktaking</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-tools-line"></i>
+                                <span>Adjustments</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-bar-chart-box-line"></i>
+                                <span>Shopvalues</span>
+                            </a>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-equalizer-line"></i>
+                                <span>Audit Logs</span>
+                            </a>
+                        </li>
+
+
+                                            
+                    <!-- ==================== SALES ==================== -->
+                    <li class="side-nav-title mt-2">Sales</li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-swap-box-fill"></i>
-                            <span> Stock Adjustments </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-file-list-2-line"></i>
-                            <span> Stocktaking </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-alarm-warning-fill"></i>
-                            <span> Expiry Tracking </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-error-warning-fill"></i>
-                            <span> Shrinkage </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-equalizer-fill"></i>
-                            <span> Audit Logs </span>
-                        </a>
-                    </li>
-
-                    <!-- ==================== PRODUCTS ==================== -->
-                    {{--
-                        The master product catalogue — owned and maintained by operations.
-
-                        "Product Catalogue"  — full list of stocked items with descriptions,
-                                              barcodes, units of measure, and shelf location
-                        "Categories"         — department and shelf groupings for organisation
-                        "Pricing & Margins"  — set and review retail selling prices vs cost price
-                        "Barcodes & Labels"  — generate and print shelf edge and price labels
-                    --}}
-                    <li class="side-nav-title mt-2">Products</li>
-
-                    <li class="side-nav-item">
-                        <a  href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
-                            <i class="ri-stack-fill"></i>
-                            <span>Baseproducts</span>
+                            <i class="ri-live-fill"></i>
+                            <span>Live</span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-folder-3-fill"></i>
-                            <span> Categories </span>
+                            <i class="ri-history-fill"></i>
+                            <span>History</span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-price-tag-3-fill"></i>
-                            <span> Pricing & Margins </span>
+                            <i class="ri-store-3-fill"></i>
+                            <span>Branches</span>
                         </a>
                     </li>
 
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-barcode-fill"></i>
-                            <span> Barcodes & Labels </span>
+                            <i class="ri-scales-3-fill"></i>
+                            <span>Balancing</span>
                         </a>
                     </li>
 
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-pie-chart-2-fill"></i>
+                            <span>Breakdown</span>
+                        </a>
+                    </li>
+
+                    <li class="side-nav-item">
+                        <a href="#" class="side-nav-link">
+                            <i class="ri-file-chart-fill"></i>
+                            <span>Summary</span>
+                        </a>
+                    </li>
+
+
+
+
+
+
+
+          
                     <!-- ==================== PROCUREMENT ==================== -->
                     {{--
                         Managing the flow of stock into the retail branch.
@@ -357,64 +376,10 @@
                         </a>
                     </li>
 
-                    <!-- ==================== CUSTOMERS ==================== -->
-                    {{--
-                        Customer relationship management from the operations side.
-                        Operations owns the customer master data, credit limits,
-                        and loyalty programme configuration — not day-to-day sales.
-
-                        "Customer Directory" — registered customer profiles and contacts
-                        "Loyalty Programme"  — points configuration, tiers, reward rules
-                        "Store Credit"       — credit balances issued to customers
-                        "Customer Accounts"  — statement of account for credit customers
-                    --}}
-                    <li class="side-nav-title mt-2">Customers</li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-group-fill"></i>
-                            <span> Customer Directory </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-vip-crown-fill"></i>
-                            <span> Loyalty Programme </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-copper-coin-fill"></i>
-                            <span> Store Credit </span>
-                        </a>
-                    </li>
-
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-bank-card-fill"></i>
-                            <span> Customer Accounts </span>
-                        </a>
-                    </li>
+                  
 
                     <!-- ==================== REPORTS ==================== -->
-                    {{--
-                        Operations-level reporting — focused on stock health,
-                        cost control, supplier performance, and margin management.
-                        These are management reports, not cashier-level transaction views.
-
-                        "Stock Valuation"    — total monetary value of on-hand stock
-                        "Shrinkage Report"   — quantified losses by product, category, period
-                        "Expiry Report"      — items at risk of or past expiry by branch
-                        "Margin Analysis"    — gross profit per product line or category
-                        "Supplier Report"    — delivery performance and purchase history
-                        "Reorder Report"     — products below minimum stock threshold
-                        "Stock Movement"     — full in/out history per product or period
-                        "Debtors"            — amounts owed by credit customers
-                        "Payables"           — amounts owed to suppliers
-                        "Loyalty Summary"    — points issued, redeemed, and outstanding balances
-                    --}}
+    
                     <li class="side-nav-title mt-2">Reports</li>
 
                     <li class="side-nav-item">
@@ -480,13 +445,7 @@
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-vip-diamond-fill"></i>
-                            <span> Loyalty Summary </span>
-                        </a>
-                    </li>
-
+        
                     <!-- ==================== SYSTEM ==================== -->
                     <li class="side-nav-title mt-2">System</li>
 

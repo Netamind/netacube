@@ -44,7 +44,7 @@
 
 /* ── Bulk trigger — in filter bar, pushed to far right ──────────────────── */
 #bulkTriggerBtn {
-  font-size:12px; font-weight:700; display:none;
+  font-size:12px; font-weight:700;
   margin-left:auto;
   height:28px; padding:0 12px;
   display:none; align-items:center; gap:5px;
@@ -52,19 +52,19 @@
 #bulkTriggerBtn.visible { display:flex !important; }
 
 /* ── Table alignment ────────────────────────────────────────────────────── */
-#maintable thead th { text-align:center !important; vertical-align:middle; }
-#maintable thead th:first-child { text-align:left !important; }
-#maintable tbody td { text-align:center !important; vertical-align:middle; }
-#maintable tbody td:first-child { text-align:left !important; }
+#maintable thead th,
+table.dataTable thead th { text-align:center !important; vertical-align:middle !important; }
+#maintable thead th:first-child,
+table.dataTable thead th:first-child { text-align:left !important; }
+#maintable tbody td,
+table.dataTable tbody td { text-align:center !important; vertical-align:middle !important; }
+#maintable tbody td:first-child,
+table.dataTable tbody td:first-child { text-align:left !important; }
 
 /* ── Badges & prices ────────────────────────────────────────────────────── */
 .tax-badge  { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; letter-spacing:0.5px; }
 .price-cell { font-size:12px; font-weight:600; color:#198754; }
 
-/* ── Fixed first column ─────────────────────────────────────────────────── */
-table.dataTable tbody tr.odd  td.dtfc-fixed-left { background-color:#f2f2f2 !important; }
-table.dataTable tbody tr.even td.dtfc-fixed-left { background-color:#fff    !important; }
-table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !important; }
 
 /* ── Modal selects fix ──────────────────────────────────────────────────── */
 .modal-body .form-select,
@@ -90,7 +90,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
   color:#4B5EBD; border-bottom:2px solid #e8ecff; padding-bottom:5px; margin-bottom:10px;
 }
 
-/* ── Import modal — Excel preview ───────────────────────────────────────── */
+/* ── Import modal ───────────────────────────────────────────────────────── */
 .excel-preview-wrap {
   border:2px solid #b7d5c4; border-radius:8px; overflow:hidden;
   box-shadow:0 2px 8px rgba(0,0,0,0.07);
@@ -144,6 +144,29 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
   border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600;
 }
 .import-ctx-badge i { color:#40916c; }
+.import-ctx-none {
+  display:inline-flex; align-items:center; gap:5px;
+  background:#f8f9fa; border:1px solid #dee2e6; color:#6c757d;
+  border-radius:6px; padding:4px 10px; font-size:12px;
+}
+
+/* ── CSV column guide card ────────────────────────────────────────────────*/
+.csv-guide-card {
+  background:#f8f9ff; border:1px solid #d6daf0; border-radius:8px;
+  padding:12px 14px; margin-bottom:14px;
+}
+.csv-guide-card .csv-guide-title {
+  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
+  color:#4B5EBD; margin-bottom:8px; display:flex; align-items:center; gap:5px;
+}
+.csv-col-row {
+  display:flex; align-items:flex-start; gap:8px; padding:4px 0;
+  border-bottom:1px solid #e8ecff; font-size:12px;
+}
+.csv-col-row:last-child { border-bottom:none; }
+.csv-col-name { font-weight:700; color:#1e293b; min-width:150px; font-family:monospace; font-size:11px; }
+.csv-col-req { color:#dc3545; font-size:10px; font-weight:700; margin-left:3px; }
+.csv-col-desc { color:#555; line-height:1.4; }
 
 /* ── Bulk actions modal ─────────────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
@@ -159,6 +182,19 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
   border-bottom:1px solid #e9ecef;
   padding-bottom:4px; margin-bottom:12px; margin-top:8px;
 }
+
+/* ── VAT rate pill selector ───────────────────────────────────────────────*/
+.vat-option-wrap { display:flex; flex-direction:column; gap:6px; }
+.vat-option {
+  display:flex; align-items:flex-start; gap:10px; padding:8px 12px;
+  border:1.5px solid #dee2e6; border-radius:8px; cursor:pointer;
+  transition:all .15s; background:#fff;
+}
+.vat-option:hover { border-color:#4B5EBD; background:#f0f2ff; }
+.vat-option.selected { border-color:#4B5EBD; background:#eef0fa; }
+.vat-option input[type=radio] { margin-top:2px; flex-shrink:0; }
+.vat-option-label { font-weight:700; font-size:12px; color:#1e293b; }
+.vat-option-desc { font-size:11px; color:#6c757d; margin-top:1px; }
 </style>
 
 <div class="progress" id="progressBar" role="progressbar"
@@ -174,7 +210,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 {{-- ── Card header ──────────────────────────────────────────────────────── --}}
 <div class="card-header d-flex justify-content-between align-items-center">
   <h4 class="header-title mb-0">
-    <i class="ri-store-2-line"></i> Base Products
+     Baseproducts
   </h4>
   <div class="d-flex align-items-center" style="gap:4px;">
     <a href="#" class="btn btn-light text-success fs-16 mx-1" id="importBtn"       title="Import from CSV"><i class="ri-file-excel-2-line"></i></a>
@@ -197,7 +233,6 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 
 {{-- ── Filter bar ───────────────────────────────────────────────────────── --}}
 <div class="card-filter">
-  <i class="ri-filter-3-line text-primary"></i>
   <label>Category:</label>
   <select id="filterCategory">
     <option value="">All Categories</option>
@@ -237,7 +272,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
       <th>Unit</th>
       <th>Order Price</th>
       <th>Sell Price</th>
-      <th>Tax Rate</th>
+      <th>VAT Type</th>
       <th>Action</th>
     </tr>
   </thead>
@@ -295,7 +330,6 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
              data-tax="{{ $product->mra_tax_rate_id }}"
              data-vat-exempt="{{ $product->is_vat_exempt_by_nature }}"
              data-cat="{{ $product->category ?? '' }}"
-             data-subcat="{{ $product->subcategory }}"
              data-active="{{ $product->is_active }}">
             <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
           </a>
@@ -319,7 +353,6 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
              editMraTaxRateId="{{ $product->mra_tax_rate_id }}"
              editIsVatExemptByNature="{{ $product->is_vat_exempt_by_nature }}"
              editCategory="{{ $product->category }}"
-             editSubcategory="{{ $product->subcategory }}"
              editIsActive="{{ $product->is_active }}">
             <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
           </a>
@@ -356,28 +389,61 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 
 {{-- ══════════════════════════════════════════════════════════════════════
      INFO MODAL
+     Plain-language explanation of base products and MRA VAT types.
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title">Base Products</h5>
+      <h5 class="modal-title"><i class="ri-information-line me-1 text-primary"></i> About Base Products</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body">
-      <p class="mb-1">Base products are the <strong>permanent catalogue</strong> — identity fields that never change regardless of where a product is sold.</p>
-      <p class="mb-1"><strong>Default prices</strong> apply to all branches unless a branch product record overrides them.</p>
-      <p class="mb-1"><strong>MRA EIS Tax Rate IDs</strong> (from your terminal's <code>activatedTaxRateIds</code>):</p>
-      <ul class="mt-1 mb-0" style="font-size:13px">
-        <li><code>A</code> — Standard VAT (17.5%) — <em>invoiceLineItems[].taxRateId = "A"</em></li>
-        <li><code>B</code> — Reduced VAT rate — <em>check your terminal configuration</em></li>
-        <li><code>C</code> — Zero-rated / specific exemptions</li>
-        <li><code>E</code> — VAT Exempt by nature (unprocessed food, medical, agricultural)</li>
-        <li><code>TL</code> — Tourism Levy (1%) — applies to hospitality services</li>
-      </ul>
-      <div class="alert alert-warning border-0 mt-2 py-2 px-3 mb-0" style="font-size:12px;border-radius:6px;">
-        <i class="ri-information-line me-1"></i>
-        Always verify active tax rates against your MRA EIS terminal's <strong>get-latest-configuration</strong> response.
+
+      <p class="mb-2"><strong>What is a Base Product?</strong><br>
+      Base products are your <strong>master catalogue</strong> — the permanent list of everything you sell. Each product is defined once here and can then be assigned to one or more branches.</p>
+
+      <p class="mb-2"><strong>Default Prices</strong><br>
+      The selling price and order price set here apply to all branches by default. Individual branches can override these with their own prices if needed.</p>
+
+      <hr class="my-3">
+
+      <p class="mb-2"><strong><i class="ri-receipt-tax-line me-1 text-danger"></i> VAT Type — What do I choose?</strong><br>
+      Malawi uses an Electronic Invoicing System (EIS) where every receipt sent to MRA must include a VAT type code. Choose the one that applies to each product:</p>
+
+      <div class="d-flex flex-column gap-2 mb-3">
+        <div class="d-flex align-items-start gap-2">
+          <span class="badge bg-danger tax-badge mt-1" style="min-width:30px">A</span>
+          <div><strong>Standard VAT (17.5%)</strong> — Most products and services fall here. If you're unsure, this is usually the right choice for general goods sold in your shop.</div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="badge bg-warning text-dark tax-badge mt-1" style="min-width:30px">B</span>
+          <div><strong>Reduced VAT rate</strong> — A lower VAT rate for specific categories approved by MRA. Not commonly used — check with your accountant.</div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="badge bg-info text-dark tax-badge mt-1" style="min-width:30px">C</span>
+          <div><strong>Zero-rated (0% VAT)</strong> — VAT registered but charged at 0%. Typically applies to exports. Rare for local retail.</div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="badge bg-secondary tax-badge mt-1" style="min-width:30px">E</span>
+          <div><strong>VAT Exempt</strong> — Completely outside VAT. Use for basic unprocessed foods (maize, rice, vegetables), medicines, and agricultural inputs. No VAT appears on the receipt for these items.</div>
+        </div>
+        <div class="d-flex align-items-start gap-2">
+          <span class="badge bg-warning text-dark tax-badge mt-1" style="min-width:30px">TL</span>
+          <div><strong>Tourism Levy (1%)</strong> — Only for hotels, lodges, restaurants and tourism-related hospitality services.</div>
+        </div>
       </div>
+
+      <div class="alert alert-info border-0 py-2 px-3 mb-2" style="font-size:12px;border-radius:6px;">
+        <i class="ri-shield-check-line me-1"></i>
+        <strong>Not sure which VAT type to use?</strong> Contact your accountant or the MRA EIS helpdesk. Choosing the wrong VAT type affects your tax returns.
+      </div>
+
+      <p class="mb-0" style="font-size:12px;color:#6c757d;">
+        <i class="ri-information-line me-1"></i>
+        The <strong>MRA Product Code</strong> is an optional category code from the MRA EIS portal. You can register your products on the portal at
+        <a href="https://eis-portal.mra.mw" target="_blank">eis-portal.mra.mw</a> to obtain this code.
+      </p>
+
     </div>
   </div></div>
 </div>
@@ -405,7 +471,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
         <ul class="nav nav-tabs nav-sm mb-3" id="viewModalTabs" role="tablist" style="font-size:12px;">
           <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t1"><i class="ri-price-tag-3-line me-1"></i>Identity</button></li>
           <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
-          <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t3"><i class="ri-government-line me-1"></i>MRA / Tax</button></li>
+          <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t3"><i class="ri-receipt-tax-line me-1"></i>VAT / MRA</button></li>
         </ul>
 
         <div class="tab-content">
@@ -418,22 +484,21 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
               <div class="view-item"><label>Supplier</label><div class="view-val" id="vw-supplier"></div></div>
               <div class="view-item"><label>Country of Origin</label><div class="view-val" id="vw-origin"></div></div>
               <div class="view-item"><label>Category</label><div class="view-val" id="vw-category"></div></div>
-              <div class="view-item"><label>Subcategory</label><div class="view-val" id="vw-subcategory"></div></div>
               <div class="view-item full"><label>Description</label><div class="view-val" id="vw-description"></div></div>
             </div>
           </div>
           <div class="tab-pane fade" id="vw-t2">
             <div class="view-grid">
-              <div class="view-item"><label>Default Selling Price</label><div class="view-val price-cell" id="vw-sell"></div></div>
-              <div class="view-item"><label>Default Order / Cost Price</label><div class="view-val" id="vw-cost"></div></div>
+              <div class="view-item"><label>Default Selling Price (MWK)</label><div class="view-val price-cell" id="vw-sell"></div></div>
+              <div class="view-item"><label>Default Order / Cost Price (MWK)</label><div class="view-val" id="vw-cost"></div></div>
               <div class="view-item"><label>Weight (kg)</label><div class="view-val" id="vw-weight"></div></div>
               <div class="view-item"><label>Volume (litres)</label><div class="view-val" id="vw-volume"></div></div>
             </div>
           </div>
           <div class="tab-pane fade" id="vw-t3">
             <div class="view-grid">
-              <div class="view-item"><label>Tax Rate ID</label><div class="view-val" id="vw-tax"></div></div>
-              <div class="view-item"><label>MRA Product Code</label><div class="view-val" id="vw-mra-code"></div></div>
+              <div class="view-item full"><label>VAT Type (on MRA receipts)</label><div class="view-val" id="vw-tax"></div></div>
+              <div class="view-item full"><label>MRA Product Code</label><div class="view-val" id="vw-mra-code"></div></div>
               <div class="view-item full"><label>VAT Exempt by Nature</label><div class="view-val" id="vw-vat-exempt"></div></div>
             </div>
           </div>
@@ -451,9 +516,8 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     ADD MODAL — Single form (no tabs)
+     ADD MODAL
      Category is taken from the filter bar selection (no category field here).
-     Supplier and Tax fields shown below prices.
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="newDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -484,12 +548,21 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
                    placeholder="e.g. Cooking Oil 2L" autocomplete="off" required />
           </div>
 
-          <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">
-              Internal Code <small class="text-muted fw-normal">(optional — unique SKU)</small>
-            </label>
-            <input class="form-control" type="text" name="internal_code" id="new-internal-code"
-                   placeholder="e.g. OIL-001" autocomplete="off" />
+          <div class="row g-2 mb-3">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:13px">
+                Selling Price <small class="text-muted fw-normal">(MWK)</small>
+              </label>
+              <input class="form-control" type="number" step="0.01" min="0"
+                     name="default_selling_price" id="new-selling-price" placeholder="0.00" />
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:13px">
+                Order / Cost Price <small class="text-muted fw-normal">(MWK)</small>
+              </label>
+              <input class="form-control" type="number" step="0.01" min="0"
+                     name="default_cost_price" id="new-cost-price" placeholder="0.00" />
+            </div>
           </div>
 
           <div class="mb-3">
@@ -505,17 +578,12 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
             </datalist>
           </div>
 
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Selling Price</label>
-              <input class="form-control" type="number" step="0.01" min="0"
-                     name="default_selling_price" id="new-selling-price" placeholder="0.00" />
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price</label>
-              <input class="form-control" type="number" step="0.01" min="0"
-                     name="default_cost_price" id="new-cost-price" placeholder="0.00" />
-            </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">
+              Internal Code <small class="text-muted fw-normal">(optional — your unique SKU)</small>
+            </label>
+            <input class="form-control" type="text" name="internal_code" id="new-internal-code"
+                   placeholder="e.g. OIL-001" autocomplete="off" />
           </div>
 
           <div class="mb-3">
@@ -530,17 +598,17 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">
-              MRA Tax Rate ID <span class="text-danger">*</span>
-              <small class="text-muted fw-normal ms-1">(from terminal's activatedTaxRateIds)</small>
+              VAT Type <span class="text-danger">*</span>
+              <small class="text-muted fw-normal ms-1">— How is this product taxed on MRA receipts?</small>
             </label>
             <select class="form-select" name="mra_tax_rate_id" id="new-tax-rate">
-              <option value="A" selected>A — Standard VAT (17.5%)</option>
+              <option value="A" selected>A — Standard VAT 17.5% (most products)</option>
               <option value="B">B — Reduced VAT rate</option>
-              <option value="C">C — Zero-rated (specific)</option>
-              <option value="E">E — VAT Exempt by nature</option>
-              <option value="TL">TL — Tourism Levy (1%)</option>
+              <option value="C">C — Zero-rated VAT (0%)</option>
+              <option value="E">E — VAT Exempt (basic foods, medicine, agri)</option>
+              <option value="TL">TL — Tourism Levy 1% (hotels &amp; restaurants only)</option>
             </select>
-            <div class="form-text"><i class="ri-information-line"></i> Only use rate IDs activated on your MRA EIS terminal.</div>
+            <div class="form-text"><i class="ri-information-line"></i> Not sure? Most retail products use <strong>A (Standard VAT 17.5%)</strong>. Use <strong>E</strong> for basic foods, medicine, and agricultural inputs.</div>
           </div>
 
           <div class="form-check mb-1">
@@ -565,7 +633,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EXCEL SAMPLE MODAL — shown when user clicks "View Sample" in import modal
+     EXCEL SAMPLE MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="excelSampleModal" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -579,7 +647,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <strong style="font-size:13px"><i class="ri-table-line me-1 text-success"></i> Required CSV Structure</strong>
-            <span class="ms-2 text-muted" style="font-size:12px">5 columns — category &amp; supplier set separately</span>
+            <span class="ms-2 text-muted" style="font-size:12px">5 columns — category &amp; supplier come from the filter bar</span>
           </div>
           <a href="#" id="downloadTemplateBtn" class="btn btn-sm btn-success" style="font-size:12px">
             <i class="ri-download-2-line"></i> Download Template
@@ -644,13 +712,13 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
           <div class="col-6">
             <div class="alert alert-success border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;background:#d8f3e6;">
               <strong><i class="ri-check-double-line me-1"></i>Auto-applied to all rows:</strong><br>
-              Tax Rate = <code>A</code> &nbsp;·&nbsp; Type = Product &nbsp;·&nbsp; Status = Active
+              VAT Type = <strong>A</strong> (Standard 17.5%) &nbsp;·&nbsp; Type = Product &nbsp;·&nbsp; Status = Active
             </div>
           </div>
           <div class="col-6">
             <div class="alert alert-info border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;">
               <strong><i class="ri-filter-3-line me-1"></i>Category &amp; Supplier:</strong><br>
-              Enter them in the <strong>Category</strong> and <strong>Supplier</strong> fields in the import form.
+              Select them using the <strong>Category</strong> and <strong>Supplier</strong> filters at the top of the page before clicking Import.
             </div>
           </div>
         </div>
@@ -667,8 +735,9 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     IMPORT MODAL — No tabs, default modal size
-     Category & Supplier selected directly in this modal.
+     IMPORT MODAL
+     Category & Supplier are read from the top filter bar (not entered here).
+     Shows a context summary + CSV explanation before file upload.
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="importModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -681,37 +750,62 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 
       <div class="modal-body" style="padding:16px !important;">
 
-        {{-- Category & Supplier selection --}}
+        {{-- ── Setup step ────────────────────────────────────────────────── --}}
         <div id="importSetupFields">
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Category <small class="text-muted fw-normal">(applied to all rows)</small></label>
-              <select class="form-select form-select-sm" id="importCategorySelect">
-                <option value="">— No Category —</option>
-                @foreach($categories as $cat)
-                  <option value="{{ $cat->category }}">{{ $cat->category }}</option>
-                @endforeach
-              </select>
+
+          {{-- Context: show what category/supplier is selected from filter bar --}}
+          <div class="mb-3">
+            <div class="d-flex align-items-center justify-content-between mb-1">
+              <span style="font-size:12px;font-weight:600;color:#1e293b;">
+                <i class="ri-filter-3-line me-1 text-primary"></i>Products will be imported with:
+              </span>
+              <a href="#" id="viewSampleBtn" class="btn btn-sm btn-outline-success" style="font-size:12px;white-space:nowrap;">
+                <i class="ri-table-line me-1"></i> View Sample CSV
+              </a>
             </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Supplier <small class="text-muted fw-normal">(applied to all rows)</small></label>
-              <select class="form-select form-select-sm" id="importSupplierSelect">
-                <option value="">— No Supplier —</option>
-                @foreach($suppliers as $sup)
-                  <option value="{{ $sup }}">{{ $sup }}</option>
-                @endforeach
-              </select>
+            <div class="d-flex gap-2 flex-wrap mt-2">
+              <span id="importCtxCatDisplay" class="import-ctx-none">
+                <i class="ri-folder-line"></i> Category: <strong id="importCtxCatText">Not selected</strong>
+              </span>
+              <span id="importCtxSupDisplay" class="import-ctx-none">
+                <i class="ri-truck-line"></i> Supplier: <strong id="importCtxSupText">Not selected</strong>
+              </span>
+            </div>
+            <div class="text-muted mt-1" style="font-size:11px;">
+              <i class="ri-arrow-left-line"></i> To change category or supplier, close this and update the filters at the top of the page.
             </div>
           </div>
 
-          <div class="d-flex align-items-center justify-content-between mb-3">
-            <span class="text-muted" style="font-size:12px;"><i class="ri-information-line me-1"></i>Category &amp; Supplier above will be applied to every imported row.</span>
-            <a href="#" id="viewSampleBtn" class="btn btn-sm btn-outline-success" style="font-size:12px;white-space:nowrap;">
-              <i class="ri-table-line me-1"></i> View Sample
-            </a>
+          {{-- CSV Explanation ────────────────────────────────────────────── --}}
+          <div class="csv-guide-card">
+            <div class="csv-guide-title"><i class="ri-file-list-3-line"></i> What your CSV file needs</div>
+            <div class="csv-col-row">
+              <div class="csv-col-name">name<span class="csv-col-req">*</span></div>
+              <div class="csv-col-desc">The product name as it appears on receipts and orders. <em>e.g. Cooking Oil 2L</em></div>
+            </div>
+            <div class="csv-col-row">
+              <div class="csv-col-name">internal_code</div>
+              <div class="csv-col-desc">Your own unique code or SKU for this product (optional). <em>e.g. OIL-001</em></div>
+            </div>
+            <div class="csv-col-row">
+              <div class="csv-col-name">unit_of_measure</div>
+              <div class="csv-col-desc">How the product is sold — <em>Each, kg, Litre, Box, Pack…</em> Defaults to <strong>Each</strong> if left blank.</div>
+            </div>
+            <div class="csv-col-row">
+              <div class="csv-col-name">default_cost_price</div>
+              <div class="csv-col-desc">What you pay to buy or produce this product (in MWK). Numbers only, no commas.</div>
+            </div>
+            <div class="csv-col-row">
+              <div class="csv-col-name">default_selling_price</div>
+              <div class="csv-col-desc">What you sell it for (in MWK). Numbers only, no commas.</div>
+            </div>
+            <div class="mt-2 pt-2" style="border-top:1px solid #d6daf0;font-size:11px;color:#6c757d;">
+              <i class="ri-checkbox-circle-line text-success me-1"></i>
+              VAT type defaults to <strong>Standard VAT (A — 17.5%)</strong> for all imported rows. You can change individual products after import.
+            </div>
           </div>
 
-          {{-- File upload --}}
+          {{-- File upload ───────────────────────────────────────────────── --}}
           <div id="importStepSetup">
             <div class="drop-zone" id="dropZone">
               <input type="file" id="csvFileInput" accept=".csv,text/csv">
@@ -724,7 +818,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
             </div>
           </div>
 
-          {{-- Preview --}}
+          {{-- Preview ───────────────────────────────────────────────────── --}}
           <div id="importStepPreview" style="display:none;">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div>
@@ -747,9 +841,10 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
               <span>Ready to import <strong><span id="importConfirmCount">0</span> products</strong>.</span>
             </div>
           </div>
+
         </div>
 
-        {{-- Progress --}}
+        {{-- Progress ──────────────────────────────────────────────────────── --}}
         <div id="importStepProgress" style="display:none;">
           <div class="text-center mb-3">
             <i class="ri-loader-4-line text-success" style="font-size:40px;animation:spin 1s linear infinite"></i>
@@ -760,7 +855,7 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
           <div id="importLog" style="max-height:140px;overflow-y:auto;font-size:11px;background:#f8f9fa;border-radius:6px;padding:8px;border:1px solid #dee2e6;"></div>
         </div>
 
-        {{-- Done --}}
+        {{-- Done ─────────────────────────────────────────────────────────── --}}
         <div id="importStepDone" style="display:none;">
           <div class="text-center py-3">
             <i class="ri-checkbox-circle-line text-success" style="font-size:52px"></i>
@@ -844,15 +939,15 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
       <div class="modal-body" style="padding:16px 18px !important;">
 
         <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-percent-line me-1"></i> Change Tax Rate</div>
+          <div class="bulk-section-title"><i class="ri-percent-line me-1"></i> Change VAT Type</div>
           <div class="d-flex gap-2">
             <select class="form-select form-select-sm" id="bulkTaxRateSelect">
-              <option value="">— Select Tax Rate —</option>
-              <option value="A">A — Standard VAT (17.5%)</option>
+              <option value="">— Select VAT Type —</option>
+              <option value="A">A — Standard VAT 17.5%</option>
               <option value="B">B — Reduced VAT rate</option>
-              <option value="C">C — Zero-rated (specific)</option>
-              <option value="E">E — VAT Exempt by nature</option>
-              <option value="TL">TL — Tourism Levy (1%)</option>
+              <option value="C">C — Zero-rated (0%)</option>
+              <option value="E">E — VAT Exempt (foods, medicine)</option>
+              <option value="TL">TL — Tourism Levy 1%</option>
             </select>
             <a href="#" class="btn btn-sm btn-danger" id="applyBulkTaxBtn" style="white-space:nowrap">
               <i class="ri-check-line me-1"></i> Apply
@@ -905,7 +1000,11 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL — Tabbed (4 tabs) — uses category string (not category_id)
+     EDIT MODAL — 4 tabs
+     Tab 1: Core Info (name, code, unit, selling price, cost price, type)
+     Tab 2: More Details (brand, manufacturer, supplier, origin, weight, volume, description)
+     Tab 3: VAT / MRA (plain-language explanations)
+     Tab 4: Category & Status (no subcategory)
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -917,9 +1016,9 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
       </div>
 
       <ul class="nav nav-tabs border-bottom px-2 pt-2" id="editModalTabs" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
-        <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#etab1" type="button"><i class="ri-price-tag-3-line me-1"></i>Identity</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab2" type="button"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab3" type="button"><i class="ri-government-line me-1"></i>MRA / Tax</button></li>
+        <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#etab1" type="button"><i class="ri-price-tag-3-line me-1"></i>Core Info</button></li>
+        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab2" type="button"><i class="ri-file-list-line me-1"></i>More Details</button></li>
+        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab3" type="button"><i class="ri-receipt-tax-line me-1"></i>VAT / MRA</button></li>
         <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab4" type="button"><i class="ri-folder-line me-1"></i>Category</button></li>
       </ul>
 
@@ -931,59 +1030,20 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
 
           <div class="tab-content">
 
-            {{-- Tab 1: Identity --}}
+            {{-- ── Tab 1: Core Info (name, prices, unit, code, type) ──────── --}}
             <div class="tab-pane fade show active" id="etab1" role="tabpanel">
               <div class="mb-2">
                 <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
                 <input class="form-control form-control-sm" type="text" name="name" id="editName" autocomplete="off" required />
               </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Internal Code</label>
-                <input class="form-control form-control-sm" type="text" name="internal_code" id="editInternalCode" autocomplete="off" />
-                <div class="form-text">Unique — import match key</div>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Description</label>
-                <textarea class="form-control form-control-sm" name="description" id="editDescription" rows="2"></textarea>
-              </div>
               <div class="row g-2 mb-2">
                 <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Brand</label>
-                  <input class="form-control form-control-sm" type="text" name="brand" id="editBrand" autocomplete="off" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Manufacturer</label>
-                  <input class="form-control form-control-sm" type="text" name="manufacturer" id="editManufacturer" autocomplete="off" />
-                </div>
-              </div>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Supplier</label>
-                  <select class="form-select form-select-sm" name="supplier" id="editSupplier">
-                    <option value="">— Select Supplier —</option>
-                    @foreach($suppliers as $sup)
-                      <option value="{{ $sup }}">{{ $sup }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Country of Origin</label>
-                  <input class="form-control form-control-sm" type="text" name="country_of_origin" id="editCountryOfOrigin" maxlength="2" autocomplete="off" placeholder="e.g. MW" />
-                  <div class="form-text">2-letter ISO code</div>
-                </div>
-              </div>
-            </div>
-
-            {{-- Tab 2: Pricing & Physical --}}
-            <div class="tab-pane fade" id="etab2" role="tabpanel">
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Selling Price</label>
+                  <label class="form-label fw-semibold" style="font-size:13px">Selling Price <small class="text-muted fw-normal">(MWK)</small></label>
                   <input class="form-control form-control-sm" type="number" step="0.01" min="0"
                          name="default_selling_price" id="editSellingPrice" placeholder="0.00" />
                 </div>
                 <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Cost / Order Price</label>
+                  <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
                   <input class="form-control form-control-sm" type="number" step="0.01" min="0"
                          name="default_cost_price" id="editCostPrice" placeholder="0.00" />
                 </div>
@@ -1007,17 +1067,12 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
                   <option value="Service">Service (N/A)</option>
                 </select>
               </div>
-              <div class="row g-2 mb-3">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Weight (kg)</label>
-                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="weight_kg" id="editWeightKg" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Volume (litres)</label>
-                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="volume_litres" id="editVolumeLitres" />
-                </div>
+              <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:13px">Internal Code</label>
+                <input class="form-control form-control-sm" type="text" name="internal_code" id="editInternalCode" autocomplete="off" />
+                <div class="form-text">Your unique SKU / import match key</div>
               </div>
-              <div>
+              <div class="mt-2">
                 <label class="form-label fw-semibold" style="font-size:13px">Product Type</label>
                 <div class="d-flex gap-3">
                   <div class="form-check">
@@ -1032,47 +1087,102 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
               </div>
             </div>
 
-            {{-- Tab 3: MRA / Tax --}}
-            <div class="tab-pane fade" id="etab3" role="tabpanel">
+            {{-- ── Tab 2: More Details ──────────────────────────────────── --}}
+            <div class="tab-pane fade" id="etab2" role="tabpanel">
               <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">
-                  MRA Tax Rate ID <span class="text-danger">*</span>
-                </label>
-                <select class="form-select form-select-sm" name="mra_tax_rate_id" id="editMraTaxRateId" required>
-                  <option value="">— Select —</option>
-                  <option value="A">A — Standard VAT (17.5%)</option>
-                  <option value="B">B — Reduced VAT rate</option>
-                  <option value="C">C — Zero-rated (specific)</option>
-                  <option value="E">E — VAT Exempt by nature</option>
-                  <option value="TL">TL — Tourism Levy (1%)</option>
-                </select>
-                <div class="form-text">
-                  <i class="ri-information-line"></i>
-                  Only activated IDs from your MRA EIS terminal's <code>activatedTaxRateIds</code> are valid.
+                <label class="form-label fw-semibold" style="font-size:13px">Description</label>
+                <textarea class="form-control form-control-sm" name="description" id="editDescription" rows="2"></textarea>
+              </div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Brand</label>
+                  <input class="form-control form-control-sm" type="text" name="brand" id="editBrand" autocomplete="off" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Manufacturer</label>
+                  <input class="form-control form-control-sm" type="text" name="manufacturer" id="editManufacturer" autocomplete="off" />
                 </div>
               </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">MRA Product Code</label>
-                <input class="form-control form-control-sm" type="text" name="mra_product_code" id="editMraProductCode" autocomplete="off" />
-                <div class="form-text">UN/SPSC code → <code>invoiceLineItems[].productCode</code></div>
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Supplier</label>
+                  <select class="form-select form-select-sm" name="supplier" id="editSupplier">
+                    <option value="">— Select Supplier —</option>
+                    @foreach($suppliers as $sup)
+                      <option value="{{ $sup }}">{{ $sup }}</option>
+                    @endforeach
+                  </select>
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Country of Origin</label>
+                  <input class="form-control form-control-sm" type="text" name="country_of_origin" id="editCountryOfOrigin" maxlength="2" autocomplete="off" placeholder="e.g. MW" />
+                  <div class="form-text">2-letter ISO code</div>
+                </div>
               </div>
-              <div class="form-check mt-3">
-                <input class="form-check-input" type="checkbox" name="is_vat_exempt_by_nature" id="editIsVatExempt" value="1">
-                <label class="form-check-label" for="editIsVatExempt">
-                  VAT Exempt by Nature
-                  <small class="text-muted">(always exempt — use rate <code>E</code>)</small>
-                </label>
-              </div>
-              <div class="alert alert-warning border-0 mt-3 py-2 px-3 mb-0" style="font-size:12px;border-radius:6px;">
-                <i class="ri-shield-check-line me-1"></i>
-                <strong>MRA EIS Note:</strong> Standard VAT in Malawi is <strong>17.5%</strong> (rate ID <code>A</code>).
+              <div class="row g-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Weight (kg)</label>
+                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="weight_kg" id="editWeightKg" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:13px">Volume (litres)</label>
+                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="volume_litres" id="editVolumeLitres" />
+                </div>
               </div>
             </div>
 
-            {{-- Tab 4: Category & Status --}}
-            {{-- Category is a plain string column (not a foreign key) --}}
-            <div class="tab-pane fade" id="etab4" role="tabpanel">
+            {{-- ── Tab 3: VAT / MRA — plain-language explanations ─────────── --}}
+            <div class="tab-pane fade" id="etab3" role="tabpanel">
+
+              <div class="mb-3">
+                <label class="form-label fw-semibold" style="font-size:13px">
+                  VAT Type <span class="text-danger">*</span>
+                  <small class="text-muted fw-normal ms-1">— How is this product taxed on MRA receipts?</small>
+                </label>
+                {{-- Radio-style VAT selector for clarity --}}
+                <select class="form-select form-select-sm" name="mra_tax_rate_id" id="editMraTaxRateId" required>
+                  <option value="">— Select —</option>
+                  <option value="A">A — Standard VAT 17.5% (most products)</option>
+                  <option value="B">B — Reduced VAT rate</option>
+                  <option value="C">C — Zero-rated VAT (0%)</option>
+                  <option value="E">E — VAT Exempt (basic foods, medicine, agri)</option>
+                  <option value="TL">TL — Tourism Levy 1% (hotels &amp; restaurants only)</option>
+                </select>
+                <div class="alert alert-light border mt-2 py-2 px-3 mb-0" style="font-size:11px;border-radius:6px;">
+                  <strong>Quick guide:</strong>
+                  Use <strong>A</strong> for most retail goods &nbsp;·&nbsp;
+                  <strong>E</strong> for basic unprocessed foods, medicines &amp; agricultural inputs &nbsp;·&nbsp;
+                  <strong>TL</strong> only for hospitality services &nbsp;·&nbsp;
+                  When in doubt, ask your accountant.
+                </div>
+              </div>
+
               <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:13px">MRA Product Code <small class="text-muted fw-normal">(optional)</small></label>
+                <input class="form-control form-control-sm" type="text" name="mra_product_code" id="editMraProductCode" autocomplete="off" />
+                <div class="form-text">
+                  This is the category code MRA assigns to your product on their portal. You can find it on
+                  <a href="https://eis-portal.mra.mw" target="_blank">eis-portal.mra.mw</a> after registering your product there.
+                  Leave blank if not yet registered.
+                </div>
+              </div>
+
+              <div class="form-check mt-3">
+                <input class="form-check-input" type="checkbox" name="is_vat_exempt_by_nature" id="editIsVatExempt" value="1">
+                <label class="form-check-label" for="editIsVatExempt">
+                  <strong>Always VAT Exempt</strong>
+                  <small class="text-muted d-block" style="font-weight:normal;">
+                    Tick this if the product is <em>permanently</em> VAT-free regardless of any other setting —
+                    e.g. raw maize, nsima flour, medicines. When ticked, VAT Type should be set to <strong>E</strong>.
+                  </small>
+                </label>
+              </div>
+
+            </div>
+
+            {{-- ── Tab 4: Category & Status (no subcategory) ──────────────── --}}
+            <div class="tab-pane fade" id="etab4" role="tabpanel">
+              <div class="mb-3">
                 <label class="form-label fw-semibold" style="font-size:13px">Category</label>
                 <select class="form-select form-select-sm" name="category" id="editCategory">
                   <option value="">— Select Category —</option>
@@ -1081,13 +1191,9 @@ table.dataTable tbody tr:hover td.dtfc-fixed-left { background-color:#e8f4fd !im
                   @endforeach
                 </select>
               </div>
-              <div class="mb-3">
-                <label class="form-label fw-semibold" style="font-size:13px">Subcategory</label>
-                <input class="form-control form-control-sm" type="text" name="subcategory" id="editSubcategory" autocomplete="off" />
-              </div>
               <div class="form-check">
                 <input class="form-check-input" type="checkbox" name="is_active" id="editIsActive" value="1">
-                <label class="form-check-label" for="editIsActive">Active (can be assigned to branches)</label>
+                <label class="form-check-label" for="editIsActive">Active (visible to branches)</label>
               </div>
             </div>
 
@@ -1152,15 +1258,14 @@ $(document).ready(function () {
     }
 
     var TAX_LABELS = {
-        'A':  'A — Standard VAT (17.5%)',
+        'A':  'A — Standard VAT 17.5%',
         'B':  'B — Reduced VAT',
-        'C':  'C — Zero-rated',
+        'C':  'C — Zero-rated (0%)',
         'E':  'E — VAT Exempt',
-        'TL': 'TL — Tourism Levy (1%)'
+        'TL': 'TL — Tourism Levy 1%'
     };
 
     // ── Build table row HTML ──────────────────────────────────────────────
-    // NOTE: uses p.category (string) — not category_id
     function buildRow(p) {
         var tc    = taxBadgeClass(p.mra_tax_rate_id);
         var taxBadge = p.mra_tax_rate_id
@@ -1198,7 +1303,7 @@ $(document).ready(function () {
                        data-cost="${p.default_cost_price !== null ? p.default_cost_price : ''}"
                        data-mra-code="${d(p.mra_product_code)}" data-tax="${d(p.mra_tax_rate_id)}"
                        data-vat-exempt="${p.is_vat_exempt_by_nature}" data-cat="${d(p.category)}"
-                       data-subcat="${d(p.subcategory)}" data-active="${p.is_active}">
+                       data-active="${p.is_active}">
                        <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                     </a>
                     <a href="#" class="editDataBtn"
@@ -1214,7 +1319,7 @@ $(document).ready(function () {
                        editDefaultCostPrice="${p.default_cost_price !== null ? p.default_cost_price : ''}"
                        editMraProductCode="${d(p.mra_product_code)}" editMraTaxRateId="${d(p.mra_tax_rate_id)}"
                        editIsVatExemptByNature="${p.is_vat_exempt_by_nature}"
-                       editCategory="${d(p.category)}" editSubcategory="${d(p.subcategory)}"
+                       editCategory="${d(p.category)}"
                        editIsActive="${p.is_active}">
                        <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                     </a>
@@ -1256,7 +1361,6 @@ $(document).ready(function () {
 
     // ════════════════════════════════════════════════════════════════════════
     //  FILTER ENGINE
-    //  Filters by data-category (string) and data-supplier (string)
     // ════════════════════════════════════════════════════════════════════════
     function applyFilters() {
         var catVal = $('#filterCategory').val();
@@ -1283,7 +1387,9 @@ $(document).ready(function () {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    //  IMPORT ENGINE — no tabs, category/supplier selected inside modal
+    //  IMPORT ENGINE
+    //  Category and Supplier are read from the top filter bar, NOT entered
+    //  inside this modal. The modal just shows what is currently selected.
     // ════════════════════════════════════════════════════════════════════════
     var parsedCsvRows = [];
     var IMPORT_KEY    = 'bp_import_queue';
@@ -1296,22 +1402,39 @@ $(document).ready(function () {
         $('#importPreviewHead, #importPreviewBody, #importLog').empty();
         $('#importBarFill').css('width','0');
         $('#importSetupFields').show();
-        $('#importCategorySelect').val('');
-        $('#importSupplierSelect').val('');
-        $('#submitImportBtn').prop('disabled', false).text('');
+        $('#submitImportBtn').prop('disabled', false);
         $('#submitImportBtn').html('<i class="ri-upload-2-line"></i> Start Import');
-        $('#cancelImportBtn').prop('disabled', false).text('Cancel');
+        $('#cancelImportBtn').prop('disabled', false);
         $('#cancelImportBtn').html('<i class="ri-close-line"></i> Cancel');
+    }
+
+    // Update the context display badges in the import modal from filter bar values
+    function refreshImportCtxDisplay() {
+        var catVal = $('#filterCategory').val();
+        var supVal = $('#filterSupplier').val();
+
+        var catText = catVal || 'Not selected';
+        var supText = supVal || 'Not selected';
+
+        $('#importCtxCatText').text(catText);
+        $('#importCtxSupText').text(supText);
+
+        if (catVal) {
+            $('#importCtxCatDisplay').removeClass('import-ctx-none').addClass('import-ctx-badge');
+        } else {
+            $('#importCtxCatDisplay').removeClass('import-ctx-badge').addClass('import-ctx-none');
+        }
+        if (supVal) {
+            $('#importCtxSupDisplay').removeClass('import-ctx-none').addClass('import-ctx-badge');
+        } else {
+            $('#importCtxSupDisplay').removeClass('import-ctx-badge').addClass('import-ctx-none');
+        }
     }
 
     $('#importBtn').on('click', function(e) {
         e.preventDefault();
-        // Pre-fill category/supplier from filter bar if set
-        var filterCat = $('#filterCategory').val();
-        var filterSup = $('#filterSupplier').val();
         resetImportModal();
-        if (filterCat) $('#importCategorySelect').val(filterCat);
-        if (filterSup) $('#importSupplierSelect').val(filterSup);
+        refreshImportCtxDisplay();
         $('#importModal').modal('show');
     });
 
@@ -1332,13 +1455,13 @@ $(document).ready(function () {
         resetImportModal();
     });
 
-    // View sample button — opens excel sample modal (stacked on top)
+    // View sample — opens the Excel sample modal on top
     $('#viewSampleBtn').on('click', function(e) {
         e.preventDefault();
         $('#excelSampleModal').modal('show');
     });
 
-    // Template download (both buttons in sample modal)
+    // Template download
     function downloadTemplate() {
         var header = 'name,internal_code,unit_of_measure,default_cost_price,default_selling_price';
         var row1   = 'Cooking Oil 2L,OIL-001,Each,1500.00,2000.00';
@@ -1462,8 +1585,9 @@ $(document).ready(function () {
         $('#submitImportBtn').prop('disabled', true);
         $('#cancelImportBtn').prop('disabled', true);
 
-        var importCat = $('#importCategorySelect').val() || '';
-        var importSup = $('#importSupplierSelect').val() || '';
+        // Read category and supplier from the TOP FILTER BAR (not from inside this modal)
+        var importCat = $('#filterCategory').val() || '';
+        var importSup = $('#filterSupplier').val() || '';
 
         var total=queue.length, done=0, succeeded=0, failed=0;
         $('#importProgressText').text('0 of '+total+' done');
@@ -1486,7 +1610,6 @@ $(document).ready(function () {
                 default_selling_price:   row.default_selling_price   || '',
                 supplier:                importSup  || row.supplier  || '',
                 brand:                   row.brand                   || '',
-                // category is a string column — pass the category name directly
                 category:                importCat  || row.category  || '',
                 subcategory:             row.subcategory             || '',
                 description:             row.description             || '',
@@ -1546,6 +1669,10 @@ $(document).ready(function () {
             lengthMenu: [[100,250,500,-1],[100,250,500,'All']],
             fixedColumns: { leftColumns: 1 },
             scrollX: true,
+            columnDefs: [
+                { targets: '_all', className: 'text-center' },
+                { targets: 0,      className: 'text-start'  }
+            ],
             buttons: [
                 { extend:'excelHtml5', title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
                 { extend:'csvHtml5',   title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
@@ -1583,7 +1710,7 @@ $(document).ready(function () {
                 weight:b.data('weight'), volume:b.data('volume'), isProduct:b.data('is-product'),
                 sell:b.data('sell'), cost:b.data('cost'), mraCode:b.data('mra-code'),
                 tax:b.data('tax'), vatExempt:b.data('vat-exempt'),
-                cat:b.data('cat'), subcat:b.data('subcat'), active:b.data('active'),
+                cat:b.data('cat'), active:b.data('active'),
                 editRow:b.closest('tr').attr('id')
             };
             function v(val) {
@@ -1611,7 +1738,6 @@ $(document).ready(function () {
             $('#vw-supplier').html(v(_viewData.supplier));
             $('#vw-origin').html(v(_viewData.origin));
             $('#vw-category').html(v(_viewData.cat));
-            $('#vw-subcategory').html(v(_viewData.subcat));
             $('#vw-description').html(v(_viewData.description));
 
             $('#vw-sell').html(_viewData.sell!==''&&_viewData.sell!==null ? fmtPrice(_viewData.sell) : '<span class="muted">—</span>');
@@ -1624,7 +1750,7 @@ $(document).ready(function () {
                 : '<span class="muted">—</span>');
             $('#vw-mra-code').html(v(_viewData.mraCode));
             $('#vw-vat-exempt').html(_viewData.vatExempt==1
-                ? '<span class="badge bg-warning text-dark">Yes — VAT Exempt</span>'
+                ? '<span class="badge bg-warning text-dark">Yes — Always VAT Exempt</span>'
                 : '<span class="text-muted">No</span>');
 
             $('#viewProductModal').modal('show');
@@ -1643,14 +1769,8 @@ $(document).ready(function () {
         function prefillNewModalFromFilter() {
             var catVal = $('#filterCategory').val();
             var supVal = $('#filterSupplier').val();
-
-            // Set hidden category field from filter bar
             $('#new-category').val(catVal || '');
-
-            // Pre-fill supplier from filter bar if set
             if (supVal) $('#new-supplier').val(supVal);
-
-            // Show context banner for category
             if (catVal) {
                 $('#newCtxCatBadge').find('span').text(catVal);
                 $('#newCtxCatBadge').show();
@@ -1734,7 +1854,6 @@ $(document).ready(function () {
         });
 
         // ── EDIT ──────────────────────────────────────────────────────────
-        // Uses editCategory (string) — not editCategoryId
         $('#tbody').on('click', '.editDataBtn', function() {
             var b=$(this);
             $('#editRow').val(b.attr('editRow'));
@@ -1753,12 +1872,11 @@ $(document).ready(function () {
             $('#editCostPrice').val(b.attr('editDefaultCostPrice'));
             $('#editMraProductCode').val(b.attr('editMraProductCode'));
             $('#editMraTaxRateId').val(b.attr('editMraTaxRateId'));
-            // Category is a string — populate the category select by matching value
             $('#editCategory').val(b.attr('editCategory'));
-            $('#editSubcategory').val(b.attr('editSubcategory'));
             $('input[name="is_product"][value="'+b.attr('editIsProduct')+'"]').prop('checked',true);
             $('#editIsVatExempt').prop('checked', b.attr('editIsVatExemptByNature')==1);
             $('#editIsActive').prop('checked',    b.attr('editIsActive')==1);
+            // Always open on Tab 1 (Core Info with prices)
             $('#editModalTabs button[data-bs-target="#etab1"]').tab('show');
             $('#editDataModal').modal('show');
         });
@@ -1865,7 +1983,7 @@ $(document).ready(function () {
         $('#applyBulkTaxBtn').on('click', function(e) {
             e.preventDefault();
             var taxRate=$('#bulkTaxRateSelect').val();
-            if (!taxRate) { toastr.warning('Please select a tax rate.','Required'); return; }
+            if (!taxRate) { toastr.warning('Please select a VAT type.','Required'); return; }
             var selected=[];
             $('.selectRow:checked').each(function() { selected.push($(this).val()); });
             if (!selected.length) return;

@@ -79,7 +79,7 @@
 <div class="card">
 <div class="card-header d-flex justify-content-between align-items-center">
 <h4 class="header-title mb-0">
-<i class="ri-building-line"></i> Branch Management
+ Branch Management
 </h4>
 <div class="d-flex align-items-center">
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>

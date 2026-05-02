@@ -73,7 +73,7 @@
                 <!-- Blue gradient bar -->
                 <div class="card-header d-flex justify-content-between align-items-center">
                     <h4 class="header-title mb-0">
-                        <i class="ri-building-4-line"></i> Branch Details
+                      Branch Details
                     </h4>
                     <div class="d-flex align-items-center gap-1">
                         <a href="{{ route('tenant.admin.branches') }}"

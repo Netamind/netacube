@@ -20,23 +20,38 @@ class BaseproductsController extends Controller
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  VALID MRA EIS TAX RATE IDs
+    //  VAT TYPE CODES (mra_tax_rate_id)
     //
-    //  MRA EIS (Electronic Invoice System) defines tax rate IDs via the
-    //  get-latest-configuration endpoint (globalConfiguration.taxRates[]).
-    //  Only taxRateIds returned in your terminal's activatedTaxRateIds array
-    //  are valid for use in invoiceLineItems[].taxRateId.
+    //  Malawi uses an Electronic Invoicing System (EIS) where every sale must
+    //  be reported to MRA in real time. Each product on a receipt must carry a
+    //  VAT type code that tells MRA how to tax it.
     //
-    //  Known IDs as of Malawi EIS documentation:
-    //    A   = Standard VAT (17.5% effective 2024)   → invoiceLineItems[].taxRateId = "A"
-    //    B   = Reduced VAT rate (if activated)
-    //    C   = Zero-rated / specific exemptions
-    //    E   = VAT Exempt by nature (unprocessed food, medical, agricultural)
-    //    TL  = Tourism Levy (1%) — hospitality sector
+    //  These are the valid VAT type codes:
     //
-    //  IMPORTANT: Do not hard-code tax percentages in application logic.
-    //  Always resolve the actual percentage from get-latest-configuration.
-    //  The rate for ID "A" changed from 16.5% to 17.5% and may change again.
+    //    A  — Standard VAT (17.5%)
+    //         Used for most retail products and general services.
+    //         This is the default for the majority of goods sold in shops.
+    //
+    //    B  — Reduced VAT rate
+    //         A lower rate for specific goods approved by MRA.
+    //         Rarely used — check with your accountant if applicable.
+    //
+    //    C  — Zero-rated (0% VAT)
+    //         VAT registered but charged at zero percent.
+    //         Mainly used for exports. Uncommon in local retail.
+    //
+    //    E  — VAT Exempt by nature
+    //         These goods are completely outside the VAT system.
+    //         Examples: basic unprocessed foods (maize, rice, vegetables),
+    //         medicines, agricultural seeds and fertilisers.
+    //         No VAT line appears on the receipt for these items.
+    //
+    //    TL — Tourism Levy (1%)
+    //         Only applies to hotels, lodges, restaurants and other
+    //         tourism/hospitality businesses. Not used in general retail.
+    //
+    //  IMPORTANT: If you are unsure which code to use, consult your accountant.
+    //  Using the wrong code can affect your VAT returns.
     // ─────────────────────────────────────────────────────────────────────────
 
     private const VALID_TAX_RATE_IDS = ['A', 'B', 'C', 'E', 'TL'];
@@ -46,9 +61,9 @@ class BaseproductsController extends Controller
     //  PRIVATE HELPER — shape the product array for every JSON response.
     //
     //  NOTE: The retail_base_products table stores category as a plain string
-    //  column (not a foreign key to categories). The schema uses:
-    //    $table->string('category')->nullable();
-    //  There is NO category_id column on this table.
+    //  column (not a foreign key). There is no category_id on this table.
+    //  Subcategory is stored in the database but not exposed through this
+    //  interface — it can be managed directly in the database if needed.
     // ─────────────────────────────────────────────────────────────────────────
 
     private function formatProduct($product): array
@@ -72,7 +87,7 @@ class BaseproductsController extends Controller
             'mra_product_code'        => $product->mra_product_code,
             'mra_tax_rate_id'         => $product->mra_tax_rate_id,
             'is_vat_exempt_by_nature' => (int) $product->is_vat_exempt_by_nature,
-            // category is a plain string column — no join needed
+            // category is a plain string — no join needed
             'category'                => $product->category,
             'subcategory'             => $product->subcategory,
             'is_active'               => (int) $product->is_active,
@@ -83,9 +98,22 @@ class BaseproductsController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     //  INSERT
     //
-    //  category is stored as a string directly (e.g. "Beverages").
-    //  The categories table is used only in the view for dropdown population;
-    //  it is NOT referenced as a foreign key here.
+    //  Creates a new base product in the master catalogue.
+    //  category is stored as a plain text string (e.g. "Beverages").
+    //
+    //  About mra_tax_rate_id:
+    //  This is the VAT type that will appear on MRA electronic receipts for
+    //  this product. It is required — every product must have a VAT type.
+    //  Default is "A" (Standard VAT 17.5%) which applies to most retail goods.
+    //
+    //  About mra_product_code:
+    //  This is an optional code that MRA assigns to your product category.
+    //  You register your products on the MRA EIS portal (eis-portal.mra.mw)
+    //  to obtain this code. You can leave it blank and fill it in later.
+    //
+    //  About is_product:
+    //  true  = a physical item you keep in stock (e.g. a bag of rice)
+    //  false = a service you provide (e.g. delivery fee, consultation)
     // ─────────────────────────────────────────────────────────────────────────
 
     public function insertBaseproduct(Request $request)
@@ -109,7 +137,6 @@ class BaseproductsController extends Controller
             'mra_product_code'        => 'nullable|string|max:50',
             'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
             'is_vat_exempt_by_nature' => 'nullable|boolean',
-            // category is a plain string — no exists() constraint
             'category'                => 'nullable|string|max:255',
             'subcategory'             => 'nullable|string|max:255',
             'is_active'               => 'nullable|boolean',
@@ -132,7 +159,6 @@ class BaseproductsController extends Controller
             'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
             'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
             'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            // category stored as string directly
             'category'                => $request->category           ? trim($request->category)                      : null,
             'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
             'is_active'               => (int) ($request->is_active ?? 1),
@@ -185,7 +211,6 @@ class BaseproductsController extends Controller
             'mra_product_code'        => 'nullable|string|max:50',
             'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
             'is_vat_exempt_by_nature' => 'nullable|boolean',
-            // category is a plain string — no exists() constraint
             'category'                => 'nullable|string|max:255',
             'subcategory'             => 'nullable|string|max:255',
             'is_active'               => 'nullable|boolean',
@@ -208,9 +233,8 @@ class BaseproductsController extends Controller
             'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
             'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
             'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            // category stored as string directly
             'category'                => $request->category           ? trim($request->category)                      : null,
-            'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
+            // subcategory: preserved from existing value — not editable via the UI form
             'is_active'               => (int) ($request->is_active ?? 1),
             'updated_at'              => now(),
         ];
@@ -236,6 +260,9 @@ class BaseproductsController extends Controller
 
     // ─────────────────────────────────────────────────────────────────────────
     //  SINGLE DELETE
+    //
+    //  A product cannot be deleted if it is already assigned to a branch.
+    //  Remove it from all branches first, then delete it here.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function deleteBaseproduct(Request $request)
@@ -268,6 +295,9 @@ class BaseproductsController extends Controller
 
     // ─────────────────────────────────────────────────────────────────────────
     //  BULK DELETE
+    //
+    //  Products assigned to branches are skipped (not deleted).
+    //  The response tells you how many were deleted vs skipped.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkDeleteBaseproducts(Request $request)
@@ -310,6 +340,9 @@ class BaseproductsController extends Controller
 
     // ─────────────────────────────────────────────────────────────────────────
     //  BULK STATUS (activate / deactivate)
+    //
+    //  Inactive products are hidden from branch product listings.
+    //  This does not affect existing branch stock records — only visibility.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkStatusBaseproducts(Request $request)
@@ -346,11 +379,12 @@ class BaseproductsController extends Controller
 
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  BULK TAX RATE
+    //  BULK VAT TYPE
     //
-    //  Validates against the known EIS tax rate IDs. Note: the actual tax
-    //  percentage for each ID is resolved at invoice time via
-    //  get-latest-configuration, not stored here.
+    //  Changes the VAT type code on multiple products at once.
+    //  The VAT type controls how MRA taxes each item on electronic receipts.
+    //  Use with care — changing the VAT type affects all future receipts
+    //  for these products.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkTaxBaseproducts(Request $request)
@@ -380,7 +414,7 @@ class BaseproductsController extends Controller
         $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
 
         return response()->json([
-            'success'  => 'Tax rate updated to "' . strtoupper($request->mra_tax_rate_id) . '" for ' . $count . ' product' . ($count > 1 ? 's' : '') . '.',
+            'success'  => 'VAT type updated to "' . strtoupper($request->mra_tax_rate_id) . '" for ' . $count . ' product' . ($count > 1 ? 's' : '') . '.',
             'status'   => 201,
             'products' => $formatted,
         ]);
@@ -465,24 +499,30 @@ class BaseproductsController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     //  IMPORT — single row (called sequentially from JS for each CSV row)
     //
-    //  category is stored as a plain string on the table — no lookup needed.
-    //  Skips rows where:
-    //    • name is blank
-    //    • internal_code already exists (duplicate guard)
+    //  This endpoint receives one product row at a time from the browser.
+    //  The JS loops through every row in the uploaded CSV and sends them here
+    //  one by one, showing a progress bar as it goes.
     //
-    //  Tax rate defaults to "A" (Standard VAT) if not supplied or invalid.
-    //  The actual tax percentage is resolved at invoice time from
-    //  get-latest-configuration — we store only the rate ID here.
+    //  Each row is skipped (soft-fail, not a crash) if:
+    //    • The product name is blank
+    //    • The internal_code already exists in the database (duplicate guard)
+    //
+    //  VAT type defaults to "A" (Standard VAT 17.5%) if not supplied in the
+    //  CSV. This is correct for most retail products. Users can change
+    //  individual products after import.
+    //
+    //  Category and Supplier come from the top filter bar in the UI — they
+    //  are passed in the payload from JS, not entered inside the import modal.
     // ─────────────────────────────────────────────────────────────────────────
 
     public function importBaseproductRow(Request $request)
     {
-        // Soft-fail so the JS loop continues to the next row
+        // Skip rows with no name — don't crash, just report and move on
         if (empty($request->name) || trim($request->name) === '') {
             return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
         }
 
-        // Duplicate internal_code guard
+        // Skip rows where the internal code already exists (no duplicates)
         if (!empty($request->internal_code)) {
             $exists = DB::connection('tenant')
                 ->table('retail_base_products')
@@ -490,19 +530,19 @@ class BaseproductsController extends Controller
                 ->exists();
             if ($exists) {
                 return response()->json([
-                    'error'  => 'Internal code "' . trim($request->internal_code) . '" already exists — row skipped.',
+                    'error'  => 'Code "' . trim($request->internal_code) . '" already exists — row skipped.',
                     'status' => 409,
                 ]);
             }
         }
 
-        // Normalise mra_tax_rate_id — default to "A" if not supplied or unrecognised
+        // VAT type: default to "A" (Standard VAT) if not supplied or unrecognised
         $taxRate = strtoupper(trim($request->mra_tax_rate_id ?? 'A'));
         if (!in_array($taxRate, self::VALID_TAX_RATE_IDS)) {
             $taxRate = 'A';
         }
 
-        // Normalise unit_of_measure
+        // Unit of measure: default to "Each" if not supplied or unrecognised
         $validUnits = ['Each','kg','g','Litre','ml','Box','Carton','Pack','Pair','Dozen','Bag','Bottle','Metre','Service'];
         $unit = trim($request->unit_of_measure ?? 'Each');
         if (!in_array($unit, $validUnits)) {
@@ -526,7 +566,7 @@ class BaseproductsController extends Controller
             'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)                   : null,
             'mra_tax_rate_id'         => $taxRate,
             'is_vat_exempt_by_nature' => in_array($request->is_vat_exempt_by_nature, ['1', 1, true], true) ? 1 : 0,
-            // category is a plain string — store directly, no ID lookup required
+            // category is a plain string — passed from the filter bar selection in the UI
             'category'                => $request->category           ? trim($request->category)                           : null,
             'subcategory'             => $request->subcategory        ? trim($request->subcategory)                        : null,
             'is_active'               => in_array($request->is_active, ['0', 0, false], true) ? 0 : 1,

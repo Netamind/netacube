@@ -15,6 +15,8 @@ use App\Http\Controllers\Operations\Retail\BaseproductsController;
 use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Operations\Retail\EisController;
+use App\Http\Controllers\Operations\Retail\RetailBranchProductsController;
+
 
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
@@ -184,6 +186,16 @@ Route::post('/retail/operations/baseproducts/bulktax',          [BaseproductsCon
 Route::post('/retail/operations/baseproducts/bulktype',         [BaseproductsController::class, 'bulkTypeBaseproducts'])->name('retail.operations.baseproducts.bulktype');
 
 
+
+
+Route::get( 'operations/retail/branchproducts',                 [RetailBranchProductsController::class, 'showBranchproductsView']  )->name('retail.operations.branchproducts');
+Route::post('operations/retail/branchproducts/upsert',          [RetailBranchProductsController::class, 'upsertBranchproduct']     )->name('retail.operations.branchproducts.upsert');
+Route::post('operations/retail/branchproducts/update',          [RetailBranchProductsController::class, 'updateBranchproduct']     )->name('retail.operations.branchproducts.update');
+Route::post('operations/retail/branchproducts/delete',          [RetailBranchProductsController::class, 'deleteBranchproduct']     )->name('retail.operations.branchproducts.delete');
+Route::post('operations/retail/branchproducts/bulkdelete',      [RetailBranchProductsController::class, 'bulkDeleteBranchproducts'])->name('retail.operations.branchproducts.bulkdelete');
+Route::post('operations/retail/branchproducts/bulkstatus',      [RetailBranchProductsController::class, 'bulkStatusBranchproducts'])->name('retail.operations.branchproducts.bulkstatus');
+Route::post('operations/retail/branchproducts/bulktax',         [RetailBranchProductsController::class, 'bulkTaxBranchproducts']   )->name('retail.operations.branchproducts.bulktax');
+Route::get( 'operations/retail/baseproducts/search',            [RetailBranchProductsController::class, 'searchBaseproducts']      )->name('retail.operations.baseproducts.search');
 
 });
 

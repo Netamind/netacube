@@ -285,7 +285,7 @@
                         </a>
                         <div class="collapse" id="sidebarInventory">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Inventory</a></li>       {{-- Current stock levels per branch/SKU --}}
+                                <li><a href="{{ route('retail.operations.branchproducts') }}">Inventory</a></li>       {{-- Current stock levels per branch/SKU --}}
                                 <li><a href="#">Transactions</a></li>    {{-- All in/out stock movements --}}
                                 <li><a href="#">Transfers</a></li>       {{-- Inter-branch stock transfers --}}
                                 <li><a href="#">Shopvalues</a></li>      {{-- Retail value of stock on shelf --}}

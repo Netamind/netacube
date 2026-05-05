@@ -1665,7 +1665,6 @@ public function showSuppliersView()
     return view('tenants.admin.suppliers');
 }
 
-
 public function insertSupplier(Request $request)
 {
     $request->validate([
@@ -1687,8 +1686,8 @@ public function insertSupplier(Request $request)
         'address'             => 'nullable|string|max:1000',
         'city'                => 'nullable|string|max:100',
         'country'             => 'nullable|string|max:100',
-        'category'            => 'nullable|integer|exists:tenant.categories,id',
-        'sector'              => 'nullable|string|exists:tenant.sectors,sector',
+        'category'            => 'required|integer|exists:tenant.categories,id',
+        'sector'              => 'required|string|exists:tenant.sectors,sector',
         'status'              => 'nullable|in:active,inactive,blacklisted',
         'notes'               => 'nullable|string|max:5000',
     ]);
@@ -1712,8 +1711,8 @@ public function insertSupplier(Request $request)
         'address'             => trim($request->address),
         'city'                => trim($request->city),
         'country'             => trim($request->country) ?: 'Malawi',
-        'category'            => $request->category ?: null,
-        'sector'              => trim($request->sector) ?: null,
+        'category'            => $request->category,
+        'sector'              => trim($request->sector),
         'status'              => $request->status ?? 'active',
         'notes'               => trim($request->notes),
     ];
@@ -1759,8 +1758,8 @@ public function updateSupplier(Request $request)
         'address'             => 'nullable|string|max:1000',
         'city'                => 'nullable|string|max:100',
         'country'             => 'nullable|string|max:100',
-        'category'            => 'nullable|integer|exists:tenant.categories,id',
-        'sector'              => 'nullable|string|exists:tenant.sectors,sector',
+        'category'            => 'required|integer|exists:tenant.categories,id',
+        'sector'              => 'required|string|exists:tenant.sectors,sector',
         'status'              => 'nullable|in:active,inactive,blacklisted',
         'notes'               => 'nullable|string|max:5000',
     ]);
@@ -1784,8 +1783,8 @@ public function updateSupplier(Request $request)
         'address'             => trim($request->address),
         'city'                => trim($request->city),
         'country'             => trim($request->country) ?: 'Malawi',
-        'category'            => $request->category ?: null,
-        'sector'              => trim($request->sector) ?: null,
+        'category'            => $request->category,
+        'sector'              => trim($request->sector),
         'status'              => $request->status ?? 'active',
         'notes'               => trim($request->notes),
     ];
@@ -1856,5 +1855,6 @@ private static function formatSupplier($supplier): array
         'notes'               => $supplier->notes,
     ];
 }
-    
+
+
 }

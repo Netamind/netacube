@@ -16,23 +16,16 @@ class BaseproductsController extends Controller
     private function formatProduct($product): array
     {
         return [
-            'id'                    => $product->id,
-            'row'                   => 'row' . $product->id,
-            'name'                  => $product->name,
-            'description'           => $product->description,
-            'brand'                 => $product->brand,
-            'supplier'              => $product->supplier,
-            'manufacturer'          => $product->manufacturer,
-            'country_of_origin'     => $product->country_of_origin,
-            'internal_code'         => $product->internal_code,
-            'unit_of_measure'       => $product->unit_of_measure,
-            'weight_kg'             => $product->weight_kg,
-            'volume_litres'         => $product->volume_litres,
-            'default_selling_price' => $product->default_selling_price,
-            'default_cost_price'    => $product->default_cost_price,
-            'category'              => $product->category,
-            'subcategory'           => $product->subcategory,
-            'is_active'             => (int) $product->is_active,
+            'id'            => $product->id,
+            'row'           => 'row' . $product->id,
+            'name'          => $product->name,
+            'description'   => $product->description,
+            'code'          => $product->code,
+            'supplier'      => $product->supplier,
+            'unit'          => $product->unit,
+            'cost_price'    => $product->cost_price,
+            'selling_price' => $product->selling_price,
+            'is_product'    => (int) $product->is_product,
         ];
     }
 
@@ -43,44 +36,30 @@ class BaseproductsController extends Controller
     public function insertBaseproduct(Request $request)
     {
         $request->validate([
-            'name'                  => 'required|string|max:255|unique:tenant.retail_base_products,name',
-            'description'           => 'nullable|string|max:2000',
-            'brand'                 => 'nullable|string|max:255',
-            'supplier'              => 'nullable|string|max:255',
-            'manufacturer'          => 'nullable|string|max:255',
-            'country_of_origin'     => 'nullable|string|size:2',
-            'internal_code'         => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code',
-            'unit_of_measure'       => 'required|string|max:50',
-            'weight_kg'             => 'nullable|numeric|min:0',
-            'volume_litres'         => 'nullable|numeric|min:0',
-            'default_selling_price' => 'nullable|numeric|min:0',
-            'default_cost_price'    => 'nullable|numeric|min:0',
-            'category'              => 'nullable|string|max:255',
-            'subcategory'           => 'nullable|string|max:255',
-            'is_active'             => 'nullable|boolean',
+            'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name',
+            'description'   => 'nullable|string|max:2000',
+            'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code',
+            'supplier'      => 'required|string|max:255',
+            'unit'          => 'required|string|max:50',
+            'cost_price'    => 'nullable|numeric|min:0',
+            'selling_price' => 'nullable|numeric|min:0',
         ], [
-            'name.unique'          => 'A product with this name already exists in the base catalogue.',
-            'internal_code.unique' => 'This internal code (SKU) is already used by another product.',
+            'name.unique'     => 'A product with this name already exists in the base catalogue.',
+            'code.unique'     => 'This code (SKU) is already used by another product.',
+            'supplier.required' => 'A supplier is required.',
         ]);
 
         $data = [
-            'name'                  => trim($request->name),
-            'description'           => $request->description     ? trim($request->description)                   : null,
-            'brand'                 => $request->brand            ? trim($request->brand)                         : null,
-            'supplier'              => $request->supplier         ? trim($request->supplier)                      : null,
-            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                  : null,
-            'country_of_origin'     => $request->country_of_origin ? strtoupper(trim($request->country_of_origin)) : null,
-            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                 : null,
-            'unit_of_measure'       => trim($request->unit_of_measure),
-            'weight_kg'             => $request->weight_kg        !== '' ? $request->weight_kg        : null,
-            'volume_litres'         => $request->volume_litres    !== '' ? $request->volume_litres    : null,
-            'default_selling_price' => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
-            'default_cost_price'    => ($request->default_cost_price    !== null && $request->default_cost_price    !== '') ? $request->default_cost_price    : null,
-            'category'              => $request->category         ? trim($request->category)                      : null,
-            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                   : null,
-            'is_active'             => (int) ($request->is_active ?? 1),
-            'created_at'            => now(),
-            'updated_at'            => now(),
+            'name'          => trim($request->name),
+            'description'   => $request->description ? trim($request->description) : null,
+            'code'          => $request->code         ? trim($request->code)        : null,
+            'supplier'      => trim($request->supplier),
+            'unit'          => trim($request->unit ?? 'Each'),
+            'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
+            'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
+            'is_product'    => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ];
 
         $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);
@@ -108,47 +87,37 @@ class BaseproductsController extends Controller
     public function updateBaseproduct(Request $request)
     {
         $request->validate([
-            'id'                    => 'required|integer|exists:tenant.retail_base_products,id',
-            'name'                  => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
-            'description'           => 'nullable|string|max:2000',
-            'brand'                 => 'nullable|string|max:255',
-            'supplier'              => 'nullable|string|max:255',
-            'manufacturer'          => 'nullable|string|max:255',
-            'country_of_origin'     => 'nullable|string|size:2',
-            'internal_code'         => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code,' . $request->id,
-            'unit_of_measure'       => 'required|string|max:50',
-            'weight_kg'             => 'nullable|numeric|min:0',
-            'volume_litres'         => 'nullable|numeric|min:0',
-            'default_selling_price' => 'nullable|numeric|min:0',
-            'default_cost_price'    => 'nullable|numeric|min:0',
-            'category'              => 'nullable|string|max:255',
-            'subcategory'           => 'nullable|string|max:255',
-            'is_active'             => 'nullable|boolean',
+            'id'            => 'required|integer|exists:tenant.retail_base_products,id',
+            'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
+            'description'   => 'nullable|string|max:2000',
+            'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
+            'supplier'      => 'required|string|max:255',
+            'unit'          => 'required|string|max:50',
+            'cost_price'    => 'nullable|numeric|min:0',
+            'selling_price' => 'nullable|numeric|min:0',
+            'is_product'    => 'nullable|boolean',
         ], [
-            'name.unique'          => 'A product with this name already exists in the base catalogue.',
-            'internal_code.unique' => 'This internal code (SKU) is already used by another product.',
+            'name.unique'       => 'A product with this name already exists in the base catalogue.',
+            'code.unique'       => 'This code (SKU) is already used by another product.',
+            'supplier.required' => 'A supplier is required.',
         ]);
 
         $data = [
-            'name'                  => trim($request->name),
-            'description'           => $request->description     ? trim($request->description)                   : null,
-            'brand'                 => $request->brand            ? trim($request->brand)                         : null,
-            'supplier'              => $request->supplier         ? trim($request->supplier)                      : null,
-            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                  : null,
-            'country_of_origin'     => $request->country_of_origin ? strtoupper(trim($request->country_of_origin)) : null,
-            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                 : null,
-            'unit_of_measure'       => trim($request->unit_of_measure),
-            'weight_kg'             => ($request->weight_kg        !== null && $request->weight_kg        !== '') ? $request->weight_kg        : null,
-            'volume_litres'         => ($request->volume_litres    !== null && $request->volume_litres    !== '') ? $request->volume_litres    : null,
-            'default_selling_price' => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
-            'default_cost_price'    => ($request->default_cost_price    !== null && $request->default_cost_price    !== '') ? $request->default_cost_price    : null,
-            'category'              => $request->category         ? trim($request->category)                      : null,
-            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                   : null,
-            'is_active'             => (int) ($request->is_active ?? 1),
-            'updated_at'            => now(),
+            'name'          => trim($request->name),
+            'description'   => $request->description ? trim($request->description) : null,
+            'code'          => $request->code         ? trim($request->code)        : null,
+            'supplier'      => trim($request->supplier),
+            'unit'          => trim($request->unit ?? 'Each'),
+            'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
+            'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
+            'is_product'    => (int) ($request->is_product ?? 1),
+            'updated_at'    => now(),
         ];
 
-        $updated = DB::connection('tenant')->table('retail_base_products')->where('id', $request->id)->update($data);
+        $updated = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $request->id)
+            ->update($data);
 
         if ($updated !== false) {
             $product = DB::connection('tenant')
@@ -188,7 +157,10 @@ class BaseproductsController extends Controller
             ]);
         }
 
-        $deleted = DB::connection('tenant')->table('retail_base_products')->where('id', $request->id)->delete();
+        $deleted = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $request->id)
+            ->delete();
 
         if ($deleted) {
             return response()->json(['success' => 'Product deleted successfully.', 'status' => 201]);
@@ -223,7 +195,10 @@ class BaseproductsController extends Controller
             ]);
         }
 
-        $deleted = DB::connection('tenant')->table('retail_base_products')->whereIn('id', $safeIds)->delete();
+        $deleted = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->whereIn('id', $safeIds)
+            ->delete();
 
         if ($deleted > 0) {
             $skipped = count($inUseIds);
@@ -239,32 +214,32 @@ class BaseproductsController extends Controller
     }
 
     // ─────────────────────────────────────────────────────────────────────────
-    //  BULK STATUS
+    //  BULK STATUS  (is_product)
     // ─────────────────────────────────────────────────────────────────────────
 
     public function bulkStatusBaseproducts(Request $request)
     {
         $request->validate([
-            'ids'       => 'required|array',
-            'ids.*'     => 'required|integer|exists:tenant.retail_base_products,id',
-            'is_active' => 'required|boolean',
+            'ids'        => 'required|array',
+            'ids.*'      => 'required|integer|exists:tenant.retail_base_products,id',
+            'is_product' => 'required|boolean',
         ]);
 
         DB::connection('tenant')
             ->table('retail_base_products')
             ->whereIn('id', $request->ids)
             ->update([
-                'is_active'  => (int) $request->is_active,
+                'is_product' => (int) $request->is_product,
                 'updated_at' => now(),
             ]);
 
         $products  = DB::connection('tenant')->table('retail_base_products')->whereIn('id', $request->ids)->get();
-        $label     = $request->is_active ? 'activated' : 'deactivated';
+        $label     = $request->is_product ? 'marked as Product' : 'marked as Service';
         $count     = $products->count();
         $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
 
         return response()->json([
-            'success'  => $count . ' product' . ($count > 1 ? 's' : '') . ' ' . $label . ' successfully.',
+            'success'  => $count . ' item' . ($count > 1 ? 's' : '') . ' ' . $label . ' successfully.',
             'status'   => 201,
             'products' => $formatted,
         ]);
@@ -279,10 +254,10 @@ class BaseproductsController extends Controller
         $request->validate([
             'ids'      => 'required|array',
             'ids.*'    => 'required|integer|exists:tenant.retail_base_products,id',
-            'supplier' => 'nullable|string|max:255',
+            'supplier' => 'required|string|max:255',
         ]);
 
-        $supplier = $request->filled('supplier') ? trim($request->supplier) : null;
+        $supplier = trim($request->supplier);
 
         DB::connection('tenant')
             ->table('retail_base_products')
@@ -313,6 +288,10 @@ class BaseproductsController extends Controller
             return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
         }
 
+        if (empty($request->supplier) || trim($request->supplier) === '') {
+            return response()->json(['error' => 'Supplier is blank — row skipped.', 'status' => 409]);
+        }
+
         $nameExists = DB::connection('tenant')
             ->table('retail_base_products')
             ->whereRaw('LOWER(name) = ?', [strtolower(trim($request->name))])
@@ -325,44 +304,37 @@ class BaseproductsController extends Controller
             ]);
         }
 
-        if (!empty($request->internal_code)) {
+        if (!empty($request->code)) {
             $exists = DB::connection('tenant')
                 ->table('retail_base_products')
-                ->where('internal_code', trim($request->internal_code))
+                ->where('code', trim($request->code))
                 ->exists();
 
             if ($exists) {
                 return response()->json([
-                    'error'  => 'Code "' . trim($request->internal_code) . '" already exists — row skipped.',
+                    'error'  => 'Code "' . trim($request->code) . '" already exists — row skipped.',
                     'status' => 409,
                 ]);
             }
         }
 
         $validUnits = ['Each', 'kg', 'g', 'Litre', 'ml', 'Box', 'Carton', 'Pack', 'Pair', 'Dozen', 'Bag', 'Bottle', 'Metre', 'Service'];
-        $unit       = trim($request->unit_of_measure ?? 'Each');
+        $unit       = trim($request->unit ?? 'Each');
         if (!in_array($unit, $validUnits)) {
             $unit = 'Each';
         }
 
         $data = [
-            'name'                  => trim($request->name),
-            'description'           => $request->description     ? trim($request->description)                             : null,
-            'brand'                 => $request->brand            ? trim($request->brand)                                   : null,
-            'supplier'              => $request->supplier         ? trim($request->supplier)                                : null,
-            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                            : null,
-            'country_of_origin'     => $request->country_of_origin ? strtoupper(substr(trim($request->country_of_origin), 0, 2)) : null,
-            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                          : null,
-            'unit_of_measure'       => $unit,
-            'weight_kg'             => is_numeric($request->weight_kg)             ? (float) $request->weight_kg             : null,
-            'volume_litres'         => is_numeric($request->volume_litres)         ? (float) $request->volume_litres         : null,
-            'default_selling_price' => is_numeric($request->default_selling_price) ? (float) $request->default_selling_price : null,
-            'default_cost_price'    => is_numeric($request->default_cost_price)    ? (float) $request->default_cost_price    : null,
-            'category'              => $request->category         ? trim($request->category)                                : null,
-            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                             : null,
-            'is_active'             => in_array($request->is_active, ['0', 0, false], true) ? 0 : 1,
-            'created_at'            => now(),
-            'updated_at'            => now(),
+            'name'          => trim($request->name),
+            'description'   => $request->description ? trim($request->description) : null,
+            'code'          => $request->code         ? trim($request->code)        : null,
+            'supplier'      => trim($request->supplier),
+            'unit'          => $unit,
+            'cost_price'    => is_numeric($request->cost_price)    ? (float) $request->cost_price    : null,
+            'selling_price' => is_numeric($request->selling_price) ? (float) $request->selling_price : null,
+            'is_product'    => 1,
+            'created_at'    => now(),
+            'updated_at'    => now(),
         ];
 
         $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);

@@ -143,7 +143,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/admin/update-user-filters', [TenantAdminController::class, 'updateUserFilters'])->name('tenant.admin.update.filters');
 
 
-
+                                                                                                                                               
 
 });
 
@@ -167,8 +167,6 @@ Route::post('/retail/operations/baseproducts/bulktax',          [BaseproductsCon
 Route::post('/retail/operations/baseproducts/bulktype',         [BaseproductsController::class, 'bulkTypeBaseproducts'])->name('retail.operations.baseproducts.bulktype');
 
 
-
-
 Route::get( 'operations/retail/branchproducts',                 [RetailBranchProductsController::class, 'showBranchproductsView']  )->name('retail.operations.branchproducts');
 Route::post('operations/retail/branchproducts/upsert',          [RetailBranchProductsController::class, 'upsertBranchproduct']     )->name('retail.operations.branchproducts.upsert');
 Route::post('operations/retail/branchproducts/update',          [RetailBranchProductsController::class, 'updateBranchproduct']     )->name('retail.operations.branchproducts.update');
@@ -179,6 +177,9 @@ Route::post('operations/retail/branchproducts/bulktax',         [RetailBranchPro
 Route::get( 'operations/retail/baseproducts/search',            [RetailBranchProductsController::class, 'searchBaseproducts']      )->name('retail.operations.baseproducts.search');
 
 
+Route::get( 'operations/retail/branches',                   [RetailOperationsController::class, 'showBranchesView']     )->name('retail.operations.branches');
+
+Route::get( 'operations/retail/suppliers',                   [RetailOperationsController::class, 'showSuppliersView']     )->name('retail.operations.suppliers');
 
 
 });

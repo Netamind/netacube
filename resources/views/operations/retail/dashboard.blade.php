@@ -243,7 +243,7 @@
 
                     <!-- Branch / store location registry -->
                     <li class="side-nav-item">
-                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                        <a href="{{ route('retail.operations.branches') }}" class="side-nav-link">
                             <i class="ri-store-3-line"></i>
                             <span>Branches</span>
                         </a>
@@ -251,7 +251,7 @@
 
                     <!-- Supplier / vendor directory -->
                     <li class="side-nav-item">
-                        <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
+                        <a href="{{ route('retail.operations.suppliers') }}" class="side-nav-link">
                             <i class="ri-building-2-line"></i>
                             <span>Suppliers</span>
                         </a>

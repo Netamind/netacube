@@ -32,8 +32,8 @@ return new class extends Migration
             // ── Pricing ───────────────────────────────────────────────────
             $table->decimal('selling_price',   15, 2);
             $table->decimal('cost_price',      15, 2)->nullable();
-            $table->decimal('wholesale_price', 15, 2)->nullable();
-            $table->string('currency', 3)->default('MWK');
+     
+
 
             // ── Stock ─────────────────────────────────────────────────────
             $table->decimal('stock_quantity',   12, 3)->default(0);
@@ -46,10 +46,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->boolean('allow_negative_stock')->default(false);
 
-            // ── POS Display ───────────────────────────────────────────────
-            $table->boolean('is_pinned_on_pos')->default(false);
-            $table->integer('pos_sort_order')->default(0);
-
+       
             $table->timestamps();
 
             $table->unique(['branch_id', 'base_product_id'], 'rbp_branch_product_unique');

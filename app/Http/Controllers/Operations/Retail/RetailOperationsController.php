@@ -33,6 +33,20 @@ class RetailOperationsController extends Controller
     }
 
 
+    
+
+    public function showBranchesView()
+    {
+         return view('operations.retail.branches');
+    }
+
+     public function showSuppliersView()
+    {
+         return view('operations.retail.suppliers');
+    }
+
+
+
 public function updateUserFilters(Request $request)
 {
     $validator = Validator::make(

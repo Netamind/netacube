@@ -10,37 +10,17 @@ return new class extends Migration
     {
         Schema::create('retail_base_products', function (Blueprint $table) {
             $table->id();
-
-            // ── Identity ──────────────────────────────────────────────────
             $table->string('name');
             $table->text('description')->nullable();
-            $table->string('internal_code')->unique()->nullable();
-            $table->string('brand')->nullable();
-            $table->string('manufacturer')->nullable();
-            $table->string('supplier')->nullable();
-            $table->string('country_of_origin', 2)->nullable();
-
-            // ── Measurement ───────────────────────────────────────────────
-            $table->string('unit_of_measure')->default('Each');
-            $table->decimal('weight_kg',     10, 4)->nullable();
-            $table->decimal('volume_litres', 10, 4)->nullable();
-
-            // ── Default Pricing ───────────────────────────────────────────
-            $table->decimal('default_selling_price', 15, 2)->nullable();
-            $table->decimal('default_cost_price',    15, 2)->nullable();
-
-            // ── Categorisation ────────────────────────────────────────────
-            $table->string('category')->nullable();
-            $table->string('subcategory')->nullable();
-            $table->string('image_path')->nullable();
-
-            $table->boolean('is_active')->default(true);
-
+            $table->string('code')->unique()->nullable();
+            $table->string('supplier');
+            $table->string('unit')->default('Each');
+            $table->decimal('cost_price',    15, 2)->nullable();
+            $table->decimal('selling_price', 15, 2)->nullable();
+            $table->boolean('is_product')->default(true);
             $table->timestamps();
-
-            $table->index('internal_code');
-            $table->index('category');
-            $table->index('is_active');
+            $table->index('code');
+            $table->index('is_product');
         });
     }
 

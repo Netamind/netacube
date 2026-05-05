@@ -26,13 +26,8 @@
 
 /* ── Filter bar ─────────────────────────────────────────────────────────── */
 .card-filter {
-  background: #eef0f7;
-  border-bottom: 1px solid #d6daf0;
-  padding: 9px 1.5rem;
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  flex-wrap: wrap;
+  background: #eef0f7; border-bottom: 1px solid #d6daf0;
+  padding: 9px 1.5rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
 }
 .card-filter label { font-size:12px; font-weight:600; color:#4B5EBD; margin-bottom:0; white-space:nowrap; }
 .card-filter select {
@@ -42,11 +37,9 @@
 .filter-divider { width:1px; height:22px; background:#c8d0ed; margin:0 4px; }
 .filter-badge { font-size:11px; background:#4B5EBD; color:#fff; border-radius:10px; padding:1px 8px; }
 
-/* ── Bulk trigger — in filter bar, pushed to far right ──────────────────── */
+/* ── Bulk trigger ───────────────────────────────────────────────────────── */
 #bulkTriggerBtn {
-  font-size:12px; font-weight:700;
-  margin-left:auto;
-  height:28px; padding:0 12px;
+  font-size:12px; font-weight:700; margin-left:auto; height:28px; padding:0 12px;
   display:none; align-items:center; gap:5px;
 }
 #bulkTriggerBtn.visible { display:flex !important; }
@@ -63,6 +56,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 
 /* ── Prices ─────────────────────────────────────────────────────────────── */
 .price-cell { font-size:12px; font-weight:600; color:#198754; }
+
+/* ── Type badge ─────────────────────────────────────────────────────────── */
+.type-badge-product { font-size:10px; font-weight:600; background:#e8f5e9; color:#2d6a4f; border:1px solid #a5d6a7; border-radius:10px; padding:1px 7px; white-space:nowrap; }
+.type-badge-service { font-size:10px; font-weight:600; background:#fff3e0; color:#e65100; border:1px solid #ffcc80; border-radius:10px; padding:1px 7px; white-space:nowrap; }
 
 /* ── Modal selects fix ──────────────────────────────────────────────────── */
 .modal-body .form-select,
@@ -83,47 +80,24 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 .view-item .view-val { font-size:13px; color:#1e293b; font-weight:500; }
 .view-item .view-val.muted { color:#9ca3af; font-style:italic; }
 .view-item.full { grid-column:1/-1; }
-.view-section-title {
-  font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:1px;
-  color:#4B5EBD; border-bottom:2px solid #e8ecff; padding-bottom:5px; margin-bottom:10px;
-}
 
 /* ── Import modal ───────────────────────────────────────────────────────── */
-.excel-preview-wrap {
-  border:2px solid #b7d5c4; border-radius:8px; overflow:hidden;
-  box-shadow:0 2px 8px rgba(0,0,0,0.07);
-}
-.excel-header-bar {
-  background:#217346; color:#fff; font-size:11px; font-weight:700;
-  padding:5px 10px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px;
-}
+.excel-preview-wrap { border:2px solid #b7d5c4; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
+.excel-header-bar { background:#217346; color:#fff; font-size:11px; font-weight:700; padding:5px 10px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px; }
 .excel-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
-.excel-row-num { background:#f0f0f0; color:#888; font-size:10px; font-weight:600;
-  text-align:center; padding:4px 6px; border-right:1px solid #d0d0d0;
-  border-bottom:1px solid #d0d0d0; min-width:28px; }
-.excel-preview-table thead th {
-  background:#217346; color:#fff; text-align:center; padding:6px 10px;
-  border-right:1px solid #1a5c38; font-weight:600; font-size:11px; white-space:nowrap;
-}
+.excel-row-num { background:#f0f0f0; color:#888; font-size:10px; font-weight:600; text-align:center; padding:4px 6px; border-right:1px solid #d0d0d0; border-bottom:1px solid #d0d0d0; min-width:28px; }
+.excel-preview-table thead th { background:#217346; color:#fff; text-align:center; padding:6px 10px; border-right:1px solid #1a5c38; font-weight:600; font-size:11px; white-space:nowrap; }
 .excel-preview-table thead th.col-name { text-align:left; }
-.excel-preview-table tbody td {
-  text-align:center; padding:5px 10px; border-bottom:1px solid #e8e8e8;
-  border-right:1px solid #e8e8e8; background:#fff;
-}
+.excel-preview-table tbody td { text-align:center; padding:5px 10px; border-bottom:1px solid #e8e8e8; border-right:1px solid #e8e8e8; background:#fff; }
 .excel-preview-table tbody td.col-name { text-align:left; }
 .excel-preview-table tbody tr:nth-child(even) td { background:#f8fff8; }
 .excel-preview-table tbody tr:hover td { background:#e8f5e9; }
-.excel-col-code { font-family:monospace; background:#f1f8e9; padding:1px 5px;
-  border-radius:3px; color:#2d6a4f; font-size:11px; }
+.excel-col-code { font-family:monospace; background:#f1f8e9; padding:1px 5px; border-radius:3px; color:#2d6a4f; font-size:11px; }
 .excel-req-star { color:#e74c3c; margin-left:2px; font-size:13px; }
 .excel-sample-val { color:#555; }
 .excel-sample-muted { color:#aaa; font-style:italic; font-size:11px; }
 
-.drop-zone {
-  border:2px dashed #40916c; border-radius:12px; padding:26px 20px;
-  text-align:center; cursor:pointer; transition:all .2s;
-  background:#f0faf5; position:relative;
-}
+.drop-zone { border:2px dashed #40916c; border-radius:12px; padding:26px 20px; text-align:center; cursor:pointer; transition:all .2s; background:#f0faf5; position:relative; }
 .drop-zone:hover,.drop-zone.drag-over { background:#d8f3e6; border-color:#1b4332; }
 .drop-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
 .drop-zone i { font-size:36px; color:#40916c; display:block; margin-bottom:6px; }
@@ -135,52 +109,21 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 .import-progress-bar { height:6px; border-radius:3px; background:#e9ecef; overflow:hidden; }
 .import-progress-bar .bar { height:100%; width:0; background:linear-gradient(to right,#40916c,#52b788); transition:width .3s ease; border-radius:3px; }
 
-/* ── Import gate banner ───────────────────────────────────────────────────*/
-.import-gate-banner {
-  background:#fff3cd; border:1px solid #ffc107; border-radius:8px;
-  padding:10px 14px; font-size:12px; color:#856404;
-  display:flex; align-items:flex-start; gap:8px; margin-bottom:14px;
-}
-.import-gate-banner i { font-size:16px; flex-shrink:0; margin-top:1px; }
-.import-ready-banner {
-  background:#d1e7dd; border:1px solid #a3cfbb; border-radius:8px;
-  padding:10px 14px; font-size:12px; color:#0a3622;
-  display:flex; align-items:center; gap:8px; margin-bottom:14px;
-}
-.import-ready-banner i { font-size:16px; flex-shrink:0; }
-
-/* ── CSV column guide card ────────────────────────────────────────────────*/
-.csv-guide-card {
-  background:#f8f9ff; border:1px solid #d6daf0; border-radius:8px;
-  padding:12px 14px; margin-bottom:14px;
-}
-.csv-guide-card .csv-guide-title {
-  font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
-  color:#4B5EBD; margin-bottom:8px; display:flex; align-items:center; gap:5px;
-}
-
 /* ── Bulk actions modal ─────────────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
 .bulk-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6c757d; margin-bottom:10px; }
 
-/* ── Spinner ────────────────────────────────────────────────────────────── */
-@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
-
-/* ── Section label ──────────────────────────────────────────────────────── */
-.section-label {
-  font-size:11px; font-weight:700; text-transform:uppercase;
-  letter-spacing:0.8px; color:#6c757d;
-  border-bottom:1px solid #e9ecef;
-  padding-bottom:4px; margin-bottom:12px; margin-top:8px;
+/* ── Edit modal read-only fields ────────────────────────────────────────── */
+.edit-readonly-field {
+  background:#f8f9fa !important; color:#495057 !important;
+  border-color:#dee2e6 !important; cursor:default !important;
 }
 
-/* ── Branch select in filter bar ────────────────────────────────────────── */
-#filterBranch { font-size:12px; height:30px; padding:0 8px; border-radius:6px;
-  border:1px solid #c8d0ed; background:#fff; min-width:160px; max-width:220px; }
+/* ── Spinner ────────────────────────────────────────────────────────────── */
+@keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 </style>
 
-<div class="progress" id="progressBar" role="progressbar"
-     style="height:8px;transform:rotate(180deg);display:none">
+<div class="progress" id="progressBar" role="progressbar" style="height:8px;transform:rotate(180deg);display:none">
   <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
 </div>
 
@@ -188,57 +131,87 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 <div class="row mb-3"></div>
 
 <?php
-  $maintableTitle = "Retail Base Products";
-  $categories = DB::connection('tenant')->table('categories')->orderBy('category')->get();
-  $branches   = DB::connection('tenant')->table('branches')->orderBy('name')->get();
+    $maintableTitle = "Retail Base Products";
 
-  // Fetch suppliers with their associated categories for filtering
-  $supplierRows = DB::connection('tenant')->table('retail_base_products')
-                    ->whereNotNull('supplier')->where('supplier','!=','')
-                    ->select('supplier', 'category')
-                    ->distinct()
-                    ->orderBy('supplier')
+    $categories = DB::connection('tenant')
+                    ->table('categories')
+                    ->orderBy('category')
                     ->get();
 
-  // Group: supplier => array of categories
-  $supplierCategoryMap = [];
-  foreach ($supplierRows as $row) {
-      if (!isset($supplierCategoryMap[$row->supplier])) {
-          $supplierCategoryMap[$row->supplier] = [];
-      }
-      if ($row->category && !in_array($row->category, $supplierCategoryMap[$row->supplier])) {
-          $supplierCategoryMap[$row->supplier][] = $row->category;
-      }
-  }
-  ksort($supplierCategoryMap);
+    $pref = DB::connection('tenant')
+               ->table('user_filters')
+               ->where('user_id', Auth::id())
+               ->first();
 
-  // Plain list of unique suppliers for other dropdowns
-  $suppliers = array_keys($supplierCategoryMap);
+    $savedCategoryId = $pref->category_id ?? null;
+    $savedSupplierId = $pref->supplier_id  ?? null;
 
-  $products = DB::connection('tenant')->table('retail_base_products')
-                ->select('retail_base_products.*')
-                ->get();
+    $savedCategoryName = null;
+    if ($savedCategoryId) {
+        $savedCategoryName = DB::connection('tenant')
+                               ->table('categories')
+                               ->where('id', $savedCategoryId)
+                               ->value('category');
+    }
 
-  // Read saved filters from user_filters
-  $pref            = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
-  $savedBranchId   = $pref->branch_id   ?? null;
-  $savedCategoryId = null;
-  $savedCategoryName = null;
-  if ($pref && $pref->category_id) {
-      $savedCat = DB::connection('tenant')->table('categories')->find($pref->category_id);
-      $savedCategoryId   = $savedCat->id       ?? null;
-      $savedCategoryName = $savedCat->category ?? null;
-  }
-  $savedBranch = $savedBranchId ? DB::connection('tenant')->table('branches')->find($savedBranchId) : null;
+    $allRetailSuppliers = DB::connection('tenant')
+                             ->table('suppliers')
+                             ->where('sector', 'retail')
+                             ->orderBy('name')
+                             ->get();
+
+    $suppliers = collect();
+    if ($savedCategoryId) {
+        $suppliers = DB::connection('tenant')
+                        ->table('suppliers')
+                        ->where('sector', 'retail')
+                        ->where('category', $savedCategoryId)
+                        ->orderBy('name')
+                        ->get();
+    }
+
+    $products = collect();
+
+    if ($savedCategoryId) {
+        if ($savedSupplierId) {
+            $supplierName = DB::connection('tenant')
+                               ->table('suppliers')
+                               ->where('id', $savedSupplierId)
+                               ->where('sector', 'retail')
+                               ->where('category', $savedCategoryId)
+                               ->value('name');
+
+            if ($supplierName) {
+                $products = DB::connection('tenant')
+                               ->table('retail_base_products')
+                               ->where('supplier', $supplierName)
+                               ->orderBy('name')
+                               ->get();
+            }
+        } else {
+            $categorySupplierNames = DB::connection('tenant')
+                                        ->table('suppliers')
+                                        ->where('sector', 'retail')
+                                        ->where('category', $savedCategoryId)
+                                        ->pluck('name')
+                                        ->toArray();
+
+            if (!empty($categorySupplierNames)) {
+                $products = DB::connection('tenant')
+                               ->table('retail_base_products')
+                               ->whereIn('supplier', $categorySupplierNames)
+                               ->orderBy('name')
+                               ->get();
+            }
+        }
+    }
 ?>
 
 <div class="card">
 
 {{-- ── Card header ──────────────────────────────────────────────────────── --}}
 <div class="card-header d-flex justify-content-between align-items-center">
-  <h4 class="header-title mb-0">
-     Baseproducts
-  </h4>
+  <h4 class="header-title mb-0">Base Products</h4>
   <div class="d-flex align-items-center" style="gap:4px;">
     <a href="#" class="btn btn-light text-success fs-16 mx-1" id="importBtn"       title="Import from CSV"><i class="ri-file-excel-2-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn"      title="Add new product"><i class="ri-add-circle-line"></i></a>
@@ -250,15 +223,15 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 {{-- ── Filter bar ───────────────────────────────────────────────────────── --}}
 <div class="card-filter">
 
-  {{-- Category selector — saves via user_filters --}}
   <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
         id="filterCategoryForm" style="display:contents;">
     @csrf
-    <input type="hidden" name="user_id" value="{{ Auth::id() }}">
+    <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
+    <input type="hidden" name="supplier_id" value="">
     <label>Category:</label>
     <select name="category_id" id="filterCategory"
             onchange="document.getElementById('filterCategoryForm').submit()">
-      <option value="">All Categories</option>
+      <option value="" hidden>—Select Category—</option>
       @foreach($categories as $cat)
         <option value="{{ $cat->id }}" {{ $savedCategoryId == $cat->id ? 'selected' : '' }}>
           {{ $cat->category }}
@@ -269,19 +242,36 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 
   <div class="filter-divider"></div>
 
-  <label>Supplier:</label>
-  <select id="filterSupplier">
-    <option value="">All Suppliers</option>
-    @foreach($suppliers as $sup)
-      <option value="{{ $sup }}">{{ $sup }}</option>
-    @endforeach
-  </select>
+  @if($savedCategoryId)
+    @if($suppliers->isEmpty())
+      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:5px 12px;font-size:12px;color:#7d5a00;display:flex;align-items:center;gap:6px;">
+        <i class="ri-information-line"></i> No retail suppliers for this category.
+      </div>
+    @else
+      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+            id="filterSupplierForm" style="display:contents;">
+        @csrf
+        <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
+        <input type="hidden" name="category_id" value="{{ $savedCategoryId }}">
+        <label>Supplier:</label>
+        <select name="supplier_id" id="filterSupplier"
+                onchange="document.getElementById('filterSupplierForm').submit()">
+          <option value="">All Suppliers</option>
+          @foreach($suppliers as $sup)
+            <option value="{{ $sup->id }}" {{ $savedSupplierId == $sup->id ? 'selected' : '' }}>
+              {{ $sup->name }}
+            </option>
+          @endforeach
+        </select>
+      </form>
+    @endif
+  @else
+    <label>Supplier:</label>
+    <select disabled title="Select a category first">
+      <option>— Select a category first —</option>
+    </select>
+  @endif
 
-  <span id="filterInfo" class="ms-2" style="font-size:12px;color:#6c757d;display:none">
-    Showing <span id="filterInfoCount" class="filter-badge">0</span> products
-  </span>
-
-  {{-- Bulk trigger — far right of filter bar --}}
   <a href="#" class="btn btn-warning btn-sm" id="bulkTriggerBtn" title="Bulk Actions" style="margin-left:auto;">
     <i class="ri-checkbox-multiple-line me-1"></i><span id="selectedCount">0</span> Selected
   </a>
@@ -303,23 +293,26 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   <tbody id="tbody">
     @foreach($products as $product)
       <?php $row = "row".$product->id ?>
-      <tr id="{{ $row }}" data-category="{{ $product->category }}" data-supplier="{{ $product->supplier }}">
+      <tr id="{{ $row }}">
         <td>
-          <input type="checkbox" class="selectRow" value="{{ $product->id }}" data-row-id="{{ $row }}">
+          <input type="checkbox" class="selectRow"
+                 value="{{ $product->id }}" data-row-id="{{ $row }}">
           &nbsp;{{ $product->name }}
         </td>
-        <td>{{ $product->internal_code ?? '—' }}</td>
-        <td>{{ $product->unit_of_measure }}</td>
+        <td>{{ $product->code ?? '—' }}</td>
+        <td>{{ $product->unit }}</td>
         <td>
-          @if($product->default_cost_price !== null)
-            <span style="font-size:12px;color:#6c757d">{{ number_format($product->default_cost_price,2) }}</span>
-          @else<span class="text-muted" style="font-size:12px">—</span>
+          @if($product->cost_price !== null)
+            <span style="font-size:12px;color:#6c757d">{{ number_format($product->cost_price,2) }}</span>
+          @else
+            <span class="text-muted" style="font-size:12px">—</span>
           @endif
         </td>
         <td>
-          @if($product->default_selling_price !== null)
-            <span class="price-cell">{{ number_format($product->default_selling_price,2) }}</span>
-          @else<span class="text-muted" style="font-size:12px">—</span>
+          @if($product->selling_price !== null)
+            <span class="price-cell">{{ number_format($product->selling_price,2) }}</span>
+          @else
+            <span class="text-muted" style="font-size:12px">—</span>
           @endif
         </td>
         <td>
@@ -327,18 +320,12 @@ table.dataTable tbody td:first-child { text-align:left !important; }
              data-id="{{ $product->id }}"
              data-name="{{ $product->name }}"
              data-description="{{ $product->description }}"
-             data-brand="{{ $product->brand }}"
              data-supplier="{{ $product->supplier }}"
-             data-manufacturer="{{ $product->manufacturer }}"
-             data-origin="{{ $product->country_of_origin }}"
-             data-code="{{ $product->internal_code }}"
-             data-unit="{{ $product->unit_of_measure }}"
-             data-weight="{{ $product->weight_kg }}"
-             data-volume="{{ $product->volume_litres }}"
-             data-sell="{{ $product->default_selling_price }}"
-             data-cost="{{ $product->default_cost_price }}"
-             data-cat="{{ $product->category ?? '' }}"
-             data-active="{{ $product->is_active }}">
+             data-code="{{ $product->code }}"
+             data-unit="{{ $product->unit }}"
+             data-sell="{{ $product->selling_price }}"
+             data-cost="{{ $product->cost_price }}"
+             data-is-product="{{ $product->is_product }}">
             <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
           </a>
           <a href="#" class="editDataBtn"
@@ -346,18 +333,12 @@ table.dataTable tbody td:first-child { text-align:left !important; }
              editRow="{{ $row }}"
              editName="{{ $product->name }}"
              editDescription="{{ $product->description }}"
-             editBrand="{{ $product->brand }}"
              editSupplier="{{ $product->supplier }}"
-             editManufacturer="{{ $product->manufacturer }}"
-             editCountryOfOrigin="{{ $product->country_of_origin }}"
-             editInternalCode="{{ $product->internal_code }}"
-             editUnitOfMeasure="{{ $product->unit_of_measure }}"
-             editWeightKg="{{ $product->weight_kg }}"
-             editVolumeLitres="{{ $product->volume_litres }}"
-             editDefaultSellingPrice="{{ $product->default_selling_price }}"
-             editDefaultCostPrice="{{ $product->default_cost_price }}"
-             editCategory="{{ $product->category }}"
-             editIsActive="{{ $product->is_active }}">
+             editCode="{{ $product->code }}"
+             editUnit="{{ $product->unit }}"
+             editSellingPrice="{{ $product->selling_price }}"
+             editCostPrice="{{ $product->cost_price }}"
+             editIsProduct="{{ $product->is_product }}">
             <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
           </a>
           <a href="#" class="deleteDataBtn"
@@ -402,9 +383,13 @@ table.dataTable tbody td:first-child { text-align:left !important; }
     </div>
     <div class="modal-body">
       <p class="mb-2"><strong>What is a Base Product?</strong><br>
-      Base products are your <strong>master catalogue</strong> — the permanent list of everything you sell. Each product is defined once here and can then be assigned to one or more branches.</p>
+      Base products are your <strong>master catalogue</strong> — the permanent list of everything you sell or offer. Each entry is defined once here and can then be assigned to one or more branches.</p>
+      <p class="mb-2"><strong>Supplier (Required)</strong><br>
+      Every product must be linked to a supplier. The supplier field drives the category classification — select the correct retail supplier when adding or editing a product.</p>
       <p class="mb-2"><strong>Default Prices</strong><br>
-      The selling price and order price set here apply to all branches by default. Individual branches can override these with their own prices if needed.</p>
+      The selling price and order/cost price set here apply to all branches by default. Individual branches can override these with their own prices if needed.</p>
+      <p class="mb-0"><strong>Product vs Service</strong><br>
+      Each entry is flagged as either a <strong>Product</strong> (a physical item) or a <strong>Service</strong> (a non-physical offering). This flag can be set or changed via the <strong>Edit</strong> form — new entries default to <em>Product</em>.</p>
     </div>
   </div></div>
 </div>
@@ -434,13 +419,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <div class="tab-content">
           <div class="tab-pane fade show active" id="vw-t1">
             <div class="view-grid">
-              <div class="view-item"><label>Internal Code</label><div class="view-val" id="vw-internal-code"></div></div>
+              <div class="view-item"><label>Code</label><div class="view-val" id="vw-code"></div></div>
               <div class="view-item"><label>Unit of Measure</label><div class="view-val" id="vw-unit"></div></div>
-              <div class="view-item"><label>Brand</label><div class="view-val" id="vw-brand"></div></div>
-              <div class="view-item"><label>Manufacturer</label><div class="view-val" id="vw-manufacturer"></div></div>
               <div class="view-item"><label>Supplier</label><div class="view-val" id="vw-supplier"></div></div>
-              <div class="view-item"><label>Country of Origin</label><div class="view-val" id="vw-origin"></div></div>
-              <div class="view-item"><label>Category</label><div class="view-val" id="vw-category"></div></div>
+              <div class="view-item"><label>Type</label><div class="view-val" id="vw-type"></div></div>
               <div class="view-item full"><label>Description</label><div class="view-val" id="vw-description"></div></div>
             </div>
           </div>
@@ -448,8 +430,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <div class="view-grid">
               <div class="view-item"><label>Default Selling Price (MWK)</label><div class="view-val price-cell" id="vw-sell"></div></div>
               <div class="view-item"><label>Default Order / Cost Price (MWK)</label><div class="view-val" id="vw-cost"></div></div>
-              <div class="view-item"><label>Weight (kg)</label><div class="view-val" id="vw-weight"></div></div>
-              <div class="view-item"><label>Volume (litres)</label><div class="view-val" id="vw-volume"></div></div>
             </div>
           </div>
         </div>
@@ -472,36 +452,45 @@ table.dataTable tbody td:first-child { text-align:left !important; }
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
       <div class="modal-header mh-blue">
         <h5 class="modal-title mh-title"><i class="ri-add-circle-line"></i> Add Base Product</h5>
-        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" id="newDataModalCloseBtn"></button>
-      </div>
-      <div id="newProductContextBanner" class="d-none" style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:7px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
-        <span style="font-size:11px;font-weight:600;color:#2d6a4f;"><i class="ri-information-line me-1"></i>Category from filter:</span>
-        <span id="newCtxCatBadge" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;color:#2d6a4f;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;"><i class="ri-folder-line me-1"></i><span></span></span>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px 20px 8px !important;">
         <form action="#" method="post" id="newDataForm">
           @csrf
-          <input type="hidden" name="category" id="new-category">
           <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">Product / Service Name <span class="text-danger">*</span></label>
+            <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
             <input class="form-control" type="text" name="name" id="new-name"
                    placeholder="e.g. Cooking Oil 2L" autocomplete="off" required />
+          </div>
+          <div class="mb-3">
+            <label class="form-label fw-semibold" style="font-size:13px">Supplier <span class="text-danger">*</span></label>
+            <select class="form-select" name="supplier" id="new-supplier" required>
+              <option value="">— Select Supplier —</option>
+              @foreach($suppliers as $sup)
+                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+              @endforeach
+            </select>
+            @if($savedCategoryId && $suppliers->isEmpty())
+              <div class="form-text text-warning"><i class="ri-information-line"></i> No retail suppliers for the selected category.</div>
+            @elseif(!$savedCategoryId)
+              <div class="form-text text-muted">Select a category filter to see suppliers.</div>
+            @endif
           </div>
           <div class="row g-2 mb-3">
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:13px">Selling Price <small class="text-muted fw-normal">(MWK)</small></label>
               <input class="form-control" type="number" step="0.01" min="0"
-                     name="default_selling_price" id="new-selling-price" placeholder="0.00" />
+                     name="selling_price" id="new-selling-price" placeholder="0.00" />
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
               <input class="form-control" type="number" step="0.01" min="0"
-                     name="default_cost_price" id="new-cost-price" placeholder="0.00" />
+                     name="cost_price" id="new-cost-price" placeholder="0.00" />
             </div>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure</label>
-            <input class="form-control" type="text" name="unit_of_measure" id="new-unit-of-measure"
+            <input class="form-control" type="text" name="unit" id="new-unit"
                    list="newUnitOptions" placeholder="e.g. Each, kg, Litre…" value="Each" autocomplete="off" />
             <datalist id="newUnitOptions">
               <option value="Each"><option value="kg"><option value="g">
@@ -512,29 +501,15 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             </datalist>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">Internal Code <small class="text-muted fw-normal">(optional)</small></label>
-            <input class="form-control" type="text" name="internal_code" id="new-internal-code"
+            <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(optional SKU)</small></label>
+            <input class="form-control" type="text" name="code" id="new-code"
                    placeholder="e.g. OIL-001" autocomplete="off" />
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">Supplier</label>
-            <select class="form-select" name="supplier" id="new-supplier">
-              <option value="">— Select Supplier —</option>
-              @foreach($supplierCategoryMap as $sup => $cats)
-                <option value="{{ $sup }}" data-categories="{{ implode(',', $cats) }}">
-                  {{ $sup }}
-                </option>
-              @endforeach
-            </select>
-            <div id="new-supplier-hint" class="form-text" style="display:none;color:#2d6a4f;">
-              <i class="ri-filter-line"></i> Showing suppliers linked to the selected category.
-            </div>
+            <label class="form-label fw-semibold" style="font-size:13px">Description <small class="text-muted fw-normal">(optional)</small></label>
+            <textarea class="form-control" name="description" id="new-description" rows="2"
+                      placeholder="Brief description…"></textarea>
           </div>
-          <div class="form-check mb-1">
-            <input class="form-check-input" type="checkbox" name="is_active_check" id="new-is-active" checked>
-            <label class="form-check-label" for="new-is-active">Active (visible to branches)</label>
-          </div>
-          <input type="hidden" name="is_active" id="new-is-active-hidden" value="1">
         </form>
       </div>
       <div class="modal-footer" style="padding:10px 20px 14px;justify-content:flex-end;gap:8px;">
@@ -559,7 +534,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <strong style="font-size:13px"><i class="ri-table-line me-1 text-success"></i> Required CSV Structure</strong>
-            <span class="ms-2 text-muted" style="font-size:12px">5 columns</span>
+            <span class="ms-2 text-muted" style="font-size:12px">6 columns</span>
           </div>
           <a href="#" id="downloadTemplateBtn" class="btn btn-sm btn-success" style="font-size:12px">
             <i class="ri-download-2-line"></i> Download Template
@@ -577,10 +552,9 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 <tr>
                   <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
                   <th class="col-name">name <span class="excel-req-star">*</span></th>
-                  <th>internal_code</th>
-                  <th>unit_of_measure</th>
-                  <th>default_cost_price</th>
-                  <th>default_selling_price</th>
+                  <th>supplier <span class="excel-req-star">*</span></th>
+                  <th>code</th><th>unit</th>
+                  <th>cost_price</th><th>selling_price</th>
                 </tr>
               </thead>
               <tbody>
@@ -588,25 +562,27 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                   <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
                   <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
                   <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
                 </tr>
                 <tr>
                   <td class="excel-row-num">2</td>
                   <td class="col-name excel-sample-val">Cooking Oil 2L</td>
+                  <td>Unilever</td>
                   <td><span class="excel-col-code">OIL-001</span></td>
                   <td>Each</td><td>1,500.00</td><td>2,000.00</td>
                 </tr>
                 <tr>
                   <td class="excel-row-num">3</td>
                   <td class="col-name excel-sample-val">Drinking Water 500ml</td>
+                  <td>Carlsberg</td>
                   <td><span class="excel-col-code">WAT-001</span></td>
                   <td>Each</td><td>350.00</td><td>500.00</td>
                 </tr>
                 <tr style="background:#fafafa;">
                   <td class="excel-row-num" style="color:#ccc;">4</td>
                   <td class="col-name excel-sample-muted">your product here…</td>
+                  <td class="excel-sample-muted">required</td>
                   <td class="excel-sample-muted">optional</td>
                   <td class="excel-sample-muted">Each / kg / Litre…</td>
                   <td class="excel-sample-muted">numeric, no commas</td>
@@ -618,12 +594,14 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         </div>
         <div class="alert alert-success border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;background:#d8f3e6;">
           <strong><i class="ri-check-double-line me-1"></i>Auto-applied to all rows:</strong>
-          Status = Active. Category &amp; Supplier are taken from the page filters.
+          is_product = true (Product). Supplier column is <strong>required</strong> — rows without a supplier will be skipped.
         </div>
       </div>
       <div class="modal-footer">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-        <a href="#" id="downloadTemplateBtnFooter" class="btn btn-success btn-sm"><i class="ri-download-2-line me-1"></i> Download Template</a>
+        <a href="#" id="downloadTemplateBtnFooter" class="btn btn-success btn-sm">
+          <i class="ri-download-2-line me-1"></i> Download Template
+        </a>
       </div>
     </div>
   </div>
@@ -640,38 +618,18 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" id="importModalCloseBtn"></button>
       </div>
       <div class="modal-body" style="padding:16px !important;">
-
-        {{-- Gate / Ready banner --}}
-        <div id="importGateBanner" class="import-gate-banner" style="display:none;">
-          <i class="ri-alert-line"></i>
-          <div>
-            <strong>Import disabled.</strong> Please select both a <strong>category</strong> and a
-            <strong>supplier</strong> using the filters at the top of the page before importing.
-            All imported products will be assigned to those selections.
-          </div>
-        </div>
-        <div id="importReadyBanner" class="import-ready-banner" style="display:none;">
-          <i class="ri-checkbox-circle-line text-success"></i>
-          <div>
-            Importing into category <strong id="importReadyCat"></strong>
-            with supplier <strong id="importReadySup"></strong>.
-            <span class="text-muted ms-1" style="font-size:11px;">Close modal to change filters.</span>
-          </div>
-        </div>
-
         <div id="importSetupFields">
           <div class="mb-3">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <span style="font-size:12px;font-weight:600;color:#1e293b;">
-                <i class="ri-table-line me-1 text-success"></i>Prepare a CSV file that looks like this:
+                <i class="ri-table-line me-1 text-success"></i>
+                Prepare your CSV file:
               </span>
               <a href="#" id="viewSampleBtn" class="btn btn-sm btn-outline-success" style="font-size:12px;white-space:nowrap;">
                 <i class="ri-table-line me-1"></i> View Full Guide
               </a>
             </div>
-
-            {{-- Inline sample table --}}
-            <div class="excel-preview-wrap mb-3">
+            <div class="excel-preview-wrap mb-2">
               <div class="excel-header-bar"><i class="ri-file-excel-2-line"></i> base_products_template.csv</div>
               <div style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:5px 10px;font-size:11px;color:#2d6a4f;display:flex;align-items:center;gap:5px;">
                 <i class="ri-information-line"></i>
@@ -683,10 +641,9 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                     <tr>
                       <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
                       <th class="col-name">name <span class="excel-req-star">*</span></th>
-                      <th>internal_code</th>
-                      <th>unit_of_measure</th>
-                      <th>default_cost_price</th>
-                      <th>default_selling_price</th>
+                      <th>supplier <span class="excel-req-star">*</span></th>
+                      <th>code</th><th>unit</th>
+                      <th>cost_price</th><th>selling_price</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -694,25 +651,20 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                       <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
                       <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
                       <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
                     </tr>
                     <tr>
                       <td class="excel-row-num">2</td>
                       <td class="col-name excel-sample-val">Cooking Oil 2L</td>
+                      <td>Unilever</td>
                       <td><span class="excel-col-code">OIL-001</span></td>
                       <td>Each</td><td>1500.00</td><td>2000.00</td>
                     </tr>
-                    <tr>
-                      <td class="excel-row-num">3</td>
-                      <td class="col-name excel-sample-val">Drinking Water 500ml</td>
-                      <td><span class="excel-col-code">WAT-001</span></td>
-                      <td>Each</td><td>350.00</td><td>500.00</td>
-                    </tr>
                     <tr style="background:#fafafa;">
-                      <td class="excel-row-num" style="color:#ccc;">4</td>
+                      <td class="excel-row-num" style="color:#ccc;">3</td>
                       <td class="col-name excel-sample-muted">your product here…</td>
+                      <td class="excel-sample-muted">required</td>
                       <td class="excel-sample-muted">optional</td>
                       <td class="excel-sample-muted">Each / kg / Litre…</td>
                       <td class="excel-sample-muted">numeric, no commas</td>
@@ -722,8 +674,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 </table>
               </div>
             </div>
-
-            <div class="d-flex justify-content-end mb-3">
+            <div class="d-flex justify-content-end mb-2">
               <a href="#" id="downloadTemplateInline" class="btn btn-sm btn-success" style="font-size:12px">
                 <i class="ri-download-2-line me-1"></i> Download Template
               </a>
@@ -752,7 +703,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 <i class="ri-refresh-line"></i> Change file
               </a>
             </div>
-            <div class="table-responsive" style="max-height:200px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
+            <div class="table-responsive" style="max-height:180px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
               <table class="table table-sm table-bordered mb-0" id="importPreviewTable">
                 <thead id="importPreviewHead"></thead>
                 <tbody id="importPreviewBody"></tbody>
@@ -784,13 +735,17 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <p class="text-muted" style="font-size:12px">Page will reload shortly.</p>
           </div>
         </div>
-
       </div>
+
       <div class="modal-footer" style="justify-content:space-between;padding:10px 18px 14px;">
         <div></div>
         <div class="d-flex gap-2">
-          <a href="#" class="btn btn-secondary btn-sm" id="cancelImportBtn" style="font-size:12px"><i class="ri-close-line"></i> Cancel</a>
-          <a href="#" class="btn btn-success btn-sm" id="submitImportBtn" style="font-size:12px"><i class="ri-upload-2-line"></i> Start Import</a>
+          <a href="#" class="btn btn-secondary btn-sm" id="cancelImportBtn" style="font-size:12px">
+            <i class="ri-close-line"></i> Cancel
+          </a>
+          <a href="#" class="btn btn-success btn-sm" id="submitImportBtn" style="font-size:12px;display:none;" disabled>
+            <i class="ri-upload-2-line"></i> Start Import
+          </a>
         </div>
       </div>
     </div>
@@ -809,10 +764,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           @csrf
           <h4 class="mt-2">Delete <span id="singleDisplayDeleteLabel" class="text-danger"></span>?</h4>
           <h5>This cannot be undone.</h5>
-          <input type="hidden" id="singleDeleteId" name="id">
+          <input type="hidden" id="singleDeleteId"  name="id">
           <input type="hidden" id="singleDeleteRow">
-          <a href="#" class="btn btn-danger me-2 mt-3"  id="submitSingleDeleteDataBtn">Yes, Delete it</a>
-          <a href="#" class="btn btn-info mt-3"          id="keepSingleDataBtn">No, Keep it</a>
+          <a href="#" class="btn btn-danger me-2 mt-3" id="submitSingleDeleteDataBtn">Yes, Delete it</a>
+          <a href="#" class="btn btn-info mt-3"        id="keepSingleDataBtn">No, Keep it</a>
         </form>
       </div>
     </div>
@@ -833,8 +788,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <h5>This cannot be undone.</h5>
           <input type="hidden" id="multipleDeleteIds"  name="ids[]">
           <input type="hidden" id="multipleDeleteRows">
-          <a href="#" class="btn btn-danger me-2 mt-3"  id="submitMultipleDeleteDataBtn">Yes, Delete them</a>
-          <a href="#" class="btn btn-info mt-3"          id="keepMultipleDataBtn">No, Keep them</a>
+          <a href="#" class="btn btn-danger me-2 mt-3" id="submitMultipleDeleteDataBtn">Yes, Delete them</a>
+          <a href="#" class="btn btn-info mt-3"         id="keepMultipleDataBtn">No, Keep them</a>
         </form>
       </div>
     </div>
@@ -850,39 +805,33 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <div class="modal-header mh-orange">
         <h5 class="modal-title mh-title">
           <i class="ri-checkbox-multiple-line"></i>
-          Bulk Actions — <span id="bulkActionsCount">0</span> product(s) selected
+          Bulk Actions — <span id="bulkActionsCount">0</span> item(s) selected
         </h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px 18px !important;">
         <div class="bulk-section">
           <div class="bulk-section-title"><i class="ri-truck-line me-1"></i> Change Supplier</div>
-          <div class="d-flex gap-2 align-items-center mb-2">
+          <div class="d-flex gap-2 align-items-center">
             <select class="form-select form-select-sm" id="bulkSupplierSelect">
               <option value="">— Select Supplier —</option>
               @foreach($suppliers as $sup)
-                <option value="{{ $sup }}">{{ $sup }}</option>
+                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
               @endforeach
             </select>
             <a href="#" class="btn btn-sm btn-warning text-dark" id="applyBulkSupplierBtn" style="white-space:nowrap">
               <i class="ri-check-line me-1"></i> Apply
             </a>
           </div>
-          <div class="form-check">
-            <input class="form-check-input" type="checkbox" id="bulkClearSupplierCheck">
-            <label class="form-check-label text-danger" style="font-size:12px" for="bulkClearSupplierCheck">
-              Clear supplier field instead (set to blank)
-            </label>
-          </div>
         </div>
         <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-toggle-line me-1"></i> Status</div>
+          <div class="bulk-section-title"><i class="ri-toggle-line me-1"></i> Set Type</div>
           <div class="d-flex gap-2">
-            <a href="#" class="btn btn-sm btn-info text-white flex-fill" id="bulkActivateBtn">
-              <i class="ri-checkbox-circle-line me-1"></i> Activate All
+            <a href="#" class="btn btn-sm btn-success text-white flex-fill" id="bulkMarkProductBtn">
+              <i class="ri-box-3-line me-1"></i> Mark as Product
             </a>
-            <a href="#" class="btn btn-sm btn-secondary text-white flex-fill" id="bulkDeactivateBtn">
-              <i class="ri-close-circle-line me-1"></i> Deactivate All
+            <a href="#" class="btn btn-sm btn-warning text-dark flex-fill" id="bulkMarkServiceBtn">
+              <i class="ri-service-line me-1"></i> Mark as Service
             </a>
           </div>
         </div>
@@ -897,7 +846,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL — 3 tabs
+     EDIT MODAL  ── Prices on Tab 1, identity (read-only) on Tab 2
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -906,35 +855,92 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <h5 class="modal-title mh-title"><i class="ri-edit-box-line"></i> Update Base Product</h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
-      <ul class="nav nav-tabs border-bottom px-2 pt-2" id="editModalTabs" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
-        <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#etab1" type="button"><i class="ri-price-tag-3-line me-1"></i>Core Info</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab2" type="button"><i class="ri-file-list-line me-1"></i>More Details</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab3" type="button"><i class="ri-folder-line me-1"></i>Category</button></li>
+
+      <ul class="nav nav-tabs border-bottom px-2 pt-2" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
+        <li class="nav-item">
+          <button class="nav-link active px-3 py-1" data-bs-toggle="tab" data-bs-target="#et1" type="button">
+            <i class="ri-money-dollar-circle-line me-1"></i>Prices
+          </button>
+        </li>
+        <li class="nav-item">
+          <button class="nav-link px-3 py-1" data-bs-toggle="tab" data-bs-target="#et2" type="button">
+            <i class="ri-information-line me-1"></i>Details
+          </button>
+        </li>
       </ul>
+
       <div class="modal-body" style="padding:14px 18px 8px !important;">
         <form action="#" method="post" id="editDataForm">
           @csrf
           <input type="hidden" name="id"      id="editId">
           <input type="hidden" name="editrow" id="editRow">
+          {{-- Hidden fields carry non-price values through so they're always submitted --}}
+          <input type="hidden" name="name"        id="editNameHidden">
+          <input type="hidden" name="supplier"    id="editSupplierHidden">
+          <input type="hidden" name="code"        id="editCodeHidden">
+          <input type="hidden" name="unit"        id="editUnitHidden">
+          <input type="hidden" name="description" id="editDescriptionHidden">
+          <input type="hidden" name="is_product"  id="editIsProductHidden">
+
           <div class="tab-content">
-            <div class="tab-pane fade show active" id="etab1" role="tabpanel">
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="text" name="name" id="editName" autocomplete="off" required />
+
+            {{-- ── Tab 1: Prices (editable) ─────────────────────────────── --}}
+            <div class="tab-pane fade show active" id="et1" role="tabpanel">
+
+              {{-- Read-only identity summary at top --}}
+              <div class="row g-2 mb-3 mt-1">
+                <div class="col-8">
+                  <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Product</label>
+                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-name-display" readonly tabindex="-1" />
+                </div>
+                <div class="col-4">
+                  <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Unit</label>
+                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-unit-display" readonly tabindex="-1" />
+                </div>
               </div>
+
+              <hr class="my-2">
+
               <div class="row g-2 mb-2">
                 <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Selling Price <small class="text-muted fw-normal">(MWK)</small></label>
-                  <input class="form-control form-control-sm" type="number" step="0.01" min="0" name="default_selling_price" id="editSellingPrice" placeholder="0.00" />
+                  <label class="form-label fw-semibold" style="font-size:13px">Selling Price <span class="text-danger">*</span> <small class="text-muted fw-normal">(MWK)</small></label>
+                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                         name="selling_price" id="editSellingPrice" placeholder="0.00" />
                 </div>
                 <div class="col-6">
                   <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
-                  <input class="form-control form-control-sm" type="number" step="0.01" min="0" name="default_cost_price" id="editCostPrice" placeholder="0.00" />
+                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                         name="cost_price" id="editCostPrice" placeholder="0.00" />
                 </div>
+              </div>
+
+              <div class="alert border-0 py-2 px-3 mt-2"
+                   style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
+                <i class="ri-information-line me-1"></i>
+                These are the <strong>default prices</strong> for all branches. Individual branches can override them with their own prices.
+              </div>
+            </div>
+
+            {{-- ── Tab 2: Details (read-only display + editable fields) ───── --}}
+            <div class="tab-pane fade" id="et2" role="tabpanel">
+              <div class="mb-2 mt-1">
+                <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
+                <input class="form-control form-control-sm" type="text" id="editName" autocomplete="off"
+                       placeholder="Product name" required />
+              </div>
+              <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:13px">Supplier <span class="text-danger">*</span></label>
+                <select class="form-select form-select-sm" id="editSupplier" required>
+                  <option value="">— Select Supplier —</option>
+                  @foreach($suppliers as $sup)
+                    <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+                  @endforeach
+                </select>
+                <div class="form-text" id="editSupplierHint">Suppliers shown for the current category filter.</div>
               </div>
               <div class="mb-2">
                 <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm" name="unit_of_measure" id="editUnitOfMeasure" required>
+                <select class="form-select form-select-sm" id="editUnit" required>
                   <option value="Each">Each</option><option value="kg">Kilogram (kg)</option>
                   <option value="g">Gram (g)</option><option value="Litre">Litre</option>
                   <option value="ml">Millilitre (ml)</option><option value="Box">Box</option>
@@ -945,70 +951,36 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 </select>
               </div>
               <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Internal Code</label>
-                <input class="form-control form-control-sm" type="text" name="internal_code" id="editInternalCode" autocomplete="off" />
-                <div class="form-text">Your unique SKU / import match key</div>
+                <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU)</small></label>
+                <input class="form-control form-control-sm" type="text" id="editCode" autocomplete="off" />
               </div>
-            </div>
-            <div class="tab-pane fade" id="etab2" role="tabpanel">
               <div class="mb-2">
                 <label class="form-label fw-semibold" style="font-size:13px">Description</label>
-                <textarea class="form-control form-control-sm" name="description" id="editDescription" rows="2"></textarea>
+                <textarea class="form-control form-control-sm" id="editDescription" rows="2"></textarea>
               </div>
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Brand</label>
-                  <input class="form-control form-control-sm" type="text" name="brand" id="editBrand" autocomplete="off" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Manufacturer</label>
-                  <input class="form-control form-control-sm" type="text" name="manufacturer" id="editManufacturer" autocomplete="off" />
-                </div>
-              </div>
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Supplier</label>
-                  <select class="form-select form-select-sm" name="supplier" id="editSupplier">
-                    <option value="">— Select Supplier —</option>
-                    @foreach($suppliers as $sup)
-                      <option value="{{ $sup }}">{{ $sup }}</option>
-                    @endforeach
-                  </select>
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Country of Origin</label>
-                  <input class="form-control form-control-sm" type="text" name="country_of_origin" id="editCountryOfOrigin" maxlength="2" autocomplete="off" placeholder="e.g. MW" />
-                </div>
-              </div>
-              <div class="row g-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Weight (kg)</label>
-                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="weight_kg" id="editWeightKg" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Volume (litres)</label>
-                  <input class="form-control form-control-sm" type="number" step="0.0001" min="0" name="volume_litres" id="editVolumeLitres" />
+              <div class="mb-2">
+                <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
+                <div class="d-flex gap-3">
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" id="editIsProductYes" value="1">
+                    <label class="form-check-label" for="editIsProductYes">
+                      <span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>
+                    </label>
+                  </div>
+                  <div class="form-check">
+                    <input class="form-check-input" type="radio" id="editIsProductNo" value="0">
+                    <label class="form-check-label" for="editIsProductNo">
+                      <span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
-            <div class="tab-pane fade" id="etab3" role="tabpanel">
-              <div class="mb-3">
-                <label class="form-label fw-semibold" style="font-size:13px">Category</label>
-                <select class="form-select form-select-sm" name="category" id="editCategory">
-                  <option value="">— Select Category —</option>
-                  @foreach($categories as $cat)
-                    <option value="{{ $cat->category }}">{{ $cat->category }}</option>
-                  @endforeach
-                </select>
-              </div>
-              <div class="form-check">
-                <input class="form-check-input" type="checkbox" name="is_active" id="editIsActive" value="1">
-                <label class="form-check-label" for="editIsActive">Active (visible to branches)</label>
-              </div>
-            </div>
+
           </div>
         </form>
       </div>
+
       <div class="modal-footer" style="padding:10px 18px 14px;justify-content:flex-end;gap:8px;">
         <a href="#" class="btn btn-secondary btn-sm" id="cancelEditDataBtn">Cancel</a>
         <a href="#" class="btn btn-primary btn-sm"   id="submitUpdateDataBtn">
@@ -1031,8 +1003,8 @@ $(document).ready(function () {
     };
 
     function handleAjaxError(xhr, status) {
-        if (status === 'timeout') { toastr.error('The request timed out.', 'Timeout Error'); }
-        else if (xhr.status === 0) { toastr.error('Unable to connect.', 'Connection Error'); }
+        if (status === 'timeout')    { toastr.error('The request timed out.', 'Timeout Error'); }
+        else if (xhr.status === 0)   { toastr.error('Unable to connect.', 'Connection Error'); }
         else if (xhr.status === 422) {
             var errors = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {};
             var msg = ''; $.each(errors, function (k, v) { msg += v + '\n'; });
@@ -1047,50 +1019,47 @@ $(document).ready(function () {
         return isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function buildRow(p) {
-        var spCell = (p.default_selling_price !== null && p.default_selling_price !== '')
-            ? '<span class="price-cell">' + fmtPrice(p.default_selling_price) + '</span>'
-            : '<span class="text-muted" style="font-size:12px">—</span>';
-        var cpCell = (p.default_cost_price !== null && p.default_cost_price !== '')
-            ? '<span style="font-size:12px;color:#6c757d">' + fmtPrice(p.default_cost_price) + '</span>'
-            : '<span class="text-muted" style="font-size:12px">—</span>';
-        var d = function(v){ return (v || '').toString().replace(/"/g, '&quot;'); };
+    function typeBadge(isProduct) {
+        return parseInt(isProduct) === 1
+            ? '<span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>'
+            : '<span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>';
+    }
 
-        return `<tr id="${p.row}" data-category="${d(p.category)}" data-supplier="${d(p.supplier)}">
+    function buildRow(p) {
+        var spCell = (p.selling_price !== null && p.selling_price !== '')
+            ? '<span class="price-cell">' + fmtPrice(p.selling_price) + '</span>'
+            : '<span class="text-muted" style="font-size:12px">—</span>';
+        var cpCell = (p.cost_price !== null && p.cost_price !== '')
+            ? '<span style="font-size:12px;color:#6c757d">' + fmtPrice(p.cost_price) + '</span>'
+            : '<span class="text-muted" style="font-size:12px">—</span>';
+        function d(v) { return (v || '').toString().replace(/"/g, '&quot;'); }
+
+        return `<tr id="${p.row}">
             <td>
                 <input type="checkbox" class="selectRow" value="${p.id}" data-row-id="${p.row}">
                 &nbsp;${p.name}
             </td>
-            <td>${p.internal_code || '—'}</td>
-            <td>${p.unit_of_measure}</td>
+            <td>${p.code || '—'}</td>
+            <td>${p.unit}</td>
             <td>${cpCell}</td>
             <td>${spCell}</td>
             <td>
                 <a href="#" class="viewDataBtn"
                    data-id="${p.id}" data-name="${d(p.name)}" data-description="${d(p.description)}"
-                   data-brand="${d(p.brand)}" data-supplier="${d(p.supplier)}" data-manufacturer="${d(p.manufacturer)}"
-                   data-origin="${d(p.country_of_origin)}" data-code="${d(p.internal_code)}"
-                   data-unit="${d(p.unit_of_measure)}"
-                   data-weight="${p.weight_kg !== null ? p.weight_kg : ''}"
-                   data-volume="${p.volume_litres !== null ? p.volume_litres : ''}"
-                   data-sell="${p.default_selling_price !== null ? p.default_selling_price : ''}"
-                   data-cost="${p.default_cost_price !== null ? p.default_cost_price : ''}"
-                   data-cat="${d(p.category)}"
-                   data-active="${p.is_active}">
+                   data-supplier="${d(p.supplier)}" data-code="${d(p.code)}"
+                   data-unit="${d(p.unit)}"
+                   data-sell="${p.selling_price !== null ? p.selling_price : ''}"
+                   data-cost="${p.cost_price    !== null ? p.cost_price    : ''}"
+                   data-is-product="${p.is_product}">
                    <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="editDataBtn"
                    editId="${p.id}" editRow="${p.row}" editName="${d(p.name)}"
-                   editDescription="${d(p.description)}" editBrand="${d(p.brand)}"
-                   editSupplier="${d(p.supplier)}" editManufacturer="${d(p.manufacturer)}"
-                   editCountryOfOrigin="${d(p.country_of_origin)}" editInternalCode="${d(p.internal_code)}"
-                   editUnitOfMeasure="${d(p.unit_of_measure)}"
-                   editWeightKg="${p.weight_kg !== null ? p.weight_kg : ''}"
-                   editVolumeLitres="${p.volume_litres !== null ? p.volume_litres : ''}"
-                   editDefaultSellingPrice="${p.default_selling_price !== null ? p.default_selling_price : ''}"
-                   editDefaultCostPrice="${p.default_cost_price !== null ? p.default_cost_price : ''}"
-                   editCategory="${d(p.category)}"
-                   editIsActive="${p.is_active}">
+                   editDescription="${d(p.description)}" editSupplier="${d(p.supplier)}"
+                   editCode="${d(p.code)}" editUnit="${d(p.unit)}"
+                   editSellingPrice="${p.selling_price !== null ? p.selling_price : ''}"
+                   editCostPrice="${p.cost_price    !== null ? p.cost_price    : ''}"
+                   editIsProduct="${p.is_product}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="deleteDataBtn"
@@ -1105,122 +1074,51 @@ $(document).ready(function () {
         var count = $('.selectRow:checked').length;
         $('#selectedCount').text(count);
         if (count > 0) $('#bulkTriggerBtn').addClass('visible');
-        else $('#bulkTriggerBtn').removeClass('visible');
-    }
-
-    function collectNewFormData() {
-        var fd = $('#newDataForm').serializeArray().filter(function(i) {
-            return i.name !== 'is_active_check';
-        });
-        $('#new-is-active-hidden').val($('#new-is-active').prop('checked') ? 1 : 0);
-        return fd;
-    }
-    function collectEditFormData() {
-        var fd = $('#editDataForm').serializeArray().filter(function(i) {
-            return i.name !== 'is_active';
-        });
-        fd.push({ name: 'is_active', value: $('#editIsActive').prop('checked') ? 1 : 0 });
-        return fd;
+        else           $('#bulkTriggerBtn').removeClass('visible');
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  CLIENT-SIDE SUPPLIER FILTER
-    // ════════════════════════════════════════════════════════════════════════
-    function applySupplierFilter() {
-        var supVal = $('#filterSupplier').val();
-        var visible = 0;
-        $('#tbody tr').each(function () {
-            var rowSup = $(this).data('supplier') ? String($(this).data('supplier')) : '';
-            var show = !supVal || rowSup === supVal;
-            if (show) { $(this).show(); visible++; } else { $(this).hide(); }
-        });
-        if (supVal) {
-            $('#filterInfo').show(); $('#filterInfoCount').text(visible);
-        } else {
-            $('#filterInfo').hide();
-        }
-        if (window._dt) window._dt.draw(false);
-    }
-    $('#filterSupplier').on('change', applySupplierFilter);
-    $('#clearFilterBtn').on('click', function(e) {
-        e.preventDefault();
-        $('#filterSupplier').val('');
-        applySupplierFilter();
-        window.location.href = window.location.pathname + '?clear_filters=1';
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  IMPORT ENGINE
+    //  IMPORT
     // ════════════════════════════════════════════════════════════════════════
     var parsedCsvRows = [];
-    var IMPORT_KEY    = 'bp_import_queue';
+    var IMPORT_KEY = 'bp_import_queue';
 
     function resetImportModal() {
         parsedCsvRows = [];
-        $('#csvFileInput').val(''); $('#csvFileName').hide();
-        $('#importStepSetup').show(); $('#importStepPreview').hide();
-        $('#importStepProgress').hide(); $('#importStepDone').hide();
-        $('#importPreviewHead, #importPreviewBody, #importLog').empty();
-        $('#importBarFill').css('width','0');
+        $('#csvFileInput').val('');
+        $('#csvFileName').hide();
+        $('#importStepSetup').show();
+        $('#importStepPreview').hide();
+        $('#importStepProgress').hide();
+        $('#importStepDone').hide();
         $('#importSetupFields').show();
-        $('#submitImportBtn').prop('disabled', false);
-        $('#submitImportBtn').html('<i class="ri-upload-2-line"></i> Start Import');
+        $('#importPreviewHead, #importPreviewBody, #importLog').empty();
+        $('#importBarFill').css('width', '0');
         $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Cancel');
-    }
-
-    // Checks whether category AND supplier are both selected, then shows
-    // the appropriate banner and enables/disables the submit button.
-    function refreshImportCtxDisplay() {
-        var catText = @json($savedCategoryName ?? '');
-        var supVal  = $('#filterSupplier').val();
-        var ready   = catText && supVal;
-
-        if (ready) {
-            $('#importGateBanner').hide();
-            $('#importReadyCat').text(catText);
-            $('#importReadySup').text(supVal);
-            $('#importReadyBanner').show();
-            $('#submitImportBtn').prop('disabled', false);
-        } else {
-            $('#importReadyBanner').hide();
-            $('#importGateBanner').show();
-            $('#submitImportBtn').prop('disabled', true);
-        }
+        $('#submitImportBtn').show().prop('disabled', true).html('<i class="ri-upload-2-line"></i> Start Import');
     }
 
     $('#importBtn').on('click', function(e) {
-        e.preventDefault();
-        resetImportModal();
-        refreshImportCtxDisplay();
-        $('#importModal').modal('show');
+        e.preventDefault(); resetImportModal(); $('#importModal').modal('show');
     });
     $('#cancelImportBtn').on('click', function(e) {
-        e.preventDefault();
-        localStorage.removeItem(IMPORT_KEY);
-        resetImportModal();
-        $('#importModal').modal('hide');
+        e.preventDefault(); localStorage.removeItem(IMPORT_KEY); resetImportModal(); $('#importModal').modal('hide');
     });
     $('#importModal').on('hidden.bs.modal', function() {
-        localStorage.removeItem(IMPORT_KEY);
-        resetImportModal();
+        localStorage.removeItem(IMPORT_KEY); resetImportModal();
     });
     $('#importModalCloseBtn').on('click', function() {
-        localStorage.removeItem(IMPORT_KEY);
-        resetImportModal();
+        localStorage.removeItem(IMPORT_KEY); resetImportModal();
     });
-
-    $('#viewSampleBtn').on('click', function(e) { 
-
-        e.preventDefault();
-        $('#importModal').modal('hide');
-        $('#excelSampleModal').modal('show'); 
+    $('#viewSampleBtn').on('click', function(e) {
+        e.preventDefault(); $('#importModal').modal('hide'); $('#excelSampleModal').modal('show');
     });
 
     function downloadTemplate() {
-        var header = 'name,internal_code,unit_of_measure,default_cost_price,default_selling_price';
-        var row1   = 'Cooking Oil 2L,OIL-001,Each,1500.00,2000.00';
-        var row2   = 'Drinking Water 500ml,WAT-001,Each,350.00,500.00';
-        var row3   = 'Bread Loaf 700g,BRD-001,Each,600.00,800.00';
+        var header = 'name,supplier,code,unit,cost_price,selling_price';
+        var row1   = 'Cooking Oil 2L,Unilever,OIL-001,Each,1500.00,2000.00';
+        var row2   = 'Drinking Water 500ml,Carlsberg,WAT-001,Each,350.00,500.00';
+        var row3   = 'Bread Loaf 700g,Lyons,BRD-001,Each,600.00,800.00';
         var blob   = new Blob([header+'\n'+row1+'\n'+row2+'\n'+row3], {type:'text/csv;charset=utf-8;'});
         var url    = URL.createObjectURL(blob);
         var a      = document.createElement('a'); a.href=url; a.download='base_products_template.csv'; a.click();
@@ -1231,12 +1129,14 @@ $(document).ready(function () {
     });
 
     var dz = document.getElementById('dropZone');
-    dz.addEventListener('dragover',  function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
-    dz.addEventListener('dragleave', function()  { dz.classList.remove('drag-over'); });
-    dz.addEventListener('drop', function(e) {
-        e.preventDefault(); dz.classList.remove('drag-over');
-        var file = e.dataTransfer.files[0]; if (file) processCSVFile(file);
-    });
+    if (dz) {
+        dz.addEventListener('dragover',  function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
+        dz.addEventListener('dragleave', function()  { dz.classList.remove('drag-over'); });
+        dz.addEventListener('drop', function(e) {
+            e.preventDefault(); dz.classList.remove('drag-over');
+            var file = e.dataTransfer.files[0]; if (file) processCSVFile(file);
+        });
+    }
     $('#csvFileInput').on('change', function() {
         if (this.files && this.files[0]) processCSVFile(this.files[0]);
     });
@@ -1270,6 +1170,7 @@ $(document).ready(function () {
         $('#importStepSetup').hide(); $('#importStepPreview').show();
         $('#importTotalCount').text(parsedCsvRows.length);
         $('#importConfirmCount').text(parsedCsvRows.length);
+        $('#submitImportBtn').prop('disabled', false);
     }
 
     function splitCSVLine(line) {
@@ -1285,17 +1186,15 @@ $(document).ready(function () {
 
     function showImportPreview(headers, rows) {
         var displayMap = {
-            'name':'Product Name','internal_code':'Code',
-            'unit_of_measure':'Unit','default_cost_price':'Order Price',
-            'default_selling_price':'Selling Price'
+            'name':'Product Name','supplier':'Supplier','code':'Code',
+            'unit':'Unit','cost_price':'Order Price','selling_price':'Selling Price'
         };
-        var displayOrder = ['name','internal_code','unit_of_measure','default_cost_price','default_selling_price'];
+        var displayOrder = ['name','supplier','code','unit','cost_price','selling_price'];
         var shown = displayOrder.filter(function(k) { return headers.indexOf(k) >= 0; });
-        if (!shown.length) shown = headers.slice(0,5);
+        if (!shown.length) shown = headers.slice(0,6);
 
         var thead = '<tr>' + shown.map(function(k, idx) {
-            var cls = (idx === 0) ? '' : ' style="text-align:center"';
-            return '<th' + cls + '>' + (displayMap[k] || k) + '</th>';
+            return '<th' + (idx===0?'':' style="text-align:center"') + '>' + (displayMap[k]||k) + '</th>';
         }).join('') + '</tr>';
         $('#importPreviewHead').html(thead);
 
@@ -1305,11 +1204,10 @@ $(document).ready(function () {
             var r = rows[i];
             tbody += '<tr>' + shown.map(function(k, idx) {
                 var v = r[k] || '—';
-                if ((k==='default_cost_price'||k==='default_selling_price') && r[k] && !isNaN(parseFloat(r[k]))) {
+                if ((k==='cost_price'||k==='selling_price') && r[k] && !isNaN(parseFloat(r[k]))) {
                     v = parseFloat(r[k]).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
                 }
-                var cls = (idx === 0) ? '' : ' style="text-align:center"';
-                return '<td' + cls + '>' + v + '</td>';
+                return '<td' + (idx===0?'':' style="text-align:center"') + '>' + v + '</td>';
             }).join('') + '</tr>';
         }
         $('#importPreviewBody').html(tbody);
@@ -1321,22 +1219,11 @@ $(document).ready(function () {
         $('#csvFileInput').val(''); $('#csvFileName').hide();
         $('#importStepPreview').hide(); $('#importStepSetup').show();
         localStorage.removeItem(IMPORT_KEY);
+        $('#submitImportBtn').prop('disabled', true);
     });
 
     $('#submitImportBtn').on('click', function(e) {
         e.preventDefault();
-
-        // Hard gate: category AND supplier must be selected
-        var catText = @json($savedCategoryName ?? '');
-        var supVal  = $('#filterSupplier').val();
-        if (!catText || !supVal) {
-            toastr.warning(
-                'Please select a <strong>category</strong> and a <strong>supplier</strong> in the page filters before importing.',
-                'Required'
-            );
-            return;
-        }
-
         var queue = [];
         try { var s = localStorage.getItem(IMPORT_KEY); queue = s ? JSON.parse(s) : parsedCsvRows; }
         catch(ex) { queue = parsedCsvRows; }
@@ -1349,9 +1236,6 @@ $(document).ready(function () {
         $('#importStepPreview').hide(); $('#importStepProgress').show();
         $('#submitImportBtn').prop('disabled', true);
         $('#cancelImportBtn').prop('disabled', true);
-
-        var importCat = @json($savedCategoryName ?? '');
-        var importSup = $('#filterSupplier').val() || '';
 
         var total=queue.length, done=0, succeeded=0, failed=0;
         $('#importProgressText').text('0 of '+total+' done');
@@ -1366,35 +1250,26 @@ $(document).ready(function () {
                 return;
             }
             var row = queue[index];
-            var payload = {
-                name:                  row.name || '',
-                internal_code:         row.internal_code         || '',
-                unit_of_measure:       row.unit_of_measure       || 'Each',
-                default_cost_price:    row.default_cost_price    || '',
-                default_selling_price: row.default_selling_price || '',
-                supplier:              importSup || row.supplier  || '',
-                brand:                 row.brand                 || '',
-                category:              importCat || row.category  || '',
-                subcategory:           row.subcategory            || '',
-                description:           row.description            || '',
-                manufacturer:          row.manufacturer           || '',
-                country_of_origin:     row.country_of_origin      || '',
-                weight_kg:             row.weight_kg              || '',
-                volume_litres:         row.volume_litres          || '',
-                is_active:             1,
-                _token: '{{ csrf_token() }}'
-            };
             $.ajax({
                 type:'POST', url:'{{ route("retail.operations.baseproducts.import.row") }}',
-                data:payload, timeout:30000,
+                data:{
+                    name:          row.name          || '',
+                    supplier:      row.supplier      || '',
+                    code:          row.code          || '',
+                    unit:          row.unit          || 'Each',
+                    cost_price:    row.cost_price    || '',
+                    selling_price: row.selling_price || '',
+                    description:   row.description   || '',
+                    is_product:    1,
+                    _token: '{{ csrf_token() }}'
+                },
+                timeout:30000,
                 success: function(data) {
                     done++;
                     if (data.status===201) {
                         succeeded++;
                         appendLog('<span class="text-success">✓</span> Row '+(index+1)+': '+row.name+' imported.');
-                        if (data.product && window._dt) {
-                            window._dt.row.add($(buildRow(data.product)));
-                        }
+                        if (data.product && window._dt) { window._dt.row.add($(buildRow(data.product))); }
                     } else {
                         failed++;
                         appendLog('<span class="text-danger">✗</span> Row '+(index+1)+': '+(data.error||'Failed')+' ('+row.name+')');
@@ -1420,368 +1295,364 @@ $(document).ready(function () {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DataTable init
+    //  DataTable
     // ════════════════════════════════════════════════════════════════════════
-    function initDataTable() {
-        var table = $('#maintable').DataTable({
-            dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
-            lengthChange: true,
-            lengthMenu: [[100,250,500,-1],[100,250,500,'All']],
-            fixedColumns: { leftColumns: 1 },
-            scrollX: true,
-            columnDefs: [
-                { targets: '_all', className: 'text-center' },
-                { targets: 0,      className: 'text-start'  }
-            ],
-            buttons: [
-                { extend:'excelHtml5', title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
-                { extend:'csvHtml5',   title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
-                {
-                    extend:'pdfHtml5', title:@json($maintableTitle),
-                    exportOptions:{ columns:':visible:not(:last-child)' },
-                    customize: function(doc) {
-                        doc.content[1].table.widths = Array(doc.content[1].table.body[0].length+1).join('*').split('');
-                    }
-                }
-            ]
-        });
-        window._dt = table;
-        table.buttons().container().appendTo($('#buttonsModal .buttons'));
-
-        $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
-        $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
-        $('#bulkTriggerBtn').on('click',  function(e) {
-            e.preventDefault();
-            $('#bulkActionsCount').text($('.selectRow:checked').length);
-            $('#bulkActionsModal').modal('show');
-        });
-
-        // ── VIEW ──────────────────────────────────────────────────────────
-        var _viewData = {};
-        $('#tbody').on('click', '.viewDataBtn', function(e) {
-            e.preventDefault();
-            var b = $(this);
-            _viewData = {
-                id:b.data('id'), name:b.data('name'), description:b.data('description'),
-                brand:b.data('brand'), supplier:b.data('supplier'), manufacturer:b.data('manufacturer'),
-                origin:b.data('origin'), code:b.data('code'), unit:b.data('unit'),
-                weight:b.data('weight'), volume:b.data('volume'),
-                sell:b.data('sell'), cost:b.data('cost'),
-                cat:b.data('cat'), active:b.data('active'),
-                editRow:b.closest('tr').attr('id')
-            };
-            function v(val) { return (val===''||val===null||val===undefined) ? '<span class="muted">—</span>' : val; }
-            $('#vw-name').text(_viewData.name);
-            $('#vw-code-line').text(_viewData.code ? 'Code: '+_viewData.code : '');
-            var badges = '';
-            badges += _viewData.active==1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>';
-            $('#vw-badges').html(badges);
-            $('#vw-internal-code').html(v(_viewData.code));
-            $('#vw-unit').html(v(_viewData.unit));
-            $('#vw-brand').html(v(_viewData.brand));
-            $('#vw-manufacturer').html(v(_viewData.manufacturer));
-            $('#vw-supplier').html(v(_viewData.supplier));
-            $('#vw-origin').html(v(_viewData.origin));
-            $('#vw-category').html(v(_viewData.cat));
-            $('#vw-description').html(v(_viewData.description));
-            $('#vw-sell').html(_viewData.sell!==''&&_viewData.sell!==null ? fmtPrice(_viewData.sell) : '<span class="muted">—</span>');
-            $('#vw-cost').html(_viewData.cost!==''&&_viewData.cost!==null ? fmtPrice(_viewData.cost) : '<span class="muted">—</span>');
-            $('#vw-weight').html(_viewData.weight!=='' ? _viewData.weight+' kg' : '<span class="muted">—</span>');
-            $('#vw-volume').html(_viewData.volume!=='' ? _viewData.volume+' L'  : '<span class="muted">—</span>');
-            $('#viewProductModal').modal('show');
-        });
-
-        $('#vwEditBtn').on('click', function(e) {
-            e.preventDefault();
-            $('#viewProductModal').modal('hide');
-            setTimeout(function() {
-                var $btn = $('#'+_viewData.editRow).find('.editDataBtn');
-                if ($btn.length) $btn.trigger('click');
-            }, 350);
-        });
-
-        // ── ADD ───────────────────────────────────────────────────────────
-        function filterNewModalSuppliers(catName) {
-            var anyVisible = false;
-            $('#new-supplier option').each(function() {
-                if (!$(this).val()) return; // always keep the blank placeholder
-                if (!catName) {
-                    // No category filter active — show all
-                    $(this).show();
-                    anyVisible = true;
-                    return;
-                }
-                var cats = ($(this).data('categories') || '').toString().split(',').map(function(c){ return c.trim(); });
-                // Show supplier if: it has no category data (new supplier), or it belongs to this category
-                if (cats.length === 0 || cats[0] === '' || cats.indexOf(catName) >= 0) {
-                    $(this).show();
-                    anyVisible = true;
-                } else {
-                    $(this).hide();
-                }
-            });
-            $('#new-supplier-hint').toggle(!!catName && anyVisible);
-        }
-
-        function prefillNewModalFromFilter() {
-            var catName = @json($savedCategoryName ?? '');
-            $('#new-category').val(catName || '');
-            if (catName) {
-                $('#newCtxCatBadge').find('span').text(catName);
-                $('#newCtxCatBadge').show();
-                $('#newProductContextBanner').removeClass('d-none').css('display','flex');
-            } else {
-                $('#newProductContextBanner').addClass('d-none');
-            }
-            // Filter suppliers by category
-            filterNewModalSuppliers(catName);
-            // Pre-select supplier from filter bar if it is visible
-            var supVal = $('#filterSupplier').val();
-            if (supVal) {
-                var $opt = $('#new-supplier option[value="'+supVal+'"]');
-                if ($opt.length && $opt.css('display') !== 'none') {
-                    $('#new-supplier').val(supVal);
+    var table = $('#maintable').DataTable({
+        dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
+        lengthChange: true,
+        lengthMenu: [[100,250,500,-1],[100,250,500,'All']],
+        fixedColumns: { leftColumns: 1 },
+        scrollX: true,
+        columnDefs: [
+            { targets: '_all', className: 'text-center' },
+            { targets: 0,      className: 'text-start'  }
+        ],
+        buttons: [
+            { extend:'excelHtml5', title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
+            { extend:'csvHtml5',   title:@json($maintableTitle), exportOptions:{ columns:':visible:not(:last-child)' } },
+            {
+                extend:'pdfHtml5', title:@json($maintableTitle),
+                exportOptions:{ columns:':visible:not(:last-child)' },
+                customize: function(doc) {
+                    doc.content[1].table.widths = Array(doc.content[1].table.body[0].length+1).join('*').split('');
                 }
             }
+        ]
+    });
+    window._dt = table;
+    table.buttons().container().appendTo($('#buttonsModal .buttons'));
+
+    $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
+    $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
+    $('#bulkTriggerBtn').on('click',  function(e) {
+        e.preventDefault();
+        $('#bulkActionsCount').text($('.selectRow:checked').length);
+        $('#bulkActionsModal').modal('show');
+    });
+
+    // ── VIEW ──────────────────────────────────────────────────────────────
+    var _viewData = {};
+    $('#tbody').on('click', '.viewDataBtn', function(e) {
+        e.preventDefault();
+        var b = $(this);
+        _viewData = {
+            id:        b.data('id'),
+            name:      b.data('name'),
+            description: b.data('description'),
+            supplier:  b.data('supplier'),
+            code:      b.data('code'),
+            unit:      b.data('unit'),
+            sell:      b.data('sell'),
+            cost:      b.data('cost'),
+            isProduct: b.data('is-product'),
+            editRow:   b.closest('tr').attr('id')
+        };
+
+        function v(val) {
+            return (val===''||val===null||val===undefined||val==='null')
+                ? '<span class="muted">—</span>' : val;
         }
+        $('#vw-name').text(_viewData.name);
+        $('#vw-code-line').text(_viewData.code ? 'Code: '+_viewData.code : '');
+        $('#vw-badges').html(typeBadge(_viewData.isProduct));
+        $('#vw-code').html(v(_viewData.code));
+        $('#vw-unit').html(v(_viewData.unit));
+        $('#vw-supplier').html(v(_viewData.supplier));
+        $('#vw-type').html(typeBadge(_viewData.isProduct));
+        $('#vw-description').html(v(_viewData.description));
+        $('#vw-sell').html(_viewData.sell!==''&&_viewData.sell!==null ? fmtPrice(_viewData.sell) : '<span class="muted">—</span>');
+        $('#vw-cost').html(_viewData.cost!==''&&_viewData.cost!==null ? fmtPrice(_viewData.cost) : '<span class="muted">—</span>');
+        $('#viewProductModal').modal('show');
+    });
 
-        $('#newDataBtn').on('click', function(e) {
-            e.preventDefault();
-            resetNewModal();
-            prefillNewModalFromFilter();
-            $('#newDataModal').modal('show');
-        });
-        $('#newDataModal').on('hidden.bs.modal', function() { resetNewModal(); });
+    $('#vwEditBtn').on('click', function(e) {
+        e.preventDefault();
+        $('#viewProductModal').modal('hide');
+        setTimeout(function() {
+            var $btn = $('#'+_viewData.editRow).find('.editDataBtn');
+            if ($btn.length) $btn.trigger('click');
+        }, 350);
+    });
 
-        $('#submitDataBtn').on('click', function(e) {
-            e.preventDefault();
-            if (!$('#new-name').val().trim()) {
-                toastr.warning('Product name is required.','Required'); $('#new-name').focus(); return;
-            }
-            var self=$(this); self.prop('disabled',true);
-            $('#new-is-active-hidden').val($('#new-is-active').prop('checked') ? 1 : 0);
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.insert") }}',
-                data:collectNewFormData(), timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        table.row.add($(buildRow(data.product))).draw(false);
-                        $('#newDataModal').modal('hide');
-                    } else if (data.status===422) {
-                        toastr.error(data.error||'Validation failed.','Error');
-                    } else {
-                        toastr.info('Unspecified error.','Error');
-                    }
-                },
-                error: handleAjaxError
-            });
-        });
-        $('#cancelDataBtn').on('click', function(e) { e.preventDefault(); resetNewModal(); $('#newDataModal').modal('hide'); });
+    // ── ADD  ── supplier does NOT reset after successful save ─────────────
+    $('#newDataBtn').on('click', function(e) {
+        e.preventDefault(); resetNewModal(); $('#newDataModal').modal('show');
+    });
+    $('#newDataModal').on('hidden.bs.modal', resetNewModal);
 
-        // ── SINGLE DELETE ─────────────────────────────────────────────────
-        $('#tbody').on('click', '.deleteDataBtn', function() {
-            $('#singleDisplayDeleteLabel').text($(this).attr('deleteLabel'));
-            $('#singleDeleteRow').val($(this).attr('deleteRow'));
-            $('#singleDeleteId').val($(this).attr('deleteId'));
-            $('#singleDeleteDataModal').modal('show');
-        });
-        $('#keepSingleDataBtn').on('click', function(e) {
-            e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#singleDeleteDataModal').modal('hide');
-        });
-        $('#submitSingleDeleteDataBtn').on('click', function(e) {
-            e.preventDefault();
-            var self=$(this); self.prop('disabled',true);
-            var row=$('#singleDeleteRow').val(), id=$('#singleDeleteId').val();
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.delete") }}',
-                data:{id:id,_token:'{{ csrf_token() }}'}, timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        $('#singleDeleteDataModal').modal('hide');
-                        table.row('#'+row).remove().draw(false);
-                        updateSelectedCount();
-                    } else if (data.status===422) {
-                        toastr.error(data.error||'Validation failed.','Error');
-                    } else { toastr.info('Unspecified error.','Error'); }
-                },
-                error: handleAjaxError
-            });
-        });
-
-        // ── EDIT ──────────────────────────────────────────────────────────
-        $('#tbody').on('click', '.editDataBtn', function() {
-            var b=$(this);
-            $('#editRow').val(b.attr('editRow'));
-            $('#editId').val(b.attr('editId'));
-            $('#editName').val(b.attr('editName'));
-            $('#editDescription').val(b.attr('editDescription'));
-            $('#editBrand').val(b.attr('editBrand'));
-            $('#editSupplier').val(b.attr('editSupplier'));
-            $('#editManufacturer').val(b.attr('editManufacturer'));
-            $('#editCountryOfOrigin').val(b.attr('editCountryOfOrigin'));
-            $('#editInternalCode').val(b.attr('editInternalCode'));
-            $('#editUnitOfMeasure').val(b.attr('editUnitOfMeasure'));
-            $('#editWeightKg').val(b.attr('editWeightKg'));
-            $('#editVolumeLitres').val(b.attr('editVolumeLitres'));
-            $('#editSellingPrice').val(b.attr('editDefaultSellingPrice'));
-            $('#editCostPrice').val(b.attr('editDefaultCostPrice'));
-            $('#editCategory').val(b.attr('editCategory'));
-            $('#editIsActive').prop('checked', b.attr('editIsActive')==1);
-            $('#editModalTabs button[data-bs-target="#etab1"]').tab('show');
-            $('#editDataModal').modal('show');
-        });
-        $('#submitUpdateDataBtn').on('click', function(e) {
-            e.preventDefault();
-            var self=$(this); self.prop('disabled',true);
-            var row=$('#editRow').val();
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.update") }}',
-                data:collectEditFormData(), timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        $('#editDataModal').modal('hide');
-                        table.row('#'+row).remove();
-                        table.row.add($(buildRow(data.product))).draw(false);
-                        updateSelectedCount();
-                    } else if (data.status===422) {
-                        toastr.error(data.error||'Validation failed.','Error');
-                    } else { toastr.info('Unspecified error.','Error'); }
-                },
-                error: handleAjaxError
-            });
-        });
-        $('#cancelEditDataBtn').on('click', function(e) {
-            e.preventDefault(); $('#editDataForm')[0].reset(); $('#editDataModal').modal('hide');
-        });
-
-        // ── BULK DELETE ───────────────────────────────────────────────────
-        $('#deleteSelectedBtn').on('click', function(e) {
-            e.preventDefault();
-            var selected=[], selectedRows=[];
-            $('.selectRow:checked').each(function() {
-                selected.push($(this).val()); selectedRows.push($(this).data('row-id'));
-            });
-            if (!selected.length) { toastr.warning('No products selected.','Warning'); return; }
-            var c=selected.length;
-            $('#multipleDisplayDeleteLabel').html('the selected <strong>'+c+' product'+(c>1?'s':'')+'</strong>');
-            $('#multipleDeleteIds').val(selected.join(','));
-            $('#multipleDeleteRows').val(selectedRows.join(','));
-            $('#bulkActionsModal').modal('hide');
-            setTimeout(function() { $('#multipleDeleteDataModal').modal('show'); }, 300);
-        });
-        $('#keepMultipleDataBtn').on('click', function(e) {
-            e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#multipleDeleteDataModal').modal('hide');
-        });
-        $('#submitMultipleDeleteDataBtn').on('click', function(e) {
-            e.preventDefault();
-            var self=$(this); self.prop('disabled',true);
-            var ids=$('#multipleDeleteIds').val().split(',');
-            var rows=$('#multipleDeleteRows').val().split(',');
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.bulkdelete") }}',
-                data:{ids:ids,_token:'{{ csrf_token() }}'}, timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        for (var i=0;i<rows.length;i++) { table.row('#'+rows[i]).remove(); }
-                        table.draw(false); updateSelectedCount();
-                        $('#multipleDeleteDataModal').modal('hide');
-                    } else if (data.status===422) {
-                        toastr.error(data.error||'Validation failed.','Error');
-                    } else { toastr.info('Unspecified error.','Error'); }
-                },
-                error: handleAjaxError
-            });
-        });
-
-        // ── BULK ACTIVATE / DEACTIVATE ────────────────────────────────────
-        function doBulkStatus(isActive) {
-            var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
-            if (!selected.length) return;
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.bulkstatus") }}',
-                data:{ids:selected,is_active:isActive,_token:'{{ csrf_token() }}'}, timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
-                        table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                    } else { toastr.error(data.error||'Failed.','Error'); }
-                },
-                error: handleAjaxError
-            });
+    $('#submitDataBtn').on('click', function(e) {
+        e.preventDefault();
+        if (!$('#new-name').val().trim()) {
+            toastr.warning('Product name is required.','Required'); $('#new-name').focus(); return;
         }
-        $('#bulkActivateBtn').on('click',   function(e) { e.preventDefault(); doBulkStatus(1); });
-        $('#bulkDeactivateBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
+        if (!$('#new-supplier').val()) {
+            toastr.warning('Please select a supplier.','Required'); $('#new-supplier').focus(); return;
+        }
+        var self=$(this); self.prop('disabled',true);
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.insert") }}',
+            data:$('#newDataForm').serializeArray(), timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    table.row.add($(buildRow(data.product))).draw(false);
 
-        // ── BULK SUPPLIER ─────────────────────────────────────────────────
-        $('#bulkClearSupplierCheck').on('change', function() {
-            $('#bulkSupplierSelect').prop('disabled', $(this).prop('checked'));
-            if ($(this).prop('checked')) $('#bulkSupplierSelect').val('');
+                    // ── Reset only name, prices, code, description, unit
+                    // ── Supplier is intentionally KEPT so user can add more
+                    //    products for the same supplier without reselecting.
+                    $('#new-name').val('').focus();
+                    $('#new-selling-price').val('');
+                    $('#new-cost-price').val('');
+                    $('#new-code').val('');
+                    $('#new-description').val('');
+                    $('#new-unit').val('Each');
+                    // $('#new-supplier') is NOT reset
+
+                } else if (data.status===422) {
+                    toastr.error(data.error||'Validation failed.','Error');
+                } else { toastr.info('Unspecified error.','Error'); }
+            },
+            error: handleAjaxError
         });
-        $('#applyBulkSupplierBtn').on('click', function(e) {
-            e.preventDefault();
-            var clearing = $('#bulkClearSupplierCheck').prop('checked');
-            var supplier = clearing ? '' : $('#bulkSupplierSelect').val().trim();
-            if (!clearing && supplier==='') { toastr.warning('Select a supplier or tick "Clear".','Required'); return; }
-            var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
-            if (!selected.length) return;
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.bulksupplier") }}',
-                data:{ids:selected,supplier:supplier,_token:'{{ csrf_token() }}'}, timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
-                        table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                    } else { toastr.error(data.error||'Failed.','Error'); }
-                },
-                error: handleAjaxError
-            });
-        });
+    });
+    $('#cancelDataBtn').on('click', function(e) {
+        e.preventDefault(); resetNewModal(); $('#newDataModal').modal('hide');
+    });
 
-        // ── SELECT ALL ────────────────────────────────────────────────────
-        $('#selectAll').on('click', function() {
-            $('.selectRow').prop('checked', this.checked); updateSelectedCount();
-        });
-        $('#tbody').on('click', '.selectRow', function() { updateSelectedCount(); });
-
-    } // end initDataTable
-
+    // Full reset (only on Cancel / modal close)
     function resetNewModal() {
         $('#newDataForm')[0].reset();
-        $('#new-unit-of-measure').val('Each');
-        $('#new-is-active').prop('checked', true);
-        $('#new-is-active-hidden').val(1);
-        $('#new-category').val('');
-        $('#newProductContextBanner').addClass('d-none');
-        $('#new-supplier-hint').hide();
-        // Restore all supplier options
-        $('#new-supplier option').show();
+        $('#new-unit').val('Each');
     }
 
-    initDataTable();
+    // ── SINGLE DELETE ─────────────────────────────────────────────────────
+    $('#tbody').on('click', '.deleteDataBtn', function() {
+        $('#singleDisplayDeleteLabel').text($(this).attr('deleteLabel'));
+        $('#singleDeleteRow').val($(this).attr('deleteRow'));
+        $('#singleDeleteId').val($(this).attr('deleteId'));
+        $('#singleDeleteDataModal').modal('show');
+    });
+    $('#keepSingleDataBtn').on('click', function(e) {
+        e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#singleDeleteDataModal').modal('hide');
+    });
+    $('#submitSingleDeleteDataBtn').on('click', function(e) {
+        e.preventDefault();
+        var self=$(this); self.prop('disabled',true);
+        var row=$('#singleDeleteRow').val(), id=$('#singleDeleteId').val();
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.delete") }}',
+            data:{id:id,_token:'{{ csrf_token() }}'}, timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    $('#singleDeleteDataModal').modal('hide');
+                    table.row('#'+row).remove().draw(false);
+                    updateSelectedCount();
+                } else if (data.status===422) {
+                    toastr.error(data.error||'Validation failed.','Error');
+                } else { toastr.info('Unspecified error.','Error'); }
+            },
+            error: handleAjaxError
+        });
+    });
+
+    // ── EDIT ── prices on Tab 1, sync hidden fields before submit ─────────
+    $('#tbody').on('click', '.editDataBtn', function() {
+        var b=$(this);
+        var nm   = b.attr('editName');
+        var unit = b.attr('editUnit');
+
+        // Populate Tab 1 read-only displays
+        $('#et1-name-display').val(nm);
+        $('#et1-unit-display').val(unit);
+
+        // Populate Tab 2 editable fields
+        $('#editId').val(b.attr('editId'));
+        $('#editRow').val(b.attr('editRow'));
+        $('#editName').val(nm);
+        $('#editSupplier').val(b.attr('editSupplier'));
+        $('#editCode').val(b.attr('editCode'));
+        $('#editUnit').val(unit);
+        $('#editDescription').val(b.attr('editDescription'));
+        $('#editSellingPrice').val(b.attr('editSellingPrice'));
+        $('#editCostPrice').val(b.attr('editCostPrice'));
+
+        var ip = parseInt(b.attr('editIsProduct'));
+        if (ip === 1) { $('#editIsProductYes').prop('checked', true); }
+        else          { $('#editIsProductNo').prop('checked', true);  }
+
+        // Start on the prices tab
+        $('button[data-bs-target="#et1"]').tab('show');
+        $('#editDataModal').modal('show');
+    });
+
+    $('#submitUpdateDataBtn').on('click', function(e) {
+        e.preventDefault();
+
+        // Sync hidden fields from Tab 2 visible fields before serialising
+        $('#editNameHidden').val($('#editName').val());
+        $('#editSupplierHidden').val($('#editSupplier').val());
+        $('#editCodeHidden').val($('#editCode').val());
+        $('#editUnitHidden').val($('#editUnit').val());
+        $('#editDescriptionHidden').val($('#editDescription').val());
+        $('#editIsProductHidden').val($('input[name="is_product"]:checked').length
+            ? $('input[name="is_product"]:checked').val() : '1');
+
+        if (!$('#editName').val().trim()) {
+            toastr.warning('Product name is required.','Required');
+            $('button[data-bs-target="#et2"]').tab('show');
+            $('#editName').focus(); return;
+        }
+        if (!$('#editSupplier').val()) {
+            toastr.warning('Please select a supplier.','Required');
+            $('button[data-bs-target="#et2"]').tab('show');
+            $('#editSupplier').focus(); return;
+        }
+
+        var self=$(this); self.prop('disabled',true);
+        var row=$('#editRow').val();
+
+        // Build data from form + hidden fields
+        var formData = {
+            id:            $('#editId').val(),
+            editrow:       row,
+            name:          $('#editNameHidden').val(),
+            supplier:      $('#editSupplierHidden').val(),
+            code:          $('#editCodeHidden').val(),
+            unit:          $('#editUnitHidden').val(),
+            description:   $('#editDescriptionHidden').val(),
+            is_product:    $('#editIsProductHidden').val(),
+            selling_price: $('#editSellingPrice').val(),
+            cost_price:    $('#editCostPrice').val(),
+            _token:        '{{ csrf_token() }}'
+        };
+
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.update") }}',
+            data: formData, timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    $('#editDataModal').modal('hide');
+                    table.row('#'+row).remove();
+                    table.row.add($(buildRow(data.product))).draw(false);
+                    updateSelectedCount();
+                } else if (data.status===422) {
+                    toastr.error(data.error||'Validation failed.','Error');
+                } else { toastr.info('Unspecified error.','Error'); }
+            },
+            error: handleAjaxError
+        });
+    });
+    $('#cancelEditDataBtn').on('click', function(e) {
+        e.preventDefault(); $('#editDataForm')[0].reset(); $('#editDataModal').modal('hide');
+    });
+
+    // ── BULK DELETE ───────────────────────────────────────────────────────
+    $('#deleteSelectedBtn').on('click', function(e) {
+        e.preventDefault();
+        var selected=[], selectedRows=[];
+        $('.selectRow:checked').each(function() {
+            selected.push($(this).val()); selectedRows.push($(this).data('row-id'));
+        });
+        if (!selected.length) { toastr.warning('No products selected.','Warning'); return; }
+        var c=selected.length;
+        $('#multipleDisplayDeleteLabel').html('the selected <strong>'+c+' product'+(c>1?'s':'')+'</strong>');
+        $('#multipleDeleteIds').val(selected.join(','));
+        $('#multipleDeleteRows').val(selectedRows.join(','));
+        $('#bulkActionsModal').modal('hide');
+        setTimeout(function() { $('#multipleDeleteDataModal').modal('show'); }, 300);
+    });
+    $('#keepMultipleDataBtn').on('click', function(e) {
+        e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#multipleDeleteDataModal').modal('hide');
+    });
+    $('#submitMultipleDeleteDataBtn').on('click', function(e) {
+        e.preventDefault();
+        var self=$(this); self.prop('disabled',true);
+        var ids=$('#multipleDeleteIds').val().split(',');
+        var rows=$('#multipleDeleteRows').val().split(',');
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.bulkdelete") }}',
+            data:{ids:ids,_token:'{{ csrf_token() }}'}, timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    for (var i=0;i<rows.length;i++) { table.row('#'+rows[i]).remove(); }
+                    table.draw(false); updateSelectedCount();
+                    $('#multipleDeleteDataModal').modal('hide');
+                } else if (data.status===422) {
+                    toastr.error(data.error||'Validation failed.','Error');
+                } else { toastr.info('Unspecified error.','Error'); }
+            },
+            error: handleAjaxError
+        });
+    });
+
+    // ── BULK TYPE ─────────────────────────────────────────────────────────
+    function doBulkStatus(isProduct) {
+        var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
+        if (!selected.length) return;
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.bulkstatus") }}',
+            data:{ids:selected, is_product:isProduct, _token:'{{ csrf_token() }}'}, timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
+                    table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
+                } else { toastr.error(data.error||'Failed.','Error'); }
+            },
+            error: handleAjaxError
+        });
+    }
+    $('#bulkMarkProductBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(1); });
+    $('#bulkMarkServiceBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
+
+    // ── BULK SUPPLIER ─────────────────────────────────────────────────────
+    $('#applyBulkSupplierBtn').on('click', function(e) {
+        e.preventDefault();
+        var supplier = $('#bulkSupplierSelect').val();
+        if (!supplier) { toastr.warning('Select a supplier.','Required'); return; }
+        var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
+        if (!selected.length) return;
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:'POST', url:'{{ route("retail.operations.baseproducts.bulksupplier") }}',
+            data:{ids:selected, supplier:supplier, _token:'{{ csrf_token() }}'}, timeout:60000,
+            beforeSend:function() { $('#progressBar').show(); },
+            complete:  function() { $('#progressBar').hide(); },
+            success: function(data) {
+                if (data.status===201) {
+                    toastr.success(data.success,'Success');
+                    $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
+                    table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
+                } else { toastr.error(data.error||'Failed.','Error'); }
+            },
+            error: handleAjaxError
+        });
+    });
+
+    // ── SELECT ALL ────────────────────────────────────────────────────────
+    $('#selectAll').on('click', function() {
+        $('.selectRow').prop('checked', this.checked); updateSelectedCount();
+    });
+    $('#tbody').on('click', '.selectRow', function() { updateSelectedCount(); });
+
 });
 </script>
 @endsection

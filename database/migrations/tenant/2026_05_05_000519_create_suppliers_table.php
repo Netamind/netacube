@@ -38,8 +38,8 @@ return new class extends Migration
             $table->string('country')->nullable()->default('Malawi');
 
             // ── Classification ────────────────────────────────────────────
-            $table->unsignedBigInteger('category')->nullable(); // FK → categories.id
-            $table->string('sector')->nullable();               // stored as name → sectors.sector
+            $table->unsignedBigInteger('category');
+            $table->string('sector');          
 
             // ── Status ────────────────────────────────────────────────────
             $table->enum('status', ['active', 'inactive', 'blacklisted'])->default('active');

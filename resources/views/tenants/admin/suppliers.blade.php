@@ -68,6 +68,9 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
 
 /* ── action icons spacing ── */
 .action-icons a { margin: 0 3px; }
+
+/* ── required select highlight ── */
+select.form-select.is-invalid { border-color:#dc3545; }
 </style>
 
 <div class="progress" id="progressBar" role="progressbar" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100"
@@ -415,8 +418,8 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
                                            placeholder="Company reg. no." autocomplete="off" />
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select class="form-select form-select-sm" name="category" id="category">
+                                    <label class="form-label">Category <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" name="category" id="category" required>
                                         <option value="">-- Select --</option>
                                         @foreach($categories as $cat)
                                             <option value="{{ $cat->id }}">{{ $cat->category }}</option>
@@ -424,8 +427,8 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Sector</label>
-                                    <select class="form-select form-select-sm" name="sector" id="sector">
+                                    <label class="form-label">Sector <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" name="sector" id="sector" required>
                                         <option value="">-- Select --</option>
                                         @foreach($sectors as $sec)
                                             <option value="{{ $sec->sector }}">{{ $sec->sector }}</option>
@@ -587,8 +590,8 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
                                     <input class="form-control form-control-sm" type="text" name="registration_number" id="editRegistrationNumber" />
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Category</label>
-                                    <select class="form-select form-select-sm" name="category" id="editCategory">
+                                    <label class="form-label">Category <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" name="category" id="editCategory" required>
                                         <option value="">-- Select --</option>
                                         @foreach($categories as $cat)
                                             <option value="{{ $cat->id }}">{{ $cat->category }}</option>
@@ -596,8 +599,8 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
                                     </select>
                                 </div>
                                 <div class="col-md-6 mb-3">
-                                    <label class="form-label">Sector</label>
-                                    <select class="form-select form-select-sm" name="sector" id="editSector">
+                                    <label class="form-label">Sector <span class="text-danger">*</span></label>
+                                    <select class="form-select form-select-sm" name="sector" id="editSector" required>
                                         <option value="">-- Select --</option>
                                         @foreach($sectors as $sec)
                                             <option value="{{ $sec->sector }}">{{ $sec->sector }}</option>
@@ -894,6 +897,20 @@ $(document).ready(function () {
         e.preventDefault();
         var self = $(this); self.prop('disabled', true);
 
+        // Client-side required check for category and sector
+        var category = $('#category').val();
+        var sector   = $('#sector').val();
+        if (!category || !sector) {
+            toastr.error('Category and Sector are required fields.', 'Validation Error');
+            $('#add-main-tab').tab('show');
+            $('#category').toggleClass('is-invalid', !category);
+            $('#sector').toggleClass('is-invalid', !sector);
+            self.prop('disabled', false);
+            return;
+        }
+        $('#category').removeClass('is-invalid');
+        $('#sector').removeClass('is-invalid');
+
         $.ajax({
             type: 'POST',
             url: '{{ route("tenant.admin.supplier.insert") }}',
@@ -916,6 +933,10 @@ $(document).ready(function () {
             error: function (xhr, status) { handleAjaxError(xhr, status); }
         });
     });
+
+    // Clear is-invalid on change
+    $('#category').on('change', function () { $(this).removeClass('is-invalid'); });
+    $('#sector').on('change',   function () { $(this).removeClass('is-invalid'); });
 
     /* ── EDIT open ───────────────────────────────────────── */
     $('#tbody').on('click', '.editDataBtn', function (e) {
@@ -941,15 +962,35 @@ $(document).ready(function () {
         $('#editSector').val(t.attr('editSector'));
         $('#editWebsite').val(t.attr('editWebsite'));
         $('#editNotes').val(t.attr('editNotes'));
+        $('#editCategory').removeClass('is-invalid');
+        $('#editSector').removeClass('is-invalid');
         $('#edit-main-tab').tab('show');
         $('#editDataModal').modal('show');
     });
+
+    // Clear is-invalid on change (edit form)
+    $('#editCategory').on('change', function () { $(this).removeClass('is-invalid'); });
+    $('#editSector').on('change',   function () { $(this).removeClass('is-invalid'); });
 
     /* ── EDIT submit ─────────────────────────────────────── */
     $('#submitUpdateDataBtn').click(function (e) {
         e.preventDefault();
         var self = $(this); self.prop('disabled', true);
         var row  = $('#editRow').val();
+
+        // Client-side required check for category and sector
+        var category = $('#editCategory').val();
+        var sector   = $('#editSector').val();
+        if (!category || !sector) {
+            toastr.error('Category and Sector are required fields.', 'Validation Error');
+            $('#edit-main-tab').tab('show');
+            $('#editCategory').toggleClass('is-invalid', !category);
+            $('#editSector').toggleClass('is-invalid', !sector);
+            self.prop('disabled', false);
+            return;
+        }
+        $('#editCategory').removeClass('is-invalid');
+        $('#editSector').removeClass('is-invalid');
 
         $.ajax({
             type: 'POST',

@@ -61,8 +61,7 @@ table.dataTable tbody td { text-align:center !important; vertical-align:middle !
 #maintable tbody td:first-child,
 table.dataTable tbody td:first-child { text-align:left !important; }
 
-/* ── Badges & prices ────────────────────────────────────────────────────── */
-.tax-badge  { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; letter-spacing:0.5px; }
+/* ── Prices ─────────────────────────────────────────────────────────────── */
 .price-cell { font-size:12px; font-weight:600; color:#198754; }
 
 /* ── Modal selects fix ──────────────────────────────────────────────────── */
@@ -136,18 +135,19 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 .import-progress-bar { height:6px; border-radius:3px; background:#e9ecef; overflow:hidden; }
 .import-progress-bar .bar { height:100%; width:0; background:linear-gradient(to right,#40916c,#52b788); transition:width .3s ease; border-radius:3px; }
 
-/* ── Import context badge ─────────────────────────────────────────────────*/
-.import-ctx-badge {
-  display:inline-flex; align-items:center; gap:5px;
-  background:#e8f5e9; border:1px solid #a5d6a7; color:#2d6a4f;
-  border-radius:6px; padding:4px 10px; font-size:12px; font-weight:600;
+/* ── Import gate banner ───────────────────────────────────────────────────*/
+.import-gate-banner {
+  background:#fff3cd; border:1px solid #ffc107; border-radius:8px;
+  padding:10px 14px; font-size:12px; color:#856404;
+  display:flex; align-items:flex-start; gap:8px; margin-bottom:14px;
 }
-.import-ctx-badge i { color:#40916c; }
-.import-ctx-none {
-  display:inline-flex; align-items:center; gap:5px;
-  background:#f8f9fa; border:1px solid #dee2e6; color:#6c757d;
-  border-radius:6px; padding:4px 10px; font-size:12px;
+.import-gate-banner i { font-size:16px; flex-shrink:0; margin-top:1px; }
+.import-ready-banner {
+  background:#d1e7dd; border:1px solid #a3cfbb; border-radius:8px;
+  padding:10px 14px; font-size:12px; color:#0a3622;
+  display:flex; align-items:center; gap:8px; margin-bottom:14px;
 }
+.import-ready-banner i { font-size:16px; flex-shrink:0; }
 
 /* ── CSV column guide card ────────────────────────────────────────────────*/
 .csv-guide-card {
@@ -158,14 +158,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.7px;
   color:#4B5EBD; margin-bottom:8px; display:flex; align-items:center; gap:5px;
 }
-.csv-col-row {
-  display:flex; align-items:flex-start; gap:8px; padding:4px 0;
-  border-bottom:1px solid #e8ecff; font-size:12px;
-}
-.csv-col-row:last-child { border-bottom:none; }
-.csv-col-name { font-weight:700; color:#1e293b; min-width:150px; font-family:monospace; font-size:11px; }
-.csv-col-req { color:#dc3545; font-size:10px; font-weight:700; margin-left:3px; }
-.csv-col-desc { color:#555; line-height:1.4; }
 
 /* ── Bulk actions modal ─────────────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
@@ -199,16 +191,37 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   $maintableTitle = "Retail Base Products";
   $categories = DB::connection('tenant')->table('categories')->orderBy('category')->get();
   $branches   = DB::connection('tenant')->table('branches')->orderBy('name')->get();
-  $suppliers  = DB::connection('tenant')->table('retail_base_products')
-                  ->whereNotNull('supplier')->where('supplier','!=','')
-                  ->distinct()->orderBy('supplier')->pluck('supplier');
-  $products   = DB::connection('tenant')->table('retail_base_products')
-                  ->select('retail_base_products.*')
-                  ->get();
+
+  // Fetch suppliers with their associated categories for filtering
+  $supplierRows = DB::connection('tenant')->table('retail_base_products')
+                    ->whereNotNull('supplier')->where('supplier','!=','')
+                    ->select('supplier', 'category')
+                    ->distinct()
+                    ->orderBy('supplier')
+                    ->get();
+
+  // Group: supplier => array of categories
+  $supplierCategoryMap = [];
+  foreach ($supplierRows as $row) {
+      if (!isset($supplierCategoryMap[$row->supplier])) {
+          $supplierCategoryMap[$row->supplier] = [];
+      }
+      if ($row->category && !in_array($row->category, $supplierCategoryMap[$row->supplier])) {
+          $supplierCategoryMap[$row->supplier][] = $row->category;
+      }
+  }
+  ksort($supplierCategoryMap);
+
+  // Plain list of unique suppliers for other dropdowns
+  $suppliers = array_keys($supplierCategoryMap);
+
+  $products = DB::connection('tenant')->table('retail_base_products')
+                ->select('retail_base_products.*')
+                ->get();
 
   // Read saved filters from user_filters
-  $pref           = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
-  $savedBranchId  = $pref->branch_id   ?? null;
+  $pref            = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
+  $savedBranchId   = $pref->branch_id   ?? null;
   $savedCategoryId = null;
   $savedCategoryName = null;
   if ($pref && $pref->category_id) {
@@ -264,7 +277,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
     @endforeach
   </select>
 
-  
   <span id="filterInfo" class="ms-2" style="font-size:12px;color:#6c757d;display:none">
     Showing <span id="filterInfoCount" class="filter-badge">0</span> products
   </span>
@@ -285,7 +297,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <th>Unit</th>
       <th>Order Price</th>
       <th>Sell Price</th>
-      <th>VAT Type</th>
       <th>Action</th>
     </tr>
   </thead>
@@ -312,18 +323,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           @endif
         </td>
         <td>
-          @if($product->mra_tax_rate_id)
-            <span class="badge tax-badge
-              @if($product->mra_tax_rate_id==='A') bg-danger
-              @elseif($product->mra_tax_rate_id==='B') bg-warning text-dark
-              @elseif($product->mra_tax_rate_id==='C') bg-info text-dark
-              @elseif($product->mra_tax_rate_id==='E') bg-secondary
-              @elseif($product->mra_tax_rate_id==='TL') bg-warning text-dark
-              @else bg-info @endif">{{ $product->mra_tax_rate_id }}</span>
-          @else<span class="text-muted" style="font-size:12px">—</span>
-          @endif
-        </td>
-        <td>
           <a href="#" class="viewDataBtn"
              data-id="{{ $product->id }}"
              data-name="{{ $product->name }}"
@@ -336,12 +335,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
              data-unit="{{ $product->unit_of_measure }}"
              data-weight="{{ $product->weight_kg }}"
              data-volume="{{ $product->volume_litres }}"
-             data-is-product="{{ $product->is_product }}"
              data-sell="{{ $product->default_selling_price }}"
              data-cost="{{ $product->default_cost_price }}"
-             data-mra-code="{{ $product->mra_product_code }}"
-             data-tax="{{ $product->mra_tax_rate_id }}"
-             data-vat-exempt="{{ $product->is_vat_exempt_by_nature }}"
              data-cat="{{ $product->category ?? '' }}"
              data-active="{{ $product->is_active }}">
             <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
@@ -359,12 +354,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
              editUnitOfMeasure="{{ $product->unit_of_measure }}"
              editWeightKg="{{ $product->weight_kg }}"
              editVolumeLitres="{{ $product->volume_litres }}"
-             editIsProduct="{{ $product->is_product }}"
              editDefaultSellingPrice="{{ $product->default_selling_price }}"
              editDefaultCostPrice="{{ $product->default_cost_price }}"
-             editMraProductCode="{{ $product->mra_product_code }}"
-             editMraTaxRateId="{{ $product->mra_tax_rate_id }}"
-             editIsVatExemptByNature="{{ $product->is_vat_exempt_by_nature }}"
              editCategory="{{ $product->category }}"
              editIsActive="{{ $product->is_active }}">
             <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
@@ -414,30 +405,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       Base products are your <strong>master catalogue</strong> — the permanent list of everything you sell. Each product is defined once here and can then be assigned to one or more branches.</p>
       <p class="mb-2"><strong>Default Prices</strong><br>
       The selling price and order price set here apply to all branches by default. Individual branches can override these with their own prices if needed.</p>
-      <hr class="my-3">
-      <p class="mb-2"><strong><i class="ri-receipt-tax-line me-1 text-danger"></i> VAT Type — What do I choose?</strong></p>
-      <div class="d-flex flex-column gap-2 mb-3">
-        <div class="d-flex align-items-start gap-2">
-          <span class="badge bg-danger tax-badge mt-1" style="min-width:30px">A</span>
-          <div><strong>Standard VAT (17.5%)</strong> — Most products and services fall here.</div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="badge bg-warning text-dark tax-badge mt-1" style="min-width:30px">B</span>
-          <div><strong>Reduced VAT rate</strong> — A lower VAT rate for specific categories approved by MRA.</div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="badge bg-info text-dark tax-badge mt-1" style="min-width:30px">C</span>
-          <div><strong>Zero-rated (0% VAT)</strong> — Typically applies to exports.</div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="badge bg-secondary tax-badge mt-1" style="min-width:30px">E</span>
-          <div><strong>VAT Exempt</strong> — Basic unprocessed foods, medicines, agricultural inputs.</div>
-        </div>
-        <div class="d-flex align-items-start gap-2">
-          <span class="badge bg-warning text-dark tax-badge mt-1" style="min-width:30px">TL</span>
-          <div><strong>Tourism Levy (1%)</strong> — Hotels, lodges, restaurants only.</div>
-        </div>
-      </div>
     </div>
   </div></div>
 </div>
@@ -463,7 +430,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <ul class="nav nav-tabs nav-sm mb-3" id="viewModalTabs" role="tablist" style="font-size:12px;">
           <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t1"><i class="ri-price-tag-3-line me-1"></i>Identity</button></li>
           <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
-          <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t3"><i class="ri-receipt-tax-line me-1"></i>VAT / MRA</button></li>
         </ul>
         <div class="tab-content">
           <div class="tab-pane fade show active" id="vw-t1">
@@ -484,13 +450,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               <div class="view-item"><label>Default Order / Cost Price (MWK)</label><div class="view-val" id="vw-cost"></div></div>
               <div class="view-item"><label>Weight (kg)</label><div class="view-val" id="vw-weight"></div></div>
               <div class="view-item"><label>Volume (litres)</label><div class="view-val" id="vw-volume"></div></div>
-            </div>
-          </div>
-          <div class="tab-pane fade" id="vw-t3">
-            <div class="view-grid">
-              <div class="view-item full"><label>VAT Type (on MRA receipts)</label><div class="view-val" id="vw-tax"></div></div>
-              <div class="view-item full"><label>MRA Product Code</label><div class="view-val" id="vw-mra-code"></div></div>
-              <div class="view-item full"><label>VAT Exempt by Nature</label><div class="view-val" id="vw-vat-exempt"></div></div>
             </div>
           </div>
         </div>
@@ -517,7 +476,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       </div>
       <div id="newProductContextBanner" class="d-none" style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:7px 20px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
         <span style="font-size:11px;font-weight:600;color:#2d6a4f;"><i class="ri-information-line me-1"></i>Category from filter:</span>
-        <span id="newCtxCatBadge" class="import-ctx-badge" style="display:none;"><i class="ri-folder-line"></i><span></span></span>
+        <span id="newCtxCatBadge" style="display:none;background:#e8f5e9;border:1px solid #a5d6a7;color:#2d6a4f;border-radius:6px;padding:2px 8px;font-size:12px;font-weight:600;"><i class="ri-folder-line me-1"></i><span></span></span>
       </div>
       <div class="modal-body" style="padding:16px 20px 8px !important;">
         <form action="#" method="post" id="newDataForm">
@@ -561,29 +520,21 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <label class="form-label fw-semibold" style="font-size:13px">Supplier</label>
             <select class="form-select" name="supplier" id="new-supplier">
               <option value="">— Select Supplier —</option>
-              @foreach($suppliers as $sup)
-                <option value="{{ $sup }}">{{ $sup }}</option>
+              @foreach($supplierCategoryMap as $sup => $cats)
+                <option value="{{ $sup }}" data-categories="{{ implode(',', $cats) }}">
+                  {{ $sup }}
+                </option>
               @endforeach
             </select>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">VAT Type <span class="text-danger">*</span></label>
-            <select class="form-select" name="mra_tax_rate_id" id="new-tax-rate">
-              <option value="A" selected>A — Standard VAT 17.5% (most products)</option>
-              <option value="B">B — Reduced VAT rate</option>
-              <option value="C">C — Zero-rated VAT (0%)</option>
-              <option value="E">E — VAT Exempt (basic foods, medicine, agri)</option>
-              <option value="TL">TL — Tourism Levy 1%</option>
-            </select>
-            <div class="form-text"><i class="ri-information-line"></i> Not sure? Most retail products use <strong>A (Standard VAT 17.5%)</strong>.</div>
+            <div id="new-supplier-hint" class="form-text" style="display:none;color:#2d6a4f;">
+              <i class="ri-filter-line"></i> Showing suppliers linked to the selected category.
+            </div>
           </div>
           <div class="form-check mb-1">
             <input class="form-check-input" type="checkbox" name="is_active_check" id="new-is-active" checked>
             <label class="form-check-label" for="new-is-active">Active (visible to branches)</label>
           </div>
-          <input type="hidden" name="is_product"              value="1">
-          <input type="hidden" name="is_vat_exempt_by_nature" value="0">
-          <input type="hidden" name="is_active"               id="new-is-active-hidden" value="1">
+          <input type="hidden" name="is_active" id="new-is-active-hidden" value="1">
         </form>
       </div>
       <div class="modal-footer" style="padding:10px 20px 14px;justify-content:flex-end;gap:8px;">
@@ -616,6 +567,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         </div>
         <div class="excel-preview-wrap mb-3">
           <div class="excel-header-bar"><i class="ri-file-excel-2-line"></i> base_products_template.csv</div>
+          <div style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:5px 10px;font-size:11px;color:#2d6a4f;display:flex;align-items:center;gap:5px;">
+            <i class="ri-information-line"></i>
+            <span>Row 1 is the <strong>header row</strong> — keep it exactly as shown. Your products start from row 2.</span>
+          </div>
           <div class="table-responsive">
             <table class="excel-preview-table">
               <thead>
@@ -630,24 +585,32 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               </thead>
               <tbody>
                 <tr>
-                  <td class="excel-row-num">1</td>
+                  <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
+                  <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                </tr>
+                <tr>
+                  <td class="excel-row-num">2</td>
                   <td class="col-name excel-sample-val">Cooking Oil 2L</td>
                   <td><span class="excel-col-code">OIL-001</span></td>
                   <td>Each</td><td>1,500.00</td><td>2,000.00</td>
                 </tr>
                 <tr>
-                  <td class="excel-row-num">2</td>
+                  <td class="excel-row-num">3</td>
                   <td class="col-name excel-sample-val">Drinking Water 500ml</td>
                   <td><span class="excel-col-code">WAT-001</span></td>
                   <td>Each</td><td>350.00</td><td>500.00</td>
                 </tr>
                 <tr style="background:#fafafa;">
-                  <td class="excel-row-num" style="color:#ccc;">3</td>
+                  <td class="excel-row-num" style="color:#ccc;">4</td>
                   <td class="col-name excel-sample-muted">your product here…</td>
                   <td class="excel-sample-muted">optional</td>
                   <td class="excel-sample-muted">Each / kg / Litre…</td>
-                  <td class="excel-sample-muted">numeric</td>
-                  <td class="excel-sample-muted">numeric</td>
+                  <td class="excel-sample-muted">numeric, no commas</td>
+                  <td class="excel-sample-muted">numeric, no commas</td>
                 </tr>
               </tbody>
             </table>
@@ -655,7 +618,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         </div>
         <div class="alert alert-success border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;background:#d8f3e6;">
           <strong><i class="ri-check-double-line me-1"></i>Auto-applied to all rows:</strong>
-          VAT Type = <strong>A</strong> (Standard 17.5%) · Type = Product · Status = Active
+          Status = Active. Category &amp; Supplier are taken from the page filters.
         </div>
       </div>
       <div class="modal-footer">
@@ -677,51 +640,96 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" id="importModalCloseBtn"></button>
       </div>
       <div class="modal-body" style="padding:16px !important;">
+
+        {{-- Gate / Ready banner --}}
+        <div id="importGateBanner" class="import-gate-banner" style="display:none;">
+          <i class="ri-alert-line"></i>
+          <div>
+            <strong>Import disabled.</strong> Please select both a <strong>category</strong> and a
+            <strong>supplier</strong> using the filters at the top of the page before importing.
+            All imported products will be assigned to those selections.
+          </div>
+        </div>
+        <div id="importReadyBanner" class="import-ready-banner" style="display:none;">
+          <i class="ri-checkbox-circle-line text-success"></i>
+          <div>
+            Importing into category <strong id="importReadyCat"></strong>
+            with supplier <strong id="importReadySup"></strong>.
+            <span class="text-muted ms-1" style="font-size:11px;">Close modal to change filters.</span>
+          </div>
+        </div>
+
         <div id="importSetupFields">
           <div class="mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-1">
+            <div class="d-flex align-items-center justify-content-between mb-2">
               <span style="font-size:12px;font-weight:600;color:#1e293b;">
-                <i class="ri-filter-3-line me-1 text-primary"></i>Products will be imported with:
+                <i class="ri-table-line me-1 text-success"></i>Prepare a CSV file that looks like this:
               </span>
               <a href="#" id="viewSampleBtn" class="btn btn-sm btn-outline-success" style="font-size:12px;white-space:nowrap;">
-                <i class="ri-table-line me-1"></i> View Sample CSV
+                <i class="ri-table-line me-1"></i> View Full Guide
               </a>
             </div>
-            <div class="d-flex gap-2 flex-wrap mt-2">
-              <span id="importCtxCatDisplay" class="import-ctx-none">
-                <i class="ri-folder-line"></i> Category: <strong id="importCtxCatText">Not selected</strong>
-              </span>
-              <span id="importCtxSupDisplay" class="import-ctx-none">
-                <i class="ri-truck-line"></i> Supplier: <strong id="importCtxSupText">Not selected</strong>
-              </span>
+
+            {{-- Inline sample table --}}
+            <div class="excel-preview-wrap mb-3">
+              <div class="excel-header-bar"><i class="ri-file-excel-2-line"></i> base_products_template.csv</div>
+              <div style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:5px 10px;font-size:11px;color:#2d6a4f;display:flex;align-items:center;gap:5px;">
+                <i class="ri-information-line"></i>
+                <strong>Row 1 is the header row</strong> — keep exactly as shown. Products start from row 2.
+              </div>
+              <div class="table-responsive">
+                <table class="excel-preview-table">
+                  <thead>
+                    <tr>
+                      <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
+                      <th class="col-name">name <span class="excel-req-star">*</span></th>
+                      <th>internal_code</th>
+                      <th>unit_of_measure</th>
+                      <th>default_cost_price</th>
+                      <th>default_selling_price</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr>
+                      <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
+                      <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                    </tr>
+                    <tr>
+                      <td class="excel-row-num">2</td>
+                      <td class="col-name excel-sample-val">Cooking Oil 2L</td>
+                      <td><span class="excel-col-code">OIL-001</span></td>
+                      <td>Each</td><td>1500.00</td><td>2000.00</td>
+                    </tr>
+                    <tr>
+                      <td class="excel-row-num">3</td>
+                      <td class="col-name excel-sample-val">Drinking Water 500ml</td>
+                      <td><span class="excel-col-code">WAT-001</span></td>
+                      <td>Each</td><td>350.00</td><td>500.00</td>
+                    </tr>
+                    <tr style="background:#fafafa;">
+                      <td class="excel-row-num" style="color:#ccc;">4</td>
+                      <td class="col-name excel-sample-muted">your product here…</td>
+                      <td class="excel-sample-muted">optional</td>
+                      <td class="excel-sample-muted">Each / kg / Litre…</td>
+                      <td class="excel-sample-muted">numeric, no commas</td>
+                      <td class="excel-sample-muted">numeric, no commas</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
             </div>
-            <div class="text-muted mt-1" style="font-size:11px;">
-              <i class="ri-arrow-left-line"></i> To change category or supplier, close this and update the filters at the top of the page.
+
+            <div class="d-flex justify-content-end mb-3">
+              <a href="#" id="downloadTemplateInline" class="btn btn-sm btn-success" style="font-size:12px">
+                <i class="ri-download-2-line me-1"></i> Download Template
+              </a>
             </div>
           </div>
-          <div class="csv-guide-card">
-            <div class="csv-guide-title"><i class="ri-file-list-3-line"></i> What your CSV file needs</div>
-            <div class="csv-col-row">
-              <div class="csv-col-name">name<span class="csv-col-req">*</span></div>
-              <div class="csv-col-desc">The product name. Must be unique. <em>e.g. Cooking Oil 2L</em></div>
-            </div>
-            <div class="csv-col-row">
-              <div class="csv-col-name">internal_code</div>
-              <div class="csv-col-desc">Your own SKU (optional). <em>e.g. OIL-001</em></div>
-            </div>
-            <div class="csv-col-row">
-              <div class="csv-col-name">unit_of_measure</div>
-              <div class="csv-col-desc">How sold — <em>Each, kg, Litre…</em> Defaults to <strong>Each</strong>.</div>
-            </div>
-            <div class="csv-col-row">
-              <div class="csv-col-name">default_cost_price</div>
-              <div class="csv-col-desc">Cost price in MWK. Numbers only, no commas.</div>
-            </div>
-            <div class="csv-col-row">
-              <div class="csv-col-name">default_selling_price</div>
-              <div class="csv-col-desc">Selling price in MWK. Numbers only, no commas.</div>
-            </div>
-          </div>
+
           <div id="importStepSetup">
             <div class="drop-zone" id="dropZone">
               <input type="file" id="csvFileInput" accept=".csv,text/csv">
@@ -733,6 +741,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               <i class="ri-file-line text-success"></i> <span id="csvFileNameText"></span>
             </div>
           </div>
+
           <div id="importStepPreview" style="display:none;">
             <div class="d-flex align-items-center justify-content-between mb-2">
               <div>
@@ -756,6 +765,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             </div>
           </div>
         </div>
+
         <div id="importStepProgress" style="display:none;">
           <div class="text-center mb-3">
             <i class="ri-loader-4-line text-success" style="font-size:40px;animation:spin 1s linear infinite"></i>
@@ -765,6 +775,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <div class="import-progress-bar mb-2"><div class="bar" id="importBarFill"></div></div>
           <div id="importLog" style="max-height:140px;overflow-y:auto;font-size:11px;background:#f8f9fa;border-radius:6px;padding:8px;border:1px solid #dee2e6;"></div>
         </div>
+
         <div id="importStepDone" style="display:none;">
           <div class="text-center py-3">
             <i class="ri-checkbox-circle-line text-success" style="font-size:52px"></i>
@@ -773,6 +784,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <p class="text-muted" style="font-size:12px">Page will reload shortly.</p>
           </div>
         </div>
+
       </div>
       <div class="modal-footer" style="justify-content:space-between;padding:10px 18px 14px;">
         <div></div>
@@ -844,22 +856,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       </div>
       <div class="modal-body" style="padding:16px 18px !important;">
         <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-percent-line me-1"></i> Change VAT Type</div>
-          <div class="d-flex gap-2">
-            <select class="form-select form-select-sm" id="bulkTaxRateSelect">
-              <option value="">— Select VAT Type —</option>
-              <option value="A">A — Standard VAT 17.5%</option>
-              <option value="B">B — Reduced VAT rate</option>
-              <option value="C">C — Zero-rated (0%)</option>
-              <option value="E">E — VAT Exempt</option>
-              <option value="TL">TL — Tourism Levy 1%</option>
-            </select>
-            <a href="#" class="btn btn-sm btn-danger" id="applyBulkTaxBtn" style="white-space:nowrap">
-              <i class="ri-check-line me-1"></i> Apply
-            </a>
-          </div>
-        </div>
-        <div class="bulk-section">
           <div class="bulk-section-title"><i class="ri-truck-line me-1"></i> Change Supplier</div>
           <div class="d-flex gap-2 align-items-center mb-2">
             <select class="form-select form-select-sm" id="bulkSupplierSelect">
@@ -901,7 +897,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL — 4 tabs
+     EDIT MODAL — 3 tabs
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -913,8 +909,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <ul class="nav nav-tabs border-bottom px-2 pt-2" id="editModalTabs" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
         <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#etab1" type="button"><i class="ri-price-tag-3-line me-1"></i>Core Info</button></li>
         <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab2" type="button"><i class="ri-file-list-line me-1"></i>More Details</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab3" type="button"><i class="ri-receipt-tax-line me-1"></i>VAT / MRA</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab4" type="button"><i class="ri-folder-line me-1"></i>Category</button></li>
+        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#etab3" type="button"><i class="ri-folder-line me-1"></i>Category</button></li>
       </ul>
       <div class="modal-body" style="padding:14px 18px 8px !important;">
         <form action="#" method="post" id="editDataForm">
@@ -953,19 +948,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 <label class="form-label fw-semibold" style="font-size:13px">Internal Code</label>
                 <input class="form-control form-control-sm" type="text" name="internal_code" id="editInternalCode" autocomplete="off" />
                 <div class="form-text">Your unique SKU / import match key</div>
-              </div>
-              <div class="mt-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Product Type</label>
-                <div class="d-flex gap-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="is_product" id="edit-is-product-yes" value="1">
-                    <label class="form-check-label" for="edit-is-product-yes">Product (stock tracked)</label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" name="is_product" id="edit-is-product-no" value="0">
-                    <label class="form-check-label" for="edit-is-product-no">Service (no stock)</label>
-                  </div>
-                </div>
               </div>
             </div>
             <div class="tab-pane fade" id="etab2" role="tabpanel">
@@ -1010,30 +992,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               </div>
             </div>
             <div class="tab-pane fade" id="etab3" role="tabpanel">
-              <div class="mb-3">
-                <label class="form-label fw-semibold" style="font-size:13px">VAT Type <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm" name="mra_tax_rate_id" id="editMraTaxRateId" required>
-                  <option value="">— Select —</option>
-                  <option value="A">A — Standard VAT 17.5% (most products)</option>
-                  <option value="B">B — Reduced VAT rate</option>
-                  <option value="C">C — Zero-rated VAT (0%)</option>
-                  <option value="E">E — VAT Exempt (basic foods, medicine, agri)</option>
-                  <option value="TL">TL — Tourism Levy 1%</option>
-                </select>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">MRA Product Code <small class="text-muted fw-normal">(optional)</small></label>
-                <input class="form-control form-control-sm" type="text" name="mra_product_code" id="editMraProductCode" autocomplete="off" />
-              </div>
-              <div class="form-check mt-3">
-                <input class="form-check-input" type="checkbox" name="is_vat_exempt_by_nature" id="editIsVatExempt" value="1">
-                <label class="form-check-label" for="editIsVatExempt">
-                  <strong>Always VAT Exempt</strong>
-                  <small class="text-muted d-block" style="font-weight:normal;">Tick if permanently VAT-free. Set VAT Type to <strong>E</strong> when ticked.</small>
-                </label>
-              </div>
-            </div>
-            <div class="tab-pane fade" id="etab4" role="tabpanel">
               <div class="mb-3">
                 <label class="form-label fw-semibold" style="font-size:13px">Category</label>
                 <select class="form-select form-select-sm" name="category" id="editCategory">
@@ -1089,25 +1047,7 @@ $(document).ready(function () {
         return isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
     }
 
-    function taxBadgeClass(taxId) {
-        if (taxId === 'A')  return 'bg-danger';
-        if (taxId === 'B')  return 'bg-warning text-dark';
-        if (taxId === 'C')  return 'bg-info text-dark';
-        if (taxId === 'E')  return 'bg-secondary';
-        if (taxId === 'TL') return 'bg-warning text-dark';
-        return 'bg-info';
-    }
-
-    var TAX_LABELS = {
-        'A':'A — Standard VAT 17.5%','B':'B — Reduced VAT',
-        'C':'C — Zero-rated (0%)','E':'E — VAT Exempt','TL':'TL — Tourism Levy 1%'
-    };
-
     function buildRow(p) {
-        var tc = taxBadgeClass(p.mra_tax_rate_id);
-        var taxBadge = p.mra_tax_rate_id
-            ? '<span class="badge tax-badge ' + tc + '">' + p.mra_tax_rate_id + '</span>'
-            : '<span class="text-muted" style="font-size:12px">—</span>';
         var spCell = (p.default_selling_price !== null && p.default_selling_price !== '')
             ? '<span class="price-cell">' + fmtPrice(p.default_selling_price) + '</span>'
             : '<span class="text-muted" style="font-size:12px">—</span>';
@@ -1125,7 +1065,6 @@ $(document).ready(function () {
             <td>${p.unit_of_measure}</td>
             <td>${cpCell}</td>
             <td>${spCell}</td>
-            <td>${taxBadge}</td>
             <td>
                 <a href="#" class="viewDataBtn"
                    data-id="${p.id}" data-name="${d(p.name)}" data-description="${d(p.description)}"
@@ -1134,11 +1073,9 @@ $(document).ready(function () {
                    data-unit="${d(p.unit_of_measure)}"
                    data-weight="${p.weight_kg !== null ? p.weight_kg : ''}"
                    data-volume="${p.volume_litres !== null ? p.volume_litres : ''}"
-                   data-is-product="${p.is_product}"
                    data-sell="${p.default_selling_price !== null ? p.default_selling_price : ''}"
                    data-cost="${p.default_cost_price !== null ? p.default_cost_price : ''}"
-                   data-mra-code="${d(p.mra_product_code)}" data-tax="${d(p.mra_tax_rate_id)}"
-                   data-vat-exempt="${p.is_vat_exempt_by_nature}" data-cat="${d(p.category)}"
+                   data-cat="${d(p.category)}"
                    data-active="${p.is_active}">
                    <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                 </a>
@@ -1150,11 +1087,8 @@ $(document).ready(function () {
                    editUnitOfMeasure="${d(p.unit_of_measure)}"
                    editWeightKg="${p.weight_kg !== null ? p.weight_kg : ''}"
                    editVolumeLitres="${p.volume_litres !== null ? p.volume_litres : ''}"
-                   editIsProduct="${p.is_product}"
                    editDefaultSellingPrice="${p.default_selling_price !== null ? p.default_selling_price : ''}"
                    editDefaultCostPrice="${p.default_cost_price !== null ? p.default_cost_price : ''}"
-                   editMraProductCode="${d(p.mra_product_code)}" editMraTaxRateId="${d(p.mra_tax_rate_id)}"
-                   editIsVatExemptByNature="${p.is_vat_exempt_by_nature}"
                    editCategory="${d(p.category)}"
                    editIsActive="${p.is_active}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
@@ -1183,15 +1117,14 @@ $(document).ready(function () {
     }
     function collectEditFormData() {
         var fd = $('#editDataForm').serializeArray().filter(function(i) {
-            return i.name !== 'is_vat_exempt_by_nature' && i.name !== 'is_active';
+            return i.name !== 'is_active';
         });
-        fd.push({ name: 'is_vat_exempt_by_nature', value: $('#editIsVatExempt').prop('checked') ? 1 : 0 });
-        fd.push({ name: 'is_active',               value: $('#editIsActive').prop('checked')    ? 1 : 0 });
+        fd.push({ name: 'is_active', value: $('#editIsActive').prop('checked') ? 1 : 0 });
         return fd;
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  CLIENT-SIDE SUPPLIER FILTER (category/branch filters use server-side)
+    //  CLIENT-SIDE SUPPLIER FILTER
     // ════════════════════════════════════════════════════════════════════════
     function applySupplierFilter() {
         var supVal = $('#filterSupplier').val();
@@ -1211,10 +1144,8 @@ $(document).ready(function () {
     $('#filterSupplier').on('change', applySupplierFilter);
     $('#clearFilterBtn').on('click', function(e) {
         e.preventDefault();
-        // Clear supplier (client-side only)
         $('#filterSupplier').val('');
         applySupplierFilter();
-        // Clear branch and category via server — redirect with empty params
         window.location.href = window.location.pathname + '?clear_filters=1';
     });
 
@@ -1237,18 +1168,24 @@ $(document).ready(function () {
         $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Cancel');
     }
 
+    // Checks whether category AND supplier are both selected, then shows
+    // the appropriate banner and enables/disables the submit button.
     function refreshImportCtxDisplay() {
-        // Category from saved filter (server-side)
         var catText = @json($savedCategoryName ?? '');
         var supVal  = $('#filterSupplier').val();
-        $('#importCtxCatText').text(catText || 'Not selected');
-        $('#importCtxSupText').text(supVal  || 'Not selected');
-        catText
-            ? $('#importCtxCatDisplay').removeClass('import-ctx-none').addClass('import-ctx-badge')
-            : $('#importCtxCatDisplay').removeClass('import-ctx-badge').addClass('import-ctx-none');
-        supVal
-            ? $('#importCtxSupDisplay').removeClass('import-ctx-none').addClass('import-ctx-badge')
-            : $('#importCtxSupDisplay').removeClass('import-ctx-badge').addClass('import-ctx-none');
+        var ready   = catText && supVal;
+
+        if (ready) {
+            $('#importGateBanner').hide();
+            $('#importReadyCat').text(catText);
+            $('#importReadySup').text(supVal);
+            $('#importReadyBanner').show();
+            $('#submitImportBtn').prop('disabled', false);
+        } else {
+            $('#importReadyBanner').hide();
+            $('#importGateBanner').show();
+            $('#submitImportBtn').prop('disabled', true);
+        }
     }
 
     $('#importBtn').on('click', function(e) {
@@ -1271,7 +1208,13 @@ $(document).ready(function () {
         localStorage.removeItem(IMPORT_KEY);
         resetImportModal();
     });
-    $('#viewSampleBtn').on('click', function(e) { e.preventDefault(); $('#excelSampleModal').modal('show'); });
+
+    $('#viewSampleBtn').on('click', function(e) { 
+
+        e.preventDefault();
+        $('#importModal').modal('hide');
+        $('#excelSampleModal').modal('show'); 
+    });
 
     function downloadTemplate() {
         var header = 'name,internal_code,unit_of_measure,default_cost_price,default_selling_price';
@@ -1283,7 +1226,9 @@ $(document).ready(function () {
         var a      = document.createElement('a'); a.href=url; a.download='base_products_template.csv'; a.click();
         URL.revokeObjectURL(url);
     }
-    $('#downloadTemplateBtn, #downloadTemplateBtnFooter').on('click', function(e) { e.preventDefault(); downloadTemplate(); });
+    $('#downloadTemplateBtn, #downloadTemplateBtnFooter, #downloadTemplateInline').on('click', function(e) {
+        e.preventDefault(); downloadTemplate();
+    });
 
     var dz = document.getElementById('dropZone');
     dz.addEventListener('dragover',  function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
@@ -1380,6 +1325,18 @@ $(document).ready(function () {
 
     $('#submitImportBtn').on('click', function(e) {
         e.preventDefault();
+
+        // Hard gate: category AND supplier must be selected
+        var catText = @json($savedCategoryName ?? '');
+        var supVal  = $('#filterSupplier').val();
+        if (!catText || !supVal) {
+            toastr.warning(
+                'Please select a <strong>category</strong> and a <strong>supplier</strong> in the page filters before importing.',
+                'Required'
+            );
+            return;
+        }
+
         var queue = [];
         try { var s = localStorage.getItem(IMPORT_KEY); queue = s ? JSON.parse(s) : parsedCsvRows; }
         catch(ex) { queue = parsedCsvRows; }
@@ -1410,25 +1367,21 @@ $(document).ready(function () {
             }
             var row = queue[index];
             var payload = {
-                name:                    row.name || '',
-                internal_code:           row.internal_code           || '',
-                unit_of_measure:         row.unit_of_measure         || 'Each',
-                default_cost_price:      row.default_cost_price      || '',
-                default_selling_price:   row.default_selling_price   || '',
-                supplier:                importSup  || row.supplier  || '',
-                brand:                   row.brand                   || '',
-                category:                importCat  || row.category  || '',
-                subcategory:             row.subcategory             || '',
-                description:             row.description             || '',
-                manufacturer:            row.manufacturer            || '',
-                country_of_origin:       row.country_of_origin       || '',
-                weight_kg:               row.weight_kg               || '',
-                volume_litres:           row.volume_litres           || '',
-                mra_tax_rate_id:         row.mra_tax_rate_id         || 'A',
-                mra_product_code:        row.mra_product_code        || '',
-                is_product:              1,
-                is_vat_exempt_by_nature: 0,
-                is_active:               1,
+                name:                  row.name || '',
+                internal_code:         row.internal_code         || '',
+                unit_of_measure:       row.unit_of_measure       || 'Each',
+                default_cost_price:    row.default_cost_price    || '',
+                default_selling_price: row.default_selling_price || '',
+                supplier:              importSup || row.supplier  || '',
+                brand:                 row.brand                 || '',
+                category:              importCat || row.category  || '',
+                subcategory:           row.subcategory            || '',
+                description:           row.description            || '',
+                manufacturer:          row.manufacturer           || '',
+                country_of_origin:     row.country_of_origin      || '',
+                weight_kg:             row.weight_kg              || '',
+                volume_litres:         row.volume_litres          || '',
+                is_active:             1,
                 _token: '{{ csrf_token() }}'
             };
             $.ajax({
@@ -1512,20 +1465,16 @@ $(document).ready(function () {
                 id:b.data('id'), name:b.data('name'), description:b.data('description'),
                 brand:b.data('brand'), supplier:b.data('supplier'), manufacturer:b.data('manufacturer'),
                 origin:b.data('origin'), code:b.data('code'), unit:b.data('unit'),
-                weight:b.data('weight'), volume:b.data('volume'), isProduct:b.data('is-product'),
-                sell:b.data('sell'), cost:b.data('cost'), mraCode:b.data('mra-code'),
-                tax:b.data('tax'), vatExempt:b.data('vat-exempt'),
+                weight:b.data('weight'), volume:b.data('volume'),
+                sell:b.data('sell'), cost:b.data('cost'),
                 cat:b.data('cat'), active:b.data('active'),
                 editRow:b.closest('tr').attr('id')
             };
             function v(val) { return (val===''||val===null||val===undefined) ? '<span class="muted">—</span>' : val; }
             $('#vw-name').text(_viewData.name);
             $('#vw-code-line').text(_viewData.code ? 'Code: '+_viewData.code : '');
-            var tc = taxBadgeClass(_viewData.tax);
             var badges = '';
-            if (_viewData.tax) badges += '<span class="badge tax-badge '+tc+'">'+_viewData.tax+'</span>';
-            badges += _viewData.isProduct==1 ? '<span class="badge bg-primary">Product</span>' : '<span class="badge bg-warning text-dark">Service</span>';
-            badges += _viewData.active==1    ? '<span class="badge bg-success">Active</span>'  : '<span class="badge bg-danger">Inactive</span>';
+            badges += _viewData.active==1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>';
             $('#vw-badges').html(badges);
             $('#vw-internal-code').html(v(_viewData.code));
             $('#vw-unit').html(v(_viewData.unit));
@@ -1539,13 +1488,6 @@ $(document).ready(function () {
             $('#vw-cost').html(_viewData.cost!==''&&_viewData.cost!==null ? fmtPrice(_viewData.cost) : '<span class="muted">—</span>');
             $('#vw-weight').html(_viewData.weight!=='' ? _viewData.weight+' kg' : '<span class="muted">—</span>');
             $('#vw-volume').html(_viewData.volume!=='' ? _viewData.volume+' L'  : '<span class="muted">—</span>');
-            $('#vw-tax').html(_viewData.tax
-                ? '<span class="badge tax-badge '+tc+'">'+_viewData.tax+'</span> '+(TAX_LABELS[_viewData.tax]||_viewData.tax)
-                : '<span class="muted">—</span>');
-            $('#vw-mra-code').html(v(_viewData.mraCode));
-            $('#vw-vat-exempt').html(_viewData.vatExempt==1
-                ? '<span class="badge bg-warning text-dark">Yes — Always VAT Exempt</span>'
-                : '<span class="text-muted">No</span>');
             $('#viewProductModal').modal('show');
         });
 
@@ -1559,6 +1501,28 @@ $(document).ready(function () {
         });
 
         // ── ADD ───────────────────────────────────────────────────────────
+        function filterNewModalSuppliers(catName) {
+            var anyVisible = false;
+            $('#new-supplier option').each(function() {
+                if (!$(this).val()) return; // always keep the blank placeholder
+                if (!catName) {
+                    // No category filter active — show all
+                    $(this).show();
+                    anyVisible = true;
+                    return;
+                }
+                var cats = ($(this).data('categories') || '').toString().split(',').map(function(c){ return c.trim(); });
+                // Show supplier if: it has no category data (new supplier), or it belongs to this category
+                if (cats.length === 0 || cats[0] === '' || cats.indexOf(catName) >= 0) {
+                    $(this).show();
+                    anyVisible = true;
+                } else {
+                    $(this).hide();
+                }
+            });
+            $('#new-supplier-hint').toggle(!!catName && anyVisible);
+        }
+
         function prefillNewModalFromFilter() {
             var catName = @json($savedCategoryName ?? '');
             $('#new-category').val(catName || '');
@@ -1569,8 +1533,16 @@ $(document).ready(function () {
             } else {
                 $('#newProductContextBanner').addClass('d-none');
             }
+            // Filter suppliers by category
+            filterNewModalSuppliers(catName);
+            // Pre-select supplier from filter bar if it is visible
             var supVal = $('#filterSupplier').val();
-            if (supVal) $('#new-supplier').val(supVal);
+            if (supVal) {
+                var $opt = $('#new-supplier option[value="'+supVal+'"]');
+                if ($opt.length && $opt.css('display') !== 'none') {
+                    $('#new-supplier').val(supVal);
+                }
+            }
         }
 
         $('#newDataBtn').on('click', function(e) {
@@ -1661,12 +1633,8 @@ $(document).ready(function () {
             $('#editVolumeLitres').val(b.attr('editVolumeLitres'));
             $('#editSellingPrice').val(b.attr('editDefaultSellingPrice'));
             $('#editCostPrice').val(b.attr('editDefaultCostPrice'));
-            $('#editMraProductCode').val(b.attr('editMraProductCode'));
-            $('#editMraTaxRateId').val(b.attr('editMraTaxRateId'));
             $('#editCategory').val(b.attr('editCategory'));
-            $('input[name="is_product"][value="'+b.attr('editIsProduct')+'"]').prop('checked',true);
-            $('#editIsVatExempt').prop('checked', b.attr('editIsVatExemptByNature')==1);
-            $('#editIsActive').prop('checked',    b.attr('editIsActive')==1);
+            $('#editIsActive').prop('checked', b.attr('editIsActive')==1);
             $('#editModalTabs button[data-bs-target="#etab1"]').tab('show');
             $('#editDataModal').modal('show');
         });
@@ -1764,31 +1732,6 @@ $(document).ready(function () {
         $('#bulkActivateBtn').on('click',   function(e) { e.preventDefault(); doBulkStatus(1); });
         $('#bulkDeactivateBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
 
-        // ── BULK TAX RATE ─────────────────────────────────────────────────
-        $('#applyBulkTaxBtn').on('click', function(e) {
-            e.preventDefault();
-            var taxRate=$('#bulkTaxRateSelect').val();
-            if (!taxRate) { toastr.warning('Please select a VAT type.','Required'); return; }
-            var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
-            if (!selected.length) return;
-            $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-            $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.bulktax") }}',
-                data:{ids:selected,mra_tax_rate_id:taxRate,_token:'{{ csrf_token() }}'}, timeout:60000,
-                beforeSend:function() { $('#progressBar').show(); },
-                complete:  function() { $('#progressBar').hide(); },
-                success: function(data) {
-                    if (data.status===201) {
-                        toastr.success(data.success,'Success');
-                        $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
-                        table.draw(false); updateSelectedCount();
-                        $('#bulkTaxRateSelect').val(''); $('#bulkActionsModal').modal('hide');
-                    } else { toastr.error(data.error||'Failed.','Error'); }
-                },
-                error: handleAjaxError
-            });
-        });
-
         // ── BULK SUPPLIER ─────────────────────────────────────────────────
         $('#bulkClearSupplierCheck').on('change', function() {
             $('#bulkSupplierSelect').prop('disabled', $(this).prop('checked'));
@@ -1833,6 +1776,9 @@ $(document).ready(function () {
         $('#new-is-active-hidden').val(1);
         $('#new-category').val('');
         $('#newProductContextBanner').addClass('d-none');
+        $('#new-supplier-hint').hide();
+        // Restore all supplier options
+        $('#new-supplier option').show();
     }
 
     initDataTable();

@@ -106,12 +106,6 @@
                                     </div>
                                 </div>
 
-                                <div class="row mb-3">
-                                    <label class="col-4 col-form-label">TIN Number</label>
-                                    <div class="col-8">
-                                        <input type="text" class="form-control" name="tin_number" value="{{ $branch->tin_number }}">
-                                    </div>
-                                </div>
 
                                 <div class="row mb-3">
                                     <label class="col-4 col-form-label">Sector</label>

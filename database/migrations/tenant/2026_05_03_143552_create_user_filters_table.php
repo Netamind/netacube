@@ -4,7 +4,8 @@ use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
 
-return new class extends Migration {
+return new class extends Migration
+{
     public function up(): void
     {
         Schema::create('user_filters', function (Blueprint $table) {
@@ -84,11 +85,6 @@ return new class extends Migration {
             $table->string('sub_status', 40)->nullable();
             $table->string('approval_status', 40)->nullable();
             $table->string('flag', 40)->nullable();
-
-            // ── Tax / EIS ────────────────────────────────────────────────
-            $table->string('tax_type', 40)->nullable();
-            $table->string('eis_status', 40)->nullable();
-            $table->string('fiscal_year', 10)->nullable();
 
             // ── Search / text ────────────────────────────────────────────
             $table->string('search_query', 255)->nullable();

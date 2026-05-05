@@ -222,6 +222,8 @@
                                 <li><a href="{{ route('tenant.admin.sectors') }}">Sectors</a></li>
                                 <li><a href="{{ route('tenant.admin.categories') }}">Categories</a></li>
                                 <li><a href="{{ route('tenant.admin.branches') }}">Branches</a></li>
+                                <li><a href="{{ route('tenant.admin.suppliers') }}">Suppliers</a></li>
+
                             </ul>
                         </div>
                     </li>
@@ -278,24 +280,6 @@
                     </li> -->
 
                 
-
-                    <li class="side-nav-title mt-2">MRA</li>
-                    
-                    <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#mraAdmin" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-building-4-line"></i>
-                            <span> EIS </span>
-                            <span class="menu-arrow"></span>
-                        </a>
-                        <div class="collapse" id="mraAdmin">
-                            <ul class="side-nav-second-level">
-                                <li><a href="{{ route('tenant.admin.eis.dashboard') }}">Dashboard</a></li>
-                                <li><a href="{{ route('tenant.admin.eis.global-config') }}">Global Config</a></li>
-                                <li><a href="{{ route('tenant.admin.eis.terminals') }}">Terminals</a></li>
-                                <li><a href="{{ route('tenant.admin.eis.terminal-logs') }}">Terminal Logs</a></li>
-                            </ul>
-                        </div>
-                    </li>
 
                     <li class="side-nav-title mt-2">System</li>
 

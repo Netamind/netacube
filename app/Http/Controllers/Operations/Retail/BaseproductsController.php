@@ -8,38 +8,31 @@ use DB;
 
 class BaseproductsController extends Controller
 {
-
     public function showBaseproductsView()
     {
         return view('operations.retail.baseproducts');
     }
 
-    private const VALID_TAX_RATE_IDS = ['A', 'B', 'C', 'E', 'TL'];
-
     private function formatProduct($product): array
     {
         return [
-            'id'                      => $product->id,
-            'row'                     => 'row' . $product->id,
-            'name'                    => $product->name,
-            'description'             => $product->description,
-            'brand'                   => $product->brand,
-            'supplier'                => $product->supplier,
-            'manufacturer'            => $product->manufacturer,
-            'country_of_origin'       => $product->country_of_origin,
-            'internal_code'           => $product->internal_code,
-            'unit_of_measure'         => $product->unit_of_measure,
-            'weight_kg'               => $product->weight_kg,
-            'volume_litres'           => $product->volume_litres,
-            'is_product'              => (int) $product->is_product,
-            'default_selling_price'   => $product->default_selling_price,
-            'default_cost_price'      => $product->default_cost_price,
-            'mra_product_code'        => $product->mra_product_code,
-            'mra_tax_rate_id'         => $product->mra_tax_rate_id,
-            'is_vat_exempt_by_nature' => (int) $product->is_vat_exempt_by_nature,
-            'category'                => $product->category,
-            'subcategory'             => $product->subcategory,
-            'is_active'               => (int) $product->is_active,
+            'id'                    => $product->id,
+            'row'                   => 'row' . $product->id,
+            'name'                  => $product->name,
+            'description'           => $product->description,
+            'brand'                 => $product->brand,
+            'supplier'              => $product->supplier,
+            'manufacturer'          => $product->manufacturer,
+            'country_of_origin'     => $product->country_of_origin,
+            'internal_code'         => $product->internal_code,
+            'unit_of_measure'       => $product->unit_of_measure,
+            'weight_kg'             => $product->weight_kg,
+            'volume_litres'         => $product->volume_litres,
+            'default_selling_price' => $product->default_selling_price,
+            'default_cost_price'    => $product->default_cost_price,
+            'category'              => $product->category,
+            'subcategory'           => $product->subcategory,
+            'is_active'             => (int) $product->is_active,
         ];
     }
 
@@ -49,55 +42,45 @@ class BaseproductsController extends Controller
 
     public function insertBaseproduct(Request $request)
     {
-        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
-
         $request->validate([
-            'name'                    => 'required|string|max:255|unique:tenant.retail_base_products,name',
-            'description'             => 'nullable|string|max:2000',
-            'brand'                   => 'nullable|string|max:255',
-            'supplier'                => 'nullable|string|max:255',
-            'manufacturer'            => 'nullable|string|max:255',
-            'country_of_origin'       => 'nullable|string|size:2',
-            'internal_code'           => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code',
-            'unit_of_measure'         => 'required|string|max:50',
-            'weight_kg'               => 'nullable|numeric|min:0',
-            'volume_litres'           => 'nullable|numeric|min:0',
-            'is_product'              => 'required|boolean',
-            'default_selling_price'   => 'nullable|numeric|min:0',
-            'default_cost_price'      => 'nullable|numeric|min:0',
-            'mra_product_code'        => 'nullable|string|max:50',
-            'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
-            'is_vat_exempt_by_nature' => 'nullable|boolean',
-            'category'                => 'nullable|string|max:255',
-            'subcategory'             => 'nullable|string|max:255',
-            'is_active'               => 'nullable|boolean',
+            'name'                  => 'required|string|max:255|unique:tenant.retail_base_products,name',
+            'description'           => 'nullable|string|max:2000',
+            'brand'                 => 'nullable|string|max:255',
+            'supplier'              => 'nullable|string|max:255',
+            'manufacturer'          => 'nullable|string|max:255',
+            'country_of_origin'     => 'nullable|string|size:2',
+            'internal_code'         => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code',
+            'unit_of_measure'       => 'required|string|max:50',
+            'weight_kg'             => 'nullable|numeric|min:0',
+            'volume_litres'         => 'nullable|numeric|min:0',
+            'default_selling_price' => 'nullable|numeric|min:0',
+            'default_cost_price'    => 'nullable|numeric|min:0',
+            'category'              => 'nullable|string|max:255',
+            'subcategory'           => 'nullable|string|max:255',
+            'is_active'             => 'nullable|boolean',
         ], [
-            'name.unique' => 'A product with this name already exists in the base catalogue.',
+            'name.unique'          => 'A product with this name already exists in the base catalogue.',
             'internal_code.unique' => 'This internal code (SKU) is already used by another product.',
         ]);
 
         $data = [
-            'name'                    => trim($request->name),
-            'description'             => $request->description       ? trim($request->description)                   : null,
-            'brand'                   => $request->brand              ? trim($request->brand)                         : null,
-            'supplier'                => $request->supplier           ? trim($request->supplier)                      : null,
-            'manufacturer'            => $request->manufacturer       ? trim($request->manufacturer)                  : null,
-            'country_of_origin'       => $request->country_of_origin  ? strtoupper(trim($request->country_of_origin)) : null,
-            'internal_code'           => $request->internal_code      ? trim($request->internal_code)                 : null,
-            'unit_of_measure'         => trim($request->unit_of_measure),
-            'weight_kg'               => $request->weight_kg          !== '' ? $request->weight_kg          : null,
-            'volume_litres'           => $request->volume_litres      !== '' ? $request->volume_litres      : null,
-            'is_product'              => (int) $request->is_product,
-            'default_selling_price'   => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
-            'default_cost_price'      => ($request->default_cost_price  !== null && $request->default_cost_price  !== '') ? $request->default_cost_price      : null,
-            'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
-            'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
-            'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            'category'                => $request->category           ? trim($request->category)                      : null,
-            'subcategory'             => $request->subcategory        ? trim($request->subcategory)                   : null,
-            'is_active'               => (int) ($request->is_active ?? 1),
-            'created_at'              => now(),
-            'updated_at'              => now(),
+            'name'                  => trim($request->name),
+            'description'           => $request->description     ? trim($request->description)                   : null,
+            'brand'                 => $request->brand            ? trim($request->brand)                         : null,
+            'supplier'              => $request->supplier         ? trim($request->supplier)                      : null,
+            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                  : null,
+            'country_of_origin'     => $request->country_of_origin ? strtoupper(trim($request->country_of_origin)) : null,
+            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                 : null,
+            'unit_of_measure'       => trim($request->unit_of_measure),
+            'weight_kg'             => $request->weight_kg        !== '' ? $request->weight_kg        : null,
+            'volume_litres'         => $request->volume_litres    !== '' ? $request->volume_litres    : null,
+            'default_selling_price' => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
+            'default_cost_price'    => ($request->default_cost_price    !== null && $request->default_cost_price    !== '') ? $request->default_cost_price    : null,
+            'category'              => $request->category         ? trim($request->category)                      : null,
+            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                   : null,
+            'is_active'             => (int) ($request->is_active ?? 1),
+            'created_at'            => now(),
+            'updated_at'            => now(),
         ];
 
         $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);
@@ -124,54 +107,45 @@ class BaseproductsController extends Controller
 
     public function updateBaseproduct(Request $request)
     {
-        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
-
         $request->validate([
-            'id'                      => 'required|integer|exists:tenant.retail_base_products,id',
-            'name'                    => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
-            'description'             => 'nullable|string|max:2000',
-            'brand'                   => 'nullable|string|max:255',
-            'supplier'                => 'nullable|string|max:255',
-            'manufacturer'            => 'nullable|string|max:255',
-            'country_of_origin'       => 'nullable|string|size:2',
-            'internal_code'           => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code,' . $request->id,
-            'unit_of_measure'         => 'required|string|max:50',
-            'weight_kg'               => 'nullable|numeric|min:0',
-            'volume_litres'           => 'nullable|numeric|min:0',
-            'is_product'              => 'required|boolean',
-            'default_selling_price'   => 'nullable|numeric|min:0',
-            'default_cost_price'      => 'nullable|numeric|min:0',
-            'mra_product_code'        => 'nullable|string|max:50',
-            'mra_tax_rate_id'         => 'required|string|in:' . $validTaxIds,
-            'is_vat_exempt_by_nature' => 'nullable|boolean',
-            'category'                => 'nullable|string|max:255',
-            'subcategory'             => 'nullable|string|max:255',
-            'is_active'               => 'nullable|boolean',
+            'id'                    => 'required|integer|exists:tenant.retail_base_products,id',
+            'name'                  => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
+            'description'           => 'nullable|string|max:2000',
+            'brand'                 => 'nullable|string|max:255',
+            'supplier'              => 'nullable|string|max:255',
+            'manufacturer'          => 'nullable|string|max:255',
+            'country_of_origin'     => 'nullable|string|size:2',
+            'internal_code'         => 'nullable|string|max:100|unique:tenant.retail_base_products,internal_code,' . $request->id,
+            'unit_of_measure'       => 'required|string|max:50',
+            'weight_kg'             => 'nullable|numeric|min:0',
+            'volume_litres'         => 'nullable|numeric|min:0',
+            'default_selling_price' => 'nullable|numeric|min:0',
+            'default_cost_price'    => 'nullable|numeric|min:0',
+            'category'              => 'nullable|string|max:255',
+            'subcategory'           => 'nullable|string|max:255',
+            'is_active'             => 'nullable|boolean',
         ], [
-            'name.unique' => 'A product with this name already exists in the base catalogue.',
+            'name.unique'          => 'A product with this name already exists in the base catalogue.',
             'internal_code.unique' => 'This internal code (SKU) is already used by another product.',
         ]);
 
         $data = [
-            'name'                    => trim($request->name),
-            'description'             => $request->description       ? trim($request->description)                   : null,
-            'brand'                   => $request->brand              ? trim($request->brand)                         : null,
-            'supplier'                => $request->supplier           ? trim($request->supplier)                      : null,
-            'manufacturer'            => $request->manufacturer       ? trim($request->manufacturer)                  : null,
-            'country_of_origin'       => $request->country_of_origin  ? strtoupper(trim($request->country_of_origin)) : null,
-            'internal_code'           => $request->internal_code      ? trim($request->internal_code)                 : null,
-            'unit_of_measure'         => trim($request->unit_of_measure),
-            'weight_kg'               => ($request->weight_kg !== null && $request->weight_kg !== '')    ? $request->weight_kg    : null,
-            'volume_litres'           => ($request->volume_litres !== null && $request->volume_litres !== '') ? $request->volume_litres : null,
-            'is_product'              => (int) $request->is_product,
-            'default_selling_price'   => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
-            'default_cost_price'      => ($request->default_cost_price  !== null && $request->default_cost_price  !== '') ? $request->default_cost_price      : null,
-            'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)              : null,
-            'mra_tax_rate_id'         => strtoupper(trim($request->mra_tax_rate_id)),
-            'is_vat_exempt_by_nature' => (int) ($request->is_vat_exempt_by_nature ?? 0),
-            'category'                => $request->category           ? trim($request->category)                      : null,
-            'is_active'               => (int) ($request->is_active ?? 1),
-            'updated_at'              => now(),
+            'name'                  => trim($request->name),
+            'description'           => $request->description     ? trim($request->description)                   : null,
+            'brand'                 => $request->brand            ? trim($request->brand)                         : null,
+            'supplier'              => $request->supplier         ? trim($request->supplier)                      : null,
+            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                  : null,
+            'country_of_origin'     => $request->country_of_origin ? strtoupper(trim($request->country_of_origin)) : null,
+            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                 : null,
+            'unit_of_measure'       => trim($request->unit_of_measure),
+            'weight_kg'             => ($request->weight_kg        !== null && $request->weight_kg        !== '') ? $request->weight_kg        : null,
+            'volume_litres'         => ($request->volume_litres    !== null && $request->volume_litres    !== '') ? $request->volume_litres    : null,
+            'default_selling_price' => ($request->default_selling_price !== null && $request->default_selling_price !== '') ? $request->default_selling_price : null,
+            'default_cost_price'    => ($request->default_cost_price    !== null && $request->default_cost_price    !== '') ? $request->default_cost_price    : null,
+            'category'              => $request->category         ? trim($request->category)                      : null,
+            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                   : null,
+            'is_active'             => (int) ($request->is_active ?? 1),
+            'updated_at'            => now(),
         ];
 
         $updated = DB::connection('tenant')->table('retail_base_products')->where('id', $request->id)->update($data);
@@ -284,90 +258,13 @@ class BaseproductsController extends Controller
                 'updated_at' => now(),
             ]);
 
-        $products = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->get();
-
+        $products  = DB::connection('tenant')->table('retail_base_products')->whereIn('id', $request->ids)->get();
         $label     = $request->is_active ? 'activated' : 'deactivated';
         $count     = $products->count();
         $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
 
         return response()->json([
             'success'  => $count . ' product' . ($count > 1 ? 's' : '') . ' ' . $label . ' successfully.',
-            'status'   => 201,
-            'products' => $formatted,
-        ]);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  BULK VAT TYPE
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public function bulkTaxBaseproducts(Request $request)
-    {
-        $validTaxIds = implode(',', self::VALID_TAX_RATE_IDS);
-
-        $request->validate([
-            'ids'             => 'required|array',
-            'ids.*'           => 'required|integer|exists:tenant.retail_base_products,id',
-            'mra_tax_rate_id' => 'required|string|in:' . $validTaxIds,
-        ]);
-
-        DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->update([
-                'mra_tax_rate_id' => strtoupper(trim($request->mra_tax_rate_id)),
-                'updated_at'      => now(),
-            ]);
-
-        $products = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->get();
-
-        $count     = $products->count();
-        $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
-
-        return response()->json([
-            'success'  => 'VAT type updated to "' . strtoupper($request->mra_tax_rate_id) . '" for ' . $count . ' product' . ($count > 1 ? 's' : '') . '.',
-            'status'   => 201,
-            'products' => $formatted,
-        ]);
-    }
-
-    // ─────────────────────────────────────────────────────────────────────────
-    //  BULK TYPE
-    // ─────────────────────────────────────────────────────────────────────────
-
-    public function bulkTypeBaseproducts(Request $request)
-    {
-        $request->validate([
-            'ids'        => 'required|array',
-            'ids.*'      => 'required|integer|exists:tenant.retail_base_products,id',
-            'is_product' => 'required|boolean',
-        ]);
-
-        DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->update([
-                'is_product'  => (int) $request->is_product,
-                'updated_at'  => now(),
-            ]);
-
-        $products = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->get();
-
-        $count     = $products->count();
-        $label     = $request->is_product ? 'Product' : 'Service';
-        $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
-
-        return response()->json([
-            'success'  => $count . ' product' . ($count > 1 ? 's' : '') . ' set to "' . $label . '" successfully.',
             'status'   => 201,
             'products' => $formatted,
         ]);
@@ -385,7 +282,7 @@ class BaseproductsController extends Controller
             'supplier' => 'nullable|string|max:255',
         ]);
 
-        $supplier = ($request->filled('supplier')) ? trim($request->supplier) : null;
+        $supplier = $request->filled('supplier') ? trim($request->supplier) : null;
 
         DB::connection('tenant')
             ->table('retail_base_products')
@@ -395,11 +292,7 @@ class BaseproductsController extends Controller
                 'updated_at' => now(),
             ]);
 
-        $products = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->whereIn('id', $request->ids)
-            ->get();
-
+        $products  = DB::connection('tenant')->table('retail_base_products')->whereIn('id', $request->ids)->get();
         $count     = $products->count();
         $formatted = $products->map(fn($p) => $this->formatProduct($p))->values()->toArray();
 
@@ -420,11 +313,11 @@ class BaseproductsController extends Controller
             return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
         }
 
-        // Check name uniqueness
         $nameExists = DB::connection('tenant')
             ->table('retail_base_products')
             ->whereRaw('LOWER(name) = ?', [strtolower(trim($request->name))])
             ->exists();
+
         if ($nameExists) {
             return response()->json([
                 'error'  => 'Product name "' . trim($request->name) . '" already exists — row skipped.',
@@ -437,6 +330,7 @@ class BaseproductsController extends Controller
                 ->table('retail_base_products')
                 ->where('internal_code', trim($request->internal_code))
                 ->exists();
+
             if ($exists) {
                 return response()->json([
                     'error'  => 'Code "' . trim($request->internal_code) . '" already exists — row skipped.',
@@ -445,39 +339,30 @@ class BaseproductsController extends Controller
             }
         }
 
-        $taxRate = strtoupper(trim($request->mra_tax_rate_id ?? 'A'));
-        if (!in_array($taxRate, self::VALID_TAX_RATE_IDS)) {
-            $taxRate = 'A';
-        }
-
-        $validUnits = ['Each','kg','g','Litre','ml','Box','Carton','Pack','Pair','Dozen','Bag','Bottle','Metre','Service'];
-        $unit = trim($request->unit_of_measure ?? 'Each');
+        $validUnits = ['Each', 'kg', 'g', 'Litre', 'ml', 'Box', 'Carton', 'Pack', 'Pair', 'Dozen', 'Bag', 'Bottle', 'Metre', 'Service'];
+        $unit       = trim($request->unit_of_measure ?? 'Each');
         if (!in_array($unit, $validUnits)) {
             $unit = 'Each';
         }
 
         $data = [
-            'name'                    => trim($request->name),
-            'description'             => $request->description       ? trim($request->description)                        : null,
-            'brand'                   => $request->brand              ? trim($request->brand)                              : null,
-            'supplier'                => $request->supplier           ? trim($request->supplier)                           : null,
-            'manufacturer'            => $request->manufacturer       ? trim($request->manufacturer)                       : null,
-            'country_of_origin'       => $request->country_of_origin  ? strtoupper(substr(trim($request->country_of_origin), 0, 2)) : null,
-            'internal_code'           => $request->internal_code      ? trim($request->internal_code)                      : null,
-            'unit_of_measure'         => $unit,
-            'weight_kg'               => is_numeric($request->weight_kg)    ? (float) $request->weight_kg    : null,
-            'volume_litres'           => is_numeric($request->volume_litres) ? (float) $request->volume_litres : null,
-            'is_product'              => in_array($request->is_product, ['0', 0, false], true) ? 0 : 1,
-            'default_selling_price'   => is_numeric($request->default_selling_price) ? (float) $request->default_selling_price : null,
-            'default_cost_price'      => is_numeric($request->default_cost_price)    ? (float) $request->default_cost_price    : null,
-            'mra_product_code'        => $request->mra_product_code   ? trim($request->mra_product_code)                   : null,
-            'mra_tax_rate_id'         => $taxRate,
-            'is_vat_exempt_by_nature' => in_array($request->is_vat_exempt_by_nature, ['1', 1, true], true) ? 1 : 0,
-            'category'                => $request->category           ? trim($request->category)                           : null,
-            'subcategory'             => $request->subcategory        ? trim($request->subcategory)                        : null,
-            'is_active'               => in_array($request->is_active, ['0', 0, false], true) ? 0 : 1,
-            'created_at'              => now(),
-            'updated_at'              => now(),
+            'name'                  => trim($request->name),
+            'description'           => $request->description     ? trim($request->description)                             : null,
+            'brand'                 => $request->brand            ? trim($request->brand)                                   : null,
+            'supplier'              => $request->supplier         ? trim($request->supplier)                                : null,
+            'manufacturer'          => $request->manufacturer     ? trim($request->manufacturer)                            : null,
+            'country_of_origin'     => $request->country_of_origin ? strtoupper(substr(trim($request->country_of_origin), 0, 2)) : null,
+            'internal_code'         => $request->internal_code    ? trim($request->internal_code)                          : null,
+            'unit_of_measure'       => $unit,
+            'weight_kg'             => is_numeric($request->weight_kg)             ? (float) $request->weight_kg             : null,
+            'volume_litres'         => is_numeric($request->volume_litres)         ? (float) $request->volume_litres         : null,
+            'default_selling_price' => is_numeric($request->default_selling_price) ? (float) $request->default_selling_price : null,
+            'default_cost_price'    => is_numeric($request->default_cost_price)    ? (float) $request->default_cost_price    : null,
+            'category'              => $request->category         ? trim($request->category)                                : null,
+            'subcategory'           => $request->subcategory      ? trim($request->subcategory)                             : null,
+            'is_active'             => in_array($request->is_active, ['0', 0, false], true) ? 0 : 1,
+            'created_at'            => now(),
+            'updated_at'            => now(),
         ];
 
         $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);

@@ -108,12 +108,10 @@
         <tr id="{{ $row }}">
             <td>{{ $branch->name }}</td>
             <td style="text-align:center">
-                
-            {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
-        
+                {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
             </td>
             <td style="text-align:center">
-                   {{ DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
+                {{ DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
             </td>
             <td style="text-align:center">
                 <span class="badge bg-{{ $branch->status == 'active' ? 'success' : ($branch->status == 'inactive' ? 'warning' : 'secondary') }}">
@@ -136,7 +134,7 @@
 </div>
 </div>
 
-<!-- Modals (kept identical to event example structure) -->
+<!-- Modals -->
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog">
         <div class="modal-content">
@@ -181,14 +179,9 @@
                         <label class="control-label form-label">Branch Name <span class="text-danger">*</span></label>
                         <input class="form-control" placeholder="Enter branch name" type="text" name="name" id="branch-name" required/>
                     </div>
-
                     <div class="mb-3">
-                        <label class="control-label form-label">TIN Number</label>
-                        <input class="form-control" type="text" name="tin_number"  placeholder="e.g. 1234"/>
-                    </div>
-                       <div class="mb-3">
                         <label class="control-label form-label">License Number</label>
-                        <input class="form-control" type="text" name="business_number"  placeholder="e.g. 1234"/>
+                        <input class="form-control" type="text" name="business_number" placeholder="e.g. 1234"/>
                     </div>
                     <div class="mb-3">
                         <label class="control-label form-label">Physical Address</label>
@@ -236,7 +229,6 @@
 
 @section('scripts') 
 <script>
-// No changes needed here — it already expects b.sector and b.category to be the string names
 $(document).ready(function() {
     toastr.options = {
         closeButton: true,
@@ -288,7 +280,6 @@ $(document).ready(function() {
 
         table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-        // Open add modal
         $('#newDataBtn').click(function(e) {
             e.preventDefault();
             $('#newDataForm')[0].reset();

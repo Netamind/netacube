@@ -16,6 +16,7 @@ use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Operations\Retail\EisController;
 use App\Http\Controllers\Operations\Retail\RetailBranchProductsController;
+use App\Http\Controllers\Operations\Retail\SupplierController;
 
 
 
@@ -132,35 +133,15 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::get('/admin/system/subscription',  [TenantAdminController::class, 'showSystemSubscriptionView'])->name('tenant.admin.system.subscription');
 
 
+
+    Route::get('/admin/suppliers',          [TenantAdminController::class, 'showSuppliersView'])->name('tenant.admin.suppliers');
+    Route::post('/admin/insert-supplier',   [TenantAdminController::class, 'insertSupplier'])->name('tenant.admin.supplier.insert');
+    Route::post('/admin/update-supplier',   [TenantAdminController::class, 'updateSupplier'])->name('tenant.admin.supplier.update');
+    Route::post('/admin/delete-supplier',   [TenantAdminController::class, 'deleteSupplier'])->name('tenant.admin.supplier.delete');
+
+
     Route::post('/admin/update-user-filters', [TenantAdminController::class, 'updateUserFilters'])->name('tenant.admin.update.filters');
 
-
-// ── VIEWS ─────────────────────────────────────────────────────────────────────
-    Route::get('/admin/eis/dashboard',      [EisController::class, 'showEisDashboardView'])->name('tenant.admin.eis.dashboard');
-    Route::get('/admin/eis/global-config',  [EisController::class, 'showGlobalConfigView'])->name('tenant.admin.eis.global-config');
-    Route::get('/admin/eis/terminals',      [EisController::class, 'showTerminalsView'])->name('tenant.admin.eis.terminals');
-    Route::get('/admin/eis/logs',           [EisController::class, 'showTerminalLogsView'])->name('tenant.admin.eis.terminal-logs');
-
-    // ── JSON DATA (GET) ───────────────────────────────────────────────────────────
-    Route::get('/admin/eis/json/branch-status',  [EisController::class, 'getBranchEisStatus'])->name('tenant.admin.eis.branch-status');
-    Route::get('/admin/eis/json/global-config',  [EisController::class, 'getGlobalConfig'])->name('tenant.admin.eis.global-config.get');
-    Route::get('/admin/eis/json/terminals',      [EisController::class, 'getTerminals'])->name('tenant.admin.eis.terminals.get');
-    Route::get('/admin/eis/json/terminal-logs',  [EisController::class, 'getTerminalLogs'])->name('tenant.admin.eis.terminal-logs.get');
-
-    // ── TERMINAL CRUD (POST) ──────────────────────────────────────────────────────
-    Route::post('/admin/eis/terminals/insert',     [EisController::class, 'insertTerminal'])->name('tenant.admin.eis.terminals.insert');
-    Route::post('/admin/eis/terminals/update',     [EisController::class, 'updateTerminal'])->name('tenant.admin.eis.terminals.update');
-    Route::post('/admin/eis/terminals/deactivate', [EisController::class, 'deactivateTerminal'])->name('tenant.admin.eis.terminals.deactivate');
-    Route::post('/admin/eis/terminals/delete',     [EisController::class, 'deleteTerminal'])->name('tenant.admin.eis.terminals.delete');
-
-    // ── MRA ACTIONS (POST) ────────────────────────────────────────────────────────
-    Route::post('/admin/eis/terminals/activate',   [EisController::class, 'activateTerminal'])->name('tenant.admin.eis.terminals.activate');
-    Route::post('/admin/eis/terminals/confirm',    [EisController::class, 'confirmActivation'])->name('tenant.admin.eis.terminals.confirm');
-    Route::post('/admin/eis/sync-config',          [EisController::class, 'syncGlobalConfig'])->name('tenant.admin.eis.sync-config');
-    Route::post('/admin/eis/ping',                 [EisController::class, 'ping'])->name('tenant.admin.eis.ping');
-
-    // ── BRANCH SETTINGS (POST) ────────────────────────────────────────────────────
-    Route::post('/admin/eis/branch-settings',      [EisController::class, 'updateBranchEisSettings'])->name('tenant.admin.eis.branch-settings.update');
 
 
 
@@ -196,6 +177,9 @@ Route::post('operations/retail/branchproducts/bulkdelete',      [RetailBranchPro
 Route::post('operations/retail/branchproducts/bulkstatus',      [RetailBranchProductsController::class, 'bulkStatusBranchproducts'])->name('retail.operations.branchproducts.bulkstatus');
 Route::post('operations/retail/branchproducts/bulktax',         [RetailBranchProductsController::class, 'bulkTaxBranchproducts']   )->name('retail.operations.branchproducts.bulktax');
 Route::get( 'operations/retail/baseproducts/search',            [RetailBranchProductsController::class, 'searchBaseproducts']      )->name('retail.operations.baseproducts.search');
+
+
+
 
 });
 

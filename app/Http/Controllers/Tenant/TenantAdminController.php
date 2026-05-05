@@ -1240,25 +1240,23 @@ public function downloadFile(Request $request)
     }
 
 
-
-    public function insertBranch(Request $request)
+public function insertBranch(Request $request)
 {
     $data = [
-        'name'      => trim($request->name),
-        'business_number'      => trim($request->business_number),
-        'tin_number'      => trim($request->tin_number),
-        'address'   => trim($request->address),
-        'city'      => trim($request->city),
-        'phone'     => trim($request->phone),
-        'email'     => trim($request->email),
-        'sector'    => trim($request->sector),
-        'category'  => trim($request->category),
-        'status'    => $request->status ?? 'active',
-        'created_at'    => Carbon::today()->toDateString(),
-        'updated_at'    => Carbon::today()->toDateString(),
+        'name'            => trim($request->name),
+        'business_number' => trim($request->business_number),
+        'address'         => trim($request->address),
+        'city'            => trim($request->city),
+        'phone'           => trim($request->phone),
+        'email'           => trim($request->email),
+        'sector'          => trim($request->sector),
+        'category'        => trim($request->category),
+        'status'          => $request->status ?? 'active',
+        'created_at'      => Carbon::today()->toDateString(),
+        'updated_at'      => Carbon::today()->toDateString(),
     ];
 
-    $validator = $request->validate([
+    $request->validate([
         'name'     => 'required|string|max:255',
         'sector'   => 'required|string|max:255',
         'category' => 'required|string|max:255',
@@ -1299,8 +1297,8 @@ public function downloadFile(Request $request)
                 'city'     => $branch->city,
                 'phone'    => $branch->phone,
                 'email'    => $branch->email,
-                'sector'   =>  DB::connection('tenant')->table('sectors')->where('id',$branch->sector)->value('sector'),
-                'category' => DB::connection('tenant')->table('categories')->where('id',$branch->category)->value('category'),
+                'sector'   => DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector'),
+                'category' => DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category'),
                 'status'   => $branch->status,
             ],
         ]);
@@ -1312,20 +1310,19 @@ public function downloadFile(Request $request)
 public function updateBranch(Request $request)
 {
     $data = [
-        'name'      => trim($request->name),
-        'address'   => trim($request->address),
-        'city'      => trim($request->city),
-        'phone'     => trim($request->phone),
-        'email'     => trim($request->email),
-        'sector'     => trim($request->sector),
-        'category'     => trim($request->category),
-        'business_number' =>trim($request->business_number),
-        'tin_number' =>trim($request->tin_number),
-        'status'    => trim($request->status),
-        'updated_at'    => Carbon::today()->toDateString(),
+        'name'            => trim($request->name),
+        'address'         => trim($request->address),
+        'city'            => trim($request->city),
+        'phone'           => trim($request->phone),
+        'email'           => trim($request->email),
+        'sector'          => trim($request->sector),
+        'category'        => trim($request->category),
+        'business_number' => trim($request->business_number),
+        'status'          => trim($request->status),
+        'updated_at'      => Carbon::today()->toDateString(),
     ];
 
-    $validator = $request->validate([
+    $request->validate([
         'name'     => 'required|string|max:255',
         'address'  => 'nullable|string|max:1000',
         'city'     => 'nullable|string|max:100',
@@ -1389,6 +1386,9 @@ public function deleteBranch(Request $request)
 
     return response()->json(['error' => 'Branch not found.', 'status' => 404]);
 }
+
+
+
 
 
 public function insertCategory(Request $request)
@@ -1658,7 +1658,203 @@ public function updateUserFilters(Request $request)
     }
 }
 
-        
 
+
+public function showSuppliersView()
+{
+    return view('tenants.admin.suppliers');
+}
+
+
+public function insertSupplier(Request $request)
+{
+    $request->validate([
+        'name'                => 'required|string|max:255|unique:tenant.suppliers,name',
+        'trading_name'        => 'nullable|string|max:255',
+        'registration_number' => 'nullable|string|max:255',
+        'contact_person'      => 'nullable|string|max:255',
+        'phone'               => 'nullable|string|max:50',
+        'phone_alt'           => 'nullable|string|max:50',
+        'email'               => 'nullable|email|max:255',
+        'website'             => 'nullable|url|max:255',
+        'bank_name'           => 'nullable|string|max:255',
+        'bank_account_name'   => 'nullable|string|max:255',
+        'bank_account_number' => 'nullable|string|max:100',
+        'bank_branch'         => 'nullable|string|max:255',
+        'bank_swift_code'     => 'nullable|string|max:50',
+        'payment_terms'       => 'nullable|string|max:255',
+        'currency'            => 'nullable|string|max:10',
+        'address'             => 'nullable|string|max:1000',
+        'city'                => 'nullable|string|max:100',
+        'country'             => 'nullable|string|max:100',
+        'category'            => 'nullable|integer|exists:tenant.categories,id',
+        'sector'              => 'nullable|string|exists:tenant.sectors,sector',
+        'status'              => 'nullable|in:active,inactive,blacklisted',
+        'notes'               => 'nullable|string|max:5000',
+    ]);
+
+    $data = [
+        'name'                => trim($request->name),
+        'trading_name'        => trim($request->trading_name),
+        'registration_number' => trim($request->registration_number),
+        'contact_person'      => trim($request->contact_person),
+        'phone'               => trim($request->phone),
+        'phone_alt'           => trim($request->phone_alt),
+        'email'               => trim($request->email),
+        'website'             => trim($request->website),
+        'bank_name'           => trim($request->bank_name),
+        'bank_account_name'   => trim($request->bank_account_name),
+        'bank_account_number' => trim($request->bank_account_number),
+        'bank_branch'         => trim($request->bank_branch),
+        'bank_swift_code'     => trim($request->bank_swift_code),
+        'payment_terms'       => trim($request->payment_terms),
+        'currency'            => trim($request->currency) ?: 'MWK',
+        'address'             => trim($request->address),
+        'city'                => trim($request->city),
+        'country'             => trim($request->country) ?: 'Malawi',
+        'category'            => $request->category ?: null,
+        'sector'              => trim($request->sector) ?: null,
+        'status'              => $request->status ?? 'active',
+        'notes'               => trim($request->notes),
+    ];
+
+    $insertId = DB::connection('tenant')->table('suppliers')->insertGetId($data);
+
+    if ($insertId) {
+        $supplier = DB::connection('tenant')->table('suppliers')
+            ->leftJoin('categories', 'suppliers.category', '=', 'categories.id')
+            ->select('suppliers.*', 'categories.category as category_name')
+            ->where('suppliers.id', $insertId)
+            ->first();
+
+        return response()->json([
+            'success'  => 'Supplier created successfully.',
+            'status'   => 201,
+            'supplier' => self::formatSupplier($supplier),
+        ]);
+    }
+
+    return response()->json(['error' => 'Failed to create supplier.', 'status' => 500]);
+}
+
+public function updateSupplier(Request $request)
+{
+    $request->validate([
+        'id'                  => 'required|integer|exists:tenant.suppliers,id',
+        'name'                => 'required|string|max:255|unique:tenant.suppliers,name,' . $request->id,
+        'trading_name'        => 'nullable|string|max:255',
+        'registration_number' => 'nullable|string|max:255',
+        'contact_person'      => 'nullable|string|max:255',
+        'phone'               => 'nullable|string|max:50',
+        'phone_alt'           => 'nullable|string|max:50',
+        'email'               => 'nullable|email|max:255',
+        'website'             => 'nullable|url|max:255',
+        'bank_name'           => 'nullable|string|max:255',
+        'bank_account_name'   => 'nullable|string|max:255',
+        'bank_account_number' => 'nullable|string|max:100',
+        'bank_branch'         => 'nullable|string|max:255',
+        'bank_swift_code'     => 'nullable|string|max:50',
+        'payment_terms'       => 'nullable|string|max:255',
+        'currency'            => 'nullable|string|max:10',
+        'address'             => 'nullable|string|max:1000',
+        'city'                => 'nullable|string|max:100',
+        'country'             => 'nullable|string|max:100',
+        'category'            => 'nullable|integer|exists:tenant.categories,id',
+        'sector'              => 'nullable|string|exists:tenant.sectors,sector',
+        'status'              => 'nullable|in:active,inactive,blacklisted',
+        'notes'               => 'nullable|string|max:5000',
+    ]);
+
+    $data = [
+        'name'                => trim($request->name),
+        'trading_name'        => trim($request->trading_name),
+        'registration_number' => trim($request->registration_number),
+        'contact_person'      => trim($request->contact_person),
+        'phone'               => trim($request->phone),
+        'phone_alt'           => trim($request->phone_alt),
+        'email'               => trim($request->email),
+        'website'             => trim($request->website),
+        'bank_name'           => trim($request->bank_name),
+        'bank_account_name'   => trim($request->bank_account_name),
+        'bank_account_number' => trim($request->bank_account_number),
+        'bank_branch'         => trim($request->bank_branch),
+        'bank_swift_code'     => trim($request->bank_swift_code),
+        'payment_terms'       => trim($request->payment_terms),
+        'currency'            => trim($request->currency) ?: 'MWK',
+        'address'             => trim($request->address),
+        'city'                => trim($request->city),
+        'country'             => trim($request->country) ?: 'Malawi',
+        'category'            => $request->category ?: null,
+        'sector'              => trim($request->sector) ?: null,
+        'status'              => $request->status ?? 'active',
+        'notes'               => trim($request->notes),
+    ];
+
+    $existing = DB::connection('tenant')->table('suppliers')->where('id', $request->id)->first();
+
+    // Compare — ignore timestamps and id in diff check
+    $current = (array) $existing;
+    unset($current['updated_at'], $current['created_at'], $current['id']);
+    $incoming = $data;
+
+    if ($current == $incoming) {
+        return response()->json(['error' => 'No changes detected.', 'status' => 409]);
+    }
+
+    DB::connection('tenant')->table('suppliers')->where('id', $request->id)->update($data);
+
+    $supplier = DB::connection('tenant')->table('suppliers')
+        ->leftJoin('categories', 'suppliers.category', '=', 'categories.id')
+        ->select('suppliers.*', 'categories.category as category_name')
+        ->where('suppliers.id', $request->id)
+        ->first();
+
+    return response()->json([
+        'success'  => 'Supplier updated successfully.',
+        'status'   => 201,
+        'supplier' => self::formatSupplier($supplier),
+    ]);
+}
+
+public function deleteSupplier(Request $request)
+{
+    $deleted = DB::connection('tenant')->table('suppliers')->where('id', $request->id)->delete();
+
+    if ($deleted) {
+        return response()->json(['success' => 'Supplier deleted successfully.', 'status' => 201]);
+    }
+
+    return response()->json(['error' => 'Supplier not found.', 'status' => 404]);
+}
+
+private static function formatSupplier($supplier): array
+{
+    return [
+        'id'                  => $supplier->id,
+        'name'                => $supplier->name,
+        'trading_name'        => $supplier->trading_name,
+        'registration_number' => $supplier->registration_number,
+        'contact_person'      => $supplier->contact_person,
+        'phone'               => $supplier->phone,
+        'phone_alt'           => $supplier->phone_alt,
+        'email'               => $supplier->email,
+        'website'             => $supplier->website,
+        'bank_name'           => $supplier->bank_name,
+        'bank_account_name'   => $supplier->bank_account_name,
+        'bank_account_number' => $supplier->bank_account_number,
+        'bank_branch'         => $supplier->bank_branch,
+        'bank_swift_code'     => $supplier->bank_swift_code,
+        'payment_terms'       => $supplier->payment_terms,
+        'currency'            => $supplier->currency,
+        'address'             => $supplier->address,
+        'city'                => $supplier->city,
+        'country'             => $supplier->country,
+        'category'            => $supplier->category,               // raw ID
+        'category_name'       => $supplier->category_name ?? null,  // resolved label from JOIN
+        'sector'              => $supplier->sector,                  // stored as name string
+        'status'              => $supplier->status,
+        'notes'               => $supplier->notes,
+    ];
+}
     
 }

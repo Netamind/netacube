@@ -30,13 +30,10 @@
                 'bp.name',
                 'bp.internal_code',
                 'bp.unit_of_measure',
-                'bp.mra_tax_rate_id',
                 'bp.category',
                 'bp.brand',
                 'bp.default_selling_price as bp_sell',
-                'bp.default_cost_price    as bp_cost',
-                'bp.is_product',
-                'bp.is_vat_exempt_by_nature'
+                'bp.default_cost_price    as bp_cost'
             )
             ->get();
 
@@ -60,6 +57,10 @@
                     ->distinct()->orderBy('supplier')->pluck('supplier');
 
     $maintableTitle = 'Branch Products — ' . ($selectedBranch->name ?? 'All');
+
+    $activeCount   = $branchProducts->where('is_active', 1)->count();
+    $lowStockCount = $branchProducts->filter(fn($p) => (float)$p->stock_quantity <= (float)$p->reorder_point && (float)$p->stock_quantity > 0)->count();
+    $zeroCount     = $branchProducts->filter(fn($p) => (float)$p->stock_quantity <= 0)->count();
 @endphp
 
 <style>
@@ -86,47 +87,6 @@
 }
 .card-header .btn-light:hover { background-color:#f8f9fa; transition:background-color 0.2s; }
 
-/* ── Header action buttons ───────────────────────────────────────────────── */
-.hdr-btn {
-  height: 30px; padding: 0 10px;
-  display: flex; align-items: center; justify-content: center;
-  border-radius: 6px; border: none; cursor: pointer;
-  font-size: 15px; transition: opacity .15s, transform .1s;
-  text-decoration: none;
-}
-.hdr-btn:hover { opacity: .85; transform: translateY(-1px); }
-
-/* Shop Value — amber/gold */
-.hdr-btn-shopvalue {
-  background: linear-gradient(135deg, #f59e0b, #d97706);
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(245,158,11,0.4);
-}
-/* Add product — green */
-.hdr-btn-add {
-  background: linear-gradient(135deg, #10b981, #059669);
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(16,185,129,0.4);
-}
-/* Pricing info — soft teal */
-.hdr-btn-pricing {
-  background: linear-gradient(135deg, #0ea5e9, #0284c7);
-  color: #fff !important;
-  box-shadow: 0 2px 8px rgba(14,165,233,0.4);
-}
-/* Info — indigo */
-.hdr-btn-info {
-  background: rgba(255,255,255,0.18);
-  color: #fff !important;
-  border: 1px solid rgba(255,255,255,0.35);
-}
-/* Download — light */
-.hdr-btn-download {
-  background: rgba(255,255,255,0.18);
-  color: #fff !important;
-  border: 1px solid rgba(255,255,255,0.35);
-}
-
 /* ── Bulk bar ────────────────────────────────────────────────────────────── */
 #bulkBar {
   background: #eef0f7;
@@ -138,7 +98,6 @@
 }
 #bulkBar.visible { display: flex !important; }
 
-/* Bulk select button — shown only when rows selected */
 #bulkTriggerBtn {
   font-size:12px; font-weight:700;
   height:30px; padding:0 14px;
@@ -161,32 +120,14 @@ table.dataTable tbody td { text-align:center !important; vertical-align:middle !
 table.dataTable tbody td:first-child { text-align:left !important; }
 
 /* ── Badges & prices ────────────────────────────────────────────────────── */
-.tax-badge  { font-size:11px; padding:2px 8px; border-radius:10px; font-weight:600; letter-spacing:0.5px; }
 .price-cell { font-size:12px; font-weight:600; }
 .stock-ok   { color: #16a34a; font-weight: 700; }
 .stock-low  { color: #d97706; font-weight: 700; }
 .stock-zero { color: #dc2626; font-weight: 700; }
 
-/* ── Price source colors ────────────────────────────────────────────────── */
-/* Branch-specific override — blue */
-.price-branch {
-  color: #1d4ed8;
-  font-weight: 700;
-}
-/* Inherited from base product — teal/green */
-.price-base {
-  color: #059669;
-  font-weight: 600;
-}
-
-/* ── Price source pill — used only in modals/guides, not in table ───────── */
-.price-src {
-  display:inline-block; font-size:9px; font-weight:700; letter-spacing:.5px;
-  padding:1px 5px; border-radius:4px; vertical-align:middle; margin-left:3px;
-  line-height:14px;
-}
-.price-src-bp { background:#d1fae5; color:#065f46; border:1px solid #a7f3d0; }
-.price-src-br { background:#dbeafe; color:#1e40af; border:1px solid #93c5fd; }
+/* ── Price source colors — color alone distinguishes source ─────────────── */
+.price-branch { color: #1d4ed8; font-weight: 700; }
+.price-base   { color: #059669; font-weight: 600; }
 
 /* ── No branch selected banner ──────────────────────────────────────────── */
 .no-branch-wrap { padding: 48px 20px; text-align: center; color: #94a3b8; }
@@ -196,8 +137,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 /* ── Modal header helpers ───────────────────────────────────────────────── */
 .mh-blue   { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-green  { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
-.mh-info   { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
-.mh-orange { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-danger { background:linear-gradient(135deg,#c0392b,#e74c3c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-teal   { background:linear-gradient(135deg,#0ea5e9,#0284c7); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-title  { color:#fff; font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; }
@@ -271,15 +210,20 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 }
 .pricing-swatch-br { background: #eff6ff; border: 1px solid #bfdbfe; }
 .pricing-swatch-bp { background: #ecfdf5; border: 1px solid #a7f3d0; }
-.pricing-swatch .swatch-dot {
-  width: 12px; height: 12px; border-radius: 50%; flex-shrink:0;
-}
+.pricing-swatch .swatch-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink:0; }
 .swatch-dot-br { background: #1d4ed8; }
 .swatch-dot-bp { background: #059669; }
 .pricing-swatch .swatch-label { font-size: 13px; font-weight: 600; }
 .pricing-swatch .swatch-desc  { font-size: 12px; color: #64748b; margin-top:1px; }
 .price-demo-br { color:#1d4ed8; font-weight:700; font-size:13px; }
 .price-demo-bp { color:#059669; font-weight:600; font-size:13px; }
+
+/* ── Shop value metric cards ─────────────────────────────────────────────── */
+.sv-metric {
+  background: #eef0f7; border-radius: 8px; padding: 10px 12px; text-align: center;
+}
+.sv-metric .sv-label { font-size: 11px; color: #6c757d; margin-bottom: 4px; }
+.sv-metric .sv-value { font-size: 20px; font-weight: 600; }
 
 /* ── Spinner ─────────────────────────────────────────────────────────────── */
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
@@ -316,43 +260,37 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       </form>
     </h4>
 
-    <div class="d-flex align-items-center" style="gap:6px;">
+    <div class="d-flex align-items-center" style="gap:4px;">
       @if($selectedBranch)
-      {{-- Shop Value — gold/amber with store chart icon --}}
-      <a href="#" class="hdr-btn hdr-btn-shopvalue" id="shopValueBtn" title="View shop value">
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="shopValueBtn" title="View shop value">
         <i class="ri-funds-line"></i>
       </a>
       @endif
-
-      {{-- Pricing colour guide --}}
-      <a href="#" class="hdr-btn hdr-btn-pricing" id="pricingInfoBtn" title="Price colour guide">
+      <a href="#" class="btn btn-light text-info fs-16 mx-1" id="pricingInfoBtn" title="Price colour guide">
         <i class="ri-price-tag-3-line"></i>
       </a>
-
-      <a href="#" class="hdr-btn hdr-btn-add" id="addProductBtn"
+      <a href="#" class="btn btn-light text-success fs-16 mx-1" id="addProductBtn"
          title="Add product to branch" @if(!$selectedBranch) style="pointer-events:none;opacity:.5" @endif>
         <i class="ri-add-circle-line"></i>
       </a>
-      <a href="#" class="hdr-btn hdr-btn-info" id="infoBtn" title="About Branch Products">
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="About Branch Products">
         <i class="ri-information-line"></i>
       </a>
-      <a href="#" class="hdr-btn hdr-btn-download" id="tableButtonsBtn" title="Download">
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download">
         <i class="ri-download-line"></i>
       </a>
     </div>
   </div>
 
-  {{-- ── Bulk bar — always rendered when branch selected, hidden until selection ── --}}
+  {{-- ── Bulk bar ─────────────────────────────────────────────────────────── --}}
   @if($selectedBranch)
   <div id="bulkBar">
-    {{-- Left: nothing visible until rows selected (bulk trigger shown via JS) --}}
     <div id="bulkLeft">
       <button type="button" id="bulkTriggerBtn" style="display:none;" title="Open bulk actions">
         <i class="ri-checkbox-multiple-line"></i>
         <span id="selectedCount">0</span>&nbsp;Selected
       </button>
     </div>
-    {{-- Right: spacer --}}
     <div id="bulkRight"></div>
   </div>
   @endif
@@ -378,7 +316,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <th>Cost Price</th>
           <th>Sell Price</th>
           <th>Stock</th>
-          <th>VAT</th>
           <th>Status</th>
           <th>Action</th>
         </tr>
@@ -387,7 +324,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         @foreach($branchProducts as $bp)
           @php
             $row    = 'row' . $bp->id;
-            $taxId  = $bp->mra_tax_rate_id_override ?: $bp->mra_tax_rate_id;
             $sq     = (float)$bp->stock_quantity;
             $rp     = (float)$bp->reorder_point;
             $stockClass = $sq <= 0 ? 'stock-zero' : ($sq <= $rp ? 'stock-low' : 'stock-ok');
@@ -407,27 +343,14 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 <span class="{{ $hasBranchCost ? 'price-branch' : 'price-base' }}" style="font-size:12px">
                   {{ number_format($bp->cost_price, 2) }}
                 </span>
-                <span class="price-src {{ $hasBranchCost ? 'price-src-br' : 'price-src-bp' }}">{{ $hasBranchCost ? 'BR' : 'BP' }}</span>
               @else<span class="text-muted" style="font-size:12px">—</span>@endif
             </td>
             <td>
               <span class="{{ $hasBranchSell ? 'price-branch' : 'price-base' }}" style="font-size:12px">
                 {{ number_format($bp->selling_price, 2) }}
               </span>
-              <span class="price-src {{ $hasBranchSell ? 'price-src-br' : 'price-src-bp' }}">{{ $hasBranchSell ? 'BR' : 'BP' }}</span>
             </td>
             <td><span class="{{ $stockClass }}">{{ number_format($sq, 0) }}</span></td>
-            <td>
-              @if($taxId)
-                <span class="badge tax-badge
-                  @if($taxId==='A') bg-danger
-                  @elseif($taxId==='B') bg-warning text-dark
-                  @elseif($taxId==='C') bg-info text-dark
-                  @elseif($taxId==='E') bg-secondary
-                  @elseif($taxId==='TL') bg-warning text-dark
-                  @else bg-info @endif">{{ $taxId }}</span>
-              @else<span class="text-muted" style="font-size:12px">—</span>@endif
-            </td>
             <td>
               @if($bp->is_active)
                 <span class="badge bg-success" style="font-size:11px">Active</span>
@@ -444,8 +367,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                  data-cost="{{ $bp->cost_price }}" data-sell="{{ $bp->selling_price }}"
                  data-wholesale="{{ $bp->wholesale_price }}" data-stock="{{ $bp->stock_quantity }}"
                  data-reorder="{{ $bp->reorder_point }}" data-reorder-qty="{{ $bp->reorder_quantity }}"
-                 data-max="{{ $bp->max_stock }}" data-tax="{{ $taxId }}"
-                 data-tax-override="{{ $bp->mra_tax_rate_id_override }}"
+                 data-max="{{ $bp->max_stock }}"
                  data-active="{{ $bp->is_active }}" data-track="{{ $bp->track_stock }}"
                  data-neg="{{ $bp->allow_negative_stock }}" data-pinned="{{ $bp->is_pinned_on_pos }}"
                  data-branch-sell="{{ $hasBranchSell ? 1 : 0 }}"
@@ -461,7 +383,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                  data-sell="{{ $bp->selling_price }}" data-wholesale="{{ $bp->wholesale_price }}"
                  data-stock="{{ $bp->stock_quantity }}" data-reorder="{{ $bp->reorder_point }}"
                  data-reorder-qty="{{ $bp->reorder_quantity }}" data-max="{{ $bp->max_stock }}"
-                 data-tax-override="{{ $bp->mra_tax_rate_id_override }}"
                  data-active="{{ $bp->is_active }}" data-track="{{ $bp->track_stock }}"
                  data-neg="{{ $bp->allow_negative_stock }}" data-pinned="{{ $bp->is_pinned_on_pos }}"
                  data-sort="{{ $bp->pos_sort_order }}">
@@ -488,34 +409,56 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 <div class="modal fade" id="shopValueModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
-      <div class="modal-header" style="background:linear-gradient(135deg,#f59e0b,#d97706);padding:14px 18px !important;border-bottom:none;border-radius:8px 8px 0 0;">
-        <h5 class="modal-title mh-title"><i class="ri-funds-line"></i> Branch Details &amp; Shop Value</h5>
+      <div class="modal-header mh-blue">
+        <h5 class="modal-title mh-title"><i class="ri-store-2-line"></i> Branch Overview</h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:18px 20px !important;">
+
+        {{-- Metric cards --}}
+        <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px;">
+          <div class="sv-metric">
+            <div class="sv-label">Products</div>
+            <div class="sv-value" style="color:#4B5EBD;">{{ $branchProducts->count() }}</div>
+          </div>
+          <div class="sv-metric">
+            <div class="sv-label">Active</div>
+            <div class="sv-value" style="color:#198754;">{{ $activeCount }}</div>
+          </div>
+          <div class="sv-metric">
+            <div class="sv-label">Low / Zero stock</div>
+            <div class="sv-value" style="color:#d97706;">{{ $lowStockCount + $zeroCount }}</div>
+          </div>
+        </div>
+
+        {{-- Detail rows --}}
         <table style="width:100%;border-collapse:collapse;font-size:13px;">
           <tbody>
-            <tr>
-              <td style="padding:7px 0;color:#6c757d;font-weight:600;width:120px;">Branch</td>
-              <td style="padding:7px 0;font-weight:700;color:#1e293b;">{{ $selectedBranch->name ?? '—' }}</td>
+            <tr style="border-bottom:1px solid #e9ecef;">
+              <td style="padding:8px 0;color:#6c757d;font-weight:600;width:140px;">Branch</td>
+              <td style="padding:8px 0;font-weight:600;color:#1e293b;">{{ $selectedBranch->name ?? '—' }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e9ecef;">
+              <td style="padding:8px 0;color:#6c757d;font-weight:600;">Category</td>
+              <td style="padding:8px 0;color:#1e293b;">{{ $branchCategory->category ?? '—' }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e9ecef;">
+              <td style="padding:8px 0;color:#6c757d;font-weight:600;">Zero stock items</td>
+              <td style="padding:8px 0;color:#dc2626;font-weight:600;">{{ $zeroCount }}</td>
+            </tr>
+            <tr style="border-bottom:1px solid #e9ecef;">
+              <td style="padding:8px 0;color:#6c757d;font-weight:600;">Low stock items</td>
+              <td style="padding:8px 0;color:#d97706;font-weight:600;">{{ $lowStockCount }}</td>
             </tr>
             <tr>
-              <td style="padding:7px 0;color:#6c757d;font-weight:600;">Category</td>
-              <td style="padding:7px 0;font-weight:700;color:#1e293b;">{{ $branchCategory->category ?? '—' }}</td>
-            </tr>
-            <tr>
-              <td style="padding:7px 0;color:#6c757d;font-weight:600;">Products</td>
-              <td style="padding:7px 0;font-weight:700;color:#1e293b;">{{ $branchProducts->count() }}</td>
-            </tr>
-            <tr style="border-top:1px solid #e9ecef;">
-              <td style="padding:10px 0 4px;color:#6c757d;font-weight:600;">Shop Value</td>
-              <td style="padding:10px 0 4px;font-size:20px;font-weight:800;color:#d97706;">
+              <td style="padding:12px 0 4px;color:#6c757d;font-weight:600;">Total shop value</td>
+              <td style="padding:12px 0 4px;font-size:22px;font-weight:700;color:#4B5EBD;">
                 MWK {{ number_format($shopValue, 0) }}
               </td>
             </tr>
             <tr>
-              <td style="padding:4px 0;color:#6c757d;font-weight:600;">Date</td>
-              <td style="padding:4px 0;color:#64748b;">{{ now()->toDateString() }}</td>
+              <td style="padding:4px 0;color:#6c757d;font-weight:600;">Valuation date</td>
+              <td style="padding:4px 0;color:#94a3b8;font-size:12px;">{{ now()->toDateString() }}</td>
             </tr>
           </tbody>
         </table>
@@ -538,18 +481,13 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:20px 22px !important;">
-
         <p style="font-size:13px;color:#475569;margin-bottom:16px;">
-          Each product's selling and cost price can come from two sources. The colour and tag on each price cell tells you at a glance which source applies.
+          Each product's selling and cost price can come from two sources. The colour of each price tells you at a glance which source applies.
         </p>
-
-        {{-- Branch override swatch --}}
         <div class="pricing-swatch pricing-swatch-br">
           <span class="swatch-dot swatch-dot-br"></span>
           <div class="flex-fill">
-            <div class="swatch-label" style="color:#1d4ed8;">
-              <span class="price-src price-src-br me-1">BR</span> Branch Override
-            </div>
+            <div class="swatch-label" style="color:#1d4ed8;">Branch Override</div>
             <div class="swatch-desc">This price was explicitly set for <strong>this branch</strong>. It overrides whatever the base catalogue says.</div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
@@ -557,14 +495,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <div style="font-size:10px;color:#93c5fd;">Blue</div>
           </div>
         </div>
-
-        {{-- Base product swatch --}}
         <div class="pricing-swatch pricing-swatch-bp">
           <span class="swatch-dot swatch-dot-bp"></span>
           <div class="flex-fill">
-            <div class="swatch-label" style="color:#059669;">
-              <span class="price-src price-src-bp me-1">BP</span> Base Product Default
-            </div>
+            <div class="swatch-label" style="color:#059669;">Base Product Default</div>
             <div class="swatch-desc">No branch price has been set. The system is using the default price from the <strong>base catalogue</strong>.</div>
           </div>
           <div style="text-align:right;flex-shrink:0;">
@@ -572,15 +506,12 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <div style="font-size:10px;color:#6ee7b7;">Green</div>
           </div>
         </div>
-
         <hr style="margin:16px 0 12px;">
-
         <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:12px;color:#475569;">
           <strong><i class="ri-lightbulb-line me-1 text-warning"></i>Tip:</strong>
-          To make a price branch-specific, open the <strong>Edit</strong> modal and save a selling or cost price. From that point it will show in <span style="color:#1d4ed8;font-weight:700;">blue</span> with the <span class="price-src price-src-br">BR</span> tag.
-          Clearing a branch price (leaving it blank on edit) reverts to the base default, shown in <span style="color:#059669;font-weight:700;">green</span> with the <span class="price-src price-src-bp">BP</span> tag.
+          To make a price branch-specific, open the <strong>Edit</strong> modal and save a selling or cost price. It will then show in <span style="color:#1d4ed8;font-weight:700">blue</span>,
+          taking precedence over base product defaults shown in <span style="color:#059669;font-weight:700">green</span>.
         </div>
-
       </div>
       <div class="modal-footer" style="padding:10px 20px 14px;">
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
@@ -618,7 +549,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
     <div class="modal-body" style="padding:18px 20px;">
       <p class="mb-2"><strong>What are Branch Products?</strong><br>
       Branch products are your master catalogue products <em>assigned to a specific branch</em>. Each branch can have its own selling price, stock quantity, reorder points, and barcode.</p>
-
       <hr class="my-3">
       <table style="width:100%;border-collapse:collapse;font-size:13px;">
         <tbody>
@@ -626,7 +556,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9">Cost Price</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">What this branch paid the supplier.</td></tr>
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9">Stock Qty</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9"><span style="color:#dc2626;font-weight:600">Red = zero</span>, <span style="color:#d97706;font-weight:600">amber = at/below reorder point</span>, <span style="color:#16a34a;font-weight:600">green = healthy</span>.</td></tr>
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9">Reorder Point</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">When stock falls to or below this level a low-stock alert is triggered.</td></tr>
-          <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9">VAT Override</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">Inherited from the base product. Override only if this branch has a special MRA classification.</td></tr>
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569">Track Stock</td><td style="padding:8px 12px">When enabled, the POS decrements stock on each sale.</td></tr>
         </tbody>
       </table>
@@ -671,7 +600,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <div class="tab-content">
 
           <div class="tab-pane fade show active" id="at1" role="tabpanel">
-
             <div class="mb-2">
               <label class="form-label fw-semibold" style="font-size:13px">
                 <i class="ri-search-line me-1 text-success"></i>Search Products
@@ -680,16 +608,13 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                      placeholder="Type product name or code…" autocomplete="off" />
               <div class="form-text">Search then set quantity. Press <strong>Save to Branch</strong> to add selected items — the modal stays open for more.</div>
             </div>
-
             <div id="searchResultList" class="search-result-list"></div>
-
             <div id="pendingItemsWrap" style="display:none; margin-top:8px;">
               <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#4B5EBD;margin-bottom:6px;">
                 <i class="ri-list-check-2 me-1"></i> Products to add
               </div>
               <div id="pendingItemsList"></div>
             </div>
-
           </div>
 
           <div class="tab-pane fade" id="at2" role="tabpanel">
@@ -699,7 +624,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               <strong>{{ $selectedBranch->name ?? 'this branch' }}</strong>.
               Category <strong>{{ $branchCategory->category ?? 'from branch' }}</strong> is applied automatically.
             </div>
-
             <div class="mb-2">
               <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
               <input class="form-control form-control-sm" type="text" id="new-name"
@@ -745,16 +669,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 @foreach($suppliers as $sup)
                   <option value="{{ $sup }}">{{ $sup }}</option>
                 @endforeach
-              </select>
-            </div>
-            <div class="mb-2">
-              <label class="form-label fw-semibold" style="font-size:12px">VAT Type <span class="text-danger">*</span></label>
-              <select class="form-select form-select-sm" id="new-tax-rate">
-                <option value="A" selected>A — Standard VAT 17.5% (most products)</option>
-                <option value="B">B — Reduced VAT rate</option>
-                <option value="C">C — Zero-rated (0%)</option>
-                <option value="E">E — VAT Exempt (basic foods, medicine)</option>
-                <option value="TL">TL — Tourism Levy 1%</option>
               </select>
             </div>
           </div>
@@ -813,15 +727,14 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <div class="tab-pane fade show active" id="vw-t1">
             <div class="view-grid">
               <div class="view-item">
-                <label>Selling Price (MWK) <span id="vw-sell-src-badge"></span></label>
+                <label>Selling Price (MWK)</label>
                 <div class="view-val price-cell" id="vw-sell"></div>
               </div>
               <div class="view-item">
-                <label>Cost Price (MWK) <span id="vw-cost-src-badge"></span></label>
+                <label>Cost Price (MWK)</label>
                 <div class="view-val" id="vw-cost"></div>
               </div>
-              <div class="view-item"><label>Wholesale Price (MWK)</label><div class="view-val" id="vw-wholesale"></div></div>
-              <div class="view-item"><label>VAT / Tax Rate</label><div class="view-val" id="vw-tax"></div></div>
+              <div class="view-item full"><label>Wholesale Price (MWK)</label><div class="view-val" id="vw-wholesale"></div></div>
             </div>
           </div>
           <div class="tab-pane fade" id="vw-t2">
@@ -840,7 +753,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               <div class="view-item"><label>Track Stock</label><div class="view-val" id="vw-track"></div></div>
               <div class="view-item"><label>Allow Negative Stock</label><div class="view-val" id="vw-neg"></div></div>
               <div class="view-item"><label>Pinned on POS</label><div class="view-val" id="vw-pinned"></div></div>
-              <div class="view-item"><label>VAT Override</label><div class="view-val" id="vw-tax-override"></div></div>
             </div>
           </div>
         </div>
@@ -856,7 +768,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL — Tab 1: Product info + Qty + Prices | Tab 2: Stock & Batch | Tab 3: VAT & Settings
+     EDIT MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -868,7 +780,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <ul class="nav nav-tabs border-bottom px-2 pt-2" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
         <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#et1" type="button"><i class="ri-layout-top-line me-1"></i>Product &amp; Pricing</button></li>
         <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#et2" type="button"><i class="ri-stack-line me-1"></i>Stock &amp; Batch</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#et3" type="button"><i class="ri-settings-3-line me-1"></i>VAT &amp; Settings</button></li>
+        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#et3" type="button"><i class="ri-settings-3-line me-1"></i>Settings</button></li>
       </ul>
       <div class="modal-body" style="padding:14px 18px 8px !important;">
         <form id="editDataForm">
@@ -877,10 +789,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <input type="hidden" id="editRow">
           <div class="tab-content">
 
-            {{-- ── Tab 1: Product info, quantity, prices ─────────────────── --}}
             <div class="tab-pane fade show active" id="et1" role="tabpanel">
-
-              {{-- Product name + unit (read-only context) --}}
               <div class="row g-2 mb-3 mt-1">
                 <div class="col-8">
                   <label class="form-label fw-semibold" style="font-size:12px;color:#6c757d;text-transform:uppercase;letter-spacing:.5px;">Product</label>
@@ -891,10 +800,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                   <div style="font-size:14px;font-weight:600;color:#475569;padding:6px 0 2px;" id="editUnitDisplay"></div>
                 </div>
               </div>
-
               <hr class="my-2">
-
-              {{-- Stock quantity --}}
               <div class="row g-2 mb-3">
                 <div class="col-4">
                   <label class="form-label fw-semibold" style="font-size:13px">Stock Quantity</label>
@@ -909,10 +815,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                   <input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editMaxStockTab1" />
                 </div>
               </div>
-
               <hr class="my-2">
-
-              {{-- Prices --}}
               <div class="row g-2 mb-2">
                 <div class="col-4">
                   <label class="form-label fw-semibold" style="font-size:13px">Selling Price <span class="text-danger">*</span> <small class="text-muted">(MWK)</small></label>
@@ -929,12 +832,11 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               </div>
               <div class="alert border-0 py-2 px-3 mt-1" style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
                 <i class="ri-information-line me-1"></i>
-                Prices saved here become <strong>branch-specific overrides</strong> <span class="price-src price-src-br">BR</span> shown in <span style="color:#1d4ed8;font-weight:700">blue</span>,
-                taking precedence over base product defaults <span class="price-src price-src-bp">BP</span> shown in <span style="color:#059669;font-weight:700">green</span>.
+                Prices saved here become <strong>branch-specific overrides</strong> shown in <span style="color:#1d4ed8;font-weight:700">blue</span>,
+                taking precedence over base product defaults shown in <span style="color:#059669;font-weight:700">green</span>.
               </div>
             </div>
 
-            {{-- ── Tab 2: Stock & Batch ──────────────────────────────────── --}}
             <div class="tab-pane fade" id="et2" role="tabpanel">
               <div class="row g-2 mb-2 mt-1">
                 <div class="col-3"><label class="form-label fw-semibold" style="font-size:12px">Stock Qty</label><input class="form-control form-control-sm" type="number" step="0.001" id="editStockQty" /></div>
@@ -949,20 +851,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
               </div>
             </div>
 
-            {{-- ── Tab 3: VAT & Settings ─────────────────────────────────── --}}
             <div class="tab-pane fade" id="et3" role="tabpanel">
-              <div class="mb-3 mt-1">
-                <label class="form-label fw-semibold" style="font-size:13px">VAT Override <small class="text-muted fw-normal">(leave blank to inherit from base product)</small></label>
-                <select class="form-select form-select-sm" id="editTaxOverride">
-                  <option value="">Inherit from base product</option>
-                  <option value="A">A — Standard VAT 17.5%</option>
-                  <option value="B">B — Reduced VAT rate</option>
-                  <option value="C">C — Zero-rated (0%)</option>
-                  <option value="E">E — VAT Exempt</option>
-                  <option value="TL">TL — Tourism Levy 1%</option>
-                </select>
-              </div>
-              <div class="row g-2">
+              <div class="row g-2 mt-1">
                 <div class="col-6">
                   <div class="form-check"><input class="form-check-input" type="checkbox" id="editTrackStock"><label class="form-check-label" for="editTrackStock" style="font-size:12px">Track stock</label></div>
                   <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="editAllowNeg"><label class="form-check-label" for="editAllowNeg" style="font-size:12px">Allow negative stock</label></div>
@@ -1040,18 +930,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <a href="#" class="btn btn-sm btn-secondary flex-fill" id="bulkDeactivateBtn"><i class="ri-close-circle-line me-1"></i> Deactivate All</a>
           </div>
         </div>
-        <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-percent-line me-1"></i> Change VAT Override</div>
-          <div class="d-flex gap-2">
-            <select class="form-select form-select-sm" id="bulkTaxSelect">
-              <option value="">— Select VAT Type —</option>
-              <option value="A">A — Standard VAT 17.5%</option>
-              <option value="E">E — VAT Exempt</option>
-              <option value="TL">TL — Tourism Levy 1%</option>
-            </select>
-            <a href="#" class="btn btn-sm btn-primary" id="applyBulkTaxBtn" style="white-space:nowrap"><i class="ri-check-line me-1"></i> Apply</a>
-          </div>
-        </div>
         <div class="d-grid mt-1">
           <a href="#" class="btn btn-danger" id="bulkDeleteBtn">
             <i class="ri-delete-bin-line me-1"></i> Remove Selected from Branch
@@ -1088,42 +966,20 @@ $(document).ready(function () {
         return isNaN(n) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
     }
 
-    function taxBadgeClass(t) {
-        if (t==='A') return 'bg-danger';
-        if (t==='B') return 'bg-warning text-dark';
-        if (t==='C') return 'bg-info text-dark';
-        if (t==='E') return 'bg-secondary';
-        if (t==='TL') return 'bg-warning text-dark';
-        return 'bg-info';
-    }
-
-    var TAX_LABELS = { 'A':'A — Standard VAT 17.5%','B':'B — Reduced VAT','C':'C — Zero-rated (0%)','E':'E — VAT Exempt','TL':'TL — Tourism Levy 1%' };
-
     function yn(val) {
         return parseInt(val)===1
             ? '<span class="badge bg-success" style="font-size:11px">Yes</span>'
             : '<span class="badge bg-secondary" style="font-size:11px">No</span>';
     }
 
-    // ── Price source pill HTML ────────────────────────────────────────────
-    function priceSrcPill(isBranch) {
-        return isBranch
-            ? '<span class="price-src price-src-br" title="Branch-specific price">BR</span>'
-            : '<span class="price-src price-src-bp" title="Inherited from base product">BP</span>';
-    }
-
-    // ── Build row HTML (uses colour classes for prices) ───────────────────
     function buildRow(p) {
         var sq = parseFloat(p.stock_quantity || 0);
         var rp = parseFloat(p.reorder_point || 0);
         var sc = sq <= 0 ? 'stock-zero' : (sq <= rp ? 'stock-low' : 'stock-ok');
-        var taxId = p.mra_tax_rate_id_override || p.mra_tax_rate_id || '';
-        var tc    = taxBadgeClass(taxId);
-        var taxBadge = taxId ? '<span class="badge tax-badge '+tc+'">'+taxId+'</span>' : '<span class="text-muted" style="font-size:12px">—</span>';
-        var d = function(v){ return (v||'').toString().replace(/"/g,'&quot;'); };
+        var d  = function(v){ return (v||'').toString().replace(/"/g,'&quot;'); };
 
-        var hasBranchSell = p.has_branch_sell == 1 || p.has_branch_sell === true;
-        var hasBranchCost = p.has_branch_cost == 1 || p.has_branch_cost === true;
+        var hasBranchSell = p.has_branch_sell == 1 || p.has_branch_sell === true || p.sell_is_branch === true;
+        var hasBranchCost = p.has_branch_cost == 1 || p.has_branch_cost === true || p.cost_is_branch === true;
 
         var sellColorClass = hasBranchSell ? 'price-branch' : 'price-base';
         var costColorClass = hasBranchCost ? 'price-branch' : 'price-base';
@@ -1136,15 +992,13 @@ $(document).ready(function () {
             <td>${p.unit_of_measure || '—'}</td>
             <td>
                 ${p.cost_price !== null && p.cost_price !== ''
-                    ? `<span class="${costColorClass}" style="font-size:12px">${fmtNum(p.cost_price)}</span> ${priceSrcPill(hasBranchCost)}`
+                    ? `<span class="${costColorClass}" style="font-size:12px">${fmtNum(p.cost_price)}</span>`
                     : '<span class="text-muted" style="font-size:12px">—</span>'}
             </td>
             <td>
                 <span class="${sellColorClass}" style="font-size:12px">${fmtNum(p.selling_price)}</span>
-                ${priceSrcPill(hasBranchSell)}
             </td>
             <td><span class="${sc}">${fmtNum(sq,0)}</span></td>
-            <td>${taxBadge}</td>
             <td>${parseInt(p.is_active)===1 ? '<span class="badge bg-success" style="font-size:11px">Active</span>' : '<span class="badge bg-danger" style="font-size:11px">Inactive</span>'}</td>
             <td>
                 <a href="#" class="viewDataBtn"
@@ -1158,7 +1012,6 @@ $(document).ready(function () {
                    data-stock="${p.stock_quantity}" data-reorder="${p.reorder_point}"
                    data-reorder-qty="${p.reorder_quantity!==null?p.reorder_quantity:''}"
                    data-max="${p.max_stock!==null?p.max_stock:''}"
-                   data-tax="${d(taxId)}" data-tax-override="${d(p.mra_tax_rate_id_override)}"
                    data-active="${p.is_active}" data-track="${p.track_stock}"
                    data-neg="${p.allow_negative_stock}" data-pinned="${p.is_pinned_on_pos}"
                    data-branch-sell="${hasBranchSell?1:0}" data-branch-cost="${hasBranchCost?1:0}"
@@ -1176,7 +1029,6 @@ $(document).ready(function () {
                    data-max="${p.max_stock!==null?p.max_stock:''}"
                    data-barcode="${d(p.primary_barcode)}" data-batch="${d(p.batch_number)}"
                    data-expiry="${d(p.expiry_date)}"
-                   data-tax-override="${d(p.mra_tax_rate_id_override)}"
                    data-active="${p.is_active}" data-track="${p.track_stock}"
                    data-neg="${p.allow_negative_stock}" data-pinned="${p.is_pinned_on_pos}"
                    data-sort="${p.pos_sort_order}">
@@ -1190,7 +1042,6 @@ $(document).ready(function () {
         </tr>`;
     }
 
-    // ── Selected count & bulk bar ─────────────────────────────────────────
     function updateSelectedCount() {
         var count = $('.selectRow:checked').length;
         $('#selectedCount').text(count);
@@ -1204,7 +1055,7 @@ $(document).ready(function () {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DataTable (only when branch selected)
+    //  DataTable
     // ════════════════════════════════════════════════════════════════════════
     @if($selectedBranch)
 
@@ -1233,15 +1084,8 @@ $(document).ready(function () {
     window._dt = table;
     table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-    // ════════════════════════════════════════════════════════════════════════
-    //  SHOP VALUE BUTTON
-    // ════════════════════════════════════════════════════════════════════════
-    $('#shopValueBtn').on('click', function(e) { e.preventDefault(); $('#shopValueModal').modal('show'); });
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  PRICING INFO BUTTON
-    // ════════════════════════════════════════════════════════════════════════
-    $('#pricingInfoBtn').on('click', function(e) { e.preventDefault(); $('#pricingInfoModal').modal('show'); });
+    $('#shopValueBtn').on('click',  function(e) { e.preventDefault(); $('#shopValueModal').modal('show'); });
+    $('#pricingInfoBtn').on('click',function(e) { e.preventDefault(); $('#pricingInfoModal').modal('show'); });
 
     // ════════════════════════════════════════════════════════════════════════
     //  ADD PRODUCT
@@ -1309,19 +1153,15 @@ $(document).ready(function () {
     $(document).on('click', '.search-result-item', function() {
         var id   = $(this).data('id');
         if (pendingItems[id]) return;
-
         var name = $(this).data('name');
         var code = $(this).data('code');
         var unit = $(this).data('unit');
         var sell = $(this).data('sell');
         var cost = $(this).data('cost');
-
         pendingItems[id] = { id:id, name:name, code:code, unit:unit, sell:sell, cost:cost };
-
         var rowId = 'prow_'+id;
         var meta  = [code, unit].filter(Boolean).join(' · ');
         var priceDisplay = sell ? 'MWK '+parseFloat(sell).toLocaleString('en-US',{minimumFractionDigits:2}) : '';
-
         var html = `<div class="inline-add-row" id="${rowId}">
             <div class="flex-fill">
                 <div class="ia-name">${name}</div>
@@ -1372,7 +1212,6 @@ $(document).ready(function () {
                 </div>
             </div>
         </div>`;
-
         $('#pendingItemsList').append(html);
         $('#pendingItemsWrap').show();
         $('#baseProductSearch').val('');
@@ -1415,7 +1254,6 @@ $(document).ready(function () {
         $('#new-stock-qty').val('0');
         $('#new-unit-of-measure').val('Each');
         $('#new-supplier').val('');
-        $('#new-tax-rate').val('A');
     }
 
     $('#cancelAddBtn').on('click', function(e) {
@@ -1428,16 +1266,11 @@ $(document).ready(function () {
 
     $('#submitAddBtn').on('click', function(e) {
         e.preventDefault();
-
         var activeTab = $('#addProductModal .nav-link.active').attr('data-bs-target');
 
         if (activeTab === '#at1') {
             var ids = Object.keys(pendingItems);
-            if (!ids.length) {
-                toastr.warning('Please search and select at least one product.', 'Required');
-                return;
-            }
-
+            if (!ids.length) { toastr.warning('Please search and select at least one product.', 'Required'); return; }
             for (var i = 0; i < ids.length; i++) {
                 var pid = ids[i];
                 var sellInput = $('#md_sell_'+pid).val();
@@ -1448,12 +1281,9 @@ $(document).ready(function () {
                     return;
                 }
             }
-
             var self = $(this); self.prop('disabled', true);
             $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-
             var total = ids.length, done = 0, succeeded = 0;
-
             function addNext(index) {
                 if (index >= ids.length) {
                     self.prop('disabled', false);
@@ -1474,7 +1304,6 @@ $(document).ready(function () {
                 var item = pendingItems[pid];
                 var sellInput = $('#md_sell_'+pid).val();
                 var sellPrice = sellInput && parseFloat(sellInput) >= 0 ? sellInput : item.sell;
-
                 $.ajax({
                     type:'POST', url:'{{ route("retail.operations.branchproducts.upsert") }}',
                     data:{
@@ -1513,7 +1342,6 @@ $(document).ready(function () {
                     complete: function() { addNext(index + 1); }
                 });
             }
-
             addNext(0);
 
         } else {
@@ -1521,24 +1349,19 @@ $(document).ready(function () {
             if (!name) { toastr.warning('Product name is required.', 'Required'); $('#new-name').focus(); return; }
             var sell = $('#new-selling-price').val();
             if (!sell || parseFloat(sell) < 0) { toastr.warning('Selling price is required.', 'Required'); $('#new-selling-price').focus(); return; }
-
             var self = $(this); self.prop('disabled', true);
             $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-
             $.ajax({
                 type:'POST', url:'{{ route("retail.operations.baseproducts.insert") }}',
                 data:{
-                    name:                    name,
-                    default_selling_price:   sell,
-                    default_cost_price:      $('#new-cost-price').val(),
-                    unit_of_measure:         $('#new-unit-of-measure').val() || 'Each',
-                    internal_code:           $('#new-internal-code').val(),
-                    supplier:                $('#new-supplier').val(),
-                    mra_tax_rate_id:         $('#new-tax-rate').val(),
-                    category:                @json($branchCategory->category ?? ''),
-                    is_product:              1,
-                    is_vat_exempt_by_nature: 0,
-                    is_active:               1,
+                    name:                  name,
+                    default_selling_price: sell,
+                    default_cost_price:    $('#new-cost-price').val(),
+                    unit_of_measure:       $('#new-unit-of-measure').val() || 'Each',
+                    internal_code:         $('#new-internal-code').val(),
+                    supplier:              $('#new-supplier').val(),
+                    category:              @json($branchCategory->category ?? ''),
+                    is_active:             1,
                     _token: '{{ csrf_token() }}'
                 },
                 timeout:60000,
@@ -1574,7 +1397,6 @@ $(document).ready(function () {
                                     $('#new-stock-qty').val('0');
                                     $('#new-unit-of-measure').val('Each');
                                     $('#new-supplier').val('');
-                                    $('#new-tax-rate').val('A');
                                     $('#addSuccessText').text('Product "'+name+'" added.');
                                     $('#addSuccessNotice').show();
                                     $('#new-name').focus();
@@ -1609,7 +1431,6 @@ $(document).ready(function () {
             cost:b.data('cost'), sell:b.data('sell'), wholesale:b.data('wholesale'),
             stock:b.data('stock'), reorder:b.data('reorder'),
             reorderQty:b.data('reorder-qty'), max:b.data('max'),
-            tax:b.data('tax'), taxOverride:b.data('tax-override'),
             active:b.data('active'), track:b.data('track'),
             neg:b.data('neg'), pinned:b.data('pinned'),
             branchSell:b.data('branch-sell'), branchCost:b.data('branch-cost'),
@@ -1621,26 +1442,21 @@ $(document).ready(function () {
         $('#vw-name').text(_viewData.name);
         $('#vw-code-line').text(_viewData.code ? 'Code: '+_viewData.code : '');
 
-        var tc = taxBadgeClass(_viewData.tax);
         var badges = '';
-        if (_viewData.tax) badges += '<span class="badge tax-badge '+tc+'">'+_viewData.tax+'</span>';
         badges += parseInt(_viewData.active)===1 ? '<span class="badge bg-success">Active</span>' : '<span class="badge bg-danger">Inactive</span>';
         if (parseInt(_viewData.pinned)===1) badges += '<span class="badge bg-warning text-dark">POS Pinned</span>';
         $('#vw-badges').html(badges);
 
-        $('#vw-sell-src-badge').html(priceSrcPill(parseInt(_viewData.branchSell)===1));
-        $('#vw-cost-src-badge').html(priceSrcPill(parseInt(_viewData.branchCost)===1));
-
         var noticeParts = [];
         if (parseInt(_viewData.branchSell)===1) {
-            noticeParts.push('Selling price is a branch-specific override.');
+            noticeParts.push('Selling price is a <strong>branch-specific override</strong> (shown in blue).');
         } else {
-            noticeParts.push('Selling price is inherited from the base product' + (_viewData.bpSell ? ' (default: MWK '+parseFloat(_viewData.bpSell).toLocaleString('en-US',{minimumFractionDigits:2})+')' : '') + '.');
+            noticeParts.push('Selling price is inherited from the base product' + (_viewData.bpSell ? ' (default: MWK '+parseFloat(_viewData.bpSell).toLocaleString('en-US',{minimumFractionDigits:2})+')' : '') + ' (shown in green).');
         }
         if (parseInt(_viewData.branchCost)===1) {
-            noticeParts.push('Cost price is a branch-specific override.');
+            noticeParts.push('Cost price is a <strong>branch-specific override</strong> (shown in blue).');
         } else {
-            noticeParts.push('Cost price is inherited from the base product.');
+            noticeParts.push('Cost price is inherited from the base product (shown in green).');
         }
         $('#vw-price-notice-text').html(noticeParts.join(' '));
         $('#vw-price-notice').show();
@@ -1648,7 +1464,6 @@ $(document).ready(function () {
         $('#vw-sell').text(fmtNum(_viewData.sell));
         $('#vw-cost').text(fmtNum(_viewData.cost));
         $('#vw-wholesale').html(mv(fmtNum(_viewData.wholesale)));
-        $('#vw-tax').html(_viewData.tax ? '<span class="badge tax-badge '+tc+'">'+_viewData.tax+'</span> '+(TAX_LABELS[_viewData.tax]||_viewData.tax) : '<span class="text-muted fst-italic">—</span>');
 
         $('#vw-stock').html('<span class="fw-bold" style="font-size:15px">'+fmtNum(_viewData.stock,0)+'</span>');
         $('#vw-reorder').text(fmtNum(_viewData.reorder,0));
@@ -1661,9 +1476,6 @@ $(document).ready(function () {
         $('#vw-track').html(yn(_viewData.track));
         $('#vw-neg').html(yn(_viewData.neg));
         $('#vw-pinned').html(yn(_viewData.pinned));
-        $('#vw-tax-override').html(_viewData.taxOverride
-            ? '<span class="badge tax-badge '+taxBadgeClass(_viewData.taxOverride)+'">'+_viewData.taxOverride+'</span>'
-            : '<span class="text-muted fst-italic">Inherit from base</span>');
 
         $('#viewProductModal').modal('show');
     });
@@ -1678,30 +1490,22 @@ $(document).ready(function () {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    //  EDIT — populate all tabs including Tab 1 product/qty/prices
+    //  EDIT
     // ════════════════════════════════════════════════════════════════════════
     $('#tbody').on('click', '.editDataBtn', function(e) {
         e.preventDefault();
         var b = $(this);
-        var productName = b.data('name');
-        var unitName    = b.data('unit') || '—';
-
         $('#editId').val(b.data('id'));
         $('#editRow').val(b.data('row'));
-        $('#editModalName').text(productName);
-
-        // Tab 1 — product context + qty + prices
-        $('#editProductNameDisplay').text(productName);
-        $('#editUnitDisplay').text(unitName);
+        $('#editModalName').text(b.data('name'));
+        $('#editProductNameDisplay').text(b.data('name'));
+        $('#editUnitDisplay').text(b.data('unit') || '—');
         $('#editSellPrice').val(b.data('sell'));
         $('#editCostPrice').val(b.data('cost'));
         $('#editWholesalePrice').val(b.data('wholesale'));
-        // Stock fields mirrored on tab 1
         $('#editStockQtyTab1').val(b.data('stock'));
         $('#editReorderPointTab1').val(b.data('reorder'));
         $('#editMaxStockTab1').val(b.data('max'));
-
-        // Tab 2 — stock & batch (full set)
         $('#editStockQty').val(b.data('stock'));
         $('#editReorderPoint').val(b.data('reorder'));
         $('#editReorderQty').val(b.data('reorder-qty'));
@@ -1709,31 +1513,26 @@ $(document).ready(function () {
         $('#editBarcode').val(b.data('barcode'));
         $('#editBatch').val(b.data('batch'));
         $('#editExpiry').val(b.data('expiry'));
-
-        // Tab 3 — VAT & settings
-        $('#editTaxOverride').val(b.data('tax-override') || '');
         $('#editTrackStock').prop('checked', parseInt(b.data('track'))===1);
         $('#editAllowNeg').prop('checked',   parseInt(b.data('neg'))===1);
         $('#editIsActive').prop('checked',   parseInt(b.data('active'))===1);
         $('#editPinned').prop('checked',     parseInt(b.data('pinned'))===1);
         $('#editSortOrder').val(b.data('sort') || 0);
-
         $('button[data-bs-target="#et1"]').tab('show');
         $('#editDataModal').modal('show');
     });
 
-    // Keep Tab1 qty fields in sync with Tab2 (two-way mirror for stock/reorder/max)
     $('#editStockQtyTab1, #editReorderPointTab1, #editMaxStockTab1').on('input', function() {
         var which = $(this).attr('id');
-        if (which === 'editStockQtyTab1')    $('#editStockQty').val($(this).val());
+        if (which === 'editStockQtyTab1')     $('#editStockQty').val($(this).val());
         if (which === 'editReorderPointTab1') $('#editReorderPoint').val($(this).val());
-        if (which === 'editMaxStockTab1')    $('#editMaxStock').val($(this).val());
+        if (which === 'editMaxStockTab1')     $('#editMaxStock').val($(this).val());
     });
     $('#editStockQty, #editReorderPoint, #editMaxStock').on('input', function() {
         var which = $(this).attr('id');
-        if (which === 'editStockQty')    $('#editStockQtyTab1').val($(this).val());
+        if (which === 'editStockQty')     $('#editStockQtyTab1').val($(this).val());
         if (which === 'editReorderPoint') $('#editReorderPointTab1').val($(this).val());
-        if (which === 'editMaxStock')    $('#editMaxStockTab1').val($(this).val());
+        if (which === 'editMaxStock')     $('#editMaxStockTab1').val($(this).val());
     });
 
     $('#cancelEditBtn').on('click', function(e) { e.preventDefault(); $('#editDataForm')[0].reset(); $('#editDataModal').modal('hide'); });
@@ -1751,23 +1550,22 @@ $(document).ready(function () {
         $.ajax({
             type:'POST', url:'{{ route("retail.operations.branchproducts.update") }}',
             data:{
-                id:                       $('#editId').val(),
-                selling_price:            sell,
-                cost_price:               $('#editCostPrice').val(),
-                wholesale_price:          $('#editWholesalePrice').val(),
-                stock_quantity:           $('#editStockQty').val(),
-                reorder_point:            $('#editReorderPoint').val(),
-                reorder_quantity:         $('#editReorderQty').val(),
-                max_stock:                $('#editMaxStock').val(),
-                primary_barcode:          $('#editBarcode').val(),
-                batch_number:             $('#editBatch').val(),
-                expiry_date:              $('#editExpiry').val(),
-                mra_tax_rate_id_override: $('#editTaxOverride').val(),
-                track_stock:              $('#editTrackStock').prop('checked') ? 1 : 0,
-                allow_negative_stock:     $('#editAllowNeg').prop('checked')   ? 1 : 0,
-                is_active:                $('#editIsActive').prop('checked')   ? 1 : 0,
-                is_pinned_on_pos:         $('#editPinned').prop('checked')     ? 1 : 0,
-                pos_sort_order:           $('#editSortOrder').val() || 0,
+                id:                   $('#editId').val(),
+                selling_price:        sell,
+                cost_price:           $('#editCostPrice').val(),
+                wholesale_price:      $('#editWholesalePrice').val(),
+                stock_quantity:       $('#editStockQty').val(),
+                reorder_point:        $('#editReorderPoint').val(),
+                reorder_quantity:     $('#editReorderQty').val(),
+                max_stock:            $('#editMaxStock').val(),
+                primary_barcode:      $('#editBarcode').val(),
+                batch_number:         $('#editBatch').val(),
+                expiry_date:          $('#editExpiry').val(),
+                track_stock:          $('#editTrackStock').prop('checked') ? 1 : 0,
+                allow_negative_stock: $('#editAllowNeg').prop('checked')   ? 1 : 0,
+                is_active:            $('#editIsActive').prop('checked')   ? 1 : 0,
+                is_pinned_on_pos:     $('#editPinned').prop('checked')     ? 1 : 0,
+                pos_sort_order:       $('#editSortOrder').val() || 0,
                 _token: '{{ csrf_token() }}'
             },
             timeout:60000,
@@ -1864,28 +1662,6 @@ $(document).ready(function () {
     $('#bulkActivateBtn').on('click',   function(e) { e.preventDefault(); doBulkStatus(1); });
     $('#bulkDeactivateBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
 
-    $('#applyBulkTaxBtn').on('click', function(e) {
-        e.preventDefault();
-        var tax = $('#bulkTaxSelect').val();
-        var ids = getSelectedIds(); if (!ids.length) return;
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-        $.ajax({
-            type:'POST', url:'{{ route("retail.operations.branchproducts.bulktax") }}',
-            data:{ ids:ids, mra_tax_rate_id_override:tax, _token:'{{ csrf_token() }}' },
-            timeout:60000,
-            beforeSend: function() { $('#progressBar').show(); },
-            complete:   function() { $('#progressBar').hide(); },
-            success: function(data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
-                    $.each(data.products, function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
-                    table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                } else { toastr.error(data.error || 'Failed.', 'Error'); }
-            },
-            error: handleAjaxError
-        });
-    });
-
     $('#bulkDeleteBtn').on('click', function(e) {
         e.preventDefault();
         var ids = getSelectedIds(), rows = getSelectedRows();
@@ -1912,7 +1688,6 @@ $(document).ready(function () {
 
     @endif
 
-    // ── Info / Download modals ────────────────────────────────────────────
     $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
     $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
 

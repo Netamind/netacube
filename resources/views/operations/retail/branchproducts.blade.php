@@ -159,154 +159,241 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   border: 1px solid #dee2e6; border-radius: 8px; background: #fff;
   display: none; box-shadow: 0 4px 16px rgba(0,0,0,0.10);
 }
-
-/* ── Search result item ─────────────────────────────────────────────────── */
-.search-result-item {
-  border-bottom: 1px solid #f1f5f9;
-  transition: background .12s;
-}
+.search-result-item { border-bottom: 1px solid #f1f5f9; transition: background .12s; }
 .search-result-item:last-child { border-bottom: none; }
-
-.sri-row {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 10px;
-  transition: background .12s;
-}
+.sri-row { display:flex; align-items:center; gap:8px; padding:6px 10px; transition:background .12s; }
 .search-result-item:hover .sri-row { background: #eef0fa; }
-
-.sri-name {
-  flex: 1;
-  font-weight: 600;
-  font-size: 13px;
-  color: #1e293b;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.sri-name .sri-code {
-  font-weight: 400;
-  color: #64748b;
-}
-
-.sri-meta {
-  font-size: 11px;
-  color: #64748b;
-  white-space: nowrap;
-  flex-shrink: 0;
-  background: #f1f5f9;
-  padding: 2px 7px;
-  border-radius: 10px;
-  font-weight: 500;
-}
-
+.sri-name { flex:1; font-weight:600; font-size:13px; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+.sri-name .sri-code { font-weight:400; color:#64748b; }
+.sri-meta { font-size:11px; color:#64748b; white-space:nowrap; flex-shrink:0; background:#f1f5f9; padding:2px 7px; border-radius:10px; font-weight:500; }
 .sri-qty-input {
-  width: 72px;
-  text-align: center;
-  border: 1.5px solid #c8d0ed;
-  border-radius: 6px;
-  height: 30px;
-  font-size: 13px;
-  font-weight: 600;
-  padding: 0 6px;
-  flex-shrink: 0;
-  color: #1e293b;
-  background: #f8f9ff;
-  transition: border-color .15s, box-shadow .15s;
-  outline: none;
+  width:72px; text-align:center; border:1.5px solid #c8d0ed; border-radius:6px;
+  height:30px; font-size:13px; font-weight:600; padding:0 6px; flex-shrink:0;
+  color:#1e293b; background:#f8f9ff; transition:border-color .15s,box-shadow .15s; outline:none;
 }
-.sri-qty-input:focus {
-  border-color: #4B5EBD;
-  box-shadow: 0 0 0 3px rgba(75,94,189,0.12);
-  background: #fff;
-}
-.sri-qty-input:disabled { background: #f0f0f0; color: #aaa; }
-
+.sri-qty-input:focus { border-color:#4B5EBD; box-shadow:0 0 0 3px rgba(75,94,189,0.12); background:#fff; }
+.sri-qty-input:disabled { background:#f0f0f0; color:#aaa; }
 .sri-add-btn {
-  height: 30px;
-  padding: 0 14px;
-  font-size: 12px;
-  font-weight: 700;
-  letter-spacing: .3px;
-  border: none;
-  border-radius: 6px;
-  cursor: pointer;
-  flex-shrink: 0;
-  background: linear-gradient(135deg, #4B5EBD, #576CC0);
-  color: #fff;
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  box-shadow: 0 2px 6px rgba(75,94,189,0.28);
-  transition: opacity .15s, box-shadow .15s;
+  height:30px; padding:0 14px; font-size:12px; font-weight:700; letter-spacing:.3px;
+  border:none; border-radius:6px; cursor:pointer; flex-shrink:0;
+  background:linear-gradient(135deg,#4B5EBD,#576CC0); color:#fff;
+  display:flex; align-items:center; gap:4px;
+  box-shadow:0 2px 6px rgba(75,94,189,0.28); transition:opacity .15s,box-shadow .15s;
 }
-.sri-add-btn:hover:not(:disabled) {
-  opacity: .88;
-  box-shadow: 0 4px 10px rgba(75,94,189,0.35);
-}
-.sri-add-btn:disabled {
-  background: #e2e8f0 !important;
-  color: #94a3b8 !important;
-  box-shadow: none;
-  cursor: default;
-}
-
-.sri-added-msg {
-  font-size: 11px;
-  font-weight: 700;
-  color: #16a34a;
-  white-space: nowrap;
-  display: none;
-  flex-shrink: 0;
-}
-.sri-added-msg i { margin-right: 2px; }
+.sri-add-btn:hover:not(:disabled) { opacity:.88; box-shadow:0 4px 10px rgba(75,94,189,0.35); }
+.sri-add-btn:disabled { background:#e2e8f0 !important; color:#94a3b8 !important; box-shadow:none; cursor:default; }
+.sri-added-msg { font-size:11px; font-weight:700; color:#16a34a; white-space:nowrap; display:none; flex-shrink:0; }
+.sri-added-msg i { margin-right:2px; }
 
 /* ── Bulk section ────────────────────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
 .bulk-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6c757d; margin-bottom:10px; }
 
 /* ── Pricing explanation modal swatches ─────────────────────────────────── */
-.pricing-swatch {
-  display: inline-flex; align-items: center; gap: 8px;
-  padding: 8px 14px; border-radius: 8px; margin-bottom: 8px; width: 100%;
-}
-.pricing-swatch-br { background: #eff6ff; border: 1px solid #bfdbfe; }
-.pricing-swatch-bp { background: #ecfdf5; border: 1px solid #a7f3d0; }
-.pricing-swatch .swatch-dot { width: 12px; height: 12px; border-radius: 50%; flex-shrink:0; }
-.swatch-dot-br { background: #1d4ed8; }
-.swatch-dot-bp { background: #059669; }
-.pricing-swatch .swatch-label { font-size: 13px; font-weight: 600; }
-.pricing-swatch .swatch-desc  { font-size: 12px; color: #64748b; margin-top:1px; }
+.pricing-swatch { display:inline-flex; align-items:center; gap:8px; padding:8px 14px; border-radius:8px; margin-bottom:8px; width:100%; }
+.pricing-swatch-br { background:#eff6ff; border:1px solid #bfdbfe; }
+.pricing-swatch-bp { background:#ecfdf5; border:1px solid #a7f3d0; }
+.pricing-swatch .swatch-dot { width:12px; height:12px; border-radius:50%; flex-shrink:0; }
+.swatch-dot-br { background:#1d4ed8; }
+.swatch-dot-bp { background:#059669; }
+.pricing-swatch .swatch-label { font-size:13px; font-weight:600; }
+.pricing-swatch .swatch-desc  { font-size:12px; color:#64748b; margin-top:1px; }
 .price-demo-br { color:#1d4ed8; font-weight:700; font-size:13px; }
 .price-demo-bp { color:#059669; font-weight:600; font-size:13px; }
 
 /* ── Shop value metric cards ─────────────────────────────────────────────── */
-.sv-metric {
-  background: #eef0f7; border-radius: 8px; padding: 10px 12px; text-align: center;
-}
-.sv-metric .sv-label { font-size: 11px; color: #6c757d; margin-bottom: 4px; }
-.sv-metric .sv-value { font-size: 20px; font-weight: 600; }
-
-/* ── Edit modal read-only fields ────────────────────────────────────────── */
-.edit-readonly-field {
-  background: #f8f9fa !important; color: #495057 !important;
-  border-color: #dee2e6 !important; cursor: default !important;
-}
-
-/* ── Price source radio buttons ─────────────────────────────────────────── */
-.price-source-toggle { display: flex; gap: 8px; margin-bottom: 10px; }
-.price-source-btn {
-  flex: 1; padding: 7px 10px; border-radius: 7px; border: 2px solid #dee2e6;
-  background: #fff; font-size: 12px; font-weight: 600; cursor: pointer;
-  text-align: center; transition: all .15s; user-select: none;
-}
-.price-source-btn.active-base   { border-color: #059669; background: #ecfdf5; color: #059669; }
-.price-source-btn.active-branch { border-color: #1d4ed8; background: #eff6ff; color: #1d4ed8; }
-.price-source-btn:not(.active-base):not(.active-branch) { color: #6c757d; }
+.sv-metric { background:#eef0f7; border-radius:8px; padding:10px 12px; text-align:center; }
+.sv-metric .sv-label { font-size:11px; color:#6c757d; margin-bottom:4px; }
+.sv-metric .sv-value { font-size:20px; font-weight:600; }
 
 /* ── Spinner ─────────────────────────────────────────────────────────────── */
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+
+/* ══════════════════════════════════════════════════════════════════════════
+   EDIT MODAL — improved tab navigation
+══════════════════════════════════════════════════════════════════════════ */
+#editModalTabs {
+  display: flex;
+  gap: 0;
+  background: #f1f3f9;
+  padding: 10px 18px 0;
+  border-bottom: 1.5px solid #dde1f0;
+  margin: 0;
+  list-style: none;
+}
+
+#editModalTabs .nav-item { margin: 0; }
+
+#editModalTabs .nav-link {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 500;
+  color: #94a3b8;
+  padding: 7px 16px 9px;
+  border: none;
+  background: none;
+  border-radius: 6px 6px 0 0;
+  border-bottom: 2px solid transparent;
+  margin-bottom: -1.5px;
+  cursor: pointer;
+  transition: color .15s, background .15s;
+  text-decoration: none;
+}
+
+#editModalTabs .nav-link i {
+  font-size: 14px;
+  opacity: .6;
+  transition: opacity .15s;
+}
+
+#editModalTabs .nav-link:hover:not(.active) {
+  color: #4B5EBD;
+  background: rgba(75,94,189,0.06);
+}
+
+#editModalTabs .nav-link.active {
+  color: #4B5EBD;
+  background: #fff;
+  border-bottom: 2px solid #4B5EBD;
+  font-weight: 600;
+}
+
+#editModalTabs .nav-link.active i { opacity: 1; }
+
+.edit-tab-badge {
+  font-size: 10px;
+  font-weight: 500;
+  padding: 1px 7px;
+  border-radius: 20px;
+  background: #e8eaf6;
+  color: #6c757d;
+  line-height: 1.6;
+  border: 0.5px solid #d0d4ee;
+  transition: background .15s, color .15s, border-color .15s;
+}
+
+#editModalTabs .nav-link.active .edit-tab-badge {
+  background: #eff3ff;
+  color: #4B5EBD;
+  border-color: #c7d0f5;
+}
+
+/* ── Edit modal read-only fields ────────────────────────────────────────── */
+.edit-readonly-field {
+  background:#f8f9fa !important; color:#6c757d !important;
+  border-color:#dee2e6 !important; cursor:default !important;
+}
+
+/* ── Subtle link to other tab ───────────────────────────────────────────── */
+.edit-tab-crosslink {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 11px;
+  color: #4B5EBD;
+  text-decoration: none;
+  margin-bottom: 14px;
+}
+.edit-tab-crosslink:hover { text-decoration: underline; color: #3d4fa0; }
+
+/* ── Price source card toggle ───────────────────────────────────────────── */
+.price-source-toggle {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+
+.price-source-card {
+  border: 0.5px solid #dee2e6;
+  border-radius: 8px;
+  padding: 10px 12px;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+  user-select: none;
+}
+.price-source-card:hover { border-color: #adb5bd; }
+
+.price-source-card.active-base {
+  border: 1.5px solid #059669;
+  background: #f0fdf4;
+}
+.price-source-card.active-branch {
+  border: 1.5px solid #1d4ed8;
+  background: #eff6ff;
+}
+
+.psc-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: #374151;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-bottom: 3px;
+}
+.psc-dot {
+  width: 7px; height: 7px;
+  border-radius: 50%;
+  display: inline-block;
+}
+.psc-value {
+  font-size: 15px;
+  font-weight: 600;
+  color: #9ca3af;
+}
+.price-source-card.active-base   .psc-value { color: #059669; }
+.price-source-card.active-branch .psc-value { color: #1d4ed8; }
+
+.psc-desc {
+  font-size: 11px;
+  color: #9ca3af;
+  margin-top: 2px;
+}
+
+/* ── Contextual price hint strip ────────────────────────────────────────── */
+.price-context-hint {
+  font-size: 11px;
+  padding: 7px 10px;
+  border-radius: 6px;
+  margin-bottom: 12px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
+.pch-base   { background: #f0fdf4; color: #065f46; }
+.pch-branch { background: #eff6ff; color: #1e40af; }
+
+/* ── Edit section titles ────────────────────────────────────────────────── */
+.edit-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: .7px;
+  color: #6c757d;
+  margin-bottom: 8px;
+  margin-top: 4px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+}
+
+/* ── Base product tab warning ────────────────────────────────────────────── */
+.bp-edit-warning {
+  background: #fffbeb;
+  border-left: 2px solid #f59e0b;
+  border-radius: 0 5px 5px 0;
+  padding: 8px 12px;
+  font-size: 11px;
+  color: #92400e;
+  margin-bottom: 14px;
+  display: flex;
+  align-items: flex-start;
+  gap: 6px;
+}
 </style>
 
 <div class="progress" id="progressBar" role="progressbar"
@@ -454,7 +541,9 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                  data-id="{{ $bp->id }}"
                  data-row="{{ $row }}"
                  data-name="{{ $bp->name }}"
+                 data-code="{{ $bp->code }}"
                  data-unit="{{ $bp->unit }}"
+                 data-supplier="{{ $bp->supplier }}"
                  data-barcode="{{ $bp->primary_barcode }}"
                  data-batch="{{ $bp->batch_number }}"
                  data-expiry="{{ $bp->expiry_date }}"
@@ -470,7 +559,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                  data-sell-is-branch="{{ $sellIsBranch ? 1 : 0 }}"
                  data-cost-is-branch="{{ $costIsBranch ? 1 : 0 }}"
                  data-bp-sell="{{ $bp->bp_sell }}"
-                 data-bp-cost="{{ $bp->bp_cost }}">
+                 data-bp-cost="{{ $bp->bp_cost }}"
+                 data-base-product-id="{{ $bp->base_product_id }}">
                 <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
               </a>
               <a href="#" class="deleteDataBtn"
@@ -563,7 +653,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       </div>
       <div class="modal-body" style="padding:20px 22px !important;">
         <p style="font-size:13px;color:#475569;margin-bottom:16px;">
-          Each product's selling and cost price can come from two sources. The colour tells you which applies.
+          Each product's selling price can come from two sources. The colour tells you which applies.
         </p>
         <div class="pricing-swatch pricing-swatch-br">
           <span class="swatch-dot swatch-dot-br"></span>
@@ -590,7 +680,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <hr style="margin:16px 0 12px;">
         <div style="background:#f8fafc;border-radius:8px;padding:12px 14px;font-size:12px;color:#475569;">
           <strong><i class="ri-lightbulb-line me-1 text-warning"></i>Tip:</strong>
-          To set a branch-specific price, open <strong>Edit</strong> and choose <em>Use Branch Price</em> then save.
+          To set a branch-specific price, open <strong>Edit</strong> and choose <em>This branch only</em> then save.
           It will show in <span style="color:#1d4ed8;font-weight:700">blue</span>;
           prices using the base default show in <span style="color:#059669;font-weight:700">green</span>.
         </div>
@@ -701,49 +791,26 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <div class="tab-pane fade" id="at2" role="tabpanel">
             <div class="alert alert-info border-0 py-2 px-3 mb-3" style="font-size:12px;border-radius:6px;">
               <i class="ri-information-line me-1"></i>
-              This product will be added to the <strong>base catalogue</strong> and immediately assigned to
+              Creates a new product in the <strong>base catalogue</strong> and assigns it to
               <strong>{{ $selectedBranch->name ?? 'this branch' }}</strong>.
             </div>
-
-            <div class="row g-2 mb-2">
-              <div class="col-4">
-                <label class="form-label fw-semibold" style="font-size:12px">Selling Price (MWK) <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="new-selling-price" placeholder="0.00" />
-              </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" style="font-size:12px">Cost Price (MWK)</label>
-                <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="new-cost-price" placeholder="0.00" />
-              </div>
-              <div class="col-4">
-                <label class="form-label fw-semibold" style="font-size:12px">Opening Stock</label>
-                <input class="form-control form-control-sm" type="number" step="0.001" min="0" id="new-stock-qty" placeholder="0" value="0" />
-              </div>
-            </div>
-
-            <hr class="my-2">
-
             <div class="mb-2">
-              <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
+              <label class="form-label fw-semibold" style="font-size:13px">
+                Product Name <span class="text-danger">*</span>
+              </label>
               <input class="form-control form-control-sm" type="text" id="new-name"
                      placeholder="e.g. Cooking Oil 2L" autocomplete="off" />
             </div>
             <div class="row g-2 mb-2">
               <div class="col-6">
-                <label class="form-label fw-semibold" style="font-size:12px">Unit of Measure</label>
-                <input class="form-control form-control-sm" type="text" id="new-unit"
-                       list="newUnitOptions" placeholder="Each, kg, Litre…" value="Each" autocomplete="off" />
-                <datalist id="newUnitOptions">
-                  <option value="Each"><option value="kg"><option value="g">
-                  <option value="Litre"><option value="ml"><option value="Box">
-                  <option value="Carton"><option value="Pack"><option value="Pair">
-                  <option value="Dozen"><option value="Bag"><option value="Bottle">
-                  <option value="Metre"><option value="Service">
-                </datalist>
-              </div>
-              <div class="col-6">
                 <label class="form-label fw-semibold" style="font-size:12px">Product Code</label>
                 <input class="form-control form-control-sm" type="text" id="new-code"
                        placeholder="e.g. OIL-001" autocomplete="off" />
+              </div>
+              <div class="col-6">
+                <label class="form-label fw-semibold" style="font-size:12px">Unit of Measure</label>
+                <input class="form-control form-control-sm" type="text" id="new-unit"
+                       placeholder="Each, kg, Litre…" value="Each" autocomplete="off" />
               </div>
             </div>
             <div class="mb-2">
@@ -755,13 +822,35 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 @endforeach
               </select>
             </div>
-
+            <div class="row g-2 mb-2">
+              <div class="col-4">
+                <label class="form-label fw-semibold" style="font-size:12px">
+                  Selling Price (MWK) <span class="text-danger">*</span>
+                  <span class="badge bg-success ms-1" style="font-size:9px;font-weight:600;">Catalogue default</span>
+                </label>
+                <input class="form-control form-control-sm" type="number"
+                       step="0.01" min="0" id="new-selling-price" placeholder="0.00" />
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" style="font-size:12px">
+                  Cost Price (MWK)
+                  <span class="badge bg-success ms-1" style="font-size:9px;font-weight:600;">Catalogue default</span>
+                </label>
+                <input class="form-control form-control-sm" type="number"
+                       step="0.01" min="0" id="new-cost-price" placeholder="0.00" />
+              </div>
+              <div class="col-4">
+                <label class="form-label fw-semibold" style="font-size:12px">Opening Stock</label>
+                <input class="form-control form-control-sm" type="number"
+                       step="0.001" min="0" id="new-stock-qty" placeholder="0" value="0" />
+              </div>
+            </div>
             <div class="d-flex justify-content-end mt-3 gap-2">
               <a href="#" class="btn btn-secondary btn-sm" id="cancelAddBtn">
                 <i class="ri-close-line"></i> Close
               </a>
               <a href="#" class="btn btn-success btn-sm" id="submitAddBtn">
-                <i class="ri-check-line"></i> Save to Branch
+                <i class="ri-check-line"></i> Save to Catalogue &amp; Branch
               </a>
             </div>
             <div id="addSuccessNotice" class="mt-2" style="font-size:12px;color:#198754;display:none;">
@@ -777,7 +866,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <i class="ri-close-line"></i> Close
         </button>
       </div>
-
     </div>
   </div>
 </div>
@@ -800,13 +888,11 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           </div>
           <div id="vw-badges" class="d-flex gap-2 flex-wrap justify-content-end"></div>
         </div>
-
         <div id="vw-price-notice" class="mb-3"
              style="background:#f0f3ff;border-left:3px solid #4B5EBD;border-radius:0 5px 5px 0;padding:7px 12px;font-size:11px;color:#3a4a9a;display:none;">
           <i class="ri-information-line me-1"></i>
           <span id="vw-price-notice-text"></span>
         </div>
-
         <ul class="nav nav-tabs nav-sm mb-3" role="tablist" style="font-size:12px;">
           <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t1"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
           <li class="nav-item"><button class="nav-link py-1 px-2"        data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-stack-line me-1"></i>Stock</button></li>
@@ -815,14 +901,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <div class="tab-content">
           <div class="tab-pane fade show active" id="vw-t1">
             <div class="view-grid">
-              <div class="view-item">
-                <label>Selling Price (MWK)</label>
-                <div class="view-val price-cell" id="vw-sell"></div>
-              </div>
-              <div class="view-item">
-                <label>Cost Price (MWK)</label>
-                <div class="view-val" id="vw-cost"></div>
-              </div>
+              <div class="view-item"><label>Selling Price (MWK)</label><div class="view-val price-cell" id="vw-sell"></div></div>
+              <div class="view-item"><label>Cost Price (MWK)</label><div class="view-val" id="vw-cost"></div></div>
             </div>
           </div>
           <div class="tab-pane fade" id="vw-t2">
@@ -855,157 +935,279 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL
+     EDIT MODAL — Tab 1: Branch Product  |  Tab 2: Base Product Info
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
+  <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+
       <div class="modal-header mh-blue">
-        <h5 class="modal-title mh-title"><i class="ri-edit-box-line"></i> Edit Branch Product — <span id="editModalName"></span></h5>
+        <h5 class="modal-title mh-title">
+          <i class="ri-edit-box-line"></i> Edit — <span id="editModalName"></span>
+        </h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <ul class="nav nav-tabs border-bottom px-2 pt-2" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
-        <li class="nav-item"><button class="nav-link active px-2 py-1" data-bs-toggle="tab" data-bs-target="#et1" type="button"><i class="ri-money-dollar-circle-line me-1"></i>Prices &amp; Stock</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#et2" type="button"><i class="ri-information-line me-1"></i>Product Details</button></li>
-        <li class="nav-item"><button class="nav-link px-2 py-1"        data-bs-toggle="tab" data-bs-target="#et3" type="button"><i class="ri-settings-3-line me-1"></i>Settings</button></li>
+      {{-- ── Improved tab navigation ─────────────────────────────────────── --}}
+      <ul class="nav" id="editModalTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+          <button class="nav-link active" id="tab-branch-lnk"
+                  data-bs-toggle="tab" data-bs-target="#tab-branch"
+                  type="button" role="tab">
+            <i class="ri-store-2-line"></i>
+            Branch product
+            <span class="edit-tab-badge" id="editTabBranchBadge">{{ $selectedBranch->name ?? 'Branch' }}</span>
+          </button>
+        </li>
+        <li class="nav-item" role="presentation">
+          <button class="nav-link" id="tab-base-lnk"
+                  data-bs-toggle="tab" data-bs-target="#tab-base"
+                  type="button" role="tab">
+            <i class="ri-database-line"></i>
+            Base product info
+            <span class="edit-tab-badge">Catalogue</span>
+          </button>
+        </li>
       </ul>
 
-      <div class="modal-body" style="padding:14px 18px 8px !important;">
-        <form id="editDataForm">
-          @csrf
-          <input type="hidden" id="editId">
-          <input type="hidden" id="editRow">
+      <div class="modal-body" style="padding:14px 18px 10px !important;">
+        <div class="tab-content">
 
-          <div class="tab-content">
+          {{-- ════ TAB 1 — Branch-level fields ════ --}}
+          <div class="tab-pane fade show active" id="tab-branch" role="tabpanel">
+            <form id="editDataForm">
+              @csrf
+              <input type="hidden" id="editId">
+              <input type="hidden" id="editRow">
+              <input type="hidden" id="editBaseProductId">
 
-            {{-- ════ Tab 1: Prices & Stock ════ --}}
-            <div class="tab-pane fade show active" id="et1" role="tabpanel">
-              <div class="row g-2 mb-3 mt-1">
+              {{-- Read-only product identity --}}
+              <div class="row g-2 mb-1">
                 <div class="col-6">
                   <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Product</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-name" readonly tabindex="-1" />
+                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="edit-ro-name" readonly tabindex="-1" />
                 </div>
                 <div class="col-3">
                   <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Unit</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-unit" readonly tabindex="-1" />
+                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="edit-ro-unit" readonly tabindex="-1" />
                 </div>
                 <div class="col-3">
                   <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Code</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-code" readonly tabindex="-1" />
+                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="edit-ro-code" readonly tabindex="-1" />
                 </div>
               </div>
 
-              <hr class="my-2">
+              {{-- Subtle cross-link to base tab --}}
+              <a href="#" class="edit-tab-crosslink mb-2" id="goToBaseTabLink">
+                <i class="ri-arrow-right-s-line"></i>
+                Edit name, unit or code in the Base product info tab
+              </a>
 
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:12px;color:#374151;">Price Source</label>
-                <div class="price-source-toggle">
-                  <div class="price-source-btn" id="priceSourceBase" onclick="setPriceSource('base')">
-                    <i class="ri-database-line me-1"></i>Use Base Product Price
-                    <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.8;">Inherits from catalogue (shown in green)</div>
+              <hr style="border:none;border-top:0.5px solid #e9ecef;margin:10px 0 12px;">
+
+              {{-- ── Selling Price ───────────────────────────────────────── --}}
+              <div class="edit-section-title"><i class="ri-coin-line me-1"></i>Selling Price</div>
+
+              <div class="price-source-toggle">
+
+                {{-- Card A: Base catalogue --}}
+                <div class="price-source-card active-base" id="priceSourceBase" onclick="setPriceSource('base')">
+                  <div class="psc-label">
+                    <span class="psc-dot" id="dotBase" style="background:#059669;"></span>
+                    Base catalogue
                   </div>
-                  <div class="price-source-btn" id="priceSourceBranch" onclick="setPriceSource('branch')">
-                    <i class="ri-store-2-line me-1"></i>Use Branch Price
-                    <div style="font-size:10px;font-weight:400;margin-top:2px;opacity:.8;">Override for this branch (shown in blue)</div>
+                  <div class="psc-value" id="pscBaseVal">—</div>
+                  <div class="psc-desc">Inherited · all branches</div>
+                </div>
+
+                {{-- Card B: Branch override --}}
+                <div class="price-source-card" id="priceSourceBranch" onclick="setPriceSource('branch')">
+                  <div class="psc-label">
+                    <span class="psc-dot" id="dotBranch" style="background:#1d4ed8;opacity:.3;"></span>
+                    This branch only
                   </div>
+                  <div class="psc-value" id="pscBranchVal" style="color:#9ca3af;">—</div>
+                  <div class="psc-desc">Override for this branch</div>
                 </div>
-                <div id="priceBaseHint" class="alert border-0 py-2 px-3"
-                     style="background:#ecfdf5;border-left:3px solid #059669 !important;border-radius:0 5px 5px 0;font-size:11px;color:#065f46;display:none;">
-                  <i class="ri-information-line me-1"></i>
-                  Prices are inherited from the base product. Saving will clear any branch-specific override.
-                </div>
+
               </div>
 
+              {{-- Contextual hint — updates when toggle changes --}}
+              <div class="price-context-hint pch-base" id="priceContextHint">
+                <i class="ri-information-line" style="font-size:13px;flex-shrink:0;margin-top:1px;"></i>
+                <span id="priceContextHintText"></span>
+              </div>
+
+              {{-- Branch price inputs — shown only when branch override selected --}}
               <div id="branchPriceFields" style="display:none;">
                 <div class="row g-2 mb-2">
                   <div class="col-6">
-                    <label class="form-label fw-semibold" style="font-size:13px">Selling Price <span class="text-danger">*</span> <small class="text-muted">(MWK)</small></label>
+                    <label class="form-label fw-semibold" style="font-size:12px">Selling Price <span class="text-danger">*</span> <small class="text-muted">(MWK)</small></label>
                     <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editSellPrice" placeholder="0.00" />
                   </div>
                   <div class="col-6">
-                    <label class="form-label fw-semibold" style="font-size:13px">Cost Price <small class="text-muted">(MWK)</small></label>
+                    <label class="form-label fw-semibold" style="font-size:12px">Cost Price <small class="text-muted">(MWK)</small></label>
                     <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editCostPrice" placeholder="0.00" />
                   </div>
                 </div>
-                <div class="alert border-0 py-2 px-3 mb-2"
-                     style="background:#eff6ff;border-left:3px solid #1d4ed8 !important;border-radius:0 5px 5px 0;font-size:11px;color:#1e40af;">
-                  <i class="ri-information-line me-1"></i>
-                  Branch-specific prices override the base catalogue and display in <span style="color:#1d4ed8;font-weight:700">blue</span>.
-                </div>
               </div>
 
-              <hr class="my-2">
+              <hr style="border:none;border-top:0.5px solid #e9ecef;margin:10px 0 12px;">
 
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6c757d;margin-bottom:8px;">
-                <i class="ri-stack-line me-1"></i> Stock
-              </div>
+              {{-- Stock --}}
+              <div class="edit-section-title"><i class="ri-stack-line me-1"></i>Stock</div>
               <div class="row g-2 mb-2">
-                <div class="col-3"><label class="form-label fw-semibold" style="font-size:12px">Stock Qty</label><input class="form-control form-control-sm" type="number" step="0.001" id="editStockQty" /></div>
-                <div class="col-3"><label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label><input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editReorderPoint" /></div>
-                <div class="col-3"><label class="form-label fw-semibold" style="font-size:12px">Reorder Qty</label><input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editReorderQty" /></div>
-                <div class="col-3"><label class="form-label fw-semibold" style="font-size:12px">Max Stock</label><input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editMaxStock" /></div>
+                <div class="col-3">
+                  <label class="form-label fw-semibold" style="font-size:12px">Stock Qty</label>
+                  <input class="form-control form-control-sm" type="number" step="0.001" id="editStockQty" />
+                </div>
+                <div class="col-3">
+                  <label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label>
+                  <input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editReorderPoint" />
+                </div>
+                <div class="col-3">
+                  <label class="form-label fw-semibold" style="font-size:12px">Reorder Qty</label>
+                  <input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editReorderQty" />
+                </div>
+                <div class="col-3">
+                  <label class="form-label fw-semibold" style="font-size:12px">Max Stock</label>
+                  <input class="form-control form-control-sm" type="number" step="0.001" min="0" id="editMaxStock" />
+                </div>
               </div>
-            </div>
 
-            {{-- ════ Tab 2: Product Details ════ --}}
-            <div class="tab-pane fade" id="et2" role="tabpanel">
-              <div class="row g-2 mt-1 mb-2">
-                <div class="col-12">
-                  <label class="form-label fw-semibold" style="font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Product Name</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et2-name" readonly tabindex="-1" />
+              <hr style="border:none;border-top:0.5px solid #e9ecef;margin:10px 0 12px;">
+
+              {{-- Barcode & Batch --}}
+              <div class="edit-section-title"><i class="ri-qr-code-line me-1"></i>Barcode &amp; Batch</div>
+              <div class="row g-2 mb-2">
+                <div class="col-4">
+                  <label class="form-label fw-semibold" style="font-size:12px">Primary Barcode</label>
+                  <input class="form-control form-control-sm" type="text" id="editBarcode" autocomplete="off" />
                 </div>
                 <div class="col-4">
-                  <label class="form-label fw-semibold" style="font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Unit</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et2-unit" readonly tabindex="-1" />
+                  <label class="form-label fw-semibold" style="font-size:12px">Batch / Lot Number</label>
+                  <input class="form-control form-control-sm" type="text" id="editBatch" autocomplete="off" />
                 </div>
                 <div class="col-4">
-                  <label class="form-label fw-semibold" style="font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Code</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et2-code" readonly tabindex="-1" />
-                </div>
-                <div class="col-4">
-                  <label class="form-label fw-semibold" style="font-size:12px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Supplier</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et2-supplier" readonly tabindex="-1" />
+                  <label class="form-label fw-semibold" style="font-size:12px">Expiry Date</label>
+                  <input class="form-control form-control-sm" type="date" id="editExpiry" />
                 </div>
               </div>
-              <div class="alert border-0 py-2 px-3 mb-2"
-                   style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
-                <i class="ri-information-line me-1"></i>
-                Product name, unit, code and supplier are defined in the base catalogue and cannot be changed here.
-              </div>
-              <hr class="my-2">
-              <div style="font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.7px;color:#6c757d;margin-bottom:8px;">
-                <i class="ri-qr-code-line me-1"></i> Barcode &amp; Batch
-              </div>
+
+              <hr style="border:none;border-top:0.5px solid #e9ecef;margin:10px 0 12px;">
+
+              {{-- Settings --}}
+              <div class="edit-section-title"><i class="ri-settings-3-line me-1"></i>Settings</div>
               <div class="row g-2">
-                <div class="col-4"><label class="form-label fw-semibold" style="font-size:12px">Primary Barcode</label><input class="form-control form-control-sm" type="text" id="editBarcode" autocomplete="off" /></div>
-                <div class="col-4"><label class="form-label fw-semibold" style="font-size:12px">Batch / Lot Number</label><input class="form-control form-control-sm" type="text" id="editBatch" autocomplete="off" /></div>
-                <div class="col-4"><label class="form-label fw-semibold" style="font-size:12px">Expiry Date</label><input class="form-control form-control-sm" type="date" id="editExpiry" /></div>
+                <div class="col-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="editTrackStock">
+                    <label class="form-check-label" for="editTrackStock" style="font-size:12px">Track stock</label>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="editAllowNeg">
+                    <label class="form-check-label" for="editAllowNeg" style="font-size:12px">Allow negative stock</label>
+                  </div>
+                </div>
+                <div class="col-4">
+                  <div class="form-check">
+                    <input class="form-check-input" type="checkbox" id="editIsActive">
+                    <label class="form-check-label" for="editIsActive" style="font-size:12px">Active at this branch</label>
+                  </div>
+                </div>
               </div>
+            </form>
+          </div>{{-- end tab-branch --}}
+
+          {{-- ════ TAB 2 — Base product catalogue fields ════ --}}
+          <div class="tab-pane fade" id="tab-base" role="tabpanel">
+
+            <div class="bp-edit-warning">
+              <i class="ri-alert-line" style="font-size:14px;flex-shrink:0;margin-top:1px;"></i>
+              Changes here update the <strong>base catalogue</strong> and will affect
+              <strong>all branches</strong> that use this product.
+              Branch-specific overrides (prices, stock) remain managed in the Branch product tab.
             </div>
 
-            {{-- ════ Tab 3: Settings ════ --}}
-            <div class="tab-pane fade" id="et3" role="tabpanel">
-              <div class="row g-2 mt-1">
+            <form id="editBaseProductForm">
+              @csrf
+              <input type="hidden" id="bpEditId">
+
+              <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:12px">
+                  Product Name <span class="text-danger">*</span>
+                </label>
+                <input class="form-control form-control-sm" type="text" id="bpEditName"
+                       placeholder="e.g. Cooking Oil 2L" autocomplete="off" />
+              </div>
+
+              <div class="row g-2 mb-2">
                 <div class="col-6">
-                  <div class="form-check"><input class="form-check-input" type="checkbox" id="editTrackStock"><label class="form-check-label" for="editTrackStock" style="font-size:12px">Track stock</label></div>
-                  <div class="form-check mt-1"><input class="form-check-input" type="checkbox" id="editAllowNeg"><label class="form-check-label" for="editAllowNeg" style="font-size:12px">Allow negative stock</label></div>
+                  <label class="form-label fw-semibold" style="font-size:12px">Product Code</label>
+                  <input class="form-control form-control-sm" type="text" id="bpEditCode"
+                         placeholder="e.g. OIL-001" autocomplete="off" />
                 </div>
                 <div class="col-6">
-                  <div class="form-check"><input class="form-check-input" type="checkbox" id="editIsActive"><label class="form-check-label" for="editIsActive" style="font-size:12px">Active at this branch</label></div>
+                  <label class="form-label fw-semibold" style="font-size:12px">Unit of Measure</label>
+                  <input class="form-control form-control-sm" type="text" id="bpEditUnit"
+                         placeholder="Each, kg, Litre…" autocomplete="off" />
                 </div>
               </div>
-            </div>
 
-          </div>
-        </form>
-      </div>
+              <div class="mb-2">
+                <label class="form-label fw-semibold" style="font-size:12px">Supplier</label>
+                <select class="form-select form-select-sm" id="bpEditSupplier">
+                  <option value="">— Select Supplier —</option>
+                  @foreach($suppliers as $sup)
+                    <option value="{{ $sup }}">{{ $sup }}</option>
+                  @endforeach
+                </select>
+              </div>
+
+              <div class="row g-2 mb-2">
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:12px">
+                    Selling Price (MWK) <span class="text-danger">*</span>
+                    <span class="badge bg-success ms-1" style="font-size:9px;">Catalogue default</span>
+                  </label>
+                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                         id="bpEditSellPrice" placeholder="0.00" />
+                </div>
+                <div class="col-6">
+                  <label class="form-label fw-semibold" style="font-size:12px">
+                    Cost Price (MWK)
+                    <span class="badge bg-success ms-1" style="font-size:9px;">Catalogue default</span>
+                  </label>
+                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                         id="bpEditCostPrice" placeholder="0.00" />
+                </div>
+              </div>
+
+              <div class="alert border-0 py-2 px-3 mb-0"
+                   style="background:#ecfdf5;border-left:2px solid #059669;border-radius:0 5px 5px 0;font-size:11px;color:#065f46;">
+                <i class="ri-information-line me-1"></i>
+                These are the <strong>catalogue defaults</strong> shown in
+                <span style="color:#059669;font-weight:700;">green</span> for branches without a price override.
+              </div>
+            </form>
+
+          </div>{{-- end tab-base --}}
+
+        </div>{{-- end tab-content --}}
+      </div>{{-- end modal-body --}}
+
       <div class="modal-footer" style="padding:10px 18px 14px;justify-content:flex-end;gap:8px;">
         <a href="#" class="btn btn-secondary btn-sm" id="cancelEditBtn">Cancel</a>
         <a href="#" class="btn btn-primary btn-sm" id="submitEditBtn">
-          <i class="ri-check-line me-1"></i> Update
+          <i class="ri-check-line me-1"></i> Update Branch Product
+        </a>
+        <a href="#" class="btn btn-success btn-sm" id="submitBaseProductBtn" style="display:none;">
+          <i class="ri-check-line me-1"></i> Update Base Product
         </a>
       </div>
+
     </div>
   </div>
 </div>
@@ -1149,7 +1351,8 @@ $(document).ready(function () {
                    data-track="${p.track_stock}" data-neg="${p.allow_negative_stock}"
                    data-sell-is-branch="${p.sell_is_branch ? 1 : 0}"
                    data-cost-is-branch="${p.cost_is_branch ? 1 : 0}"
-                   data-bp-sell="${p.bp_sell || ''}" data-bp-cost="${p.bp_cost || ''}">
+                   data-bp-sell="${p.bp_sell || ''}" data-bp-cost="${p.bp_cost || ''}"
+                   data-base-product-id="${p.base_product_id || ''}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="deleteDataBtn"
@@ -1206,7 +1409,6 @@ $(document).ready(function () {
     var allBaseProducts = [];
 
     function loadBaseProducts() {
-        // Guard: only fetch once per page load; badges live in DOM until refresh
         if (allBaseProducts.length) return;
         $.ajax({
             type: 'GET',
@@ -1216,10 +1418,6 @@ $(document).ready(function () {
         });
     }
 
-    // ── Soft reset: clears the search input and hides the dropdown
-    //    but deliberately leaves the result list HTML intact so that
-    //    "added" badges are visible the next time the modal opens.
-    //    Called on modal close and when the Add button is clicked.
     function softResetAddModal() {
         $('#baseProductSearch').val('');
         $('#searchResultList').hide();
@@ -1230,24 +1428,14 @@ $(document).ready(function () {
         $('#new-supplier').val('');
     }
 
-    // ── Hard reset: also wipes the result list HTML and forces a
-    //    product reload. Only call this when you want a clean slate
-    //    (e.g. after a branch change, which causes a full page reload anyway).
-    function hardResetAddModal() {
-        allBaseProducts = [];
-        $('#searchResultList').hide().empty();
-        softResetAddModal();
-    }
-
     $('#addProductBtn').on('click', function(e) {
         e.preventDefault();
-        softResetAddModal();       // hide dropdown, clear search box — keep badges
-        loadBaseProducts();        // no-ops if already loaded
+        softResetAddModal();
+        loadBaseProducts();
         $('#addProductModal').modal('show');
         setTimeout(function() { $('#baseProductSearch').focus(); }, 400);
     });
 
-    // On modal close: soft reset only — badges survive until page refresh
     $('#addProductModal').on('hidden.bs.modal', softResetAddModal);
 
     $('#baseProductSearch').on('input', function() {
@@ -1271,14 +1459,10 @@ $(document).ready(function () {
             var re     = new RegExp('(' + q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + ')', 'gi');
             var nameHl = p.name.replace(re, '<strong>$1</strong>');
             var codeStr = p.code ? ' <span class="sri-code">(' + p.code + ')</span>' : '';
-
             var priceDisp = p.selling_price
                 ? parseFloat(p.selling_price).toLocaleString('en-US', {minimumFractionDigits:2, maximumFractionDigits:2})
                 : '—';
             var badge = [p.unit, priceDisp].filter(Boolean).join(' / ');
-
-            // Preserve "added" state for this product if it was added earlier
-            // in this page session. We store the added badge text in a JS map.
             var addedText  = _addedMap[p.id] || '';
             var wasAdded   = addedText !== '';
             var btnDisabled = wasAdded ? 'disabled' : '';
@@ -1289,20 +1473,11 @@ $(document).ready(function () {
                 <div class="sri-row">
                     <div class="sri-name" title="${p.name}">${nameHl}${codeStr}</div>
                     ${badge ? `<span class="sri-meta">${badge}</span>` : ''}
-                    <input  type="number"
-                            class="sri-qty-input"
-                            id="sri_qty_${p.id}"
-                            placeholder="Qty"
-                            step="0.001"
-                            min="0"
-                            value="0"
-                            ${btnDisabled}
-                            onkeydown="if(event.key==='Enter'){event.preventDefault();addProductFromSearch(${p.id});}" />
-                    <button type="button"
-                            class="sri-add-btn"
-                            id="sri_btn_${p.id}"
-                            onclick="addProductFromSearch(${p.id})"
-                            ${btnDisabled}>
+                    <input type="number" class="sri-qty-input" id="sri_qty_${p.id}"
+                           placeholder="Qty" step="0.001" min="0" value="0" ${btnDisabled}
+                           onkeydown="if(event.key==='Enter'){event.preventDefault();addProductFromSearch(${p.id});}" />
+                    <button type="button" class="sri-add-btn" id="sri_btn_${p.id}"
+                            onclick="addProductFromSearch(${p.id})" ${btnDisabled}>
                         <i class="ri-add-line"></i> Add
                     </button>
                     <span class="sri-added-msg" id="sri_msg_${p.id}" style="display:${msgDisplay};">
@@ -1313,12 +1488,9 @@ $(document).ready(function () {
             </div>`;
         });
         list.html(html).show();
-
         setTimeout(function() { list.find('.sri-qty-input:not(:disabled)').first().focus(); }, 50);
     }
 
-    // Map of productId → added-badge label text, persists for the page session.
-    // Cleared only on a full page reload (which happens on branch change anyway).
     var _addedMap = {};
 
     window.addProductFromSearch = function(pid) {
@@ -1358,11 +1530,8 @@ $(document).ready(function () {
                         }
                         table.row.add($(buildRow(data.product))).draw(false);
                     }
-                    // Store the badge text so it survives modal close/reopen
                     var msg = qty > 0 ? qty + ' added' : '0 added';
                     _addedMap[pid] = msg;
-
-                    // Update the DOM immediately (row is already rendered)
                     $('#sri_msg_text_' + pid).text(msg);
                     $('#sri_msg_' + pid).show();
                 } else if (data.status === 422) {
@@ -1430,8 +1599,6 @@ $(document).ready(function () {
                         data: {
                             branch_id:            {{ $selectedBranch->id ?? 0 }},
                             base_product_id:      bpData.product.id,
-                            selling_price:        sell,
-                            cost_price:           $('#new-cost-price').val(),
                             stock_quantity:       $('#new-stock-qty').val() || 0,
                             reorder_point:        0,
                             track_stock:          1,
@@ -1442,17 +1609,19 @@ $(document).ready(function () {
                         complete: function() { $('#progressBar').hide(); self.prop('disabled', false); },
                         success: function(data) {
                             if (data.status === 201) {
-                                toastr.success('Product created and added to branch.', 'Success');
+                                toastr.success('Product created in catalogue and added to branch.', 'Success');
                                 if (window._dt) {
                                     if (table.row('#' + data.product.row).length) {
                                         table.row('#' + data.product.row).remove();
                                     }
                                     table.row.add($(buildRow(data.product))).draw(false);
                                 }
+                                allBaseProducts = [];
+                                loadBaseProducts();
                                 $('#new-name, #new-selling-price, #new-cost-price, #new-code').val('');
                                 $('#new-stock-qty').val('0');
                                 $('#new-unit').val('Each');
-                                $('#addSuccessText').text('Product "' + name + '" added.');
+                                $('#addSuccessText').text('"' + name + '" added. Use Edit to set a branch-specific price.');
                                 $('#addSuccessNotice').show();
                                 $('#new-name').focus();
                             } else {
@@ -1575,48 +1744,116 @@ $(document).ready(function () {
     });
 
     // ════════════════════════════════════════════════════════════════════════
-    //  PRICE SOURCE TOGGLE
+    //  PRICE SOURCE TOGGLE — card-based, with live value display
     // ════════════════════════════════════════════════════════════════════════
     window._currentPriceSource = 'base';
+    window._bpSellStored = '';   // catalogue default price
+    window._branchSellStored = ''; // current branch override if any
 
     window.setPriceSource = function(source) {
         window._currentPriceSource = source;
+
+        var cardBase   = document.getElementById('priceSourceBase');
+        var cardBranch = document.getElementById('priceSourceBranch');
+        var dotBase    = document.getElementById('dotBase');
+        var dotBranch  = document.getElementById('dotBranch');
+        var hint       = document.getElementById('priceContextHint');
+        var hintText   = document.getElementById('priceContextHintText');
+        var fields     = document.getElementById('branchPriceFields');
+        var branchVal  = document.getElementById('pscBranchVal');
+
         if (source === 'base') {
-            $('#priceSourceBase').addClass('active-base').removeClass('active-branch');
-            $('#priceSourceBranch').removeClass('active-branch active-base');
-            $('#branchPriceFields').hide();
-            $('#priceBaseHint').show();
+            cardBase.className   = 'price-source-card active-base';
+            cardBranch.className = 'price-source-card';
+            dotBase.style.opacity   = '1';
+            dotBranch.style.opacity = '.3';
+            branchVal.style.color   = '#9ca3af';
+            fields.style.display    = 'none';
+            hint.className = 'price-context-hint pch-base';
+            var bpFmt = window._bpSellStored
+                ? 'MWK ' + parseFloat(window._bpSellStored).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+                : '—';
+            hintText.innerHTML = 'Using the base catalogue price of <strong>' + bpFmt + '</strong>. To set a different price for this branch, select <em>This branch only</em>.';
         } else {
-            $('#priceSourceBranch').addClass('active-branch').removeClass('active-base');
-            $('#priceSourceBase').removeClass('active-base active-branch');
-            $('#branchPriceFields').show();
-            $('#priceBaseHint').hide();
+            cardBranch.className = 'price-source-card active-branch';
+            cardBase.className   = 'price-source-card';
+            dotBranch.style.opacity = '1';
+            dotBase.style.opacity   = '.3';
+            fields.style.display    = 'block';
+            hint.className = 'price-context-hint pch-branch';
+            hintText.innerHTML = 'Enter a price below — overrides the catalogue for <strong>this branch only</strong>. Shown in <span style="color:#1d4ed8;font-weight:700;">blue</span> in the product list.';
+            // Seed the input if we had a previously stored branch price
+            if (window._branchSellStored) {
+                $('#editSellPrice').val(window._branchSellStored);
+                branchVal.style.color = '#1d4ed8';
+                branchVal.textContent = 'MWK ' + parseFloat(window._branchSellStored).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+            } else {
+                branchVal.style.color = '#9ca3af';
+                branchVal.textContent = '— enter below';
+            }
         }
     };
 
+    // Live update the "This branch only" card value as user types
+    $(document).on('input', '#editSellPrice', function() {
+        if (window._currentPriceSource === 'branch') {
+            var v = parseFloat($(this).val());
+            var branchVal = document.getElementById('pscBranchVal');
+            branchVal.style.color = '#1d4ed8';
+            branchVal.textContent = isNaN(v) ? '— enter below'
+                : 'MWK ' + v.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+        }
+    });
+
     // ════════════════════════════════════════════════════════════════════════
-    //  EDIT
+    //  EDIT MODAL — tab switching (swap footer save buttons)
+    // ════════════════════════════════════════════════════════════════════════
+    $('#tab-branch-lnk').on('shown.bs.tab', function() {
+        $('#submitBaseProductBtn').hide();
+        $('#submitEditBtn').show();
+    });
+    $('#tab-base-lnk').on('shown.bs.tab', function() {
+        $('#submitEditBtn').hide();
+        $('#submitBaseProductBtn').show();
+    });
+
+    // Cross-link: click the arrow link → switch to base tab
+    $('#goToBaseTabLink').on('click', function(e) {
+        e.preventDefault();
+        $('#tab-base-lnk').tab('show');
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  EDIT — open modal and populate both tabs
     // ════════════════════════════════════════════════════════════════════════
     $('#tbody').on('click', '.editDataBtn', function(e) {
         e.preventDefault();
-        var b = $(this);
+        var b        = $(this);
         var nm       = b.data('name');
         var unit     = b.data('unit') || '—';
         var code     = b.data('code') || '—';
-        var supplier = b.data('supplier') || '—';
+        var supplier = b.data('supplier') || '';
         var sellIsBr = parseInt(b.data('sell-is-branch')) === 1;
+        var bpId     = b.data('base-product-id') || '';
+        var bpSell   = b.data('bp-sell') || '';
+        var bpCost   = b.data('bp-cost') || '';
 
+        // Store base price globally so toggle can reference it
+        window._bpSellStored     = bpSell;
+        window._branchSellStored = sellIsBr ? (b.data('sell') || '') : '';
+
+        // Hidden IDs
         $('#editId').val(b.data('id'));
         $('#editRow').val(b.data('row'));
+        $('#editBaseProductId').val(bpId);
+        $('#bpEditId').val(bpId);
+
         $('#editModalName').text(nm);
 
-        $('#et1-name').val(nm);
-        $('#et1-unit').val(unit);
-        $('#et1-code').val(code);
-        $('#et2-name').val(nm);
-        $('#et2-unit').val(unit);
-        $('#et2-code').val(code);
-        $('#et2-supplier').val(supplier);
+        // ── Tab 1: branch product ──────────────────────────────────────────
+        $('#edit-ro-name').val(nm);
+        $('#edit-ro-unit').val(unit);
+        $('#edit-ro-code').val(code);
 
         $('#editStockQty').val(b.data('stock'));
         $('#editReorderPoint').val(b.data('reorder'));
@@ -1625,11 +1862,17 @@ $(document).ready(function () {
         $('#editBarcode').val(b.data('barcode'));
         $('#editBatch').val(b.data('batch'));
         $('#editExpiry').val(b.data('expiry'));
-
         $('#editTrackStock').prop('checked', parseInt(b.data('track'))  === 1);
         $('#editAllowNeg').prop('checked',   parseInt(b.data('neg'))    === 1);
         $('#editIsActive').prop('checked',   parseInt(b.data('active')) === 1);
 
+        // Populate the base catalogue price card value
+        var bpFmt = bpSell
+            ? 'MWK ' + parseFloat(bpSell).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2})
+            : '—';
+        document.getElementById('pscBaseVal').textContent = bpFmt;
+
+        // Set price toggle state
         if (sellIsBr) {
             setPriceSource('branch');
             $('#editSellPrice').val(b.data('sell'));
@@ -1640,7 +1883,19 @@ $(document).ready(function () {
             $('#editCostPrice').val('');
         }
 
-        $('button[data-bs-target="#et1"]').tab('show');
+        // ── Tab 2: base product catalogue ─────────────────────────────────
+        $('#bpEditName').val(nm);
+        $('#bpEditUnit').val(unit !== '—' ? unit : '');
+        $('#bpEditCode').val(code !== '—' ? code : '');
+        $('#bpEditSupplier').val(supplier);
+        $('#bpEditSellPrice').val(bpSell);
+        $('#bpEditCostPrice').val(bpCost);
+
+        // Reset to first tab and show correct footer button
+        $('#tab-branch-lnk').tab('show');
+        $('#submitBaseProductBtn').hide();
+        $('#submitEditBtn').show();
+
         $('#editDataModal').modal('show');
     });
 
@@ -1650,6 +1905,9 @@ $(document).ready(function () {
         $('#editDataModal').modal('hide');
     });
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  SUBMIT — Branch product update (Tab 1)
+    // ════════════════════════════════════════════════════════════════════════
     $('#submitEditBtn').on('click', function(e) {
         e.preventDefault();
         var useBranch = (window._currentPriceSource === 'branch');
@@ -1658,7 +1916,6 @@ $(document).ready(function () {
 
         if (useBranch && (!sell || parseFloat(sell) < 0)) {
             toastr.warning('Selling price is required when using branch price.', 'Required');
-            $('button[data-bs-target="#et1"]').tab('show');
             $('#editSellPrice').focus();
             return;
         }
@@ -1696,6 +1953,77 @@ $(document).ready(function () {
                     table.row.add($(buildRow(data.product))).draw(false);
                     updateSelectedCount();
                     $('#editDataModal').modal('hide');
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
+                } else {
+                    toastr.info('Unspecified error.', 'Error');
+                }
+            },
+            error: handleAjaxError
+        });
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  SUBMIT — Base product catalogue update (Tab 2)
+    // ════════════════════════════════════════════════════════════════════════
+    $('#submitBaseProductBtn').on('click', function(e) {
+        e.preventDefault();
+
+        var name = $('#bpEditName').val().trim();
+        if (!name) { toastr.warning('Product name is required.', 'Required'); $('#bpEditName').focus(); return; }
+        var sell = $('#bpEditSellPrice').val();
+        if (!sell || parseFloat(sell) < 0) { toastr.warning('Selling price is required.', 'Required'); $('#bpEditSellPrice').focus(); return; }
+
+        var self = $(this); self.prop('disabled', true);
+
+        $.ajaxSetup({ headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:    'POST',
+            url:     '{{ route("retail.operations.baseproducts.update") }}',
+            timeout: 60000,
+            data: {
+                id:            $('#bpEditId').val(),
+                name:          name,
+                unit:          $('#bpEditUnit').val(),
+                code:          $('#bpEditCode').val(),
+                supplier:      $('#bpEditSupplier').val(),
+                selling_price: sell,
+                cost_price:    $('#bpEditCostPrice').val(),
+                _token:        '{{ csrf_token() }}'
+            },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function(data) {
+                if (data.status === 201) {
+                    toastr.success(data.success || 'Base product updated successfully.', 'Success');
+
+                    // Mirror changes back to the read-only fields in Tab 1
+                    $('#edit-ro-name').val(name);
+                    $('#edit-ro-unit').val($('#bpEditUnit').val());
+                    $('#edit-ro-code').val($('#bpEditCode').val());
+                    $('#editModalName').text(name);
+
+                    // Update the base price card with new catalogue value
+                    window._bpSellStored = sell;
+                    var newFmt = 'MWK ' + parseFloat(sell).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+                    document.getElementById('pscBaseVal').textContent = newFmt;
+
+                    // Refresh DataTable row if controller returns updated product data
+                    if (data.product) {
+                        var row = $('#editRow').val();
+                        if (table.row('#' + row).length) {
+                            table.row('#' + row).remove();
+                            table.row.add($(buildRow(data.product))).draw(false);
+                        }
+                    }
+
+                    // Bust the search cache
+                    allBaseProducts = [];
+                    loadBaseProducts();
+
+                    // Switch back to the branch product tab
+                    $('#tab-branch-lnk').tab('show');
+
                 } else if (data.status === 422) {
                     toastr.error(data.error || 'Validation failed.', 'Error');
                 } else {
@@ -1768,8 +2096,7 @@ $(document).ready(function () {
     function getSelectedRows() { var rows = []; $('.selectRow:checked').each(function() { rows.push($(this).data('row-id')); }); return rows; }
 
     function doBulkStatus(isActive) {
-        var ids  = getSelectedIds();
-        var rows = getSelectedRows();
+        var ids = getSelectedIds();
         if (!ids.length) return;
         $.ajaxSetup({ headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({

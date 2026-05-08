@@ -109,6 +109,27 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 .import-progress-bar { height:6px; border-radius:3px; background:#e9ecef; overflow:hidden; }
 .import-progress-bar .bar { height:100%; width:0; background:linear-gradient(to right,#40916c,#52b788); transition:width .3s ease; border-radius:3px; }
 
+/* ── Import done summary ─────────────────────────────────────────────────── */
+.import-failed-list {
+  max-height:140px; overflow-y:auto;
+  background:#fff8f8; border:1px solid #fecaca;
+  border-radius:6px; padding:8px 12px;
+  margin-top:8px; text-align:left;
+}
+.import-failed-list li { font-size:12px; color:#7f1d1d; padding:1px 0; }
+
+/* ── Supplier notice banners ─────────────────────────────────────────────── */
+.supplier-ok-banner {
+  background:#ecfdf5; border-left:3px solid #059669;
+  border-radius:0 5px 5px 0; padding:8px 12px;
+  font-size:12px; color:#065f46; margin-bottom:12px;
+}
+.supplier-warn-banner {
+  background:#fef2f2; border-left:3px solid #dc2626;
+  border-radius:0 5px 5px 0; padding:8px 12px;
+  font-size:12px; color:#7f1d1d; margin-bottom:12px;
+}
+
 /* ── Bulk actions modal ─────────────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
 .bulk-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6c757d; margin-bottom:10px; }
@@ -204,6 +225,16 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                                ->get();
             }
         }
+    }
+
+    // ── Resolve import supplier from user_filters ────────────────────────
+    $importSupplier = null;
+    if ($savedSupplierId) {
+        $importSupplier = DB::connection('tenant')
+            ->table('suppliers')
+            ->where('id', $savedSupplierId)
+            ->where('sector', 'retail')
+            ->first();
     }
 ?>
 
@@ -534,7 +565,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <div class="d-flex justify-content-between align-items-center mb-3">
           <div>
             <strong style="font-size:13px"><i class="ri-table-line me-1 text-success"></i> Required CSV Structure</strong>
-            <span class="ms-2 text-muted" style="font-size:12px">6 columns</span>
+            <span class="ms-2 text-muted" style="font-size:12px">5 columns</span>
           </div>
           <a href="#" id="downloadTemplateBtn" class="btn btn-sm btn-success" style="font-size:12px">
             <i class="ri-download-2-line"></i> Download Template
@@ -552,9 +583,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                 <tr>
                   <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
                   <th class="col-name">name <span class="excel-req-star">*</span></th>
-                  <th>supplier <span class="excel-req-star">*</span></th>
-                  <th>code</th><th>unit</th>
-                  <th>cost_price</th><th>selling_price</th>
+                  <th>code</th>
+                  <th>unit</th>
+                  <th>cost_price</th>
+                  <th>selling_price</th>
                 </tr>
               </thead>
               <tbody>
@@ -562,27 +594,29 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                   <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
                   <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
                   <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
+                  <td style="color:#2d6a4f;">headers</td>
                 </tr>
                 <tr>
                   <td class="excel-row-num">2</td>
                   <td class="col-name excel-sample-val">Cooking Oil 2L</td>
-                  <td>Unilever</td>
                   <td><span class="excel-col-code">OIL-001</span></td>
-                  <td>Each</td><td>1,500.00</td><td>2,000.00</td>
+                  <td>Each</td>
+                  <td>1,500.00</td>
+                  <td>2,000.00</td>
                 </tr>
                 <tr>
                   <td class="excel-row-num">3</td>
                   <td class="col-name excel-sample-val">Drinking Water 500ml</td>
-                  <td>Carlsberg</td>
                   <td><span class="excel-col-code">WAT-001</span></td>
-                  <td>Each</td><td>350.00</td><td>500.00</td>
+                  <td>Each</td>
+                  <td>350.00</td>
+                  <td>500.00</td>
                 </tr>
                 <tr style="background:#fafafa;">
                   <td class="excel-row-num" style="color:#ccc;">4</td>
                   <td class="col-name excel-sample-muted">your product here…</td>
-                  <td class="excel-sample-muted">required</td>
                   <td class="excel-sample-muted">optional</td>
                   <td class="excel-sample-muted">Each / kg / Litre…</td>
                   <td class="excel-sample-muted">numeric, no commas</td>
@@ -594,7 +628,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         </div>
         <div class="alert alert-success border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;background:#d8f3e6;">
           <strong><i class="ri-check-double-line me-1"></i>Auto-applied to all rows:</strong>
-          is_product = true (Product). Supplier column is <strong>required</strong> — rows without a supplier will be skipped.
+          is_product = true (Product). Supplier is taken from your <strong>selected Supplier filter</strong> — no supplier column needed in the CSV.
         </div>
       </div>
       <div class="modal-footer">
@@ -618,6 +652,24 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" id="importModalCloseBtn"></button>
       </div>
       <div class="modal-body" style="padding:16px !important;">
+
+        {{-- ── Supplier notice ─────────────────────────────────────────── --}}
+        @if($importSupplier)
+          <div class="supplier-ok-banner">
+            <i class="ri-user-line me-1"></i>
+            All imported rows will be assigned to supplier
+            <strong>{{ $importSupplier->name }}</strong>.
+            To use a different supplier, update your <strong>Supplier filter</strong> before importing.
+          </div>
+        @else
+          <div class="supplier-warn-banner">
+            <i class="ri-error-warning-line me-1"></i>
+            <strong>No supplier selected.</strong>
+            Please select a specific supplier in the <strong>Supplier filter</strong> above before importing.
+            Import is disabled until a supplier is chosen.
+          </div>
+        @endif
+
         <div id="importSetupFields">
           <div class="mb-3">
             <div class="d-flex align-items-center justify-content-between mb-2">
@@ -641,9 +693,10 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                     <tr>
                       <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
                       <th class="col-name">name <span class="excel-req-star">*</span></th>
-                      <th>supplier <span class="excel-req-star">*</span></th>
-                      <th>code</th><th>unit</th>
-                      <th>cost_price</th><th>selling_price</th>
+                      <th>code</th>
+                      <th>unit</th>
+                      <th>cost_price</th>
+                      <th>selling_price</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -651,20 +704,21 @@ table.dataTable tbody td:first-child { text-align:left !important; }
                       <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
                       <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
                       <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td><td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
+                      <td style="color:#2d6a4f;">headers</td>
                     </tr>
                     <tr>
                       <td class="excel-row-num">2</td>
                       <td class="col-name excel-sample-val">Cooking Oil 2L</td>
-                      <td>Unilever</td>
                       <td><span class="excel-col-code">OIL-001</span></td>
-                      <td>Each</td><td>1500.00</td><td>2000.00</td>
+                      <td>Each</td>
+                      <td>1500.00</td>
+                      <td>2000.00</td>
                     </tr>
                     <tr style="background:#fafafa;">
                       <td class="excel-row-num" style="color:#ccc;">3</td>
                       <td class="col-name excel-sample-muted">your product here…</td>
-                      <td class="excel-sample-muted">required</td>
                       <td class="excel-sample-muted">optional</td>
                       <td class="excel-sample-muted">Each / kg / Litre…</td>
                       <td class="excel-sample-muted">numeric, no commas</td>
@@ -683,7 +737,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 
           <div id="importStepSetup">
             <div class="drop-zone" id="dropZone">
-              <input type="file" id="csvFileInput" accept=".csv,text/csv">
+              <input type="file" id="csvFileInput" accept=".csv,text/csv"
+                     @if(!$importSupplier) disabled @endif>
               <i class="ri-file-excel-2-line"></i>
               <p class="mb-1 fw-semibold" style="font-size:13px">Drop your CSV file here</p>
               <p class="text-muted mb-0" style="font-size:12px">or click to browse — CSV files only</p>
@@ -717,6 +772,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           </div>
         </div>
 
+        {{-- ── Progress step ──────────────────────────────────────────── --}}
         <div id="importStepProgress" style="display:none;">
           <div class="text-center mb-3">
             <i class="ri-loader-4-line text-success" style="font-size:40px;animation:spin 1s linear infinite"></i>
@@ -724,17 +780,21 @@ table.dataTable tbody td:first-child { text-align:left !important; }
             <p class="text-muted" style="font-size:12px" id="importProgressText">0 of 0 done</p>
           </div>
           <div class="import-progress-bar mb-2"><div class="bar" id="importBarFill"></div></div>
-          <div id="importLog" style="max-height:140px;overflow-y:auto;font-size:11px;background:#f8f9fa;border-radius:6px;padding:8px;border:1px solid #dee2e6;"></div>
+          {{-- Log div kept in DOM but hidden — no per-row messages shown --}}
+          <div id="importLog" style="display:none;"></div>
         </div>
 
+        {{-- ── Done step ──────────────────────────────────────────────── --}}
         <div id="importStepDone" style="display:none;">
           <div class="text-center py-3">
             <i class="ri-checkbox-circle-line text-success" style="font-size:52px"></i>
             <h5 class="mt-2">Import Complete!</h5>
-            <p class="text-muted mb-0" style="font-size:13px" id="importDoneSummary"></p>
-            <p class="text-muted" style="font-size:12px">Page will reload shortly.</p>
+            {{-- Summary replaced with a div so it can hold rich HTML --}}
+            <div id="importDoneSummary" class="mt-1" style="font-size:13px;"></div>
+            <p class="text-muted mt-2 mb-0" style="font-size:12px">Page will reload shortly.</p>
           </div>
         </div>
+
       </div>
 
       <div class="modal-footer" style="justify-content:space-between;padding:10px 18px 14px;">
@@ -743,7 +803,9 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <a href="#" class="btn btn-secondary btn-sm" id="cancelImportBtn" style="font-size:12px">
             <i class="ri-close-line"></i> Cancel
           </a>
-          <a href="#" class="btn btn-success btn-sm" id="submitImportBtn" style="font-size:12px;display:none;" disabled>
+          <a href="#" class="btn btn-success btn-sm" id="submitImportBtn"
+             style="font-size:12px;display:none;"
+             @if(!$importSupplier) disabled @endif>
             <i class="ri-upload-2-line"></i> Start Import
           </a>
         </div>
@@ -846,7 +908,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 </div>
 
 {{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL  ── Prices on Tab 1, identity (read-only) on Tab 2
+     EDIT MODAL  ── single tab, all fields editable
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -856,128 +918,115 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
 
-      <ul class="nav nav-tabs border-bottom px-2 pt-2" role="tablist" style="font-size:12px;flex-wrap:nowrap;">
-        <li class="nav-item">
-          <button class="nav-link active px-3 py-1" data-bs-toggle="tab" data-bs-target="#et1" type="button">
-            <i class="ri-money-dollar-circle-line me-1"></i>Prices
-          </button>
-        </li>
-        <li class="nav-item">
-          <button class="nav-link px-3 py-1" data-bs-toggle="tab" data-bs-target="#et2" type="button">
-            <i class="ri-information-line me-1"></i>Details
-          </button>
-        </li>
-      </ul>
-
-      <div class="modal-body" style="padding:14px 18px 8px !important;">
+      <div class="modal-body" style="padding:16px 18px 8px !important;">
         <form action="#" method="post" id="editDataForm">
           @csrf
           <input type="hidden" name="id"      id="editId">
           <input type="hidden" name="editrow" id="editRow">
-          {{-- Hidden fields carry non-price values through so they're always submitted --}}
-          <input type="hidden" name="name"        id="editNameHidden">
-          <input type="hidden" name="supplier"    id="editSupplierHidden">
-          <input type="hidden" name="code"        id="editCodeHidden">
-          <input type="hidden" name="unit"        id="editUnitHidden">
-          <input type="hidden" name="description" id="editDescriptionHidden">
-          <input type="hidden" name="is_product"  id="editIsProductHidden">
 
-          <div class="tab-content">
-
-            {{-- ── Tab 1: Prices (editable) ─────────────────────────────── --}}
-            <div class="tab-pane fade show active" id="et1" role="tabpanel">
-
-              {{-- Read-only identity summary at top --}}
-              <div class="row g-2 mb-3 mt-1">
-                <div class="col-8">
-                  <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Product</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-name-display" readonly tabindex="-1" />
-                </div>
-                <div class="col-4">
-                  <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Unit</label>
-                  <input type="text" class="form-control form-control-sm edit-readonly-field" id="et1-unit-display" readonly tabindex="-1" />
-                </div>
-              </div>
-
-              <hr class="my-2">
-
-              <div class="row g-2 mb-2">
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Selling Price <span class="text-danger">*</span> <small class="text-muted fw-normal">(MWK)</small></label>
-                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
-                         name="selling_price" id="editSellingPrice" placeholder="0.00" />
-                </div>
-                <div class="col-6">
-                  <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
-                  <input class="form-control form-control-sm" type="number" step="0.01" min="0"
-                         name="cost_price" id="editCostPrice" placeholder="0.00" />
-                </div>
-              </div>
-
-              <div class="alert border-0 py-2 px-3 mt-2"
-                   style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
-                <i class="ri-information-line me-1"></i>
-                These are the <strong>default prices</strong> for all branches. Individual branches can override them with their own prices.
-              </div>
-            </div>
-
-            {{-- ── Tab 2: Details (read-only display + editable fields) ───── --}}
-            <div class="tab-pane fade" id="et2" role="tabpanel">
-              <div class="mb-2 mt-1">
-                <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="text" id="editName" autocomplete="off"
-                       placeholder="Product name" required />
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Supplier <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm" id="editSupplier" required>
-                  <option value="">— Select Supplier —</option>
-                  @foreach($suppliers as $sup)
-                    <option value="{{ $sup->name }}">{{ $sup->name }}</option>
-                  @endforeach
-                </select>
-                <div class="form-text" id="editSupplierHint">Suppliers shown for the current category filter.</div>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure <span class="text-danger">*</span></label>
-                <select class="form-select form-select-sm" id="editUnit" required>
-                  <option value="Each">Each</option><option value="kg">Kilogram (kg)</option>
-                  <option value="g">Gram (g)</option><option value="Litre">Litre</option>
-                  <option value="ml">Millilitre (ml)</option><option value="Box">Box</option>
-                  <option value="Carton">Carton</option><option value="Pack">Pack</option>
-                  <option value="Pair">Pair</option><option value="Dozen">Dozen</option>
-                  <option value="Bag">Bag</option><option value="Bottle">Bottle</option>
-                  <option value="Metre">Metre</option><option value="Service">Service (N/A)</option>
-                </select>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU)</small></label>
-                <input class="form-control form-control-sm" type="text" id="editCode" autocomplete="off" />
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold" style="font-size:13px">Description</label>
-                <textarea class="form-control form-control-sm" id="editDescription" rows="2"></textarea>
-              </div>
-              <div class="mb-2">
-                <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
-                <div class="d-flex gap-3">
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" id="editIsProductYes" value="1">
-                    <label class="form-check-label" for="editIsProductYes">
-                      <span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>
-                    </label>
-                  </div>
-                  <div class="form-check">
-                    <input class="form-check-input" type="radio" id="editIsProductNo" value="0">
-                    <label class="form-check-label" for="editIsProductNo">
-                      <span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
-            </div>
-
+          {{-- Product Name --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold" style="font-size:13px">
+              Product Name <span class="text-danger">*</span>
+            </label>
+            <input class="form-control form-control-sm" type="text"
+                   name="name" id="editName" autocomplete="off"
+                   placeholder="Product name" required />
           </div>
+
+          {{-- Supplier --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold" style="font-size:13px">
+              Supplier <span class="text-danger">*</span>
+            </label>
+            <select class="form-select form-select-sm" name="supplier" id="editSupplier" required>
+              <option value="">— Select Supplier —</option>
+              @foreach($suppliers as $sup)
+                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+              @endforeach
+            </select>
+          </div>
+
+          {{-- Prices --}}
+          <div class="row g-2 mb-2">
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:13px">
+                Selling Price <small class="text-muted fw-normal">(MWK)</small>
+              </label>
+              <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                     name="selling_price" id="editSellingPrice" placeholder="0.00" />
+            </div>
+            <div class="col-6">
+              <label class="form-label fw-semibold" style="font-size:13px">
+                Order / Cost Price <small class="text-muted fw-normal">(MWK)</small>
+              </label>
+              <input class="form-control form-control-sm" type="number" step="0.01" min="0"
+                     name="cost_price" id="editCostPrice" placeholder="0.00" />
+            </div>
+          </div>
+
+          {{-- Unit --}}
+          {{-- Unit --}}
+        <div class="mb-2">
+          <label class="form-label fw-semibold" style="font-size:13px">
+            Unit of Measure <span class="text-danger">*</span>
+          </label>
+          <input class="form-control form-control-sm" type="text"
+                name="unit" id="editUnit"
+                placeholder="e.g. Each, kg, Litre…"
+                autocomplete="off" required />
+        </div>
+
+          {{-- Code --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold" style="font-size:13px">
+              Code <small class="text-muted fw-normal">(SKU — optional)</small>
+            </label>
+            <input class="form-control form-control-sm" type="text"
+                   name="code" id="editCode" autocomplete="off" />
+          </div>
+
+          {{-- Description --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold" style="font-size:13px">Description</label>
+            <textarea class="form-control form-control-sm"
+                      name="description" id="editDescription" rows="2"></textarea>
+          </div>
+
+          {{-- Type --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       name="is_product" id="editIsProductYes" value="1">
+                <label class="form-check-label" for="editIsProductYes">
+                  <span class="type-badge-product">
+                    <i class="ri-box-3-line me-1"></i>Product
+                  </span>
+                </label>
+              </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio"
+                       name="is_product" id="editIsProductNo" value="0">
+                <label class="form-check-label" for="editIsProductNo">
+                  <span class="type-badge-service">
+                    <i class="ri-service-line me-1"></i>Service
+                  </span>
+                </label>
+              </div>
+            </div>
+          </div>
+
+          {{-- Prices note --}}
+          <div class="alert border-0 py-2 px-3 mt-2 mb-0"
+               style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;
+                      border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
+            <i class="ri-information-line me-1"></i>
+            Selling and cost prices are <strong>defaults for all branches</strong>.
+            Branches can override them individually.
+          </div>
+
         </form>
       </div>
 
@@ -1083,6 +1132,21 @@ $(document).ready(function () {
     var parsedCsvRows = [];
     var IMPORT_KEY = 'bp_import_queue';
 
+    // ── Template download ─────────────────────────────────────────────────
+    function downloadTemplate() {
+        var header = 'name,code,unit,cost_price,selling_price';
+        var row1   = 'Cooking Oil 2L,OIL-001,Each,1500.00,2000.00';
+        var row2   = 'Drinking Water 500ml,WAT-001,Each,350.00,500.00';
+        var row3   = 'Bread Loaf 700g,BRD-001,Each,600.00,800.00';
+        var blob   = new Blob([header+'\n'+row1+'\n'+row2+'\n'+row3], {type:'text/csv;charset=utf-8;'});
+        var url    = URL.createObjectURL(blob);
+        var a      = document.createElement('a'); a.href=url; a.download='base_products_template.csv'; a.click();
+        URL.revokeObjectURL(url);
+    }
+    $('#downloadTemplateBtn, #downloadTemplateBtnFooter, #downloadTemplateInline').on('click', function(e) {
+        e.preventDefault(); downloadTemplate();
+    });
+
     function resetImportModal() {
         parsedCsvRows = [];
         $('#csvFileInput').val('');
@@ -1092,7 +1156,7 @@ $(document).ready(function () {
         $('#importStepProgress').hide();
         $('#importStepDone').hide();
         $('#importSetupFields').show();
-        $('#importPreviewHead, #importPreviewBody, #importLog').empty();
+        $('#importPreviewHead, #importPreviewBody, #importDoneSummary').empty();
         $('#importBarFill').css('width', '0');
         $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Cancel');
         $('#submitImportBtn').show().prop('disabled', true).html('<i class="ri-upload-2-line"></i> Start Import');
@@ -1112,20 +1176,6 @@ $(document).ready(function () {
     });
     $('#viewSampleBtn').on('click', function(e) {
         e.preventDefault(); $('#importModal').modal('hide'); $('#excelSampleModal').modal('show');
-    });
-
-    function downloadTemplate() {
-        var header = 'name,supplier,code,unit,cost_price,selling_price';
-        var row1   = 'Cooking Oil 2L,Unilever,OIL-001,Each,1500.00,2000.00';
-        var row2   = 'Drinking Water 500ml,Carlsberg,WAT-001,Each,350.00,500.00';
-        var row3   = 'Bread Loaf 700g,Lyons,BRD-001,Each,600.00,800.00';
-        var blob   = new Blob([header+'\n'+row1+'\n'+row2+'\n'+row3], {type:'text/csv;charset=utf-8;'});
-        var url    = URL.createObjectURL(blob);
-        var a      = document.createElement('a'); a.href=url; a.download='base_products_template.csv'; a.click();
-        URL.revokeObjectURL(url);
-    }
-    $('#downloadTemplateBtn, #downloadTemplateBtnFooter, #downloadTemplateInline').on('click', function(e) {
-        e.preventDefault(); downloadTemplate();
     });
 
     var dz = document.getElementById('dropZone');
@@ -1170,7 +1220,11 @@ $(document).ready(function () {
         $('#importStepSetup').hide(); $('#importStepPreview').show();
         $('#importTotalCount').text(parsedCsvRows.length);
         $('#importConfirmCount').text(parsedCsvRows.length);
-        $('#submitImportBtn').prop('disabled', false);
+        @if($importSupplier)
+            $('#submitImportBtn').prop('disabled', false);
+        @else
+            toastr.warning('Select a specific supplier in the Supplier filter before importing.', 'Supplier Required');
+        @endif
     }
 
     function splitCSVLine(line) {
@@ -1186,12 +1240,12 @@ $(document).ready(function () {
 
     function showImportPreview(headers, rows) {
         var displayMap = {
-            'name':'Product Name','supplier':'Supplier','code':'Code',
+            'name':'Product Name','code':'Code',
             'unit':'Unit','cost_price':'Order Price','selling_price':'Selling Price'
         };
-        var displayOrder = ['name','supplier','code','unit','cost_price','selling_price'];
+        var displayOrder = ['name','code','unit','cost_price','selling_price'];
         var shown = displayOrder.filter(function(k) { return headers.indexOf(k) >= 0; });
-        if (!shown.length) shown = headers.slice(0,6);
+        if (!shown.length) shown = headers.slice(0,5);
 
         var thead = '<tr>' + shown.map(function(k, idx) {
             return '<th' + (idx===0?'':' style="text-align:center"') + '>' + (displayMap[k]||k) + '</th>';
@@ -1224,6 +1278,14 @@ $(document).ready(function () {
 
     $('#submitImportBtn').on('click', function(e) {
         e.preventDefault();
+        @if(!$importSupplier)
+            toastr.error(
+                'No supplier selected. Choose a specific supplier in the <strong>Supplier filter</strong> before importing.',
+                'Supplier Required',
+                { timeOut: 8000 }
+            );
+            return;
+        @endif
         var queue = [];
         try { var s = localStorage.getItem(IMPORT_KEY); queue = s ? JSON.parse(s) : parsedCsvRows; }
         catch(ex) { queue = parsedCsvRows; }
@@ -1231,67 +1293,137 @@ $(document).ready(function () {
         runImport(queue);
     });
 
+    // ════════════════════════════════════════════════════════════════════════
+    //  runImport — silent per-row failures, summary at the end
+    //
+    //  During import: progress bar + count only. No per-row messages.
+    //  On finish:
+    //    • All succeeded  → "All 70 rows imported successfully."
+    //    • Some failed    → "50 of 70 rows imported."
+    //                       "20 rows could not be imported (duplicate
+    //                        name or code)." + scrollable list of names
+    // ════════════════════════════════════════════════════════════════════════
     function runImport(queue) {
         $('#importSetupFields').hide();
-        $('#importStepPreview').hide(); $('#importStepProgress').show();
+        $('#importStepPreview').hide();
+        $('#importStepProgress').show();
         $('#submitImportBtn').prop('disabled', true);
         $('#cancelImportBtn').prop('disabled', true);
 
-        var total=queue.length, done=0, succeeded=0, failed=0;
-        $('#importProgressText').text('0 of '+total+' done');
+        var total     = queue.length;
+        var done      = 0;
+        var succeeded = 0;
+        var failedRows = [];   // collect failed product names silently
+
+        $('#importProgressText').text('0 of ' + total + ' done');
 
         function importNext(index) {
             if (index >= queue.length) {
+                // ── All rows processed — show summary ────────────────────
                 localStorage.removeItem(IMPORT_KEY);
-                $('#importStepProgress').hide(); $('#importStepDone').show();
-                $('#importDoneSummary').text(succeeded+' imported, '+failed+' skipped/failed.');
-                $('#cancelImportBtn').prop('disabled',false).html('<i class="ri-close-line"></i> Close');
-                setTimeout(function() { location.reload(); }, 3000);
+                $('#importStepProgress').hide();
+                $('#importStepDone').show();
+
+                var failed     = failedRows.length;
+                var summaryHtml = '';
+
+                if (failed === 0) {
+                    // Perfect run
+                    summaryHtml  = '<div class="alert alert-success border-0 py-2 px-3 mt-1" style="font-size:13px;border-radius:8px;">';
+                    summaryHtml += '<i class="ri-check-double-line me-1"></i>';
+                    summaryHtml += 'All <strong>' + succeeded + '</strong> row' + (succeeded !== 1 ? 's' : '') + ' imported successfully.';
+                    summaryHtml += '</div>';
+                } else {
+                    // Partial success
+                    summaryHtml  = '<div class="alert alert-warning border-0 py-2 px-3 mt-1 mb-2" style="font-size:13px;border-radius:8px;">';
+                    summaryHtml += '<i class="ri-information-line me-1"></i>';
+                    summaryHtml += '<strong>' + succeeded + ' of ' + total + '</strong> row' + (total !== 1 ? 's' : '') + ' imported successfully.';
+                    summaryHtml += '</div>';
+
+                    summaryHtml += '<div style="font-size:12px;color:#6c757d;margin-bottom:4px;text-align:left;">';
+                    summaryHtml += '<strong>' + failed + '</strong> row' + (failed !== 1 ? 's' : '') +
+                                   ' could not be imported — likely already exist (duplicate name or code):';
+                    summaryHtml += '</div>';
+
+                    summaryHtml += '<div class="import-failed-list"><ul class="mb-0 ps-3">';
+                    $.each(failedRows, function(i, name) {
+                        summaryHtml += '<li>' + $('<div>').text(name).html() + '</li>';
+                    });
+                    summaryHtml += '</ul></div>';
+                }
+
+                $('#importDoneSummary').html(summaryHtml);
+                $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Close');
+                setTimeout(function() { location.reload(); }, 4500);
                 return;
             }
-            var row = queue[index];
+
+            var row        = queue[index];
+            var abortFired = false;
+
             $.ajax({
-                type:'POST', url:'{{ route("retail.operations.baseproducts.import.row") }}',
-                data:{
-                    name:          row.name          || '',
-                    supplier:      row.supplier      || '',
-                    code:          row.code          || '',
-                    unit:          row.unit          || 'Each',
-                    cost_price:    row.cost_price    || '',
-                    selling_price: row.selling_price || '',
-                    description:   row.description   || '',
-                    is_product:    1,
-                    _token: '{{ csrf_token() }}'
+                type    : 'POST',
+                url     : '{{ route("retail.operations.baseproducts.import.row") }}',
+                data    : {
+                    name          : row.name          || '',
+                    code          : row.code          || '',
+                    unit          : row.unit          || 'Each',
+                    cost_price    : row.cost_price    || '',
+                    selling_price : row.selling_price || '',
+                    description   : row.description   || '',
+                    is_product    : 1,
+                    _token        : '{{ csrf_token() }}'
+                    // supplier intentionally omitted — server reads from user_filters
                 },
-                timeout:30000,
-                success: function(data) {
-                    done++;
-                    if (data.status===201) {
+                timeout : 30000,
+                success : function(data) {
+                    // ── Server-side abort (no supplier in user_filters) ───
+                    if (data.abort) {
+                        abortFired = true;
+                        toastr.error(data.error, 'Import Halted', { timeOut: 10000 });
+                        localStorage.removeItem(IMPORT_KEY);
+                        $('#importStepProgress').hide();
+                        $('#importStepDone').show();
+
+                        var haltHtml  = '<div class="alert alert-danger border-0 py-2 px-3 mt-1" style="font-size:13px;border-radius:8px;">';
+                            haltHtml += '<i class="ri-error-warning-line me-1"></i>';
+                            haltHtml += 'Import halted — no supplier set. ';
+                            haltHtml += succeeded + ' row' + (succeeded !== 1 ? 's' : '') + ' imported before halt.';
+                            haltHtml += '</div>';
+
+                        $('#importDoneSummary').html(haltHtml);
+                        $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Close');
+                        return; // stop recursion
+                    }
+
+                    if (data.status === 201) {
+                        // Success — add row to DataTable silently
                         succeeded++;
-                        appendLog('<span class="text-success">✓</span> Row '+(index+1)+': '+row.name+' imported.');
-                        if (data.product && window._dt) { window._dt.row.add($(buildRow(data.product))); }
+                        if (data.product && window._dt) {
+                            window._dt.row.add($(buildRow(data.product)));
+                        }
                     } else {
-                        failed++;
-                        appendLog('<span class="text-danger">✗</span> Row '+(index+1)+': '+(data.error||'Failed')+' ('+row.name+')');
+                        // Skip/fail — collect name silently, no toastr
+                        failedRows.push(row.name || ('Row ' + (index + 1)));
                     }
                 },
-                error: function() {
-                    done++; failed++;
-                    appendLog('<span class="text-danger">✗</span> Row '+(index+1)+': Network error ('+row.name+')');
+                error : function() {
+                    // Network/server error — count as failed silently
+                    failedRows.push(row.name || ('Row ' + (index + 1)));
                 },
-                complete: function() {
-                    var pct = Math.round((done/total)*100);
-                    $('#importBarFill').css('width',pct+'%');
-                    $('#importProgressText').text(done+' of '+total+' done');
-                    importNext(index+1);
+                complete : function(xhr) {
+                    if (abortFired) return; // halted — don't continue
+
+                    done++;
+                    var pct = Math.round((done / total) * 100);
+                    $('#importBarFill').css('width', pct + '%');
+                    $('#importProgressText').text(done + ' of ' + total + ' done');
+                    importNext(index + 1);
                 }
             });
         }
-        importNext(0);
-    }
 
-    function appendLog(msg) {
-        var el = $('#importLog'); el.append('<div>'+msg+'</div>'); el.scrollTop(el[0].scrollHeight);
+        importNext(0);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1374,7 +1506,7 @@ $(document).ready(function () {
         }, 350);
     });
 
-    // ── ADD  ── supplier does NOT reset after successful save ─────────────
+    // ── ADD ───────────────────────────────────────────────────────────────
     $('#newDataBtn').on('click', function(e) {
         e.preventDefault(); resetNewModal(); $('#newDataModal').modal('show');
     });
@@ -1399,18 +1531,12 @@ $(document).ready(function () {
                 if (data.status===201) {
                     toastr.success(data.success,'Success');
                     table.row.add($(buildRow(data.product))).draw(false);
-
-                    // ── Reset only name, prices, code, description, unit
-                    // ── Supplier is intentionally KEPT so user can add more
-                    //    products for the same supplier without reselecting.
                     $('#new-name').val('').focus();
                     $('#new-selling-price').val('');
                     $('#new-cost-price').val('');
                     $('#new-code').val('');
                     $('#new-description').val('');
                     $('#new-unit').val('Each');
-                    // $('#new-supplier') is NOT reset
-
                 } else if (data.status===422) {
                     toastr.error(data.error||'Validation failed.','Error');
                 } else { toastr.info('Unspecified error.','Error'); }
@@ -1422,7 +1548,6 @@ $(document).ready(function () {
         e.preventDefault(); resetNewModal(); $('#newDataModal').modal('hide');
     });
 
-    // Full reset (only on Cancel / modal close)
     function resetNewModal() {
         $('#newDataForm')[0].reset();
         $('#new-unit').val('Each');
@@ -1461,101 +1586,86 @@ $(document).ready(function () {
             error: handleAjaxError
         });
     });
+   
 
-    // ── EDIT ── prices on Tab 1, sync hidden fields before submit ─────────
-    $('#tbody').on('click', '.editDataBtn', function() {
-        var b=$(this);
-        var nm   = b.attr('editName');
-        var unit = b.attr('editUnit');
+    // ── EDIT ──────────────────────────────────────────────────────────────
+$('#tbody').on('click', '.editDataBtn', function () {
+    var b = $(this);
+    $('#editId').val(b.attr('editId'));
+    $('#editRow').val(b.attr('editRow'));
+    $('#editName').val(b.attr('editName'));
+    $('#editSupplier').val(b.attr('editSupplier'));
+    $('#editCode').val(b.attr('editCode'));
+    $('#editUnit').val(b.attr('editUnit'));
+    $('#editDescription').val(b.attr('editDescription'));
+    $('#editSellingPrice').val(b.attr('editSellingPrice'));
+    $('#editCostPrice').val(b.attr('editCostPrice'));
+    var ip = parseInt(b.attr('editIsProduct'));
+    if (ip === 1) { $('#editIsProductYes').prop('checked', true); }
+    else          { $('#editIsProductNo').prop('checked', true);  }
+    $('#editDataModal').modal('show');
+});
 
-        // Populate Tab 1 read-only displays
-        $('#et1-name-display').val(nm);
-        $('#et1-unit-display').val(unit);
+$('#submitUpdateDataBtn').on('click', function (e) {
+    e.preventDefault();
 
-        // Populate Tab 2 editable fields
-        $('#editId').val(b.attr('editId'));
-        $('#editRow').val(b.attr('editRow'));
-        $('#editName').val(nm);
-        $('#editSupplier').val(b.attr('editSupplier'));
-        $('#editCode').val(b.attr('editCode'));
-        $('#editUnit').val(unit);
-        $('#editDescription').val(b.attr('editDescription'));
-        $('#editSellingPrice').val(b.attr('editSellingPrice'));
-        $('#editCostPrice').val(b.attr('editCostPrice'));
+    var name     = $('#editName').val().trim();
+    var supplier = $('#editSupplier').val();
 
-        var ip = parseInt(b.attr('editIsProduct'));
-        if (ip === 1) { $('#editIsProductYes').prop('checked', true); }
-        else          { $('#editIsProductNo').prop('checked', true);  }
+    if (!name) {
+        toastr.warning('Product name is required.', 'Required');
+        $('#editName').focus(); return;
+    }
+    if (!supplier) {
+        toastr.warning('Please select a supplier.', 'Required');
+        $('#editSupplier').focus(); return;
+    }
 
-        // Start on the prices tab
-        $('button[data-bs-target="#et1"]').tab('show');
-        $('#editDataModal').modal('show');
+    var self = $(this); self.prop('disabled', true);
+    var row  = $('#editRow').val();
+
+    var formData = {
+        id:            $('#editId').val(),
+        editrow:       row,
+        name:          name,
+        supplier:      supplier,
+        code:          $('#editCode').val(),
+        unit:          $('#editUnit').val(),
+        description:   $('#editDescription').val(),
+        is_product:    $('input[name="is_product"]:checked').val() || '1',
+        selling_price: $('#editSellingPrice').val(),
+        cost_price:    $('#editCostPrice').val(),
+        _token:        '{{ csrf_token() }}'
+    };
+
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
+    $.ajax({
+        type: 'POST', url: '{{ route("retail.operations.baseproducts.update") }}',
+        data: formData, timeout: 60000,
+        beforeSend: function () { $('#progressBar').show(); },
+        complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
+        success: function (data) {
+            if (data.status === 201) {
+                toastr.success(data.success, 'Success');
+                $('#editDataModal').modal('hide');
+                table.row('#' + row).remove();
+                table.row.add($(buildRow(data.product))).draw(false);
+                updateSelectedCount();
+            } else if (data.status === 422) {
+                toastr.error(data.error || 'Validation failed.', 'Error');
+            } else {
+                toastr.info('Unspecified error.', 'Error');
+            }
+        },
+        error: handleAjaxError
     });
+});
 
-    $('#submitUpdateDataBtn').on('click', function(e) {
-        e.preventDefault();
-
-        // Sync hidden fields from Tab 2 visible fields before serialising
-        $('#editNameHidden').val($('#editName').val());
-        $('#editSupplierHidden').val($('#editSupplier').val());
-        $('#editCodeHidden').val($('#editCode').val());
-        $('#editUnitHidden').val($('#editUnit').val());
-        $('#editDescriptionHidden').val($('#editDescription').val());
-        $('#editIsProductHidden').val($('input[name="is_product"]:checked').length
-            ? $('input[name="is_product"]:checked').val() : '1');
-
-        if (!$('#editName').val().trim()) {
-            toastr.warning('Product name is required.','Required');
-            $('button[data-bs-target="#et2"]').tab('show');
-            $('#editName').focus(); return;
-        }
-        if (!$('#editSupplier').val()) {
-            toastr.warning('Please select a supplier.','Required');
-            $('button[data-bs-target="#et2"]').tab('show');
-            $('#editSupplier').focus(); return;
-        }
-
-        var self=$(this); self.prop('disabled',true);
-        var row=$('#editRow').val();
-
-        // Build data from form + hidden fields
-        var formData = {
-            id:            $('#editId').val(),
-            editrow:       row,
-            name:          $('#editNameHidden').val(),
-            supplier:      $('#editSupplierHidden').val(),
-            code:          $('#editCodeHidden').val(),
-            unit:          $('#editUnitHidden').val(),
-            description:   $('#editDescriptionHidden').val(),
-            is_product:    $('#editIsProductHidden').val(),
-            selling_price: $('#editSellingPrice').val(),
-            cost_price:    $('#editCostPrice').val(),
-            _token:        '{{ csrf_token() }}'
-        };
-
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
-        $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.update") }}',
-            data: formData, timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
-            success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
-                    $('#editDataModal').modal('hide');
-                    table.row('#'+row).remove();
-                    table.row.add($(buildRow(data.product))).draw(false);
-                    updateSelectedCount();
-                } else if (data.status===422) {
-                    toastr.error(data.error||'Validation failed.','Error');
-                } else { toastr.info('Unspecified error.','Error'); }
-            },
-            error: handleAjaxError
-        });
-    });
-    $('#cancelEditDataBtn').on('click', function(e) {
-        e.preventDefault(); $('#editDataForm')[0].reset(); $('#editDataModal').modal('hide');
-    });
+$('#cancelEditDataBtn').on('click', function (e) {
+    e.preventDefault();
+    $('#editDataForm')[0].reset();
+    $('#editDataModal').modal('hide');
+});
 
     // ── BULK DELETE ───────────────────────────────────────────────────────
     $('#deleteSelectedBtn').on('click', function(e) {

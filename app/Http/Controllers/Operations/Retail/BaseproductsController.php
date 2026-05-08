@@ -278,80 +278,117 @@ class BaseproductsController extends Controller
         ]);
     }
 
+
     // ─────────────────────────────────────────────────────────────────────────
-    //  IMPORT ROW
-    // ─────────────────────────────────────────────────────────────────────────
+//  IMPORT ROW  (supplier comes from user_filters, not CSV)
+// ─────────────────────────────────────────────────────────────────────────
 
-    public function importBaseproductRow(Request $request)
-    {
-        if (empty($request->name) || trim($request->name) === '') {
-            return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
-        }
+public function importBaseproductRow(Request $request)
+{
+    // ── 1. Resolve supplier from the importing user's filter preference ──
+    $userId  = auth()->id();
+    $pref    = DB::connection('tenant')
+                    ->table('user_filters')
+                    ->where('user_id', $userId)
+                    ->first();
 
-        if (empty($request->supplier) || trim($request->supplier) === '') {
-            return response()->json(['error' => 'Supplier is blank — row skipped.', 'status' => 409]);
-        }
+    $supplierId = $pref->supplier_id ?? null;
 
-        $nameExists = DB::connection('tenant')
+    if (!$supplierId) {
+        return response()->json([
+            'error'  => 'No supplier selected. Please select a supplier in your filters before importing.',
+            'status' => 422,
+            'abort'  => true,   // signal the front-end to halt the whole batch
+        ]);
+    }
+
+    $supplier = DB::connection('tenant')
+                    ->table('suppliers')
+                    ->where('id', $supplierId)
+                    ->where('status', 'active')
+                    ->first();
+
+    if (!$supplier) {
+        return response()->json([
+            'error'  => 'The selected supplier no longer exists or is inactive. Please choose another.',
+            'status' => 422,
+            'abort'  => true,
+        ]);
+    }
+
+    // ── 2. Basic row validation ──────────────────────────────────────────
+    if (empty($request->name) || trim($request->name) === '') {
+        return response()->json(['error' => 'Name is blank — row skipped.', 'status' => 409]);
+    }
+
+    $nameExists = DB::connection('tenant')
+        ->table('retail_base_products')
+        ->whereRaw('LOWER(name) = ?', [strtolower(trim($request->name))])
+        ->exists();
+
+    if ($nameExists) {
+        return response()->json([
+            'error'  => 'Product name "' . trim($request->name) . '" already exists — row skipped.',
+            'status' => 409,
+        ]);
+    }
+
+    if (!empty($request->code)) {
+        $exists = DB::connection('tenant')
             ->table('retail_base_products')
-            ->whereRaw('LOWER(name) = ?', [strtolower(trim($request->name))])
+            ->where('code', trim($request->code))
             ->exists();
 
-        if ($nameExists) {
+        if ($exists) {
             return response()->json([
-                'error'  => 'Product name "' . trim($request->name) . '" already exists — row skipped.',
+                'error'  => 'Code "' . trim($request->code) . '" already exists — row skipped.',
                 'status' => 409,
             ]);
         }
-
-        if (!empty($request->code)) {
-            $exists = DB::connection('tenant')
-                ->table('retail_base_products')
-                ->where('code', trim($request->code))
-                ->exists();
-
-            if ($exists) {
-                return response()->json([
-                    'error'  => 'Code "' . trim($request->code) . '" already exists — row skipped.',
-                    'status' => 409,
-                ]);
-            }
-        }
-
-        $validUnits = ['Each', 'kg', 'g', 'Litre', 'ml', 'Box', 'Carton', 'Pack', 'Pair', 'Dozen', 'Bag', 'Bottle', 'Metre', 'Service'];
-        $unit       = trim($request->unit ?? 'Each');
-        if (!in_array($unit, $validUnits)) {
-            $unit = 'Each';
-        }
-
-        $data = [
-            'name'          => trim($request->name),
-            'description'   => $request->description ? trim($request->description) : null,
-            'code'          => $request->code         ? trim($request->code)        : null,
-            'supplier'      => trim($request->supplier),
-            'unit'          => $unit,
-            'cost_price'    => is_numeric($request->cost_price)    ? (float) $request->cost_price    : null,
-            'selling_price' => is_numeric($request->selling_price) ? (float) $request->selling_price : null,
-            'is_product'    => 1,
-            'created_at'    => now(),
-            'updated_at'    => now(),
-        ];
-
-        $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);
-
-        if ($insertId) {
-            $product = DB::connection('tenant')
-                ->table('retail_base_products')
-                ->where('id', $insertId)
-                ->first();
-
-            return response()->json([
-                'success' => 'Row imported.',
-                'status'  => 201,
-                'product' => $this->formatProduct($product),
-            ]);
-        }
-
-        return response()->json(['error' => 'Database insert failed.', 'status' => 500]);
     }
+
+    $validUnits = ['Each','kg','g','Litre','ml','Box','Carton','Pack','Pair','Dozen','Bag','Bottle','Metre','Service'];
+    $unit       = trim($request->unit ?? 'Each');
+    if (!in_array($unit, $validUnits)) {
+        $unit = 'Each';
+    }
+
+    // ── 3. Insert — supplier is always the one from user_filters ────────
+    $data = [
+        'name'          => trim($request->name),
+        'description'   => $request->description ? trim($request->description) : null,
+        'code'          => $request->code         ? trim($request->code)        : null,
+        'supplier'      => $supplier->name,    // store display name in the catalogue
+        'supplier_id'   => $supplier->id,      // store FK if your schema has it
+        'unit'          => $unit,
+        'cost_price'    => is_numeric($request->cost_price)    ? (float)$request->cost_price    : null,
+        'selling_price' => is_numeric($request->selling_price) ? (float)$request->selling_price : null,
+        'is_product'    => 1,
+        'created_at'    => now(),
+        'updated_at'    => now(),
+    ];
+
+    // Drop supplier_id key if your table doesn't have that column
+    if (!DB::connection('tenant')->getSchemaBuilder()->hasColumn('retail_base_products', 'supplier_id')) {
+        unset($data['supplier_id']);
+    }
+
+    $insertId = DB::connection('tenant')->table('retail_base_products')->insertGetId($data);
+
+    if ($insertId) {
+        $product = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $insertId)
+            ->first();
+
+        return response()->json([
+            'success' => 'Row imported.',
+            'status'  => 201,
+            'product' => $this->formatProduct($product),
+        ]);
+    }
+
+    return response()->json(['error' => 'Database insert failed.', 'status' => 500]);
+}
+
 }

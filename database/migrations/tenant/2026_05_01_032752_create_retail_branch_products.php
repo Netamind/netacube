@@ -31,7 +31,7 @@ return new class extends Migration
             $table->string('batch_number')->nullable();
 
             // ── Pricing ───────────────────────────────────────────────────
-            $table->decimal('selling_price',   15, 2);
+            $table->decimal('selling_price',   15, 2)->nullable();
             $table->decimal('cost_price',      15, 2)->nullable();
      
 

@@ -10,14 +10,7 @@ use DB;
 
 class RetailActionCenterController extends Controller
 {
-    // ══════════════════════════════════════════════════════════════════════
-    //  HELPERS
-    // ══════════════════════════════════════════════════════════════════════
-
-    /**
-     * Build the user snapshot array from the currently authenticated user.
-     * Called at write time so the snapshot is frozen at the moment of action.
-     */
+   
     private function userSnapshot(Request $request): array
     {
         $user  = Auth::user();
@@ -40,30 +33,30 @@ class RetailActionCenterController extends Controller
     private function parseDeviceType(string $ua): string
     {
         $ua = strtolower($ua);
-        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad'))  return 'tablet';
+        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad'))                      return 'tablet';
         if (str_contains($ua, 'mobile') || str_contains($ua, 'android')
-            || str_contains($ua, 'iphone'))                             return 'mobile';
+            || str_contains($ua, 'iphone'))                                                 return 'mobile';
         return 'desktop';
     }
 
     private function parseBrowser(string $ua): string
     {
-        if (str_contains($ua, 'Edg'))                                   return 'Edge';
-        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera'))    return 'Opera';
-        if (str_contains($ua, 'Chrome'))                                return 'Chrome';
-        if (str_contains($ua, 'Firefox'))                               return 'Firefox';
-        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome')) return 'Safari';
-        if (str_contains($ua, 'MSIE')   || str_contains($ua, 'Trident')) return 'IE';
+        if (str_contains($ua, 'Edg'))                                                       return 'Edge';
+        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera'))                        return 'Opera';
+        if (str_contains($ua, 'Chrome'))                                                    return 'Chrome';
+        if (str_contains($ua, 'Firefox'))                                                   return 'Firefox';
+        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome'))                   return 'Safari';
+        if (str_contains($ua, 'MSIE')   || str_contains($ua, 'Trident'))                   return 'IE';
         return 'Other';
     }
 
     private function parseOS(string $ua): string
     {
-        if (str_contains($ua, 'Windows NT'))                            return 'Windows';
-        if (str_contains($ua, 'Mac OS X'))                              return 'macOS';
-        if (str_contains($ua, 'Android'))                               return 'Android';
-        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))  return 'iOS';
-        if (str_contains($ua, 'Linux'))                                 return 'Linux';
+        if (str_contains($ua, 'Windows NT'))                                                return 'Windows';
+        if (str_contains($ua, 'Mac OS X'))                                                  return 'macOS';
+        if (str_contains($ua, 'Android'))                                                   return 'Android';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))                      return 'iOS';
+        if (str_contains($ua, 'Linux'))                                                     return 'Linux';
         return 'Other';
     }
 
@@ -82,12 +75,12 @@ class RetailActionCenterController extends Controller
             ->where('rdn.id', $id)
             ->select(
                 'rdn.*',
-                'rbp.name         as product_name',
-                'rbp.code         as product_code',
-                'rbp.unit         as product_unit',
-                'b.name           as branch_name',
-                'u.name           as added_by_name',
-                'su.name          as submitted_by_name'
+                'rbp.name  as product_name',
+                'rbp.code  as product_code',
+                'rbp.unit  as product_unit',
+                'b.name    as branch_name',
+                'u.name    as added_by_name',
+                'su.name   as submitted_by_name'
             )
             ->first();
 
@@ -100,56 +93,36 @@ class RetailActionCenterController extends Controller
     private function formatNote($note): array
     {
         return [
-            // ── Identifiers ───────────────────────────────────────────────
             'id'                => $note->id,
             'row'               => 'row' . $note->id,
             'branch_id'         => $note->branch_id,
             'base_product_id'   => $note->base_product_id,
-
-            // ── Branch & product info (from joins) ────────────────────────
             'branch_name'       => $note->branch_name       ?? null,
             'product_name'      => $note->product_name      ?? null,
             'product_code'      => $note->product_code      ?? null,
             'product_unit'      => $note->product_unit      ?? null,
-
-            // ── Price snapshots (frozen at entry time) ────────────────────
             'selling_price'     => $note->selling_price     ?? 0,
             'cost_price'        => $note->cost_price        ?? 0,
-
-            // ── Delivery details ──────────────────────────────────────────
             'delivery_date'     => $note->delivery_date,
             'quantity'          => $note->quantity,
-
-            // ── Submission state ──────────────────────────────────────────
             'submitted'         => (bool) $note->submitted,
             'submitted_by'      => $note->submitted_by      ?? null,
             'submitted_by_name' => $note->submitted_by_name ?? null,
             'submitted_at'      => $note->submitted_at      ?? null,
-
-            // ── Who added it ──────────────────────────────────────────────
             'added_by'          => $note->added_by,
             'added_by_name'     => $note->added_by_name     ?? null,
-
-            // ── Error / discrepancy ───────────────────────────────────────
-            'error_quantity'    => $note->error_quantity    ?? null,
-            'error_notes'       => $note->error_notes       ?? null,
-            'error_status'      => $note->error_status      ?? null,
-
-            // ── Notes ─────────────────────────────────────────────────────
-            'notes'             => $note->notes             ?? null,
-
-            // ── Timestamps ───────────────────────────────────────────────
-            'created_at'        => $note->created_at        ?? null,
-            'updated_at'        => $note->updated_at        ?? null,
-
-            // ── Computed helpers for the UI ───────────────────────────────
+            'error_quantity'    => $note->error_quantity     ?? null,
+            'error_notes'       => $note->error_notes        ?? null,
+            'error_status'      => $note->error_status       ?? null,
+            'notes'             => $note->notes              ?? null,
+            'created_at'        => $note->created_at         ?? null,
+            'updated_at'        => $note->updated_at         ?? null,
             'row_value'         => round((float) $note->quantity * (float) ($note->selling_price ?? 0), 2),
         ];
     }
 
     /**
-     * Resolve the base product snapshot fields — price, unit, name, code.
-     * These are frozen into the delivery note at creation time.
+     * Resolve a base product row — price, unit, name, code.
      */
     private function fetchBaseProduct(int $baseProductId): ?object
     {
@@ -160,8 +133,7 @@ class RetailActionCenterController extends Controller
     }
 
     /**
-     * Write a stock movement to retail_inventory_logs when a delivery note
-     * is submitted (stock actually added to branch).
+     * Write a stock movement to retail_inventory_logs.
      */
     private function logStockChange(
         int     $baseProductId,
@@ -177,7 +149,6 @@ class RetailActionCenterController extends Controller
     ): void {
         $change = $stockAfter - $stockBefore;
 
-        // Skip no-ops to avoid polluting the log.
         if (abs($change) < 0.0001) return;
 
         $request = request();
@@ -210,33 +181,277 @@ class RetailActionCenterController extends Controller
                 'session_id'          => session()->getId(),
                 'log_date'            => now()->toDateString(),
                 'log_time'            => now()->toTimeString(),
+                'created_at'          => now(),
+                'updated_at'          => now(),
             ]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  VIEW
+    //  VIEWS
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET  /retail/operations/action-center
-     * Render the main Action Centre view.
-     */
     public function showActionCenterView()
     {
         return view('operations.retail.actioncenter');
     }
 
+    public function showDeliverynotesView()
+    {
+        return view('operations.retail.deliverynotes');
+    }
+
+    public function showPricechangesView()
+    {
+        return view('operations.retail.pricechanges');
+    }
+
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: SAVE DELIVERY NOTE  (on-change auto-save)
+    //  BRANCH GRID  (AJAX partial — returns rendered HTML)
+    //
+    //  Route: GET retail.operations.actioncenter.branchgrid
+    //  Params: base_product_id, delivery_date
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/save-dnote
-     *
-     * Upserts one pending delivery note for a branch + product + date.
-     * If quantity is 0 or blank the note is deleted (cleared).
-     * Does NOT add to branch stock — that only happens on Submit.
-     */
+    public function getBranchGrid(Request $request)
+    {
+        $request->validate([
+            'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
+            'delivery_date'   => 'required|date',
+        ]);
+
+        $productId    = (int) $request->base_product_id;
+        $deliveryDate = $request->delivery_date;
+
+        $pref = DB::connection('tenant')
+            ->table('user_filters')
+            ->where('user_id', Auth::id())
+            ->first();
+
+        $categoryId = $pref->category_id ?? null;
+
+        if (!$categoryId) {
+            return response()->json(['html' => '<div class="no-product-placeholder" style="grid-column:1/-1;padding:40px 16px;text-align:center;color:#94a3b8;"><i class="ri-store-2-line" style="font-size:40px;color:#dde1f0;display:block;margin-bottom:10px;"></i><p style="font-size:13px;margin:0;">No category selected.</p></div>']);
+        }
+
+        $branches = DB::connection('tenant')
+            ->table('branches')
+            ->where('sector',   'Retail')
+            ->where('category', (string) $categoryId)
+            ->where('status',   'active')
+            ->orderBy('name')
+            ->get();
+
+        $product = $this->fetchBaseProduct($productId);
+
+        if (!$product) {
+            return response()->json(['html' => '']);
+        }
+
+        $html = '<div class="branch-grid" id="branchGrid">';
+
+        foreach ($branches as $branch) {
+            $stock = DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('branch_id',       $branch->id)
+                ->where('base_product_id', $productId)
+                ->value('stock_quantity') ?? 0;
+
+            $branchPrice = DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('branch_id',       $branch->id)
+                ->where('base_product_id', $productId)
+                ->value('selling_price');
+
+            $effectivePrice = $branchPrice ?? $product->selling_price;
+            $isOverride     = $branchPrice !== null;
+
+            $sdnote = DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('delivery_date',   $deliveryDate)
+                ->where('branch_id',       $branch->id)
+                ->where('base_product_id', $productId)
+                ->where('submitted',       true)
+                ->value('quantity') ?? 0;
+
+            $pending = DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('delivery_date',   $deliveryDate)
+                ->where('branch_id',       $branch->id)
+                ->where('base_product_id', $productId)
+                ->where('submitted',       false)
+                ->value('quantity');
+
+            $priceClass = $isOverride ? 'override' : 'base';
+            $priceIcon  = $isOverride ? 'ri-pencil-line' : 'ri-checkbox-circle-line';
+            $priceLabel = $isOverride ? '(branch)' : '(catalogue)';
+            $pendingVal = $pending !== null ? $pending : '';
+            $inputClass = $pending !== null ? 'bc-input saved' : 'bc-input';
+
+            $stockFmt  = number_format((float) $stock,          0);
+            $sdnoteFmt = number_format((float) $sdnote,         0);
+            $priceFmt  = number_format((float) $effectivePrice, 2);
+
+            $html .= <<<HTML
+            <div class="branch-card" data-branch-id="{$branch->id}" data-product-id="{$productId}">
+                <div class="bc-name">{$branch->name}</div>
+                <div class="bc-meta">
+                    <span>stock: <span class="bc-stock">{$stockFmt}</span></span>
+                    <span>sdnote: <span class="bc-sdnote">{$sdnoteFmt}</span></span>
+                </div>
+                <input type="number"
+                       class="{$inputClass}"
+                       placeholder="0"
+                       value="{$pendingVal}"
+                       data-branch-id="{$branch->id}"
+                       data-product-id="{$productId}"
+                       data-branch-name="{$branch->name}">
+                <div class="bc-price-hint {$priceClass}">
+                    <i class="{$priceIcon}"></i>
+                    MWK {$priceFmt} {$priceLabel}
+                </div>
+            </div>
+HTML;
+        }
+
+        $html .= '</div>';
+        $html .= <<<HTML
+        <div class="price-legend">
+            <div class="pl-item"><div class="pl-dot" style="background:#059669;"></div> Catalogue default price</div>
+            <div class="pl-item"><div class="pl-dot" style="background:#1d4ed8;"></div> Branch-specific override</div>
+        </div>
+HTML;
+
+        return response($html);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  BRANCH PRICE OVERRIDES  (AJAX JSON)
+    //
+    //  Route: GET retail.operations.actioncenter.overrides
+    //  Params: base_product_id
+    // ══════════════════════════════════════════════════════════════════════
+
+    public function getOverrides(Request $request)
+    {
+        $request->validate([
+            'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
+        ]);
+
+        $productId = (int) $request->base_product_id;
+        $product   = $this->fetchBaseProduct($productId);
+
+        $pref = DB::connection('tenant')
+            ->table('user_filters')
+            ->where('user_id', Auth::id())
+            ->first();
+
+        $categoryId = $pref->category_id ?? null;
+
+        $branches = DB::connection('tenant')
+            ->table('branches')
+            ->where('sector',   'Retail')
+            ->where('category', (string) $categoryId)
+            ->where('status',   'active')
+            ->orderBy('name')
+            ->get(['id', 'name']);
+
+        $result = [];
+
+        foreach ($branches as $branch) {
+            $bp = DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('branch_id',       $branch->id)
+                ->where('base_product_id', $productId)
+                ->first(['selling_price', 'cost_price']);
+
+            $result[] = [
+                'id'           => $branch->id,
+                'name'         => $branch->name,
+                'base_price'   => (float) ($product->selling_price ?? 0),
+                'base_cost'    => (float) ($product->cost_price    ?? 0),
+                'branch_price' => ($bp && $bp->selling_price !== null) ? (float) $bp->selling_price : null,
+                'branch_cost'  => ($bp && $bp->cost_price    !== null) ? (float) $bp->cost_price    : null,
+            ];
+        }
+
+        return response()->json(['branches' => $result]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  BRANCH PRICE OVERRIDE  (POST — save or clear a branch price)
+    //
+    //  Route: POST retail.operations.actioncenter.branch.price
+    //  Params: branch_id, base_product_id, selling_price (null = clear), cost_price
+    // ══════════════════════════════════════════════════════════════════════
+
+    public function saveBranchPrice(Request $request)
+    {
+        $request->validate([
+            'branch_id'       => 'required|integer|exists:tenant.branches,id',
+            'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
+            'selling_price'   => 'nullable|numeric|min:0',
+            'cost_price'      => 'nullable|numeric|min:0',
+        ]);
+
+        $branchId  = (int) $request->branch_id;
+        $productId = (int) $request->base_product_id;
+
+        $sell = ($request->selling_price !== null && $request->selling_price !== '')
+            ? (float) $request->selling_price
+            : null;
+
+        $cost = ($request->cost_price !== null && $request->cost_price !== '')
+            ? (float) $request->cost_price
+            : null;
+
+        $existing = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('branch_id',       $branchId)
+            ->where('base_product_id', $productId)
+            ->first();
+
+        if ($existing) {
+            DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('branch_id',       $branchId)
+                ->where('base_product_id', $productId)
+                ->update([
+                    'selling_price' => $sell,
+                    'cost_price'    => $cost,
+                    'updated_at'    => now(),
+                ]);
+        } else {
+            DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->insert([
+                    'branch_id'       => $branchId,
+                    'base_product_id' => $productId,
+                    'selling_price'   => $sell,
+                    'cost_price'      => $cost,
+                    'stock_quantity'  => 0,
+                    'created_at'      => now(),
+                    'updated_at'      => now(),
+                ]);
+        }
+
+        $message = $sell !== null
+            ? 'Branch price override saved.'
+            : 'Branch price override removed. Branch will use catalogue price.';
+
+        return response()->json(['success' => $message]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  SAVE DELIVERY NOTE  (auto-save on input change)
+    //
+    //  Route: POST retail.operations.actioncenter.save.dnote
+    //  Params: branch_id, base_product_id, quantity, delivery_date
+    //
+    //  • If quantity is 0 the pending note is deleted (cleared).
+    //  • Price snapshot uses branch override if set, else base catalogue price.
+    //  • Does NOT add to branch stock — that only happens on Submit.
+    // ══════════════════════════════════════════════════════════════════════
+
     public function saveDeliveryNote(Request $request)
     {
         $request->validate([
@@ -246,12 +461,12 @@ class RetailActionCenterController extends Controller
             'delivery_date'   => 'required|date',
         ]);
 
-        $branchId      = (int)    $request->branch_id;
-        $baseProductId = (int)    $request->base_product_id;
-        $quantity      = (float)  $request->quantity;
+        $branchId      = (int)   $request->branch_id;
+        $baseProductId = (int)   $request->base_product_id;
+        $quantity      = (float) $request->quantity;
         $date          = $request->delivery_date;
 
-        // If quantity is zero, remove any pending note for this slot.
+        // Clear the slot when quantity is zero.
         if ($quantity <= 0) {
             DB::connection('tenant')
                 ->table('retail_deliverynotes')
@@ -265,6 +480,25 @@ class RetailActionCenterController extends Controller
         }
 
         $base = $this->fetchBaseProduct($baseProductId);
+
+        if (!$base) {
+            return response()->json(['error' => 'Product not found.', 'status' => 404]);
+        }
+
+        // Branch-specific price override (null = use base catalogue price).
+        $bp = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('branch_id',       $branchId)
+            ->where('base_product_id', $baseProductId)
+            ->first(['selling_price', 'cost_price']);
+
+        $effectiveSell = ($bp && $bp->selling_price !== null)
+            ? (float) $bp->selling_price
+            : (float) ($base->selling_price ?? 0);
+
+        $effectiveCost = ($bp && $bp->cost_price !== null)
+            ? (float) $bp->cost_price
+            : (float) ($base->cost_price ?? 0);
 
         $existing = DB::connection('tenant')
             ->table('retail_deliverynotes')
@@ -283,13 +517,12 @@ class RetailActionCenterController extends Controller
                 ->where('id', $existing->id)
                 ->update([
                     'quantity'      => $quantity,
-                    'selling_price' => $base->selling_price ?? 0,
-                    'cost_price'    => $base->cost_price    ?? 0,
+                    'selling_price' => $effectiveSell,
+                    'cost_price'    => $effectiveCost,
                     'updated_at'    => $now,
                 ]);
 
             $noteId = $existing->id;
-
         } else {
             $noteId = DB::connection('tenant')
                 ->table('retail_deliverynotes')
@@ -299,11 +532,13 @@ class RetailActionCenterController extends Controller
                     'product_name'    => $base->name ?? null,
                     'product_code'    => $base->code ?? null,
                     'product_unit'    => $base->unit ?? 'Each',
-                    'selling_price'   => $base->selling_price ?? 0,
-                    'cost_price'      => $base->cost_price    ?? 0,
+                    'selling_price'   => $effectiveSell,
+                    'cost_price'      => $effectiveCost,
                     'delivery_date'   => $date,
                     'quantity'        => $quantity,
                     'submitted'       => false,
+                    'submitted_by'    => null,
+                    'submitted_at'    => null,
                     'created_at'      => $now,
                     'updated_at'      => $now,
                 ]));
@@ -319,16 +554,17 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: SUBMIT — single product
+    //  SUBMIT — single product
+    //
+    //  Route: POST retail.operations.actioncenter.submit
+    //  Params: base_product_id, delivery_date
+    //
+    //  For each pending note:
+    //   1. Mark submitted = true
+    //   2. Add quantity to retail_branch_products.stock_quantity (upsert)
+    //   3. Write an inventory log entry (StockDelivery)
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/submit
-     *
-     * Marks all pending delivery notes for the given product + date as
-     * submitted and adds their quantities to the respective branch stock.
-     * Writes an inventory log entry for each branch affected.
-     */
     public function submitDeliveryNotes(Request $request)
     {
         $request->validate([
@@ -349,86 +585,97 @@ class RetailActionCenterController extends Controller
             ->get();
 
         if ($pending->isEmpty()) {
-            return response()->json([
-                'status' => 200,
-                'info'   => 'No pending delivery notes to process.',
-            ]);
+            return response()->json(['status' => 200, 'info' => 'No pending delivery notes to submit for this product.']);
         }
 
-        $processed = 0;
+        $submitted = 0;
 
-        foreach ($pending as $note) {
-            $branchId = (int) $note->branch_id;
-            $quantity = (float) $note->quantity;
+        DB::connection('tenant')->transaction(function () use ($pending, $baseProductId, $userId, $now, &$submitted) {
+            foreach ($pending as $note) {
+                $branchId = (int)   $note->branch_id;
+                $quantity = (float) $note->quantity;
 
-            // ── Add to branch stock ───────────────────────────────────────
-            $branchProduct = DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('branch_id',       $branchId)
-                ->where('base_product_id', $baseProductId)
-                ->first();
+                if ($quantity <= 0) continue;
 
-            $stockBefore = $branchProduct ? (float) $branchProduct->stock_quantity : 0.0;
-            $stockAfter  = $stockBefore + $quantity;
-
-            if ($branchProduct) {
+                // 1. Mark submitted.
                 DB::connection('tenant')
-                    ->table('retail_branch_products')
-                    ->where('id', $branchProduct->id)
+                    ->table('retail_deliverynotes')
+                    ->where('id', $note->id)
                     ->update([
-                        'stock_quantity' => $stockAfter,
-                        'updated_at'     => $now,
+                        'submitted'    => true,
+                        'submitted_by' => $userId,
+                        'submitted_at' => $now,
+                        'updated_at'   => $now,
                     ]);
-            }
-            // If the branch product row doesn't exist yet we skip the stock
-            // update but still mark the note submitted — branch must be set up first.
 
-            // ── Mark note as submitted ────────────────────────────────────
-            DB::connection('tenant')
-                ->table('retail_deliverynotes')
-                ->where('id', $note->id)
-                ->update([
-                    'submitted'    => true,
-                    'submitted_by' => $userId,
-                    'submitted_at' => $now,
-                    'updated_at'   => $now,
-                ]);
+                // 2. Upsert branch product stock.
+                $branchProduct = DB::connection('tenant')
+                    ->table('retail_branch_products')
+                    ->where('branch_id',       $branchId)
+                    ->where('base_product_id', $baseProductId)
+                    ->first();
 
-            // ── Write inventory log ───────────────────────────────────────
-            if ($branchProduct) {
+                if ($branchProduct) {
+                    $stockBefore = (float) $branchProduct->stock_quantity;
+                    $stockAfter  = $stockBefore + $quantity;
+
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->where('branch_id',       $branchId)
+                        ->where('base_product_id', $baseProductId)
+                        ->update(['stock_quantity' => $stockAfter, 'updated_at' => $now]);
+                } else {
+                    $stockBefore = 0.0;
+                    $stockAfter  = $quantity;
+
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->insert([
+                            'branch_id'       => $branchId,
+                            'base_product_id' => $baseProductId,
+                            'selling_price'   => $note->selling_price,
+                            'cost_price'      => $note->cost_price,
+                            'stock_quantity'  => $stockAfter,
+                            'created_at'      => $now,
+                            'updated_at'      => $now,
+                        ]);
+                }
+
+                // 3. Inventory log.
                 $this->logStockChange(
                     baseProductId: $baseProductId,
                     branchId:      $branchId,
                     stockBefore:   $stockBefore,
                     stockAfter:    $stockAfter,
                     operationType: 'StockDelivery',
-                    reason:        'Delivery note #' . $note->id . ' submitted for ' . $date,
+                    reason:        'Delivery note #' . $note->id . ' submitted — ' . Carbon::parse($note->delivery_date)->format('d M Y'),
                     sellingPrice:  (float) ($note->selling_price ?? 0),
                     costPrice:     (float) ($note->cost_price    ?? 0),
                     sourceType:    'DeliveryNote',
                     sourceId:      $note->id,
                 );
-            }
 
-            $processed++;
+                $submitted++;
+            }
+        });
+
+        if ($submitted === 0) {
+            return response()->json(['status' => 200, 'info' => 'All notes had zero quantity and were skipped.']);
         }
 
         return response()->json([
             'status'  => 200,
-            'success' => $processed . ' delivery note' . ($processed > 1 ? 's' : '') . ' processed successfully.',
+            'success' => $submitted . ' delivery note' . ($submitted > 1 ? 's' : '') . ' submitted and stock updated.',
         ]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: SUBMIT ALL — all products for the date
+    //  SUBMIT ALL — all products for the date
+    //
+    //  Route: POST retail.operations.actioncenter.submitall
+    //  Params: delivery_date
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/submit-all
-     *
-     * Same logic as submitDeliveryNotes() but processes every pending note
-     * across all products for the selected delivery date.
-     */
     public function submitAllDeliveryNotes(Request $request)
     {
         $request->validate([
@@ -448,26 +695,52 @@ class RetailActionCenterController extends Controller
         if ($pending->isEmpty()) {
             return response()->json([
                 'status' => 200,
-                'info'   => 'No pending delivery notes to process for ' . Carbon::parse($date)->format('d F Y') . '.',
+                'info'   => 'No pending delivery notes for ' . Carbon::parse($date)->format('d M Y') . '.',
             ]);
         }
 
-        $processed = 0;
+        $submitted = 0;
         $skipped   = 0;
 
-        foreach ($pending as $note) {
-            $branchId      = (int) $note->branch_id;
-            $baseProductId = (int) $note->base_product_id;
-            $quantity      = (float) $note->quantity;
+        DB::connection('tenant')->transaction(function () use ($pending, $userId, $now, &$submitted, &$skipped) {
+            foreach ($pending as $note) {
+                $branchId      = (int)   $note->branch_id;
+                $baseProductId = (int)   $note->base_product_id;
+                $quantity      = (float) $note->quantity;
 
-            $branchProduct = DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('branch_id',       $branchId)
-                ->where('base_product_id', $baseProductId)
-                ->first();
+                if ($quantity <= 0) { $skipped++; continue; }
 
-            if (!$branchProduct) {
-                // Product not set up at this branch — mark submitted but log skipped.
+                $branchProduct = DB::connection('tenant')
+                    ->table('retail_branch_products')
+                    ->where('branch_id',       $branchId)
+                    ->where('base_product_id', $baseProductId)
+                    ->first();
+
+                if ($branchProduct) {
+                    $stockBefore = (float) $branchProduct->stock_quantity;
+                    $stockAfter  = $stockBefore + $quantity;
+
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->where('id', $branchProduct->id)
+                        ->update(['stock_quantity' => $stockAfter, 'updated_at' => $now]);
+                } else {
+                    $stockBefore = 0.0;
+                    $stockAfter  = $quantity;
+
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->insert([
+                            'branch_id'       => $branchId,
+                            'base_product_id' => $baseProductId,
+                            'selling_price'   => $note->selling_price,
+                            'cost_price'      => $note->cost_price,
+                            'stock_quantity'  => $stockAfter,
+                            'created_at'      => $now,
+                            'updated_at'      => $now,
+                        ]);
+                }
+
                 DB::connection('tenant')
                     ->table('retail_deliverynotes')
                     ->where('id', $note->id)
@@ -475,71 +748,45 @@ class RetailActionCenterController extends Controller
                         'submitted'    => true,
                         'submitted_by' => $userId,
                         'submitted_at' => $now,
-                        'notes'        => 'Stock not updated: product not found at branch.',
                         'updated_at'   => $now,
                     ]);
-                $skipped++;
-                continue;
+
+                $this->logStockChange(
+                    baseProductId: $baseProductId,
+                    branchId:      $branchId,
+                    stockBefore:   $stockBefore,
+                    stockAfter:    $stockAfter,
+                    operationType: 'StockDelivery',
+                    reason:        'Submit-all — delivery note #' . $note->id . ' — ' . Carbon::parse($note->delivery_date)->format('d M Y'),
+                    sellingPrice:  (float) ($note->selling_price ?? 0),
+                    costPrice:     (float) ($note->cost_price    ?? 0),
+                    sourceType:    'DeliveryNote',
+                    sourceId:      $note->id,
+                );
+
+                $submitted++;
             }
+        });
 
-            $stockBefore = (float) $branchProduct->stock_quantity;
-            $stockAfter  = $stockBefore + $quantity;
-
-            DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('id', $branchProduct->id)
-                ->update([
-                    'stock_quantity' => $stockAfter,
-                    'updated_at'     => $now,
-                ]);
-
-            DB::connection('tenant')
-                ->table('retail_deliverynotes')
-                ->where('id', $note->id)
-                ->update([
-                    'submitted'    => true,
-                    'submitted_by' => $userId,
-                    'submitted_at' => $now,
-                    'updated_at'   => $now,
-                ]);
-
-            $this->logStockChange(
-                baseProductId: $baseProductId,
-                branchId:      $branchId,
-                stockBefore:   $stockBefore,
-                stockAfter:    $stockAfter,
-                operationType: 'StockDelivery',
-                reason:        'Delivery note #' . $note->id . ' submitted (bulk) for ' . $date,
-                sellingPrice:  (float) ($note->selling_price ?? 0),
-                costPrice:     (float) ($note->cost_price    ?? 0),
-                sourceType:    'DeliveryNote',
-                sourceId:      $note->id,
-            );
-
-            $processed++;
+        if ($submitted === 0) {
+            return response()->json(['status' => 200, 'info' => 'All pending notes had zero quantity and were skipped.']);
         }
 
-        $message = $processed . ' delivery note' . ($processed > 1 ? 's' : '') . ' processed successfully.';
+        $message = $submitted . ' delivery note' . ($submitted > 1 ? 's' : '') . ' submitted successfully.';
         if ($skipped > 0) {
-            $message .= ' ' . $skipped . ' note' . ($skipped > 1 ? 's' : '') . ' skipped (product not set up at branch).';
+            $message .= ' ' . $skipped . ' note' . ($skipped > 1 ? 's' : '') . ' skipped (zero quantity).';
         }
 
-        return response()->json([
-            'status'  => 200,
-            'success' => $message,
-        ]);
+        return response()->json(['status' => 200, 'success' => $message]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: CANCEL — delete pending notes for a product + date
+    //  CANCEL PENDING — delete unsubmitted notes for a product + date
+    //
+    //  Route: POST retail.operations.actioncenter.cancel
+    //  Params: base_product_id, delivery_date
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/cancel
-     *
-     * Deletes all unsubmitted delivery notes for the given product + date.
-     * Already-submitted notes are left untouched.
-     */
     public function cancelDeliveryNotes(Request $request)
     {
         $request->validate([
@@ -547,21 +794,15 @@ class RetailActionCenterController extends Controller
             'delivery_date'   => 'required|date',
         ]);
 
-        $baseProductId = (int) $request->base_product_id;
-        $date          = $request->delivery_date;
-
         $deleted = DB::connection('tenant')
             ->table('retail_deliverynotes')
-            ->where('base_product_id', $baseProductId)
-            ->where('delivery_date',   $date)
+            ->where('base_product_id', (int) $request->base_product_id)
+            ->where('delivery_date',   $request->delivery_date)
             ->where('submitted',       false)
             ->delete();
 
         if ($deleted === 0) {
-            return response()->json([
-                'status' => 200,
-                'info'   => 'No pending delivery notes found to cancel.',
-            ]);
+            return response()->json(['status' => 200, 'info' => 'No pending delivery notes found to cancel.']);
         }
 
         return response()->json([
@@ -571,15 +812,12 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: GET DELIVERY NOTES — for the delivery notes tab / listing
+    //  GET DELIVERY NOTES — for the delivery notes listing tab
+    //
+    //  Route: GET retail.operations.actioncenter.notes
+    //  Params: delivery_date, branch_id?, base_product_id?, submitted?
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET  /retail/operations/action-center/notes
-     *
-     * Returns delivery notes for a given date (and optional branch / product
-     * filters), joined with product and branch display info.
-     */
     public function getDeliveryNotes(Request $request)
     {
         $request->validate([
@@ -608,22 +846,13 @@ class RetailActionCenterController extends Controller
             ->orderBy('b.name')
             ->orderBy('rbp.name');
 
-        if ($request->filled('branch_id')) {
-            $query->where('rdn.branch_id', $request->branch_id);
-        }
-
-        if ($request->filled('base_product_id')) {
-            $query->where('rdn.base_product_id', $request->base_product_id);
-        }
-
-        if ($request->filled('submitted')) {
-            $query->where('rdn.submitted', (bool) $request->submitted);
-        }
+        if ($request->filled('branch_id'))       $query->where('rdn.branch_id',       $request->branch_id);
+        if ($request->filled('base_product_id')) $query->where('rdn.base_product_id', $request->base_product_id);
+        if ($request->filled('submitted'))       $query->where('rdn.submitted',        (bool) $request->submitted);
 
         $notes = $query->get();
 
-        $formatted = $notes->map(fn($n) => $this->formatNote($n))->values();
-
+        $formatted  = $notes->map(fn($n) => $this->formatNote($n))->values();
         $totalQty   = $notes->sum(fn($n) => (float) $n->quantity);
         $totalValue = $notes->sum(fn($n) => (float) $n->quantity * (float) ($n->selling_price ?? 0));
 
@@ -636,15 +865,12 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: UPDATE DELIVERY NOTE
+    //  UPDATE DELIVERY NOTE
+    //
+    //  Route: POST retail.operations.actioncenter.update.note
+    //  Params: id, quantity, notes?
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/update-note
-     *
-     * Edits the quantity or notes on an unsubmitted delivery note.
-     * Submitted notes are locked — return 422 if someone tries.
-     */
     public function updateDeliveryNote(Request $request)
     {
         $request->validate([
@@ -692,15 +918,12 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: DELETE DELIVERY NOTE
+    //  DELETE DELIVERY NOTE
+    //
+    //  Route: POST retail.operations.actioncenter.delete.note
+    //  Params: id
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/delete-note
-     *
-     * Permanently deletes a delivery note (submitted or not).
-     * Use with caution — submitted notes have already affected stock.
-     */
     public function deleteDeliveryNote(Request $request)
     {
         $request->validate([
@@ -713,22 +936,19 @@ class RetailActionCenterController extends Controller
             ->delete();
 
         if ($deleted) {
-            return response()->json([
-                'status'  => 201,
-                'success' => 'Delivery note deleted successfully.',
-            ]);
+            return response()->json(['status' => 201, 'success' => 'Delivery note deleted successfully.']);
         }
 
         return response()->json(['error' => 'Delivery note not found.', 'status' => 404]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: BULK DELETE DELIVERY NOTES
+    //  BULK DELETE DELIVERY NOTES
+    //
+    //  Route: POST retail.operations.actioncenter.bulk.delete.notes
+    //  Params: ids[]
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * POST  /retail/operations/action-center/bulk-delete-notes
-     */
     public function bulkDeleteDeliveryNotes(Request $request)
     {
         $request->validate([
@@ -752,15 +972,12 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: DATES WITH DELIVERY NOTES
+    //  DATES WITH DELIVERY NOTES
+    //
+    //  Route: GET retail.operations.actioncenter.dates
+    //  Params: branch_id?
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET  /retail/operations/action-center/dates
-     *
-     * Returns distinct delivery dates that have notes (last 3 months).
-     * Optional category_id filter — useful for the date picker dropdown.
-     */
     public function getDatesWithNotes(Request $request)
     {
         $request->validate([
@@ -783,14 +1000,11 @@ class RetailActionCenterController extends Controller
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  AJAX: SEARCH BASE PRODUCTS
+    //  SEARCH BASE PRODUCTS
+    //
+    //  Route: GET retail.operations.actioncenter.search.products
     // ══════════════════════════════════════════════════════════════════════
 
-    /**
-     * GET  /retail/operations/action-center/search-products
-     *
-     * Returns all active base products for the product search dropdown.
-     */
     public function searchBaseProducts(Request $request)
     {
         $products = DB::connection('tenant')
@@ -800,5 +1014,102 @@ class RetailActionCenterController extends Controller
             ->get(['id', 'name', 'code', 'unit', 'selling_price', 'cost_price']);
 
         return response()->json(['status' => 200, 'products' => $products]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  DELETE BASE PRODUCT  (hard-delete: base record + branch records +
+    //                        delivery notes + inventory log write-off)
+    //
+    //  Route: POST retail.operations.actioncenter.product.delete
+    //  Params: base_product_id
+    //
+    //  Does NOT check branch assignment — removes everything unconditionally.
+    // ══════════════════════════════════════════════════════════════════════
+
+    public function deleteBaseProduct(Request $request)
+    {
+        $request->validate([
+            'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
+        ]);
+
+        $productId = (int) $request->base_product_id;
+        $userId    = Auth::id();
+        $user      = Auth::user();
+        $now       = now();
+        $req       = request();
+        $agent     = $req->userAgent() ?? '';
+
+        $product = $this->fetchBaseProduct($productId);
+
+        if (!$product) {
+            return response()->json(['error' => 'Product not found.', 'status' => 404]);
+        }
+
+        DB::connection('tenant')->transaction(function () use ($productId, $product, $userId, $user, $now, $req, $agent) {
+
+            // 1. Write a WriteOff inventory log for every branch that held stock.
+            $branchRows = DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('base_product_id', $productId)
+                ->get(['branch_id', 'stock_quantity', 'selling_price', 'cost_price']);
+
+            foreach ($branchRows as $row) {
+                $stockBefore = (float) $row->stock_quantity;
+                if (abs($stockBefore) < 0.0001) continue;
+
+                DB::connection('tenant')
+                    ->table('retail_inventory_logs')
+                    ->insert([
+                        'product_id'          => $productId,
+                        'branch_id'           => $row->branch_id,
+                        'stock_before'        => $stockBefore,
+                        'stock_after'         => 0,
+                        'stock_change'        => -$stockBefore,
+                        'selling_price'       => (float) ($row->selling_price ?? 0),
+                        'cost_price'          => (float) ($row->cost_price    ?? 0),
+                        'operation_type'      => 'WriteOff',
+                        'source_type'         => 'ProductDeletion',
+                        'source_id'           => $productId,
+                        'action_reason'       => 'Base product "' . $product->name . '" permanently deleted by user',
+                        'user_id'             => $userId,
+                        'user_full_name'      => $user->name  ?? null,
+                        'user_email'          => $user->email ?? null,
+                        'user_role'           => $user->role  ?? null,
+                        'user_device_details' => $agent,
+                        'ip_address'          => $req->ip(),
+                        'device_type'         => $this->parseDeviceType($agent),
+                        'browser'             => $this->parseBrowser($agent),
+                        'operating_system'    => $this->parseOS($agent),
+                        'session_id'          => session()->getId(),
+                        'log_date'            => $now->toDateString(),
+                        'log_time'            => $now->toTimeString(),
+                        'created_at'          => $now,
+                        'updated_at'          => $now,
+                    ]);
+            }
+
+            // 2. Delete branch product rows.
+            DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('base_product_id', $productId)
+                ->delete();
+
+            // 3. Delete delivery notes (pending and submitted).
+            DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('base_product_id', $productId)
+                ->delete();
+
+            // 4. Delete the base product itself.
+            DB::connection('tenant')
+                ->table('retail_base_products')
+                ->where('id', $productId)
+                ->delete();
+        });
+
+        return response()->json([
+            'success' => '"' . $product->name . '" has been permanently deleted.',
+            'status'  => 200,
+        ]);
     }
 }

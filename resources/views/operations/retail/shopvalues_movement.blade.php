@@ -28,66 +28,48 @@
     $savedBranchId       = $pref->branch_id ?? null;
     $preSelectedBranchId = $savedBranchId ?: request()->query('branch_id');
 
-    // ── Pre-compute movement rows (server-rendered, newest date first) ────
-    // Range: exactly 90 days ending TODAY, always calendar-anchored to now().
-    // Days with no transactions are included (greyed out in the table).
     $movementRows   = collect();
     $movementTotals = [];
     $today          = now()->startOfDay();
-    $rangeEnd       = $today->toDateString();                       // today
-    $rangeStart     = $today->copy()->subDays(89)->toDateString();  // day 1 of range (90 days incl. today)
+    $rangeEnd       = $today->toDateString();
+    $rangeStart     = $today->copy()->subDays(89)->toDateString();
 
     if ($preSelectedBranchId) {
 
-        // ── Step 1: today's live shop value — the only reliable anchor ──────
-        // closing[today] = SUM(selling_price x stock_quantity) right now
+        // Step 1: today's live shop value — anchor
         $currentShopValue = (float) DB::connection('tenant')
             ->table('retail_branch_products as rbp')
             ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
             ->where('rbp.branch_id', $preSelectedBranchId)
             ->sum(DB::raw('CAST(rbp.selling_price AS DECIMAL(15,2)) * CAST(rbp.stock_quantity AS DECIMAL(12,3))'));
 
-        // ── Step 2: all in-range logs with the product's current selling price
+        // Step 2: all in-range logs using the price snapshot stored in the log
         $allLogs = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
-            ->join('retail_branch_products as rbp',
-                fn($j) => $j->on('rbp.base_product_id', '=', 'ril.product_id')
-                             ->on('rbp.branch_id', '=', 'ril.branch_id'))
             ->where('ril.branch_id', $preSelectedBranchId)
             ->whereBetween('ril.log_date', [$rangeStart, $rangeEnd])
-            ->select('ril.log_date', 'ril.stock_change', 'rbp.selling_price')
+            ->select('ril.log_date', 'ril.stock_change', 'ril.selling_price')
             ->get();
 
-        // ── Step 3: guard against any logs after today (future-dated entries)
+        // Step 3: guard against future-dated entries — use log's own price
         $futureValue = (float) DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
-            ->join('retail_branch_products as rbp',
-                fn($j) => $j->on('rbp.base_product_id', '=', 'ril.product_id')
-                             ->on('rbp.branch_id', '=', 'ril.branch_id'))
             ->where('ril.branch_id', $preSelectedBranchId)
             ->where('ril.log_date', '>', $rangeEnd)
-            ->sum(DB::raw('CAST(ril.stock_change AS DECIMAL(15,4)) * CAST(rbp.selling_price AS DECIMAL(15,2))'));
+            ->sum(DB::raw('CAST(ril.stock_change AS DECIMAL(15,4)) * CAST(ril.selling_price AS DECIMAL(15,2))'));
 
-        // End-of-today closing = live value minus any future-dated movements
         $closingToday = $currentShopValue - $futureValue;
 
-        // ── Step 4: group logs by date string ────────────────────────────────
+        // Step 4: group logs by date string
         $logsByDate = $allLogs->groupBy('log_date');
 
-        // ── Step 5: build 90 dates newest → oldest ───────────────────────────
-        // Newest-first means our backward walk and our output order match —
-        // row[0] = today, row[1] = yesterday, ... row[89] = day 90
+        // Step 5: build 90 dates newest → oldest
         $allDatesNewestFirst = [];
         for ($i = 0; $i < 90; $i++) {
             $allDatesNewestFirst[] = $today->copy()->subDays($i)->toDateString();
         }
 
-        // ── Step 6: backward walk to assign closing value per date ──────────
-        // Rule:  closing[today]  = $closingToday  (anchor)
-        //        opening[D]      = closing[D] - net_change[D]
-        //        closing[D-1]    = opening[D]          (same thing)
-        // Walking newest→oldest: peel off each day's net change to get
-        // the previous day's closing.
+        // Step 6: backward walk to assign closing value per date
         $closingByDate = [];
         $running = $closingToday;
 
@@ -95,11 +77,10 @@
             $closingByDate[$date] = $running;
             $net = $logsByDate->get($date, collect())
                               ->sum(fn($l) => (float)$l->stock_change * (float)$l->selling_price);
-            $running -= $net;   // step further back in time
+            $running -= $net;
         }
-        // $running now holds the opening value of the oldest day (day 90)
 
-        // ── Step 7: emit rows newest → oldest (direct DOM order) ─────────────
+        // Step 7: emit rows newest → oldest
         foreach ($allDatesNewestFirst as $date) {
             $dayLogs   = $logsByDate->get($date, collect());
             $closing   = $closingByDate[$date];
@@ -122,9 +103,7 @@
             ]);
         }
 
-        // ── Totals for tfoot ─────────────────────────────────────────────────
-        // Opening of the period  = opening of the LAST row (oldest day)
-        // Closing of the period  = closing of the FIRST row (today)
+        // Totals for tfoot
         $movementTotals = [
             'opening_value'  => round($movementRows->last()->opening_value  ?? 0, 2),
             'value_added'    => round($movementRows->sum('value_added'),      2),
@@ -375,7 +354,6 @@ table.dataTable tfoot tr td,
             $netAbs    = abs($net);
           @endphp
           <tr class="{{ !$row->has_activity ? 'mv-no-activity' : '' }}">
-            {{-- Store ISO date as data-order so DataTable sorts correctly --}}
             <td data-order="{{ $row->date }}">
               <strong>{{ \Carbon\Carbon::parse($row->date)->format('d M Y') }}</strong>
             </td>
@@ -385,7 +363,7 @@ table.dataTable tfoot tr td,
                 <a href="#" class="mv-add-link audit-trigger"
                    data-date="{{ $row->date }}" data-type="added"
                    data-branch="{{ $preSelectedBranchId }}">
-                  <i class="ri-add-circle-line"></i>+{{ number_format($row->value_added, 0) }}
+                  <i class="ri-add-circle-line"></i>{{ number_format($row->value_added, 0) }}
                 </a>
               @else
                 <span class="mv-zero">—</span>
@@ -397,7 +375,7 @@ table.dataTable tfoot tr td,
                 <a href="#" class="mv-rem-link audit-trigger"
                    data-date="{{ $row->date }}" data-type="removed"
                    data-branch="{{ $preSelectedBranchId }}">
-                  <i class="ri-subtract-line"></i>−{{ number_format($row->value_removed, 0) }}
+                  <i class="ri-subtract-line"></i>{{ number_format($row->value_removed, 0) }}
                 </a>
               @else
                 <span class="mv-zero">—</span>
@@ -425,14 +403,14 @@ table.dataTable tfoot tr td,
           </td>
           <td>
             @if(isset($movementTotals['value_added']) && $movementTotals['value_added'] > 0)
-              <span class="mv-net-pos">+{{ number_format($movementTotals['value_added'], 0) }}</span>
+              <span class="mv-net-pos">{{ number_format($movementTotals['value_added'], 0) }}</span>
             @else <span class="mv-net-zero">0</span>
             @endif
           </td>
           <td><span class="mv-sale-ph">0</span></td>
           <td>
             @if(isset($movementTotals['value_removed']) && $movementTotals['value_removed'] > 0)
-              <span class="mv-net-neg">−{{ number_format($movementTotals['value_removed'], 0) }}</span>
+              <span class="mv-net-neg">{{ number_format($movementTotals['value_removed'], 0) }}</span>
             @else <span class="mv-net-zero">0</span>
             @endif
           </td>
@@ -545,7 +523,7 @@ table.dataTable tfoot tr td,
       <p>Day-by-day breakdown of stock value for the selected branch over the past 90 days. Every date in the range is shown — dates with no transactions are greyed out.</p>
       <hr class="my-3">
       <table style="width:100%;font-size:13px;border-collapse:collapse;">
-        <tr><td style="padding:8px 12px;font-weight:700;color:#475569;width:160px;border-bottom:1px solid #f1f5f9;">Calculation method</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">Today's live shop value (selling price × current stock) anchors the table. Each day's values are derived by working backwards: closing[D] = closing[D+1] − net_change[D+1], opening[D] = closing[D] − net_change[D].</td></tr>
+        <tr><td style="padding:8px 12px;font-weight:700;color:#475569;width:160px;border-bottom:1px solid #f1f5f9;">Calculation method</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">Today's live shop value (selling price × current stock) anchors the table. Each day's values are derived by working backwards: closing[D] = closing[D+1] − net_change[D+1], opening[D] = closing[D] − net_change[D]. Historical net changes use the price snapshot frozen at log time.</td></tr>
         <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9;">Opening Value</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">Shop value at the start of the day before any stock movements.</td></tr>
         <tr><td style="padding:8px 12px;font-weight:700;color:#059669;border-bottom:1px solid #f1f5f9;">Value Added</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">Positive stock changes (deliveries, manual increases). Click to view the audit log.</td></tr>
         <tr><td style="padding:8px 12px;font-weight:700;color:#94a3b8;border-bottom:1px solid #f1f5f9;">Sales</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9;">Shows 0 — sales module not yet integrated.</td></tr>
@@ -578,19 +556,15 @@ $(document).ready(function () {
         return isNaN(n) ? '—' : n.toLocaleString('en-US', {minimumFractionDigits:dec, maximumFractionDigits:dec});
     }
 
-    // ── DataTable ────────────────────────────────────────────────────────
-    // Rows arrive newest-first from the server. We use data-order="YYYY-MM-DD"
-    // on the date cell so DataTable can sort correctly by ISO date if the user
-    // clicks the header. Default order: column 0 descending = newest on top.
     var mvTable = $('#movementTable').DataTable({
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
         lengthMenu: [[31, 62, 92, -1],[31, 62, 92, 'All']],
-        order: [[0, 'desc']],          // newest date on top
+        order: [[0, 'desc']],
         fixedColumns: { leftColumns: 1 },
         scrollX: true,
         columnDefs: [
             { targets: '_all', className: 'text-center' },
-            { targets: 0,      className: 'text-start dt-head-left', type: 'string' },  // ← fix: added dt-head-left
+            { targets: 0,      className: 'text-start dt-head-left', type: 'string' },
             { targets: [2, 4], orderable: false }
         ],
         buttons: [

@@ -94,33 +94,119 @@ class RetailBranchProductsController extends Controller
         return $this->mergeWithBase($branchRow, $base ?? (object) []);
     }
 
+    // ─────────────────────────────────────────────────────────────────────
+    //  UA parsers (mirrors RetailAuditLogsController — keep in sync or
+    //  extract to a shared trait if the codebase grows)
+    // ─────────────────────────────────────────────────────────────────────
+
+    private function parseDeviceType(string $ua): string
+    {
+        $ua = strtolower($ua);
+        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad'))  return 'tablet';
+        if (str_contains($ua, 'mobile') || str_contains($ua, 'android')
+            || str_contains($ua, 'iphone'))                             return 'mobile';
+        return 'desktop';
+    }
+
+    private function parseBrowser(string $ua): string
+    {
+        if (str_contains($ua, 'Edg'))                                   return 'Edge';
+        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera'))    return 'Opera';
+        if (str_contains($ua, 'Chrome'))                                return 'Chrome';
+        if (str_contains($ua, 'Firefox'))                               return 'Firefox';
+        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome')) return 'Safari';
+        if (str_contains($ua, 'MSIE')   || str_contains($ua, 'Trident')) return 'IE';
+        return 'Other';
+    }
+
+    private function parseOS(string $ua): string
+    {
+        if (str_contains($ua, 'Windows NT'))                            return 'Windows';
+        if (str_contains($ua, 'Mac OS X'))                              return 'macOS';
+        if (str_contains($ua, 'Android'))                               return 'Android';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))  return 'iOS';
+        if (str_contains($ua, 'Linux'))                                 return 'Linux';
+        return 'Other';
+    }
+
     /**
-     * Write one row to retail_inventory_logs whenever stock changes.
+     * Write one fully-populated row to retail_inventory_logs.
+     *
+     * @param  int         $baseProductId
+     * @param  int         $branchId
+     * @param  float       $stockBefore
+     * @param  float       $stockAfter
+     * @param  string      $operationType   One of the enum values in the migration.
+     * @param  string      $reason          Human-readable note stored in action_reason.
+     * @param  float|null  $sellingPrice    Snapshot price at the time of the action.
+     * @param  float|null  $costPrice       Snapshot cost at the time of the action.
+     * @param  string      $sourceType      Originating module, e.g. 'Manual', 'Transfer'.
+     * @param  int|null    $sourceId        PK in the originating module's table (nullable).
      */
     private function logStockChange(
-        int    $baseProductId,
-        int    $branchId,
-        float  $stockBefore,
-        float  $stockAfter,
-        string $reason
+        int     $baseProductId,
+        int     $branchId,
+        float   $stockBefore,
+        float   $stockAfter,
+        string  $operationType,
+        string  $reason,
+        ?float  $sellingPrice = null,
+        ?float  $costPrice    = null,
+        string  $sourceType   = 'Manual',
+        ?int    $sourceId     = null
     ): void {
         $change = $stockAfter - $stockBefore;
 
+        // Skip a no-op to avoid polluting the log.
         if (abs($change) < 0.0001) return;
 
         $request = request();
+        $user    = Auth::user();
+        $agent   = $request->userAgent() ?? '';
 
         DB::connection('tenant')
             ->table('retail_inventory_logs')
             ->insert([
+                // ── Core references ───────────────────────────────────────
                 'product_id'          => $baseProductId,
                 'branch_id'           => $branchId,
+
+                // ── Stock movement ────────────────────────────────────────
                 'stock_before'        => $stockBefore,
                 'stock_after'         => $stockAfter,
                 'stock_change'        => $change,
+
+                // ── Price snapshot ────────────────────────────────────────
+                // Passed in from the call site so the value is frozen at the
+                // moment of the action — immune to future price changes.
+                'selling_price'       => $sellingPrice ?? 0,
+                'cost_price'          => $costPrice    ?? 0,
+
+                // ── Operation classification ──────────────────────────────
+                'operation_type'      => $operationType,
+
+                // ── Source reference ──────────────────────────────────────
+                'source_type'         => $sourceType,
+                'source_id'           => $sourceId,
+
+                // ── Reason ────────────────────────────────────────────────
                 'action_reason'       => $reason,
-                'user_id'             => Auth::id(),
-                'user_device_details' => $request->userAgent(),
+
+                // ── User identity snapshot ────────────────────────────────
+                'user_id'             => $user->id,
+                'user_full_name'      => $user->name   ?? null,
+                'user_email'          => $user->email  ?? null,
+                'user_role'           => $user->role   ?? null,
+
+                // ── Device & session fingerprint ──────────────────────────
+                'user_device_details' => $agent,
+                'ip_address'          => $request->ip(),
+                'device_type'         => $this->parseDeviceType($agent),
+                'browser'             => $this->parseBrowser($agent),
+                'operating_system'    => $this->parseOS($agent),
+                'session_id'          => session()->getId(),
+
+                // ── Date & time ───────────────────────────────────────────
                 'log_date'            => now()->toDateString(),
                 'log_time'            => now()->toTimeString(),
             ]);
@@ -160,12 +246,17 @@ class RetailBranchProductsController extends Controller
             'is_active'            => 'nullable|boolean',
         ]);
 
-        // Fall back to base product price when no selling_price is submitted
-        $sellPrice = $request->selling_price;
-        if ($sellPrice === null || $sellPrice === '') {
-            $base      = $this->fetchBaseProduct((int) $request->base_product_id);
-            $sellPrice = $base->selling_price ?? 0;
-        }
+        // Resolve the base product once — needed for price fallbacks and snapshots.
+        $base = $this->fetchBaseProduct((int) $request->base_product_id);
+
+        // Fall back to base product price when no selling_price is submitted.
+        $sellPrice = ($request->selling_price !== null && $request->selling_price !== '')
+            ? (float) $request->selling_price
+            : (float) ($base->selling_price ?? 0);
+
+        $costPrice = ($request->cost_price !== null && $request->cost_price !== '')
+            ? (float) $request->cost_price
+            : (float) ($base->cost_price ?? 0);
 
         $existing = DB::connection('tenant')
             ->table('retail_branch_products')
@@ -192,7 +283,7 @@ class RetailBranchProductsController extends Controller
 
         if ($existing) {
             $oldQty    = (float) $existing->stock_quantity;
-            $mergedQty = $oldQty + $newQty;   // accumulate submitted qty on top of existing stock
+            $mergedQty = $oldQty + $newQty;
 
             $sharedData['stock_quantity'] = $mergedQty;
 
@@ -204,13 +295,16 @@ class RetailBranchProductsController extends Controller
             $branchProductId = $existing->id;
 
             $this->logStockChange(
-                (int) $request->base_product_id,
-                (int) $request->branch_id,
-                $oldQty,
-                $mergedQty,
-                $newQty >= 0.0001
+                baseProductId: (int) $request->base_product_id,
+                branchId:      (int) $request->branch_id,
+                stockBefore:   $oldQty,
+                stockAfter:    $mergedQty,
+                operationType: $newQty >= 0.0001 ? 'StockDelivery' : 'Adjustment',
+                reason:        $newQty >= 0.0001
                     ? 'Stock increased via add-to-branch (added ' . $newQty . ' to existing ' . $oldQty . ')'
-                    : 'Product re-added to branch (stock unchanged)'
+                    : 'Product re-added to branch (stock unchanged)',
+                sellingPrice:  $sellPrice,
+                costPrice:     $costPrice,
             );
 
         } else {
@@ -226,11 +320,15 @@ class RetailBranchProductsController extends Controller
                 ->insertGetId($insertData);
 
             $this->logStockChange(
-                (int) $request->base_product_id,
-                (int) $request->branch_id,
-                0,
-                $newQty,
-                'Product added to branch' . ($newQty > 0 ? ' with opening stock of ' . $newQty : ' (zero opening stock)')
+                baseProductId: (int) $request->base_product_id,
+                branchId:      (int) $request->branch_id,
+                stockBefore:   0,
+                stockAfter:    $newQty,
+                operationType: 'OpeningStock',
+                reason:        'Product added to branch'
+                    . ($newQty > 0 ? ' with opening stock of ' . $newQty : ' (zero opening stock)'),
+                sellingPrice:  $sellPrice,
+                costPrice:     $costPrice,
             );
         }
 
@@ -275,11 +373,15 @@ class RetailBranchProductsController extends Controller
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
         }
 
-        $sellPrice = $request->selling_price;
-        if ($sellPrice === null || $sellPrice === '') {
-            $base      = $this->fetchBaseProduct((int) $current->base_product_id);
-            $sellPrice = $base->selling_price ?? 0;
-        }
+        $base = $this->fetchBaseProduct((int) $current->base_product_id);
+
+        $sellPrice = ($request->selling_price !== null && $request->selling_price !== '')
+            ? (float) $request->selling_price
+            : (float) ($base->selling_price ?? 0);
+
+        $costPrice = ($request->cost_price !== null && $request->cost_price !== '')
+            ? (float) $request->cost_price
+            : (float) ($base->cost_price ?? 0);
 
         $oldQty = (float) $current->stock_quantity;
         $newQty = $request->stock_quantity !== null ? (float) $request->stock_quantity : $oldQty;
@@ -306,11 +408,14 @@ class RetailBranchProductsController extends Controller
             ->update($data);
 
         $this->logStockChange(
-            (int) $current->base_product_id,
-            (int) $current->branch_id,
-            $oldQty,
-            $newQty,
-            'Manual stock update via branch product edit'
+            baseProductId: (int) $current->base_product_id,
+            branchId:      (int) $current->branch_id,
+            stockBefore:   $oldQty,
+            stockAfter:    $newQty,
+            operationType: 'Adjustment',
+            reason:        'Manual stock update via branch product edit',
+            sellingPrice:  $sellPrice,
+            costPrice:     $costPrice,
         );
 
         $bp = $this->fetchBranchProduct((int) $request->id);
@@ -338,12 +443,18 @@ class RetailBranchProductsController extends Controller
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
         }
 
+        // Resolve prices for the snapshot before the row is deleted.
+        $base = $this->fetchBaseProduct((int) $current->base_product_id);
+
         $this->logStockChange(
-            (int) $current->base_product_id,
-            (int) $current->branch_id,
-            (float) $current->stock_quantity,
-            0,
-            'Product removed from branch (stock zeroed)'
+            baseProductId: (int) $current->base_product_id,
+            branchId:      (int) $current->branch_id,
+            stockBefore:   (float) $current->stock_quantity,
+            stockAfter:    0,
+            operationType: 'WriteOff',
+            reason:        'Product removed from branch (stock zeroed)',
+            sellingPrice:  (float) ($current->selling_price ?? $base->selling_price ?? 0),
+            costPrice:     (float) ($current->cost_price    ?? $base->cost_price    ?? 0),
         );
 
         DB::connection('tenant')
@@ -371,13 +482,23 @@ class RetailBranchProductsController extends Controller
             ->whereIn('id', $request->ids)
             ->get();
 
+        // Fetch all needed base products in one query to avoid N+1.
+        $baseMap = $this->fetchBaseProductsMap(
+            $rows->pluck('base_product_id')->unique()->toArray()
+        );
+
         foreach ($rows as $row) {
+            $base = $baseMap[$row->base_product_id] ?? null;
+
             $this->logStockChange(
-                (int) $row->base_product_id,
-                (int) $row->branch_id,
-                (float) $row->stock_quantity,
-                0,
-                'Product bulk-removed from branch (stock zeroed)'
+                baseProductId: (int) $row->base_product_id,
+                branchId:      (int) $row->branch_id,
+                stockBefore:   (float) $row->stock_quantity,
+                stockAfter:    0,
+                operationType: 'WriteOff',
+                reason:        'Product bulk-removed from branch (stock zeroed)',
+                sellingPrice:  (float) ($row->selling_price ?? $base->selling_price ?? 0),
+                costPrice:     (float) ($row->cost_price    ?? $base->cost_price    ?? 0),
             );
         }
 
@@ -439,15 +560,12 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    
-    
+
     public function showShopvaluesOverview()
     {
         return view('operations.retail.shopvalues_overview');
     }
- 
 
- 
     public function showShopvaluesMovement()
     {
         return view('operations.retail.shopvalues_movement');
@@ -458,14 +576,11 @@ class RetailBranchProductsController extends Controller
         $request->validate([
             'branch_id' => 'required|integer|exists:tenant.branches,id',
         ]);
- 
+
         $branchId = (int) $request->branch_id;
         $today    = now()->toDateString();
         $from     = now()->subMonths(3)->toDateString();
- 
-        // ── 1. Fetch all inventory log rows in the period ─────────────────
-        //    Join to retail_branch_products to get the current selling_price
-        //    (best proxy we have for value per unit).
+
         $logs = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
@@ -477,18 +592,17 @@ class RetailBranchProductsController extends Controller
             ->select(
                 'ril.log_date',
                 'ril.stock_change',
-                DB::raw('rbp.selling_price as unit_price')
+                DB::raw('ril.selling_price as unit_price')   // ← snapshot, not rbp
             )
             ->get();
- 
-        // ── 2. Bucket logs by date ────────────────────────────────────────
+
         $byDate = [];
         foreach ($logs as $log) {
             $d      = $log->log_date;
             $change = (float) $log->stock_change;
             $price  = (float) $log->unit_price;
             $val    = $change * $price;
- 
+
             if (!isset($byDate[$d])) {
                 $byDate[$d] = ['added' => 0.0, 'removed' => 0.0];
             }
@@ -498,47 +612,41 @@ class RetailBranchProductsController extends Controller
                 $byDate[$d]['removed'] += abs($val);
             }
         }
- 
-        // ── 3. Compute the opening value for the START of the period ──────
-        //    Current shop value − (all net changes from $from to today).
+
         $currentShopValue = (float) DB::connection('tenant')
             ->table('retail_branch_products')
             ->where('branch_id', $branchId)
             ->selectRaw('COALESCE(SUM(selling_price * stock_quantity), 0) as total')
             ->value('total');
- 
+
         $netSincePeriodStart = 0.0;
-        foreach ($byDate as $d => $bkt) {
+        foreach ($byDate as $bkt) {
             $netSincePeriodStart += ($bkt['added'] - $bkt['removed']);
         }
- 
-        // Opening value on $from  ≈  current − net_since_from
+
         $periodOpeningValue = max(0, $currentShopValue - $netSincePeriodStart);
- 
-        // ── 4. Walk through every calendar day in the period ──────────────
-        $rows           = [];
-        $runningValue   = $periodOpeningValue;
-        $totalAdded     = 0.0;
-        $totalRemoved   = 0.0;
- 
+
+        $rows         = [];
+        $runningValue = $periodOpeningValue;
+        $totalAdded   = 0.0;
+        $totalRemoved = 0.0;
+
         $cursor = new \DateTime($from);
         $end    = new \DateTime($today);
- 
+
         while ($cursor <= $end) {
-            $dateStr     = $cursor->format('Y-m-d');
-            $dayData     = $byDate[$dateStr] ?? null;
- 
-            $added   = $dayData ? $dayData['added']   : 0.0;
-            $removed = $dayData ? $dayData['removed']  : 0.0;
- 
-            // Only include days that had activity OR the first & last day
-            // to keep the table manageable (skip quiet days in the middle).
+            $dateStr = $cursor->format('Y-m-d');
+            $dayData = $byDate[$dateStr] ?? null;
+
+            $added   = $dayData ? $dayData['added']  : 0.0;
+            $removed = $dayData ? $dayData['removed'] : 0.0;
+
             $isFirst = ($dateStr === $from);
             $isLast  = ($dateStr === $today);
- 
+
             if ($added > 0 || $removed > 0 || $isFirst || $isLast) {
                 $closingValue = $runningValue + $added - $removed;
- 
+
                 $rows[] = [
                     'date'          => $dateStr,
                     'opening_value' => round($runningValue, 2),
@@ -547,15 +655,15 @@ class RetailBranchProductsController extends Controller
                     'closing_value' => round(max(0, $closingValue), 2),
                     'net_change'    => round($closingValue - $runningValue, 2),
                 ];
- 
+
                 $totalAdded   += $added;
                 $totalRemoved += $removed;
             }
- 
+
             $runningValue += $added - $removed;
             $cursor->modify('+1 day');
         }
- 
+
         $totals = [
             'opening_value' => round($periodOpeningValue, 2),
             'value_added'   => round($totalAdded, 2),
@@ -563,41 +671,24 @@ class RetailBranchProductsController extends Controller
             'closing_value' => round(max(0, $currentShopValue), 2),
             'net_change'    => round($currentShopValue - $periodOpeningValue, 2),
         ];
- 
+
         return response()->json([
             'status' => 200,
             'rows'   => $rows,
             'totals' => $totals,
         ]);
     }
- 
 
-
-     // ── AJAX: Movement data for one branch (past 3 months) ────────────────
-    //
-    //  Returns day-level rows: opening_value, value_added, value_removed,
-    //  closing_value, net_change.
-    //
-    //  Strategy:
-    //    1. Pull all retail_inventory_logs for this branch in the period.
-    //    2. Join to retail_branch_products to get the current selling_price
-    //       as the unit value proxy.
-    //    3. Bucket positive / negative changes by date.
-    //    4. Back-calculate the period opening value from current shop value.
-    //    5. Walk every calendar day; emit only days with activity plus
-    //       the first and last day (keeps the table manageable).
- 
     public function getMovementData(Request $request)
     {
         $request->validate([
             'branch_id' => 'required|integer|exists:tenant.branches,id',
         ]);
- 
+
         $branchId = (int) $request->branch_id;
         $today    = now()->toDateString();
         $from     = now()->subMonths(3)->toDateString();
- 
-        // ── 1. Fetch log rows with unit price ─────────────────────────────
+
         $logs = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
@@ -609,18 +700,17 @@ class RetailBranchProductsController extends Controller
             ->select(
                 'ril.log_date',
                 'ril.stock_change',
-                DB::raw('rbp.selling_price as unit_price')
+                DB::raw('ril.selling_price as unit_price')   // ← snapshot, not rbp
             )
             ->get();
- 
-        // ── 2. Bucket by date ─────────────────────────────────────────────
+
         $byDate = [];
         foreach ($logs as $log) {
             $d      = $log->log_date;
             $change = (float) $log->stock_change;
             $price  = (float) $log->unit_price;
             $val    = $change * $price;
- 
+
             if (!isset($byDate[$d])) {
                 $byDate[$d] = ['added' => 0.0, 'removed' => 0.0];
             }
@@ -630,43 +720,40 @@ class RetailBranchProductsController extends Controller
                 $byDate[$d]['removed'] += abs($val);
             }
         }
- 
-        // ── 3. Compute current shop value ─────────────────────────────────
+
         $currentShopValue = (float) DB::connection('tenant')
             ->table('retail_branch_products')
             ->where('branch_id', $branchId)
             ->selectRaw('COALESCE(SUM(selling_price * stock_quantity), 0) as total')
             ->value('total');
- 
-        // ── 4. Back-calculate period opening value ────────────────────────
+
         $netSincePeriodStart = 0.0;
         foreach ($byDate as $bkt) {
             $netSincePeriodStart += ($bkt['added'] - $bkt['removed']);
         }
         $periodOpeningValue = max(0.0, $currentShopValue - $netSincePeriodStart);
- 
-        // ── 5. Walk calendar days, emit only active days ──────────────────
+
         $rows         = [];
         $runningValue = $periodOpeningValue;
         $totalAdded   = 0.0;
         $totalRemoved = 0.0;
- 
+
         $cursor = new \DateTime($from);
         $end    = new \DateTime($today);
- 
+
         while ($cursor <= $end) {
             $dateStr = $cursor->format('Y-m-d');
             $dayData = $byDate[$dateStr] ?? null;
- 
-            $added   = $dayData ? $dayData['added']   : 0.0;
-            $removed = $dayData ? $dayData['removed']  : 0.0;
- 
+
+            $added   = $dayData ? $dayData['added']  : 0.0;
+            $removed = $dayData ? $dayData['removed'] : 0.0;
+
             $isFirst = ($dateStr === $from);
             $isLast  = ($dateStr === $today);
- 
+
             if ($added > 0 || $removed > 0 || $isFirst || $isLast) {
                 $closingValue = max(0.0, $runningValue + $added - $removed);
- 
+
                 $rows[] = [
                     'date'          => $dateStr,
                     'opening_value' => round($runningValue, 2),
@@ -675,15 +762,15 @@ class RetailBranchProductsController extends Controller
                     'closing_value' => round($closingValue, 2),
                     'net_change'    => round($closingValue - $runningValue, 2),
                 ];
- 
+
                 $totalAdded   += $added;
                 $totalRemoved += $removed;
             }
- 
+
             $runningValue += ($added - $removed);
             $cursor->modify('+1 day');
         }
- 
+
         $totals = [
             'opening_value' => round($periodOpeningValue, 2),
             'value_added'   => round($totalAdded, 2),
@@ -691,21 +778,14 @@ class RetailBranchProductsController extends Controller
             'closing_value' => round(max(0, $currentShopValue), 2),
             'net_change'    => round($currentShopValue - $periodOpeningValue, 2),
         ];
- 
+
         return response()->json([
             'status' => 200,
             'rows'   => $rows,
             'totals' => $totals,
         ]);
     }
- 
-    // ── AJAX: Audit log for one date / type ───────────────────────────────
-    //
-    //  Returns every retail_inventory_log entry for the given branch and date,
-    //  filtered to positive changes (type=added) or negative (type=removed).
-    //  Joins to retail_base_products for product name/code and to users for
-    //  the staff name.
- 
+
     public function getAuditLog(Request $request)
     {
         $request->validate([
@@ -713,18 +793,14 @@ class RetailBranchProductsController extends Controller
             'date'      => 'required|date',
             'type'      => 'required|in:added,removed',
         ]);
- 
+
         $branchId = (int) $request->branch_id;
         $date     = $request->date;
         $isAdd    = ($request->type === 'added');
- 
+
         $query = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->join('retail_base_products as bp', 'bp.id', '=', 'ril.product_id')
-            ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
-                $join->on('rbp.base_product_id', '=', 'ril.product_id')
-                     ->where('rbp.branch_id', '=', $branchId);
-            })
             ->leftJoin('users as u', 'u.id', '=', 'ril.user_id')
             ->where('ril.branch_id', $branchId)
             ->where('ril.log_date', $date)
@@ -734,36 +810,36 @@ class RetailBranchProductsController extends Controller
                 'ril.stock_before',
                 'ril.stock_after',
                 'ril.stock_change',
+                'ril.selling_price',            // ← snapshot from log row
                 'ril.action_reason',
                 'ril.log_time',
-                'bp.name  as product_name',
-                'bp.code  as product_code',
-                DB::raw('rbp.selling_price as unit_price'),
-                DB::raw('ABS(ril.stock_change) * rbp.selling_price as value_change'),
+                'bp.name as product_name',
+                'bp.code as product_code',
+                DB::raw('ABS(ril.stock_change) * ril.selling_price as value_change'),
                 DB::raw("CONCAT(u.first_name, ' ', u.last_name) as user_name")
             )
             ->orderBy('ril.log_time')
             ->get();
- 
+
         $entries = $query->map(function ($row) {
             return [
                 'product_name'  => $row->product_name,
                 'product_code'  => $row->product_code,
-                'unit_price'    => (float) $row->unit_price,
+                'unit_price'    => (float) $row->selling_price,
                 'stock_before'  => (float) $row->stock_before,
                 'stock_change'  => (float) $row->stock_change,
                 'stock_after'   => (float) $row->stock_after,
-                'value_change'  => (float) $row->stock_change * (float) $row->unit_price,
+                'value_change'  => (float) $row->stock_change * (float) $row->selling_price,
                 'action_reason' => $row->action_reason,
                 'log_time'      => $row->log_time,
                 'user_name'     => trim($row->user_name) ?: 'System',
             ];
         })->values()->toArray();
- 
+
         $totalUnits = array_sum(array_column($entries, 'stock_change'));
         $totalValue = array_sum(array_column($entries, 'value_change'));
         $products   = array_unique(array_column($entries, 'product_name'));
- 
+
         return response()->json([
             'status'  => 200,
             'entries' => $entries,
@@ -775,9 +851,4 @@ class RetailBranchProductsController extends Controller
             ],
         ]);
     }
- 
-
-
-
-
 }

@@ -25,7 +25,8 @@ return new class extends Migration
             // ── Barcode ───────────────────────────────────────────────────
             $table->string('primary_barcode')->nullable();
 
-            // ── Batch / Expiry ────────────────────────────────────────────
+            // ── Batch / Expiry ───
+            // ─────────────────────────────────────────
             $table->date('expiry_date')->nullable();
             $table->string('batch_number')->nullable();
 

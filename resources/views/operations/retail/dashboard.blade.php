@@ -302,12 +302,12 @@
                         </a>
                         <div class="collapse" id="sidebarDeliveryNotes">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Actioncenter</a></li>    {{-- Live GRN processing queue --}}
-                                <li><a href="#">Deliverynotes</a></li>   {{-- Attached supplier delivery documents --}}
-                                <li><a href="#">Discrepancies</a></li>   {{-- Short deliveries / over-deliveries --}}
-                                <li><a href="#">Pricechanges</a></li>    {{-- Supplier cost changes on receipt --}}
-                                <li><a href="#">Summary</a></li>         {{-- Allocation totals at a glance --}}
-                                <li><a href="#">History</a></li>         {{-- Past GRN records --}}
+                                <li><a  href="{{ route('retail.operations.actioncenter') }}">Actioncenter</a></li>    {{-- Live GRN processing queue --}}
+                                <li><a  href="{{ route('retail.operations.branchproducts') }}">Deliverynotes</a></li>   {{-- Attached supplier delivery documents --}}
+                                <li><a  href="{{ route('retail.operations.branchproducts') }}">Discrepancies</a></li>   {{-- Short deliveries / over-deliveries --}}
+                                <li><a  href="{{ route('retail.operations.branchproducts') }}">Pricechanges</a></li>    {{-- Supplier cost changes on receipt --}}
+                                <li><a  href="{{ route('retail.operations.branchproducts') }}">Summary</a></li>         {{-- Allocation totals at a glance --}}
+                                <li><a  href="{{ route('retail.operations.branchproducts') }}">History</a></li>         {{-- Past GRN records --}}
                             </ul>
                         </div>
                     </li>

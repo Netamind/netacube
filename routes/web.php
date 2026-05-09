@@ -18,6 +18,7 @@ use App\Http\Controllers\Operations\Retail\EisController;
 use App\Http\Controllers\Operations\Retail\RetailBranchProductsController;
 use App\Http\Controllers\Operations\Retail\SupplierController;
 use App\Http\Controllers\Operations\Retail\RetailAuditLogsController;
+use App\Http\Controllers\Operations\Retail\RetailActionCenterController;
 
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
@@ -196,6 +197,32 @@ Route::get('/retail/shopvalues',[RetailBranchProductsController::class, 'showSho
 Route::get('/retail/shopvalues/movement',[RetailBranchProductsController::class, 'showShopvaluesMovement'])->name('retail.operations.shopvalues.movement');
 Route::get('/retail/shopvalues/movement/data',[RetailBranchProductsController::class, 'getMovementData'])->name('retail.operations.shopvalues.movement.data');
 Route::get('/retail/shopvalues/audit',[RetailBranchProductsController::class, 'getAuditLog'])->name('retail.operations.shopvalues.audit');
+
+
+
+Route::get('retail/operations/action-center',              [RetailActionCenterController::class, 'showActionCenterView'])    ->name('retail.operations.actioncenter');
+Route::post('retail/operations/action-center/save-dnote',  [RetailActionCenterController::class, 'saveDeliveryNote'])        ->name('retail.operations.actioncenter.save.dnote');
+Route::post('retail/operations/action-center/submit',      [RetailActionCenterController::class, 'submitDeliveryNotes'])     ->name('retail.operations.actioncenter.submit');
+Route::post('retail/operations/action-center/submit-all',  [RetailActionCenterController::class, 'submitAllDeliveryNotes'])  ->name('retail.operations.actioncenter.submitall');
+Route::post('retail/operations/action-center/cancel',      [RetailActionCenterController::class, 'cancelDeliveryNotes'])     ->name('retail.operations.actioncenter.cancel');
+Route::post('retail/operations/action-center/update-note', [RetailActionCenterController::class, 'updateDeliveryNote'])      ->name('retail.operations.actioncenter.update.note');
+Route::post('retail/operations/action-center/delete-note', [RetailActionCenterController::class, 'deleteDeliveryNote'])      ->name('retail.operations.actioncenter.delete.note');
+Route::post('retail/operations/action-center/bulk-delete', [RetailActionCenterController::class, 'bulkDeleteDeliveryNotes']) ->name('retail.operations.actioncenter.bulk.delete.notes');
+Route::get('retail/operations/action-center/notes',        [RetailActionCenterController::class, 'getDeliveryNotes'])        ->name('retail.operations.actioncenter.notes');
+Route::get('retail/operations/action-center/dates',        [RetailActionCenterController::class, 'getDatesWithNotes'])       ->name('retail.operations.actioncenter.dates');
+
+
+
+
+
+
+
+
+
+
+
+
+
  
 });
 

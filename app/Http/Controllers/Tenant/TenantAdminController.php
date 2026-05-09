@@ -1240,22 +1240,8 @@ public function downloadFile(Request $request)
     }
 
 
-public function insertBranch(Request $request)
+    public function insertBranch(Request $request)
 {
-    $data = [
-        'name'            => trim($request->name),
-        'business_number' => trim($request->business_number),
-        'address'         => trim($request->address),
-        'city'            => trim($request->city),
-        'phone'           => trim($request->phone),
-        'email'           => trim($request->email),
-        'sector'          => trim($request->sector),
-        'category'        => trim($request->category),
-        'status'          => $request->status ?? 'active',
-        'created_at'      => Carbon::today()->toDateString(),
-        'updated_at'      => Carbon::today()->toDateString(),
-    ];
-
     $request->validate([
         'name'     => 'required|string|max:255',
         'sector'   => 'required|string|max:255',
@@ -1267,11 +1253,25 @@ public function insertBranch(Request $request)
         'status'   => 'nullable|in:active,inactive,archived',
     ]);
 
+    $data = [
+        'name'            => trim($request->name),
+        'business_number' => trim($request->business_number),
+        'address'         => trim($request->address),
+        'city'            => trim($request->city),
+        'phone'           => trim($request->phone),
+        'email'           => trim($request->email),
+        'sector'          => trim($request->sector),   // stored as the name string e.g. "Retail"
+        'category'        => trim($request->category), // stored as the category id
+        'status'          => $request->status ?? 'active',
+        'created_at'      => Carbon::today()->toDateString(),
+        'updated_at'      => Carbon::today()->toDateString(),
+    ];
+
     // Manual uniqueness check using tenant connection
     $exists = DB::connection('tenant')
         ->table('branches')
-        ->where('name', $data['name'])
-        ->where('sector', $data['sector'])
+        ->where('name',     $data['name'])
+        ->where('sector',   $data['sector'])
         ->where('category', $data['category'])
         ->exists();
 
@@ -1287,6 +1287,13 @@ public function insertBranch(Request $request)
     if ($insertId) {
         $branch = DB::connection('tenant')->table('branches')->where('id', $insertId)->first();
 
+        // sector is already the plain name string — no lookup needed
+        // category is stored as an ID — resolve to its display name
+        $categoryName = DB::connection('tenant')
+            ->table('categories')
+            ->where('id', $branch->category)
+            ->value('category');
+
         return response()->json([
             'success' => 'Branch created successfully.',
             'status'  => 201,
@@ -1297,8 +1304,8 @@ public function insertBranch(Request $request)
                 'city'     => $branch->city,
                 'phone'    => $branch->phone,
                 'email'    => $branch->email,
-                'sector'   => DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector'),
-                'category' => DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category'),
+                'sector'   => $branch->sector,   // already "Retail" / "Wholesale" etc.
+                'category' => $categoryName,      // resolved from categories table
                 'status'   => $branch->status,
             ],
         ]);
@@ -1309,19 +1316,6 @@ public function insertBranch(Request $request)
 
 public function updateBranch(Request $request)
 {
-    $data = [
-        'name'            => trim($request->name),
-        'address'         => trim($request->address),
-        'city'            => trim($request->city),
-        'phone'           => trim($request->phone),
-        'email'           => trim($request->email),
-        'sector'          => trim($request->sector),
-        'category'        => trim($request->category),
-        'business_number' => trim($request->business_number),
-        'status'          => trim($request->status),
-        'updated_at'      => Carbon::today()->toDateString(),
-    ];
-
     $request->validate([
         'name'     => 'required|string|max:255',
         'address'  => 'nullable|string|max:1000',
@@ -1331,12 +1325,25 @@ public function updateBranch(Request $request)
         'status'   => 'nullable|in:active,inactive,archived',
     ]);
 
+    $data = [
+        'name'            => trim($request->name),
+        'address'         => trim($request->address),
+        'city'            => trim($request->city),
+        'phone'           => trim($request->phone),
+        'email'           => trim($request->email),
+        'sector'          => trim($request->sector),   // name string
+        'category'        => trim($request->category), // category id
+        'business_number' => trim($request->business_number),
+        'status'          => trim($request->status),
+        'updated_at'      => Carbon::today()->toDateString(),
+    ];
+
     // Manual uniqueness check (ignore current record)
     $exists = DB::connection('tenant')
         ->table('branches')
-        ->where('name', $data['name'])
-        ->where('sector', $request->sector)
-        ->where('category', $request->category)
+        ->where('name',     $data['name'])
+        ->where('sector',   $data['sector'])
+        ->where('category', $data['category'])
         ->where('id', '!=', $request->id)
         ->exists();
 
@@ -1355,6 +1362,11 @@ public function updateBranch(Request $request)
     if ($updated) {
         $branch = DB::connection('tenant')->table('branches')->where('id', $request->id)->first();
 
+        $categoryName = DB::connection('tenant')
+            ->table('categories')
+            ->where('id', $branch->category)
+            ->value('category');
+
         return response()->json([
             'success' => 'Branch updated successfully.',
             'status'  => 201,
@@ -1365,6 +1377,8 @@ public function updateBranch(Request $request)
                 'city'     => $branch->city,
                 'phone'    => $branch->phone,
                 'email'    => $branch->email,
+                'sector'   => $branch->sector,
+                'category' => $categoryName,
                 'status'   => $branch->status,
             ],
         ]);
@@ -1386,9 +1400,6 @@ public function deleteBranch(Request $request)
 
     return response()->json(['error' => 'Branch not found.', 'status' => 404]);
 }
-
-
-
 
 
 public function insertCategory(Request $request)

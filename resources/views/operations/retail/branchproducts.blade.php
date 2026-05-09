@@ -409,7 +409,6 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   {{-- ── Card header ─────────────────────────────────────────────────────── --}}
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0" style="gap:8px;">
-      <i class="ri-store-2-line me-1"></i>
       <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
             id="headerBranchForm" style="margin:0;display:inline;">
         @csrf
@@ -954,18 +953,14 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <button class="nav-link active" id="tab-branch-lnk"
                   data-bs-toggle="tab" data-bs-target="#tab-branch"
                   type="button" role="tab">
-            <i class="ri-store-2-line"></i>
-            Branch product
-            <span class="edit-tab-badge" id="editTabBranchBadge">{{ $selectedBranch->name ?? 'Branch' }}</span>
+            Branch Info
           </button>
         </li>
         <li class="nav-item" role="presentation">
           <button class="nav-link" id="tab-base-lnk"
                   data-bs-toggle="tab" data-bs-target="#tab-base"
                   type="button" role="tab">
-            <i class="ri-database-line"></i>
-            Base product info
-            <span class="edit-tab-badge">Catalogue</span>
+            Base  Info
           </button>
         </li>
       </ul>
@@ -1126,8 +1121,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 
             <div class="bp-edit-warning">
               <i class="ri-alert-line" style="font-size:14px;flex-shrink:0;margin-top:1px;"></i>
-              Changes here update the <strong>base catalogue</strong> and will affect
-              <strong>all branches</strong> that use this product.
+              Changes here update the base catalogue and will affect
+              all branches</strong> that use this product.
               Branch-specific overrides (prices, stock) remain managed in the Branch product tab.
             </div>
 

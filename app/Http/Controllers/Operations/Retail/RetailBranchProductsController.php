@@ -438,4 +438,346 @@ class RetailBranchProductsController extends Controller
             'products' => $formatted,
         ]);
     }
+
+    
+    
+    public function showShopvaluesOverview()
+    {
+        return view('operations.retail.shopvalues_overview');
+    }
+ 
+
+ 
+    public function showShopvaluesMovement()
+    {
+        return view('operations.retail.shopvalues_movement');
+    }
+
+    public function getShopvalueMovement(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+        ]);
+ 
+        $branchId = (int) $request->branch_id;
+        $today    = now()->toDateString();
+        $from     = now()->subMonths(3)->toDateString();
+ 
+        // ── 1. Fetch all inventory log rows in the period ─────────────────
+        //    Join to retail_branch_products to get the current selling_price
+        //    (best proxy we have for value per unit).
+        $logs = DB::connection('tenant')
+            ->table('retail_inventory_logs as ril')
+            ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
+                $join->on('rbp.base_product_id', '=', 'ril.product_id')
+                     ->where('rbp.branch_id', '=', $branchId);
+            })
+            ->where('ril.branch_id', $branchId)
+            ->whereBetween('ril.log_date', [$from, $today])
+            ->select(
+                'ril.log_date',
+                'ril.stock_change',
+                DB::raw('rbp.selling_price as unit_price')
+            )
+            ->get();
+ 
+        // ── 2. Bucket logs by date ────────────────────────────────────────
+        $byDate = [];
+        foreach ($logs as $log) {
+            $d      = $log->log_date;
+            $change = (float) $log->stock_change;
+            $price  = (float) $log->unit_price;
+            $val    = $change * $price;
+ 
+            if (!isset($byDate[$d])) {
+                $byDate[$d] = ['added' => 0.0, 'removed' => 0.0];
+            }
+            if ($change > 0) {
+                $byDate[$d]['added'] += $val;
+            } else {
+                $byDate[$d]['removed'] += abs($val);
+            }
+        }
+ 
+        // ── 3. Compute the opening value for the START of the period ──────
+        //    Current shop value − (all net changes from $from to today).
+        $currentShopValue = (float) DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('branch_id', $branchId)
+            ->selectRaw('COALESCE(SUM(selling_price * stock_quantity), 0) as total')
+            ->value('total');
+ 
+        $netSincePeriodStart = 0.0;
+        foreach ($byDate as $d => $bkt) {
+            $netSincePeriodStart += ($bkt['added'] - $bkt['removed']);
+        }
+ 
+        // Opening value on $from  ≈  current − net_since_from
+        $periodOpeningValue = max(0, $currentShopValue - $netSincePeriodStart);
+ 
+        // ── 4. Walk through every calendar day in the period ──────────────
+        $rows           = [];
+        $runningValue   = $periodOpeningValue;
+        $totalAdded     = 0.0;
+        $totalRemoved   = 0.0;
+ 
+        $cursor = new \DateTime($from);
+        $end    = new \DateTime($today);
+ 
+        while ($cursor <= $end) {
+            $dateStr     = $cursor->format('Y-m-d');
+            $dayData     = $byDate[$dateStr] ?? null;
+ 
+            $added   = $dayData ? $dayData['added']   : 0.0;
+            $removed = $dayData ? $dayData['removed']  : 0.0;
+ 
+            // Only include days that had activity OR the first & last day
+            // to keep the table manageable (skip quiet days in the middle).
+            $isFirst = ($dateStr === $from);
+            $isLast  = ($dateStr === $today);
+ 
+            if ($added > 0 || $removed > 0 || $isFirst || $isLast) {
+                $closingValue = $runningValue + $added - $removed;
+ 
+                $rows[] = [
+                    'date'          => $dateStr,
+                    'opening_value' => round($runningValue, 2),
+                    'value_added'   => round($added, 2),
+                    'value_removed' => round($removed, 2),
+                    'closing_value' => round(max(0, $closingValue), 2),
+                    'net_change'    => round($closingValue - $runningValue, 2),
+                ];
+ 
+                $totalAdded   += $added;
+                $totalRemoved += $removed;
+            }
+ 
+            $runningValue += $added - $removed;
+            $cursor->modify('+1 day');
+        }
+ 
+        $totals = [
+            'opening_value' => round($periodOpeningValue, 2),
+            'value_added'   => round($totalAdded, 2),
+            'value_removed' => round($totalRemoved, 2),
+            'closing_value' => round(max(0, $currentShopValue), 2),
+            'net_change'    => round($currentShopValue - $periodOpeningValue, 2),
+        ];
+ 
+        return response()->json([
+            'status' => 200,
+            'rows'   => $rows,
+            'totals' => $totals,
+        ]);
+    }
+ 
+
+
+     // ── AJAX: Movement data for one branch (past 3 months) ────────────────
+    //
+    //  Returns day-level rows: opening_value, value_added, value_removed,
+    //  closing_value, net_change.
+    //
+    //  Strategy:
+    //    1. Pull all retail_inventory_logs for this branch in the period.
+    //    2. Join to retail_branch_products to get the current selling_price
+    //       as the unit value proxy.
+    //    3. Bucket positive / negative changes by date.
+    //    4. Back-calculate the period opening value from current shop value.
+    //    5. Walk every calendar day; emit only days with activity plus
+    //       the first and last day (keeps the table manageable).
+ 
+    public function getMovementData(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+        ]);
+ 
+        $branchId = (int) $request->branch_id;
+        $today    = now()->toDateString();
+        $from     = now()->subMonths(3)->toDateString();
+ 
+        // ── 1. Fetch log rows with unit price ─────────────────────────────
+        $logs = DB::connection('tenant')
+            ->table('retail_inventory_logs as ril')
+            ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
+                $join->on('rbp.base_product_id', '=', 'ril.product_id')
+                     ->where('rbp.branch_id', '=', $branchId);
+            })
+            ->where('ril.branch_id', $branchId)
+            ->whereBetween('ril.log_date', [$from, $today])
+            ->select(
+                'ril.log_date',
+                'ril.stock_change',
+                DB::raw('rbp.selling_price as unit_price')
+            )
+            ->get();
+ 
+        // ── 2. Bucket by date ─────────────────────────────────────────────
+        $byDate = [];
+        foreach ($logs as $log) {
+            $d      = $log->log_date;
+            $change = (float) $log->stock_change;
+            $price  = (float) $log->unit_price;
+            $val    = $change * $price;
+ 
+            if (!isset($byDate[$d])) {
+                $byDate[$d] = ['added' => 0.0, 'removed' => 0.0];
+            }
+            if ($change > 0) {
+                $byDate[$d]['added'] += $val;
+            } else {
+                $byDate[$d]['removed'] += abs($val);
+            }
+        }
+ 
+        // ── 3. Compute current shop value ─────────────────────────────────
+        $currentShopValue = (float) DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('branch_id', $branchId)
+            ->selectRaw('COALESCE(SUM(selling_price * stock_quantity), 0) as total')
+            ->value('total');
+ 
+        // ── 4. Back-calculate period opening value ────────────────────────
+        $netSincePeriodStart = 0.0;
+        foreach ($byDate as $bkt) {
+            $netSincePeriodStart += ($bkt['added'] - $bkt['removed']);
+        }
+        $periodOpeningValue = max(0.0, $currentShopValue - $netSincePeriodStart);
+ 
+        // ── 5. Walk calendar days, emit only active days ──────────────────
+        $rows         = [];
+        $runningValue = $periodOpeningValue;
+        $totalAdded   = 0.0;
+        $totalRemoved = 0.0;
+ 
+        $cursor = new \DateTime($from);
+        $end    = new \DateTime($today);
+ 
+        while ($cursor <= $end) {
+            $dateStr = $cursor->format('Y-m-d');
+            $dayData = $byDate[$dateStr] ?? null;
+ 
+            $added   = $dayData ? $dayData['added']   : 0.0;
+            $removed = $dayData ? $dayData['removed']  : 0.0;
+ 
+            $isFirst = ($dateStr === $from);
+            $isLast  = ($dateStr === $today);
+ 
+            if ($added > 0 || $removed > 0 || $isFirst || $isLast) {
+                $closingValue = max(0.0, $runningValue + $added - $removed);
+ 
+                $rows[] = [
+                    'date'          => $dateStr,
+                    'opening_value' => round($runningValue, 2),
+                    'value_added'   => round($added, 2),
+                    'value_removed' => round($removed, 2),
+                    'closing_value' => round($closingValue, 2),
+                    'net_change'    => round($closingValue - $runningValue, 2),
+                ];
+ 
+                $totalAdded   += $added;
+                $totalRemoved += $removed;
+            }
+ 
+            $runningValue += ($added - $removed);
+            $cursor->modify('+1 day');
+        }
+ 
+        $totals = [
+            'opening_value' => round($periodOpeningValue, 2),
+            'value_added'   => round($totalAdded, 2),
+            'value_removed' => round($totalRemoved, 2),
+            'closing_value' => round(max(0, $currentShopValue), 2),
+            'net_change'    => round($currentShopValue - $periodOpeningValue, 2),
+        ];
+ 
+        return response()->json([
+            'status' => 200,
+            'rows'   => $rows,
+            'totals' => $totals,
+        ]);
+    }
+ 
+    // ── AJAX: Audit log for one date / type ───────────────────────────────
+    //
+    //  Returns every retail_inventory_log entry for the given branch and date,
+    //  filtered to positive changes (type=added) or negative (type=removed).
+    //  Joins to retail_base_products for product name/code and to users for
+    //  the staff name.
+ 
+    public function getAuditLog(Request $request)
+    {
+        $request->validate([
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+            'date'      => 'required|date',
+            'type'      => 'required|in:added,removed',
+        ]);
+ 
+        $branchId = (int) $request->branch_id;
+        $date     = $request->date;
+        $isAdd    = ($request->type === 'added');
+ 
+        $query = DB::connection('tenant')
+            ->table('retail_inventory_logs as ril')
+            ->join('retail_base_products as bp', 'bp.id', '=', 'ril.product_id')
+            ->join('retail_branch_products as rbp', function ($join) use ($branchId) {
+                $join->on('rbp.base_product_id', '=', 'ril.product_id')
+                     ->where('rbp.branch_id', '=', $branchId);
+            })
+            ->leftJoin('users as u', 'u.id', '=', 'ril.user_id')
+            ->where('ril.branch_id', $branchId)
+            ->where('ril.log_date', $date)
+            ->where('ril.stock_change', $isAdd ? '>' : '<', 0)
+            ->select(
+                'ril.id',
+                'ril.stock_before',
+                'ril.stock_after',
+                'ril.stock_change',
+                'ril.action_reason',
+                'ril.log_time',
+                'bp.name  as product_name',
+                'bp.code  as product_code',
+                DB::raw('rbp.selling_price as unit_price'),
+                DB::raw('ABS(ril.stock_change) * rbp.selling_price as value_change'),
+                DB::raw("CONCAT(u.first_name, ' ', u.last_name) as user_name")
+            )
+            ->orderBy('ril.log_time')
+            ->get();
+ 
+        $entries = $query->map(function ($row) {
+            return [
+                'product_name'  => $row->product_name,
+                'product_code'  => $row->product_code,
+                'unit_price'    => (float) $row->unit_price,
+                'stock_before'  => (float) $row->stock_before,
+                'stock_change'  => (float) $row->stock_change,
+                'stock_after'   => (float) $row->stock_after,
+                'value_change'  => (float) $row->stock_change * (float) $row->unit_price,
+                'action_reason' => $row->action_reason,
+                'log_time'      => $row->log_time,
+                'user_name'     => trim($row->user_name) ?: 'System',
+            ];
+        })->values()->toArray();
+ 
+        $totalUnits = array_sum(array_column($entries, 'stock_change'));
+        $totalValue = array_sum(array_column($entries, 'value_change'));
+        $products   = array_unique(array_column($entries, 'product_name'));
+ 
+        return response()->json([
+            'status'  => 200,
+            'entries' => $entries,
+            'summary' => [
+                'entry_count'   => count($entries),
+                'product_count' => count($products),
+                'total_units'   => $totalUnits,
+                'total_value'   => $totalValue,
+            ],
+        ]);
+    }
+ 
+
+
+
+
 }

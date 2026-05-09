@@ -107,9 +107,8 @@
         <?php $row = "row".$branch->id ?>
         <tr id="{{ $row }}">
             <td>{{ $branch->name }}</td>
-            <td style="text-align:center">
-                {{ DB::connection('tenant')->table('sectors')->where('id', $branch->sector)->value('sector') }}
-            </td>
+            {{-- sector is stored as the plain string value, not an ID --}}
+            <td style="text-align:center">{{ $branch->sector }}</td>
             <td style="text-align:center">
                 {{ DB::connection('tenant')->table('categories')->where('id', $branch->category)->value('category') }}
             </td>
@@ -203,8 +202,9 @@
                         <label class="control-label form-label">Sector <span class="text-danger">*</span></label>
                         <select class="form-select" name="sector" id="branch-sector" required>
                             <option value="">-- Select Sector --</option>
+                            {{-- value = $sector->sector (the string), NOT $sector->id --}}
                             @foreach(DB::connection('tenant')->table('sectors')->orderBy('sector')->get() as $sector)
-                                <option value="{{ $sector->id }}">{{ $sector->sector }}</option>
+                                <option value="{{ $sector->sector }}">{{ $sector->sector }}</option>
                             @endforeach
                         </select>
                     </div>
@@ -323,15 +323,13 @@ $(document).ready(function() {
                 },
                 success: function(data) {
                     if (data.status === 201) {
-                        toastr.success(data.success || 'Branch created successfully', 'Success', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.success(data.success || 'Branch created successfully', 'Success');
 
                         var b = data.branch;
                         var statusBadge = b.status == 'active' ? 'success' : (b.status == 'inactive' ? 'warning' : 'secondary');
-                        var statusText = b.status.charAt(0).toUpperCase() + b.status.slice(1);
+                        var statusText  = b.status.charAt(0).toUpperCase() + b.status.slice(1);
 
+                        // sector is returned as the plain string from the controller
                         var newRow = `
                             <tr id="row${b.id}">
                                 <td>${b.name}</td>
@@ -341,7 +339,7 @@ $(document).ready(function() {
                                     <span class="badge bg-${statusBadge}">${statusText}</span>
                                 </td>
                                 <td style="text-align:center">
-                                    <a href="{{ route('tenant.admin.branch.details', '') }}/${b.id}" title="Branch Details">
+                                    <a href="{{ route('tenant.admin.branch.details') }}?id=${b.id}" title="Branch Details">
                                         <i class="ri-settings-4-line text-primary" style="font-weight:bold;font-size:20px;"></i>
                                     </a>
                                 </td>
@@ -354,47 +352,26 @@ $(document).ready(function() {
                         $.each(data.errors || {}, function(key, value) {
                             errorPassage += value + '<br>';
                         });
-                        toastr.error(errorPassage || 'Validation failed.', 'Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error(errorPassage || 'Validation failed.', 'Error');
                     } else {
-                        toastr.info('Unspecified error occurred.', 'Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.info('Unspecified error occurred.', 'Error');
                     }
                 },
                 error: function(xhr, status, error) {
                     if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error');
                     } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error');
                     } else if (xhr.status === 422) {
                         var errorPassage = '';
                         $.each(xhr.responseJSON.errors || {}, function(key, value) {
                             errorPassage += value + '<br>';
                         });
-                        toastr.error(errorPassage, 'Validation Errors', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error(errorPassage, 'Validation Errors');
                     } else if (xhr.status === 500) {
-                        toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error');
                     } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Unspecified Error', {
-                            timeOut: 5000,
-                            progressBar: true
-                        });
+                        toastr.error('Unspecified error occurred. Try again later.', 'Unspecified Error');
                     }
                 }
             });

@@ -285,14 +285,13 @@
                         </a>
                         <div class="collapse" id="sidebarInventory">
                             <ul class="side-nav-second-level">
-                                <li><a href="{{ route('retail.operations.branchproducts') }}">Inventory</a></li>       {{-- Current stock levels per branch/SKU --}}
-                                <li><a href="#">Transactions</a></li>    {{-- All in/out stock movements --}}
-                                <li><a href="#">Transfers</a></li>       {{-- Inter-branch stock transfers --}}
-                                <li><a href="#">Shopvalues</a></li>      {{-- Retail value of stock on shelf --}}
-                                <li><a href="#">Audit Logs</a></li>      {{-- Change history and user actions --}}
+                                <li><a href="{{ route('retail.operations.branchproducts') }}">Inventory</a></li>   
+                                <li><a href="#">Transactions</a></li>  
+                                <li><a href="#">Transfers</a></li>    
+                                <li><a href="{{ route('retail.operations.shopvalues.overview') }}">Shopvalues</a></li> 
+                                <li><a  href="{{ route('retail.operations.auditlogs') }}">Audit Logs</a></li>     
                             </ul>
                         </div>
-                    </li>
 
                     <!-- Allocation: live GRN workflow — receive delivery, verify quantities, log discrepancies & price changes -->
                     <li class="side-nav-item">

@@ -17,7 +17,7 @@ use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Operations\Retail\EisController;
 use App\Http\Controllers\Operations\Retail\RetailBranchProductsController;
 use App\Http\Controllers\Operations\Retail\SupplierController;
-
+use App\Http\Controllers\Operations\Retail\RetailAuditLogsController;
 
 
 Route::get('/', [WebsiteController::class, 'showHomePage']);
@@ -150,7 +150,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 
 
- Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','retail.allowed']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy' , 'tenant.operations','retail.allowed']], function () {
 
 Route::get('/operations/retail',                         [RetailOperationsController::class, 'showDashboardView'])->name('retail.operations.dashboard');
 
@@ -182,6 +182,21 @@ Route::get( 'operations/retail/branches',                   [RetailOperationsCon
 Route::get( 'operations/retail/suppliers',                   [RetailOperationsController::class, 'showSuppliersView']     )->name('retail.operations.suppliers');
 
 
+Route::get( 'operations/retail/auditlogs',                      [RetailAuditLogsController::class, 'showAuditLogsView']   )->name('retail.operations.auditlogs');
+Route::get( 'operations/retail/auditlogs/dates',                [RetailAuditLogsController::class, 'getDatesWithLogs']    )->name('retail.auditlogs.dates');
+Route::get( 'operations/retail/auditlogs/by-date',              [RetailAuditLogsController::class, 'getLogsByDate']       )->name('retail.auditlogs.bydate');
+Route::post('operations/retail/auditlogs/update',               [RetailAuditLogsController::class, 'updateLog']           )->name('retail.auditlogs.update');
+Route::post('operations/retail/auditlogs/reverse',              [RetailAuditLogsController::class, 'reverseLog']          )->name('retail.auditlogs.reverse');
+Route::post('operations/retail/auditlogs/delete',               [RetailAuditLogsController::class, 'deleteLog']           )->name('retail.auditlogs.delete');
+Route::post('operations/retail/auditlogs/bulkdelete',           [RetailAuditLogsController::class, 'bulkDeleteLogs']      )->name('retail.auditlogs.bulkdelete');
+Route::post('operations/retail/auditlogs/bulkreverse',           [RetailAuditLogsController::class, 'bulkReverse']      )->name('retail.auditlogs.bulkreverse');
+Route::get('operations/retail/auditlogs/download-pdf',           [RetailAuditLogsController::class, 'downloadPdf']      )->name('retail.auditlogs.downloadpdf');
+
+Route::get('/retail/shopvalues',[RetailBranchProductsController::class, 'showShopvaluesOverview'])->name('retail.operations.shopvalues.overview');
+Route::get('/retail/shopvalues/movement',[RetailBranchProductsController::class, 'showShopvaluesMovement'])->name('retail.operations.shopvalues.movement');
+Route::get('/retail/shopvalues/movement/data',[RetailBranchProductsController::class, 'getMovementData'])->name('retail.operations.shopvalues.movement.data');
+Route::get('/retail/shopvalues/audit',[RetailBranchProductsController::class, 'getAuditLog'])->name('retail.operations.shopvalues.audit');
+ 
 });
 
 

@@ -10,61 +10,50 @@ use DB;
 
 class RetailActionCenterController extends Controller
 {
-   
-    private function userSnapshot(Request $request): array
-    {
-        $user  = Auth::user();
-        $agent = $request->userAgent() ?? '';
 
-        return [
-            'added_by'            => $user->id,
-            'user_full_name'      => $user->name   ?? null,
-            'user_email'          => $user->email  ?? null,
-            'user_role'           => $user->role   ?? null,
-            'user_device_details' => $agent,
-            'ip_address'          => $request->ip(),
-            'device_type'         => $this->parseDeviceType($agent),
-            'browser'             => $this->parseBrowser($agent),
-            'operating_system'    => $this->parseOS($agent),
-            'session_id'          => session()->getId(),
-        ];
-    }
+    // ══════════════════════════════════════════════════════════════════════
+    //  PRIVATE HELPERS
+    // ══════════════════════════════════════════════════════════════════════
 
     private function parseDeviceType(string $ua): string
     {
         $ua = strtolower($ua);
-        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad'))                      return 'tablet';
+        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad'))   return 'tablet';
         if (str_contains($ua, 'mobile') || str_contains($ua, 'android')
-            || str_contains($ua, 'iphone'))                                                 return 'mobile';
+            || str_contains($ua, 'iphone'))                              return 'mobile';
         return 'desktop';
     }
 
     private function parseBrowser(string $ua): string
     {
-        if (str_contains($ua, 'Edg'))                                                       return 'Edge';
-        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera'))                        return 'Opera';
-        if (str_contains($ua, 'Chrome'))                                                    return 'Chrome';
-        if (str_contains($ua, 'Firefox'))                                                   return 'Firefox';
-        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome'))                   return 'Safari';
-        if (str_contains($ua, 'MSIE')   || str_contains($ua, 'Trident'))                   return 'IE';
+        if (str_contains($ua, 'Edg'))                                    return 'Edge';
+        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera'))     return 'Opera';
+        if (str_contains($ua, 'Chrome'))                                 return 'Chrome';
+        if (str_contains($ua, 'Firefox'))                                return 'Firefox';
+        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome'))return 'Safari';
+        if (str_contains($ua, 'MSIE')   || str_contains($ua, 'Trident'))return 'IE';
         return 'Other';
     }
 
     private function parseOS(string $ua): string
     {
-        if (str_contains($ua, 'Windows NT'))                                                return 'Windows';
-        if (str_contains($ua, 'Mac OS X'))                                                  return 'macOS';
-        if (str_contains($ua, 'Android'))                                                   return 'Android';
-        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))                      return 'iOS';
-        if (str_contains($ua, 'Linux'))                                                     return 'Linux';
+        if (str_contains($ua, 'Windows NT'))                             return 'Windows';
+        if (str_contains($ua, 'Mac OS X'))                               return 'macOS';
+        if (str_contains($ua, 'Android'))                                return 'Android';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad'))   return 'iOS';
+        if (str_contains($ua, 'Linux'))                                  return 'Linux';
         return 'Other';
     }
 
-    /**
-     * Fetch a single delivery note fully joined and return it as a formatted array.
-     * Used after writes so the UI receives fresh data without a page reload.
-     */
-    private function fetchFormattedNote(int $id): ?array
+    private function findBaseProduct(int $baseProductId): ?object
+    {
+        return DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $baseProductId)
+            ->first(['id', 'name', 'code', 'unit', 'selling_price', 'cost_price']);
+    }
+
+    private function findFormattedDeliveryNote(int $id): ?array
     {
         $note = DB::connection('tenant')
             ->table('retail_deliverynotes as rdn')
@@ -84,13 +73,10 @@ class RetailActionCenterController extends Controller
             )
             ->first();
 
-        return $note ? $this->formatNote($note) : null;
+        return $note ? $this->formatDeliveryNote($note) : null;
     }
 
-    /**
-     * Normalise a raw DB row into the array shape the front-end expects.
-     */
-    private function formatNote($note): array
+    private function formatDeliveryNote($note): array
     {
         return [
             'id'                => $note->id,
@@ -121,21 +107,7 @@ class RetailActionCenterController extends Controller
         ];
     }
 
-    /**
-     * Resolve a base product row — price, unit, name, code.
-     */
-    private function fetchBaseProduct(int $baseProductId): ?object
-    {
-        return DB::connection('tenant')
-            ->table('retail_base_products')
-            ->where('id', $baseProductId)
-            ->first(['id', 'name', 'code', 'unit', 'selling_price', 'cost_price']);
-    }
-
-    /**
-     * Write a stock movement to retail_inventory_logs.
-     */
-    private function logStockChange(
+    private function writeInventoryLog(
         int     $baseProductId,
         int     $branchId,
         float   $stockBefore,
@@ -148,7 +120,6 @@ class RetailActionCenterController extends Controller
         ?int    $sourceId     = null
     ): void {
         $change = $stockAfter - $stockBefore;
-
         if (abs($change) < 0.0001) return;
 
         $request = request();
@@ -190,7 +161,7 @@ class RetailActionCenterController extends Controller
     //  VIEWS
     // ══════════════════════════════════════════════════════════════════════
 
-    public function showActionCenterView()
+    public function showActioncenterView()
     {
         return view('operations.retail.actioncenter');
     }
@@ -207,9 +178,6 @@ class RetailActionCenterController extends Controller
 
     // ══════════════════════════════════════════════════════════════════════
     //  BRANCH GRID  (AJAX partial — returns rendered HTML)
-    //
-    //  Route: GET retail.operations.actioncenter.branchgrid
-    //  Params: base_product_id, delivery_date
     // ══════════════════════════════════════════════════════════════════════
 
     public function getBranchGrid(Request $request)
@@ -241,7 +209,7 @@ class RetailActionCenterController extends Controller
             ->orderBy('name')
             ->get();
 
-        $product = $this->fetchBaseProduct($productId);
+        $product = $this->findBaseProduct($productId);
 
         if (!$product) {
             return response()->json(['html' => '']);
@@ -286,10 +254,9 @@ class RetailActionCenterController extends Controller
             $priceLabel = $isOverride ? '(branch)' : '(catalogue)';
             $pendingVal = $pending !== null ? $pending : '';
             $inputClass = $pending !== null ? 'bc-input saved' : 'bc-input';
-
-            $stockFmt  = number_format((float) $stock,          0);
-            $sdnoteFmt = number_format((float) $sdnote,         0);
-            $priceFmt  = number_format((float) $effectivePrice, 2);
+            $stockFmt   = number_format((float) $stock,          0);
+            $sdnoteFmt  = number_format((float) $sdnote,         0);
+            $priceFmt   = number_format((float) $effectivePrice, 2);
 
             $html .= <<<HTML
             <div class="branch-card" data-branch-id="{$branch->id}" data-product-id="{$productId}">
@@ -314,74 +281,12 @@ HTML;
         }
 
         $html .= '</div>';
-        $html .= <<<HTML
-        <div class="price-legend">
-            <div class="pl-item"><div class="pl-dot" style="background:#059669;"></div> Catalogue default price</div>
-            <div class="pl-item"><div class="pl-dot" style="background:#1d4ed8;"></div> Branch-specific override</div>
-        </div>
-HTML;
 
         return response($html);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  BRANCH PRICE OVERRIDES  (AJAX JSON)
-    //
-    //  Route: GET retail.operations.actioncenter.overrides
-    //  Params: base_product_id
-    // ══════════════════════════════════════════════════════════════════════
-
-    public function getOverrides(Request $request)
-    {
-        $request->validate([
-            'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
-        ]);
-
-        $productId = (int) $request->base_product_id;
-        $product   = $this->fetchBaseProduct($productId);
-
-        $pref = DB::connection('tenant')
-            ->table('user_filters')
-            ->where('user_id', Auth::id())
-            ->first();
-
-        $categoryId = $pref->category_id ?? null;
-
-        $branches = DB::connection('tenant')
-            ->table('branches')
-            ->where('sector',   'Retail')
-            ->where('category', (string) $categoryId)
-            ->where('status',   'active')
-            ->orderBy('name')
-            ->get(['id', 'name']);
-
-        $result = [];
-
-        foreach ($branches as $branch) {
-            $bp = DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('branch_id',       $branch->id)
-                ->where('base_product_id', $productId)
-                ->first(['selling_price', 'cost_price']);
-
-            $result[] = [
-                'id'           => $branch->id,
-                'name'         => $branch->name,
-                'base_price'   => (float) ($product->selling_price ?? 0),
-                'base_cost'    => (float) ($product->cost_price    ?? 0),
-                'branch_price' => ($bp && $bp->selling_price !== null) ? (float) $bp->selling_price : null,
-                'branch_cost'  => ($bp && $bp->cost_price    !== null) ? (float) $bp->cost_price    : null,
-            ];
-        }
-
-        return response()->json(['branches' => $result]);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  BRANCH PRICE OVERRIDE  (POST — save or clear a branch price)
-    //
-    //  Route: POST retail.operations.actioncenter.branch.price
-    //  Params: branch_id, base_product_id, selling_price (null = clear), cost_price
+    //  BRANCH PRICE OVERRIDE
     // ══════════════════════════════════════════════════════════════════════
 
     public function saveBranchPrice(Request $request)
@@ -415,11 +320,7 @@ HTML;
                 ->table('retail_branch_products')
                 ->where('branch_id',       $branchId)
                 ->where('base_product_id', $productId)
-                ->update([
-                    'selling_price' => $sell,
-                    'cost_price'    => $cost,
-                    'updated_at'    => now(),
-                ]);
+                ->update(['selling_price' => $sell, 'cost_price' => $cost, 'updated_at' => now()]);
         } else {
             DB::connection('tenant')
                 ->table('retail_branch_products')
@@ -434,22 +335,15 @@ HTML;
                 ]);
         }
 
-        $message = $sell !== null
-            ? 'Branch price override saved.'
-            : 'Branch price override removed. Branch will use catalogue price.';
-
-        return response()->json(['success' => $message]);
+        return response()->json([
+            'success' => $sell !== null
+                ? 'Branch price override saved.'
+                : 'Branch price override removed. Branch will use catalogue price.',
+        ]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
     //  SAVE DELIVERY NOTE  (auto-save on input change)
-    //
-    //  Route: POST retail.operations.actioncenter.save.dnote
-    //  Params: branch_id, base_product_id, quantity, delivery_date
-    //
-    //  • If quantity is 0 the pending note is deleted (cleared).
-    //  • Price snapshot uses branch override if set, else base catalogue price.
-    //  • Does NOT add to branch stock — that only happens on Submit.
     // ══════════════════════════════════════════════════════════════════════
 
     public function saveDeliveryNote(Request $request)
@@ -479,13 +373,12 @@ HTML;
             return response()->json(['status' => 200, 'info' => 'Delivery note cleared.']);
         }
 
-        $base = $this->fetchBaseProduct($baseProductId);
+        $base = $this->findBaseProduct($baseProductId);
 
         if (!$base) {
             return response()->json(['error' => 'Product not found.', 'status' => 404]);
         }
 
-        // Branch-specific price override (null = use base catalogue price).
         $bp = DB::connection('tenant')
             ->table('retail_branch_products')
             ->where('branch_id',       $branchId)
@@ -508,8 +401,7 @@ HTML;
             ->where('submitted',       false)
             ->first();
 
-        $snapshot = $this->userSnapshot($request);
-        $now      = now();
+        $now = now();
 
         if ($existing) {
             DB::connection('tenant')
@@ -521,12 +413,11 @@ HTML;
                     'cost_price'    => $effectiveCost,
                     'updated_at'    => $now,
                 ]);
-
             $noteId = $existing->id;
         } else {
             $noteId = DB::connection('tenant')
                 ->table('retail_deliverynotes')
-                ->insertGetId(array_merge($snapshot, [
+                ->insertGetId([
                     'branch_id'       => $branchId,
                     'base_product_id' => $baseProductId,
                     'product_name'    => $base->name ?? null,
@@ -539,30 +430,21 @@ HTML;
                     'submitted'       => false,
                     'submitted_by'    => null,
                     'submitted_at'    => null,
+                    'added_by'        => Auth::id(),
                     'created_at'      => $now,
                     'updated_at'      => $now,
-                ]));
+                ]);
         }
-
-        $formatted = $this->fetchFormattedNote($noteId);
 
         return response()->json([
             'status'  => $existing ? 200 : 201,
             'success' => 'Delivery note saved.',
-            'note'    => $formatted,
+            'note'    => $this->findFormattedDeliveryNote($noteId),
         ]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
     //  SUBMIT — single product
-    //
-    //  Route: POST retail.operations.actioncenter.submit
-    //  Params: base_product_id, delivery_date
-    //
-    //  For each pending note:
-    //   1. Mark submitted = true
-    //   2. Add quantity to retail_branch_products.stock_quantity (upsert)
-    //   3. Write an inventory log entry (StockDelivery)
     // ══════════════════════════════════════════════════════════════════════
 
     public function submitDeliveryNotes(Request $request)
@@ -597,7 +479,6 @@ HTML;
 
                 if ($quantity <= 0) continue;
 
-                // 1. Mark submitted.
                 DB::connection('tenant')
                     ->table('retail_deliverynotes')
                     ->where('id', $note->id)
@@ -608,7 +489,6 @@ HTML;
                         'updated_at'   => $now,
                     ]);
 
-                // 2. Upsert branch product stock.
                 $branchProduct = DB::connection('tenant')
                     ->table('retail_branch_products')
                     ->where('branch_id',       $branchId)
@@ -618,7 +498,6 @@ HTML;
                 if ($branchProduct) {
                     $stockBefore = (float) $branchProduct->stock_quantity;
                     $stockAfter  = $stockBefore + $quantity;
-
                     DB::connection('tenant')
                         ->table('retail_branch_products')
                         ->where('branch_id',       $branchId)
@@ -627,7 +506,6 @@ HTML;
                 } else {
                     $stockBefore = 0.0;
                     $stockAfter  = $quantity;
-
                     DB::connection('tenant')
                         ->table('retail_branch_products')
                         ->insert([
@@ -641,8 +519,7 @@ HTML;
                         ]);
                 }
 
-                // 3. Inventory log.
-                $this->logStockChange(
+                $this->writeInventoryLog(
                     baseProductId: $baseProductId,
                     branchId:      $branchId,
                     stockBefore:   $stockBefore,
@@ -671,9 +548,6 @@ HTML;
 
     // ══════════════════════════════════════════════════════════════════════
     //  SUBMIT ALL — all products for the date
-    //
-    //  Route: POST retail.operations.actioncenter.submitall
-    //  Params: delivery_date
     // ══════════════════════════════════════════════════════════════════════
 
     public function submitAllDeliveryNotes(Request $request)
@@ -719,7 +593,6 @@ HTML;
                 if ($branchProduct) {
                     $stockBefore = (float) $branchProduct->stock_quantity;
                     $stockAfter  = $stockBefore + $quantity;
-
                     DB::connection('tenant')
                         ->table('retail_branch_products')
                         ->where('id', $branchProduct->id)
@@ -727,7 +600,6 @@ HTML;
                 } else {
                     $stockBefore = 0.0;
                     $stockAfter  = $quantity;
-
                     DB::connection('tenant')
                         ->table('retail_branch_products')
                         ->insert([
@@ -751,7 +623,7 @@ HTML;
                         'updated_at'   => $now,
                     ]);
 
-                $this->logStockChange(
+                $this->writeInventoryLog(
                     baseProductId: $baseProductId,
                     branchId:      $branchId,
                     stockBefore:   $stockBefore,
@@ -781,10 +653,7 @@ HTML;
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  CANCEL PENDING — delete unsubmitted notes for a product + date
-    //
-    //  Route: POST retail.operations.actioncenter.cancel
-    //  Params: base_product_id, delivery_date
+    //  CANCEL PENDING — single product
     // ══════════════════════════════════════════════════════════════════════
 
     public function cancelDeliveryNotes(Request $request)
@@ -812,10 +681,7 @@ HTML;
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  GET DELIVERY NOTES — for the delivery notes listing tab
-    //
-    //  Route: GET retail.operations.actioncenter.notes
-    //  Params: delivery_date, branch_id?, base_product_id?, submitted?
+    //  GET DELIVERY NOTES
     // ══════════════════════════════════════════════════════════════════════
 
     public function getDeliveryNotes(Request $request)
@@ -850,9 +716,8 @@ HTML;
         if ($request->filled('base_product_id')) $query->where('rdn.base_product_id', $request->base_product_id);
         if ($request->filled('submitted'))       $query->where('rdn.submitted',        (bool) $request->submitted);
 
-        $notes = $query->get();
-
-        $formatted  = $notes->map(fn($n) => $this->formatNote($n))->values();
+        $notes      = $query->get();
+        $formatted  = $notes->map(fn($n) => $this->formatDeliveryNote($n))->values();
         $totalQty   = $notes->sum(fn($n) => (float) $n->quantity);
         $totalValue = $notes->sum(fn($n) => (float) $n->quantity * (float) ($n->selling_price ?? 0));
 
@@ -866,9 +731,6 @@ HTML;
 
     // ══════════════════════════════════════════════════════════════════════
     //  UPDATE DELIVERY NOTE
-    //
-    //  Route: POST retail.operations.actioncenter.update.note
-    //  Params: id, quantity, notes?
     // ══════════════════════════════════════════════════════════════════════
 
     public function updateDeliveryNote(Request $request)
@@ -895,7 +757,7 @@ HTML;
             ]);
         }
 
-        $base = $this->fetchBaseProduct((int) $note->base_product_id);
+        $base = $this->findBaseProduct((int) $note->base_product_id);
 
         DB::connection('tenant')
             ->table('retail_deliverynotes')
@@ -908,20 +770,15 @@ HTML;
                 'updated_at'    => now(),
             ]);
 
-        $formatted = $this->fetchFormattedNote((int) $request->id);
-
         return response()->json([
             'status'  => 201,
             'success' => 'Delivery note updated successfully.',
-            'note'    => $formatted,
+            'note'    => $this->findFormattedDeliveryNote((int) $request->id),
         ]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
     //  DELETE DELIVERY NOTE
-    //
-    //  Route: POST retail.operations.actioncenter.delete.note
-    //  Params: id
     // ══════════════════════════════════════════════════════════════════════
 
     public function deleteDeliveryNote(Request $request)
@@ -944,9 +801,6 @@ HTML;
 
     // ══════════════════════════════════════════════════════════════════════
     //  BULK DELETE DELIVERY NOTES
-    //
-    //  Route: POST retail.operations.actioncenter.bulk.delete.notes
-    //  Params: ids[]
     // ══════════════════════════════════════════════════════════════════════
 
     public function bulkDeleteDeliveryNotes(Request $request)
@@ -973,9 +827,6 @@ HTML;
 
     // ══════════════════════════════════════════════════════════════════════
     //  DATES WITH DELIVERY NOTES
-    //
-    //  Route: GET retail.operations.actioncenter.dates
-    //  Params: branch_id?
     // ══════════════════════════════════════════════════════════════════════
 
     public function getDatesWithNotes(Request $request)
@@ -994,36 +845,11 @@ HTML;
             $query->where('branch_id', $request->branch_id);
         }
 
-        $dates = $query->pluck('delivery_date');
-
-        return response()->json(['status' => 200, 'dates' => $dates]);
+        return response()->json(['status' => 200, 'dates' => $query->pluck('delivery_date')]);
     }
 
     // ══════════════════════════════════════════════════════════════════════
-    //  SEARCH BASE PRODUCTS
-    //
-    //  Route: GET retail.operations.actioncenter.search.products
-    // ══════════════════════════════════════════════════════════════════════
-
-    public function searchBaseProducts(Request $request)
-    {
-        $products = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->where('is_product', 1)
-            ->orderBy('name')
-            ->get(['id', 'name', 'code', 'unit', 'selling_price', 'cost_price']);
-
-        return response()->json(['status' => 200, 'products' => $products]);
-    }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  DELETE BASE PRODUCT  (hard-delete: base record + branch records +
-    //                        delivery notes + inventory log write-off)
-    //
-    //  Route: POST retail.operations.actioncenter.product.delete
-    //  Params: base_product_id
-    //
-    //  Does NOT check branch assignment — removes everything unconditionally.
+    //  DELETE BASE PRODUCT
     // ══════════════════════════════════════════════════════════════════════
 
     public function deleteBaseProduct(Request $request)
@@ -1039,7 +865,7 @@ HTML;
         $req       = request();
         $agent     = $req->userAgent() ?? '';
 
-        $product = $this->fetchBaseProduct($productId);
+        $product = $this->findBaseProduct($productId);
 
         if (!$product) {
             return response()->json(['error' => 'Product not found.', 'status' => 404]);
@@ -1047,7 +873,6 @@ HTML;
 
         DB::connection('tenant')->transaction(function () use ($productId, $product, $userId, $user, $now, $req, $agent) {
 
-            // 1. Write a WriteOff inventory log for every branch that held stock.
             $branchRows = DB::connection('tenant')
                 ->table('retail_branch_products')
                 ->where('base_product_id', $productId)
@@ -1088,23 +913,9 @@ HTML;
                     ]);
             }
 
-            // 2. Delete branch product rows.
-            DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('base_product_id', $productId)
-                ->delete();
-
-            // 3. Delete delivery notes (pending and submitted).
-            DB::connection('tenant')
-                ->table('retail_deliverynotes')
-                ->where('base_product_id', $productId)
-                ->delete();
-
-            // 4. Delete the base product itself.
-            DB::connection('tenant')
-                ->table('retail_base_products')
-                ->where('id', $productId)
-                ->delete();
+            DB::connection('tenant')->table('retail_branch_products')->where('base_product_id', $productId)->delete();
+            DB::connection('tenant')->table('retail_deliverynotes')->where('base_product_id', $productId)->delete();
+            DB::connection('tenant')->table('retail_base_products')->where('id', $productId)->delete();
         });
 
         return response()->json([

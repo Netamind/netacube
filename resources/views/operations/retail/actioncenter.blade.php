@@ -48,7 +48,38 @@
             ->where('id', $productId)
             ->first(['id', 'name', 'unit', 'selling_price', 'cost_price', 'code']);
     }
+
+    $categorySummary = collect();
+    if ($selectedCategory) {
+        $categoryBranchIds = $branches->pluck('id');
+
+        $categorySummary = DB::connection('tenant')
+            ->table('retail_deliverynotes as rdn')
+            ->join('retail_base_products as rbp', 'rbp.id', '=', 'rdn.base_product_id')
+            ->whereIn('rdn.branch_id', $categoryBranchIds)
+            ->where('rdn.delivery_date', $date)
+            ->where('rdn.submitted', false)
+            ->select(
+                'rdn.base_product_id',
+                'rbp.name as product_name',
+                DB::raw('SUM(rdn.quantity) as total_qty'),
+                DB::raw('SUM(rdn.quantity * rdn.selling_price) as total_value'),
+                DB::raw('COUNT(DISTINCT rdn.branch_id) as branch_count')
+            )
+            ->groupBy('rdn.base_product_id', 'rbp.name')
+            ->orderBy('rbp.name')
+            ->get();
+
+        $categoryTotalValue  = $categorySummary->sum('total_value');
+        $categoryTotalQty    = $categorySummary->sum('total_qty');
+        $categoryProductCount = $categorySummary->count();
+    }
 @endphp
+
+{{-- CSRF meta tag — required for AJAX requests --}}
+@push('head')
+<meta name="csrf-token" content="{{ csrf_token() }}">
+@endpush
 
 <style>
 /* ── Progress bar ─────────────────────────────────────────────────────── */
@@ -68,27 +99,46 @@
 .ch-inner {
     display: flex; align-items: center;
     padding: 0 14px; height: 48px; gap: 8px;
+    flex-wrap: nowrap;
 }
-.ch-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
+
+/* ch-left holds category select + date chip side by side */
+.ch-left {
+    display: flex; align-items: center; gap: 8px;
+    flex: 1; min-width: 0; overflow: hidden;
+}
 .ch-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
+/* Category select — shrinks to fit, never pushes date chip off screen */
 #categorySelectHeader {
     border: none; background: transparent; color: #fff;
     font-size: 15px; font-weight: 600; cursor: pointer;
-    padding: 0; outline: none; max-width: 240px;
+    padding: 0; outline: none;
+    flex: 0 1 auto;
+    min-width: 0;
+    max-width: 200px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 #categorySelectHeader option { color: #1e293b; background: #fff; font-size: 13px; }
 
+/* Thin separator between category and date chip */
+.ch-sep {
+    width: 1px; height: 20px;
+    background: rgba(255,255,255,0.25);
+    flex-shrink: 0;
+}
+
+/* Date chip — always visible next to category */
 .ch-date-chip {
     display: inline-flex; align-items: center; gap: 4px;
     background: rgba(255,255,255,0.15);
     border: 1px solid rgba(255,255,255,0.25);
-    border-radius: 20px; padding: 3px 10px;
+    border-radius: 20px; padding: 5px 10px;
     font-size: 11px; font-weight: 500; color: #fff;
     white-space: nowrap; cursor: pointer; transition: background .15s;
-    user-select: none; margin-left: 4px;
+    user-select: none; flex-shrink: 0;
 }
-.ch-date-chip:hover { background: rgba(255,255,255,0.25); }
+.ch-date-chip:hover { background: rgba(255,255,255,0.28); }
 .ch-date-chip .mode-badge {
     font-size: 9px; padding: 1px 5px; border-radius: 8px;
     background: rgba(255,255,255,0.2); color: #fff;
@@ -96,7 +146,14 @@
 }
 .ch-date-chip.custom-mode { background: rgba(245,158,11,0.30); border-color: rgba(245,158,11,0.6); }
 .ch-date-chip.custom-mode .mode-badge { background: rgba(245,158,11,0.5); }
+.ch-date-chip .chip-edit-icon { font-size: 10px; opacity: .75; margin-left: 2px; }
+.ch-date-chip:hover .chip-edit-icon { opacity: 1; }
 
+.ch-date-chip.no-category {
+    opacity: .6; cursor: default; pointer-events: none;
+}
+
+/* ── Header icon buttons (shared style with Actions + Info) ──────────── */
 .ch-btn {
     width: 30px; height: 30px; border-radius: 7px;
     background: #fff; border: 1px solid rgba(255,255,255,0.6);
@@ -105,11 +162,10 @@
     text-decoration: none; flex-shrink: 0; box-shadow: 0 1px 3px rgba(0,0,0,0.12);
 }
 .ch-btn:hover { background: #f0f2ff; color: #3a4ca0; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
-.ch-btn.ch-btn-danger { color: #dc2626; }
-.ch-btn.ch-btn-danger:hover { background: #fef2f2; color: #b91c1c; }
 
 /* ── Tabs ─────────────────────────────────────────────────────────────── */
-.tab-header-container { background: #f8f9fa; border-bottom: 1px solid #dee2e6; }
+.tab-header-container { background: #f8f9fa; border-bottom: 1px solid #dee2e6; overflow-x: auto; }
+.nav-pills { flex-wrap: nowrap; }
 .nav-pills .nav-link {
     border-radius: 0 !important; padding: .5rem 1rem;
     font-weight: 500; font-size: 12px; color: #6c757d;
@@ -122,18 +178,27 @@
 }
 .nav-pills .nav-link i { font-size: .95rem; margin-right: .3rem; }
 
-/* ── Search bar row ───────────────────────────────────────────────────── */
+/* ── Search bar row — 3 col layout ───────────────────────────────────── */
 .search-bar-row {
-    display: flex; align-items: center; gap: 10px;
-    padding: 10px 16px; background: #f0f2fa;
+    display: flex; align-items: stretch;
+    background: #eef0f8;
     border-bottom: 1px solid #dde1f0;
-    position: relative;
+    padding: 10px 14px;
+    gap: 12px;
+}
+.sbr-col {
+    flex: 0 0 calc(33.333% - 8px); max-width: calc(33.333% - 8px);
+    display: flex; align-items: center;
 }
 
-/* Search input — col-7 equivalent (~58%) */
-.search-input-wrap {
-    position: relative; flex: 0 0 58.333%; max-width: 58.333%;
+@media (max-width: 767px) {
+    .search-bar-row  { flex-wrap: wrap; gap: 10px; padding: 10px 12px; }
+    .sbr-col         { flex: 0 0 100%; max-width: 100%; }
+    #categorySelectHeader { max-width: 130px; }
 }
+
+/* Search input */
+.search-input-wrap { position: relative; width: 100%; }
 .search-input-inner {
     display: flex; align-items: center;
     background: #fff; border: 1.5px solid #c5caec;
@@ -150,7 +215,7 @@
 }
 #productSearch::placeholder { color: #b0baca; }
 
-/* Dropdown — matches search bar width */
+/* Dropdown */
 #productDropdown {
     display: none; position: absolute;
     top: calc(100% + 4px); left: 0; right: 0;
@@ -179,117 +244,97 @@
 .pd-item-price { font-size: 11px; font-weight: 600; color: #059669; white-space: nowrap; }
 .pd-empty { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; font-style: italic; }
 
-/* Spacer + action buttons */
-.sbr-spacer { flex: 1; }
-.sbr-btn {
-    height: 40px; padding: 0 18px; font-size: 12px; font-weight: 600;
-    border-radius: 9px; display: inline-flex; align-items: center; gap: 6px;
-    cursor: pointer; border: none; transition: all .15s; white-space: nowrap; flex-shrink: 0;
+/* ── Inline product pill (col 2) ────────────────────────────────────── */
+.sbr-product-pill {
+    display: flex; align-items: center; gap: 8px;
+    background: #f1f3f9; border: 1.5px solid #c5caec;
+    border-radius: 9px; padding: 0 10px; height: 40px;
+    width: 100%; min-width: 0;
+    cursor: pointer; transition: border-color .15s;
 }
-.sbr-btn:hover { transform: translateY(-1px); box-shadow: 0 4px 10px rgba(0,0,0,0.12); }
-.sbr-btn:active { transform: none; }
-.sbr-submit { background: #4B5EBD; color: #fff; box-shadow: 0 2px 6px rgba(75,94,189,0.35); }
-.sbr-submit:hover { background: #3a4ca0; }
-.sbr-cancel { background: #dc2626; color: #fff; box-shadow: 0 2px 6px rgba(220,38,38,0.30); }
-.sbr-cancel:hover { background: #b91c1c; }
-
-/* ── Product + Counter row ─────────────────────────────────────────────── */
-.product-counter-row {
-    display: none;
-    border-bottom: 1px solid #dee2e6;
-    min-height: 60px;
-    background: #f8f9fa;
-    align-items: stretch;
+.sbr-product-pill:hover { border-color: #4B5EBD; }
+.sbr-product-pill .pill-icon {
+    width: 24px; height: 24px; border-radius: 5px;
+    background: #eff3ff; display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0; color: #4B5EBD; font-size: 12px;
 }
-.product-counter-row.visible { display: flex; }
-
-/* Left panel: product pill button */
-.pcr-product {
-    display: flex; align-items: center;
-    padding: 10px 18px;
-    background: #f8f9fa;
-    border-right: 1px solid #dee2e6;
-    flex-shrink: 0;
-    min-width: 0;
+.sbr-product-pill .pill-info { flex: 1; min-width: 0; }
+.sbr-product-pill .pill-name {
+    font-size: 11px; font-weight: 700; color: #2d3a8c;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
 }
-.pcr-product-btn {
-    display: inline-flex; align-items: center; gap: 9px;
-    background: #e8e9ed; border: 1.5px solid #cdd0dc;
-    border-radius: 8px; padding: 7px 14px 7px 9px;
-    cursor: pointer; transition: background .15s, border-color .15s;
-    max-width: 420px; min-width: 0;
+.sbr-product-pill .pill-meta {
+    display: flex; align-items: center; gap: 4px; margin-top: 1px;
 }
-.pcr-product-btn:hover { background: #dde0ea; border-color: #b8bcd0; }
-.pcr-edit-icon-btn {
-    width: 26px; height: 26px; border-radius: 6px;
-    background: #fff; border: 1px solid #cdd0dc;
+.sbr-product-pill .pill-badge {
+    font-size: 8px; font-weight: 600; padding: 0px 5px; border-radius: 3px;
+    white-space: nowrap; line-height: 1.5;
+}
+.sbr-product-pill .pill-badge-code  { background: #e2e8f0; color: #64748b; }
+.sbr-product-pill .pill-badge-unit  { background: #dbeafe; color: #1d4ed8; }
+.sbr-product-pill .pill-badge-price { background: #d1fae5; color: #065f46; }
+.sbr-product-pill .pill-edit {
+    width: 20px; height: 20px; border-radius: 4px;
+    background: #eff3ff; border: 1px solid #c5caec;
     display: flex; align-items: center; justify-content: center;
-    color: #4B5EBD; font-size: 13px; flex-shrink: 0;
+    color: #4B5EBD; font-size: 11px; flex-shrink: 0;
 }
-/* Product name + meta stacked */
-.pcr-info { flex: 1; min-width: 0; }
-.pcr-name {
-    font-size: 13px; font-weight: 700; color: #2d3a8c;
-    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
-    display: block;
+.sbr-product-empty {
+    display: flex; align-items: center; gap: 7px;
+    color: #b0baca; font-size: 12px; font-style: italic;
+    height: 40px;
 }
-.pcr-meta-row {
-    display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: nowrap;
-}
-.pcr-badge {
-    font-size: 9px; font-weight: 600; padding: 1px 6px; border-radius: 4px;
-    white-space: nowrap; line-height: 1.6;
-}
-.pcr-badge-code  { background: #e2e8f0; color: #64748b; }
-.pcr-badge-unit  { background: #dbeafe; color: #1d4ed8; }
-.pcr-badge-price { background: #d1fae5; color: #065f46; }
+.sbr-product-empty i { font-size: 15px; }
 
-/* Right panel: counter — pushed to far right */
-.pcr-counter {
-    display: flex; align-items: stretch;
-    margin-left: auto;
-    border-left: 1px solid #dee2e6;
+/* ── Counter col (col 3) ────────────────────────────────────────────── */
+.sbr-counter {
+    display: flex; align-items: center; gap: 0;
+    width: 100%;
+    background: #f1f3f9; border: 1.5px solid #c5caec;
+    border-radius: 9px; overflow: hidden; height: 40px;
 }
-.cr-seg {
-    display: flex; flex-direction: column; justify-content: center;
-    padding: 10px 20px; border-right: 1px solid #dee2e6;
-    gap: 3px; min-width: 130px;
-    background: #f8f9fa;
+.sbr-cr-seg {
+    flex: 1; display: flex; flex-direction: column;
+    justify-content: center; align-items: center;
+    padding: 0 6px;
+    border-right: 1px solid #dde1f0;
+    height: 100%;
 }
-.cr-seg:last-child { border-right: none; }
-.cr-label {
-    font-size: 8px; font-weight: 700; color: #94a3b8;
-    text-transform: uppercase; letter-spacing: .8px;
+.sbr-cr-seg:last-child { border-right: none; }
+.sbr-cr-label {
+    font-size: 7px; font-weight: 700; color: #94a3b8;
+    text-transform: uppercase; letter-spacing: .7px; line-height: 1;
 }
-.cr-val {
-    font-size: 22px; font-weight: 800; color: #1e293b;
-    line-height: 1; font-variant-numeric: tabular-nums;
+.sbr-cr-val {
+    font-size: 13px; font-weight: 800; color: #1e293b;
+    line-height: 1.2; font-variant-numeric: tabular-nums;
 }
-.cr-val.accent { color: #4B5EBD; }
-.cr-unit-lbl { font-size: 10px; color: #94a3b8; }
-
-/* Unit of Issue input — centered, no spinners, no bg change on focus */
-.cr-unit-input-wrap {
-    display: flex; align-items: center; justify-content: center;
-}
-.cr-unit-input {
-    width: 90px; height: 38px;
-    border: 1.5px solid #c5caec; border-radius: 8px;
-    text-align: center; font-size: 18px; font-weight: 700; color: #1e293b;
+.sbr-cr-val.accent { color: #4B5EBD; }
+.sbr-cr-unit-input {
+    width: 56px; height: 26px;
+    border: 1.5px solid #c5caec; border-radius: 5px;
+    text-align: center; font-size: 13px; font-weight: 700; color: #1e293b;
     background: #fff; outline: none; padding: 0;
     -moz-appearance: textfield;
     transition: border-color .15s;
 }
-.cr-unit-input::-webkit-outer-spin-button,
-.cr-unit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.cr-unit-input:focus { background: #fff; border-color: #4B5EBD; box-shadow: 0 0 0 3px rgba(75,94,189,0.10); }
+.sbr-cr-unit-input::-webkit-outer-spin-button,
+.sbr-cr-unit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.sbr-cr-unit-input:focus { border-color: #4B5EBD; }
 
 /* ── Branch grid ──────────────────────────────────────────────────────── */
 .branch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-    gap: 14px; padding: 20px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 14px;
+    padding: 20px 20px 36px;
     background: #fff;
+}
+@media (max-width: 767px) {
+    .branch-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 12px 28px; }
+}
+@media (max-width: 420px) {
+    .branch-grid { grid-template-columns: 1fr; }
 }
 
 .branch-card {
@@ -297,85 +342,66 @@
     border: 1.5px solid #e4e7f5;
     border-radius: 10px;
     overflow: hidden;
-    transition: box-shadow .2s, border-color .2s;
-    margin-bottom: 8px;
+    transition: border-color .2s;
 }
-.branch-card:hover { box-shadow: 0 4px 16px rgba(75,94,189,.10); border-color: #c5caec; }
-.branch-card.has-value { border-color: #a5b0e6; box-shadow: 0 2px 8px rgba(75,94,189,.12); }
+.branch-card:hover { border-color: #e4e7f5; }
+.branch-card.has-value { border: 1.5px solid #4B5EBD; box-shadow: none; }
 
-/* Name + stats share one bg */
+/* ── Branch card header ──────────────────────────────────────────────── */
 .bc-header {
     background: #f0f2fa;
     border-bottom: 1.5px solid #dde1f0;
 }
 .bc-name-row {
-    padding: 8px 13px 4px;
     display: flex; align-items: center; gap: 6px;
+    padding: 8px 10px 4px;
 }
-.bc-name { font-size: 11px; font-weight: 700; color: #2d3a8c; flex: 1; }
+.bc-name { font-size: 11px; font-weight: 700; color: #2d3a8c; flex: 1;
+           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
-/* Saved check icon — hidden by default, shown via JS */
 .bc-saved-check {
     display: none;
-    width: 18px; height: 18px; border-radius: 50%;
+    width: 15px; height: 15px; border-radius: 50%;
     background: #10b981;
     align-items: center; justify-content: center;
     flex-shrink: 0;
 }
-.bc-saved-check i { font-size: 10px; color: #fff; }
+.bc-saved-check i { font-size: 8px; color: #fff; }
 .bc-saved-check.show { display: flex; }
 
 .bc-stats-row {
-    display: flex; align-items: center;
-    padding: 4px 13px 8px; gap: 0;
+    display: flex; align-items: center; gap: 0;
+    padding: 0 10px 8px;
 }
-.bc-stat-piece { display: flex; align-items: baseline; gap: 4px; }
-.bc-stat-piece + .bc-stat-piece::before { content: '|'; color: #c5caec; font-size: 11px; margin: 0 8px; }
-.bc-stat-label { font-size: 9px; font-weight: 600; color: #b0baca; text-transform: uppercase; letter-spacing: .5px; }
+.bc-stat-piece { display: flex; align-items: baseline; gap: 2px; }
+.bc-stat-piece + .bc-stat-piece::before { content: '·'; color: #c5caec; font-size: 9px; margin: 0 5px; }
+.bc-stat-label { font-size: 8px; font-weight: 600; color: #b0baca; text-transform: uppercase; letter-spacing: .4px; }
 .bc-stat-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
 .bc-stat-val.v-stock     { color: #a0aec0; }
 .bc-stat-val.v-delivered { color: #93a3d4; }
 .bc-stat-val.v-order     { color: #cbd5e1; }
 
-/* Input row — border left, right, bottom only; no bg change on hover/focus */
-.bc-input-row {
-    display: flex; align-items: center;
-    position: relative;
-}
+/* ── Branch input ────────────────────────────────────────────────────── */
 .bc-input {
     flex: 1; width: 100%; text-align: center;
-    font-size: 26px; font-weight: 800;
+    font-size: 20px; font-weight: 800;
     border-top: none;
     border-left: 1.5px solid #e4e7f5;
     border-right: 1.5px solid #e4e7f5;
     border-bottom: 1.5px solid #e4e7f5;
     border-radius: 0 0 8px 8px;
-    padding: 10px 8px; outline: none;
+    padding: 8px 8px;
+    outline: none;
     color: #1e293b; background: #fff;
     font-variant-numeric: tabular-nums;
     -moz-appearance: textfield;
-    transition: border-color .15s;
+    transition: none;
 }
 .bc-input::-webkit-outer-spin-button,
 .bc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bc-input:focus { background: #fff; }
-.bc-input:hover { background: #fff; }
-.bc-input::placeholder { color: #dde1f0; }
-
-/* Save state dot */
-.bc-input-row .save-dot {
-    position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
-    width: 6px; height: 6px; border-radius: 50%;
-    transition: background .2s, opacity .2s; opacity: 0; pointer-events: none;
-}
-.bc-input-row.state-saving .save-dot { background: #f59e0b; opacity: 1; animation: dot-pulse .8s infinite; }
-.bc-input-row.state-saved  .save-dot { background: #10b981; opacity: 1; }
-.bc-input-row.state-error  .save-dot { background: #f87171; opacity: 1; }
-
-@keyframes dot-pulse {
-    0%, 100% { opacity: 1; }
-    50%       { opacity: .3; }
-}
+.bc-input:focus  { background: #fff; border-color: #e4e7f5; }
+.bc-input:hover  { background: #fff; border-color: #e4e7f5; }
+.bc-input::placeholder { color: #e8eaf3; font-size: 16px; font-weight: 400; }
 
 /* ── Placeholders ─────────────────────────────────────────────────────── */
 .no-category-wrap { padding: 60px 16px; text-align: center; }
@@ -407,6 +433,83 @@
 .dmc.active-sys .dmc-val { color: #4B5EBD; }
 .dmc.active-cus .dmc-val { color: #d97706; }
 .dmc-desc { font-size: 10px; color: #94a3b8; margin-top: 2px; }
+
+/* ── Actions modal (bottom sheet style) ──────────────────────────────── */
+#actionsModal .modal-dialog {
+    margin: auto 0 0;
+    max-width: 100%;
+}
+#actionsModal .modal-content {
+    border-radius: 16px 16px 0 0;
+}
+#actionsModal .mh-blue {
+    border-radius: 16px 16px 0 0 !important;
+}
+@media (min-width: 480px) {
+    #actionsModal .modal-dialog {
+        margin: auto auto 0;
+        max-width: 400px;
+    }
+}
+
+.action-sheet-btn {
+    width: 100%; display: flex; align-items: center; gap: 12px;
+    background: #f8f9fa; border: 1px solid #e4e7f5; border-radius: 9px;
+    padding: 11px 14px; font-size: 13px; font-weight: 500; color: #1e293b;
+    cursor: pointer; text-align: left; transition: background .15s;
+}
+.action-sheet-btn:hover { background: #eef0f8; }
+.action-sheet-btn.as-danger { background: #fff5f5; border-color: #fecaca; color: #b91c1c; }
+.action-sheet-btn.as-danger:hover { background: #fee2e2; }
+.action-sheet-btn i { font-size: 18px; flex-shrink: 0; }
+
+/* ── Category distribution value modal ───────────────────────────────── */
+.cat-summary-header {
+    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
+    margin-bottom: 16px;
+}
+.cat-kpi {
+    background: #f8f9ff; border: 1.5px solid #dde1f0; border-radius: 9px;
+    padding: 12px 14px; text-align: center;
+}
+.cat-kpi.accent { background: #eff3ff; border-color: #b0bcf0; }
+.cat-kpi .ck-label {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .6px; color: #94a3b8; margin-bottom: 4px;
+}
+.cat-kpi.accent .ck-label { color: #6478c0; }
+.cat-kpi .ck-val {
+    font-size: 17px; font-weight: 800; color: #1e293b;
+    font-variant-numeric: tabular-nums; line-height: 1;
+}
+.cat-kpi.accent .ck-val { color: #3b4fa0; }
+
+/* Product breakdown table */
+.cv-table { width: 100%; font-size: 12px; border-collapse: collapse; }
+.cv-table th {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: #94a3b8; padding: 6px 10px;
+    background: #f8f9fa; border-bottom: 1px solid #e2e8f0;
+    text-align: left;
+}
+.cv-table th.r { text-align: right; }
+.cv-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
+.cv-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
+.cv-table tr:last-child td { border-bottom: none; }
+.cv-table tr:hover td { background: #f8f9ff; }
+.cv-table .cv-product-name { font-weight: 600; color: #2d3a8c; }
+.cv-table .cv-value { font-weight: 700; color: #059669; }
+.cv-table tfoot td {
+    font-weight: 700; font-size: 12px; color: #1e293b;
+    background: #f0f2fa; border-top: 2px solid #dde1f0;
+    padding: 8px 10px;
+}
+.cv-table tfoot td.r { text-align: right; }
+.cv-empty {
+    text-align: center; padding: 30px 16px;
+    font-size: 12px; color: #94a3b8; font-style: italic;
+}
+.cv-empty i { font-size: 28px; color: #dde1f0; display: block; margin-bottom: 8px; }
 </style>
 
 {{-- Hidden form: saves selected product_id then reloads --}}
@@ -429,13 +532,16 @@
 {{-- ══ Card header ══════════════════════════════════════════════════════ --}}
 <div class="card-header">
     <div class="ch-inner">
-        <div class="ch-left">
-            <i class="ri-store-2-line" style="color:#fff;font-size:17px;flex-shrink:0;"></i>
 
+        {{-- LEFT: category select + separator + date chip --}}
+        <div class="ch-left">
+
+            {{-- Category select — also nulls action_product_id on change --}}
             <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
-                  id="headerCategoryForm" style="margin:0;display:inline;">
+                  id="headerCategoryForm" style="margin:0;display:contents;">
                 @csrf
-                <input type="hidden" name="user_id" value="{{ Auth::id() }}">
+                <input type="hidden" name="user_id"           value="{{ Auth::id() }}">
+                <input type="hidden" name="action_product_id" value="">{{-- reset product on category change --}}
                 <select name="category_id" id="categorySelectHeader"
                         onchange="document.getElementById('headerCategoryForm').submit()">
                     <option value="" hidden>{{ $selectedCategory ? $selectedCategory->category : '— Select Category —' }}</option>
@@ -447,42 +553,39 @@
                 </select>
             </form>
 
-            @if($selectedCategory)
-            <div class="ch-date-chip {{ $isCustom ? 'custom-mode' : '' }}" id="dateChip" title="Change delivery date">
+            {{-- Separator --}}
+            <div class="ch-sep"></div>
+
+            {{-- Date chip — always visible, disabled when no category --}}
+            <div class="ch-date-chip {{ $isCustom ? 'custom-mode' : '' }} {{ !$selectedCategory ? 'no-category' : '' }}"
+                 id="dateChip"
+                 title="{{ $selectedCategory ? 'Change delivery date' : 'Select a category first' }}">
                 <i class="ri-calendar-line" style="font-size:11px;"></i>
                 <span id="dateChipText">{{ $displayDate }}</span>
                 <span class="mode-badge" id="dateChipBadge">{{ $isCustom ? 'Custom' : 'Today' }}</span>
+                <i class="ri-pencil-line chip-edit-icon"></i>
             </div>
-            @endif
+
         </div>
 
-        @if($selectedCategory)
+        {{-- RIGHT: Summary + Actions + Info --}}
         <div class="ch-right">
-            <a href="#" class="ch-btn" id="submitAllBtn" title="Submit all pending notes">
-                <i class="ri-send-plane-fill"></i>
+
+            @if($selectedCategory)
+            {{-- Category distribution summary button — same style as actions/info --}}
+            <a href="#" class="ch-btn" id="catSummaryBtn" title="View distribution summary for {{ $displayDate }}">
+                <i class="ri-bar-chart-grouped-line"></i>
             </a>
-            <a href="#" class="ch-btn" id="addProductBtn" title="Add new product">
-                <i class="ri-add-circle-line"></i>
-            </a>
-            <a href="#" class="ch-btn" id="dateModalBtn" title="Change delivery date">
-                <i class="ri-calendar-event-line"></i>
-            </a>
-            @if($product)
-            <a href="#" class="ch-btn ch-btn-danger" id="deleteProductBtn" title="Delete selected product">
-                <i class="ri-delete-bin-5-line"></i>
+
+            <a href="#" class="ch-btn" id="actionsBtn" title="Actions">
+                <i class="ri-menu-3-line"></i>
             </a>
             @endif
             <a href="#" class="ch-btn" id="infoBtn" title="About Action Centre">
                 <i class="ri-information-line"></i>
             </a>
         </div>
-        @else
-        <div class="ch-right">
-            <a href="#" class="ch-btn" id="infoBtn" title="About Action Centre">
-                <i class="ri-information-line"></i>
-            </a>
-        </div>
-        @endif
+
     </div>
 </div>
 
@@ -514,83 +617,65 @@
     </div>
 @else
 
-{{-- ══ Row 1: Search bar ══════════════════════════════════════════════════ --}}
+{{-- ══ Search bar row — 3 columns ════════════════════════════════════════ --}}
 <div class="search-bar-row">
-    {{-- Search input — col-7 width --}}
-    <div class="search-input-wrap">
-        <div class="search-input-inner">
-            <i class="ri-search-2-line search-icon-left"></i>
-            <input type="text" id="productSearch"
-                   placeholder="Search product by name or code…"
-                   autocomplete="off">
+
+    {{-- Col 1: Search --}}
+    <div class="sbr-col">
+        <div class="search-input-wrap">
+            <div class="search-input-inner">
+                <i class="ri-search-2-line search-icon-left"></i>
+                <input type="text" id="productSearch"
+                       placeholder="Search product by name or code…"
+                       autocomplete="off">
+            </div>
+            <div id="productDropdown"></div>
         </div>
-        <div id="productDropdown"></div>
     </div>
 
-    <div class="sbr-spacer"></div>
-
-    <button class="sbr-btn sbr-submit" id="submitBtn">
-        <i class="ri-corner-up-right-line"></i> Submit
-    </button>
-    <button class="sbr-btn sbr-cancel" id="cancelBtn">
-        <i class="ri-delete-bin-2-line"></i> Cancel
-    </button>
-</div>
-
-{{-- ══ Row 2: Product pill (left) + Counter segments (far right) ══════════ --}}
-<div class="product-counter-row {{ $product ? 'visible' : '' }}" id="productCounterRow">
-
-    {{-- Left: product pill button with name + meta --}}
-    <div class="pcr-product">
-        <div class="pcr-product-btn" id="pcr-edit-icon" title="Edit product">
-            <div class="pcr-edit-icon-btn">
-                <i class="ri-edit-box-line"></i>
-            </div>
-            <div class="pcr-info">
-                <span class="pcr-name" id="pcrName">{{ $product ? $product->name : '' }}</span>
-                <div class="pcr-meta-row" id="pcrMetaRow">
-                    @if($product)
-                        @if($product->code)
-                        <span class="pcr-badge pcr-badge-code" id="pcrCode">{{ $product->code }}</span>
-                        @endif
-                        <span class="pcr-badge pcr-badge-unit" id="pcrUnit">{{ $product->unit }}</span>
-                        <span class="pcr-badge pcr-badge-price" id="pcrPrice">MWK {{ number_format((float)$product->selling_price, 2) }}</span>
+    {{-- Col 2: Selected product details --}}
+    <div class="sbr-col" id="sbrProductCol">
+        @if($product)
+        <div class="sbr-product-pill" id="pcr-edit-icon" title="Edit product">
+            <div class="pill-icon"><i class="ri-box-3-line"></i></div>
+            <div class="pill-info">
+                <span class="pill-name" id="pcrName">{{ $product->name }}</span>
+                <div class="pill-meta" id="pcrMetaRow">
+                    @if($product->code)
+                    <span class="pill-badge pill-badge-code" id="pcrCode">{{ $product->code }}</span>
                     @endif
+                    <span class="pill-badge pill-badge-unit" id="pcrUnit">{{ $product->unit }}</span>
+                    <span class="pill-badge pill-badge-price" id="pcrPrice">MWK {{ number_format((float)$product->selling_price, 2) }}</span>
                 </div>
             </div>
+            <div class="pill-edit"><i class="ri-edit-box-line"></i></div>
+        </div>
+        @else
+        <div class="sbr-product-empty" id="sbrProductEmpty">
+            <i class="ri-box-3-line"></i>
+            <span>No product selected</span>
+        </div>
+        @endif
+    </div>
+
+    {{-- Col 3: Counter --}}
+    <div class="sbr-col">
+        <div class="sbr-counter">
+            <div class="sbr-cr-seg">
+                <span class="sbr-cr-label">Distribution</span>
+                <span class="sbr-cr-val" id="distTotalVal">0</span>
+            </div>
+            <div class="sbr-cr-seg">
+                <span class="sbr-cr-label">Unit of Issue</span>
+                <input type="number" class="sbr-cr-unit-input" id="dividerInput" value="1" placeholder="1">
+            </div>
+            <div class="sbr-cr-seg">
+                <span class="sbr-cr-label">Qty Distributed</span>
+                <span class="sbr-cr-val accent" id="distResultVal">0</span>
+            </div>
         </div>
     </div>
 
-    {{-- Right: counter segments — pushed to far right --}}
-    <div class="pcr-counter">
-
-        {{-- Distribution --}}
-        <div class="cr-seg">
-            <span class="cr-label">Distribution</span>
-            <div style="display:flex;align-items:baseline;gap:4px;">
-                <span class="cr-val" id="distTotalVal">0</span>
-                <span class="cr-unit-lbl" id="distTotalUnit">{{ $product ? $product->unit : '' }}</span>
-            </div>
-        </div>
-
-        {{-- Unit of Issue --}}
-        <div class="cr-seg">
-            <span class="cr-label">Unit of Issue</span>
-            <div class="cr-unit-input-wrap">
-                <input type="number" class="cr-unit-input" id="dividerInput" value="1" min="1">
-            </div>
-        </div>
-
-        {{-- Quantity Distributed --}}
-        <div class="cr-seg">
-            <span class="cr-label">Quantity Distributed</span>
-            <div style="display:flex;align-items:baseline;gap:4px;">
-                <span class="cr-val accent" id="distResultVal">0</span>
-                <span class="cr-unit-lbl" id="distResultUnit">{{ $product ? $product->unit : '' }}</span>
-            </div>
-        </div>
-
-    </div>
 </div>
 
 {{-- ══ Branch grid ══════════════════════════════════════════════════════ --}}
@@ -628,7 +713,6 @@
                 <div class="bc-header">
                     <div class="bc-name-row">
                         <span class="bc-name">{{ $branch->name }}</span>
-                        {{-- Check icon: hidden by default, shown via JS after save, cleared on reload --}}
                         <span class="bc-saved-check" id="check-{{ $branch->id }}" title="Saved">
                             <i class="ri-check-line"></i>
                         </span>
@@ -656,8 +740,8 @@
                            value="{{ $bPending !== null ? $bPending : '' }}"
                            data-branch-id="{{ $branch->id }}"
                            data-product-id="{{ $product->id }}"
-                           data-branch-name="{{ $branch->name }}">
-                    <span class="save-dot"></span>
+                           data-branch-name="{{ $branch->name }}"
+                           data-selling-price="{{ $product->selling_price }}">
                 </div>
             </div>
         @endforeach
@@ -676,6 +760,152 @@
 
 </div>{{-- .card --}}
 </div></div></div>
+
+
+{{-- ══ CATEGORY DISTRIBUTION SUMMARY MODAL ════════════════════════════ --}}
+<div class="modal fade" id="catSummaryModal" tabindex="-1">
+    <div class="modal-dialog" style="max-width:560px;">
+        <div class="modal-content">
+            <div class="modal-header mh-blue">
+                <h5 class="modal-title mh-title">
+                    <i class="ri-bar-chart-grouped-line"></i>
+                    Distribution Summary
+                </h5>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px 20px;">
+
+                {{-- Context line --}}
+                <div style="font-size:11px;color:#64748b;margin-bottom:14px;">
+                    Pending (unsubmitted) delivery notes for
+                    <strong>{{ $selectedCategory->category ?? '—' }}</strong> on
+                    <strong>{{ $displayDate }}</strong>.
+                </div>
+
+                @if($selectedCategory)
+                {{-- KPI row --}}
+                <div class="cat-summary-header">
+                    <div class="cat-kpi">
+                        <div class="ck-label">Products</div>
+                        <div class="ck-val">{{ $categoryProductCount }}</div>
+                    </div>
+                    <div class="cat-kpi">
+                        <div class="ck-label">Total Units</div>
+                        <div class="ck-val">{{ number_format($categoryTotalQty, 0) }}</div>
+                    </div>
+                    <div class="cat-kpi accent">
+                        <div class="ck-label">Selling Value</div>
+                        <div class="ck-val">MWK {{ number_format($categoryTotalValue, 2) }}</div>
+                    </div>
+                </div>
+
+                {{-- Per-product breakdown --}}
+                @if($categorySummary->isNotEmpty())
+                <div style="border:1.5px solid #dde1f0;border-radius:9px;overflow:hidden;">
+                    <table class="cv-table">
+                        <thead>
+                            <tr>
+                                <th>Product</th>
+                                <th class="r">Branches</th>
+                                <th class="r">Units</th>
+                                <th class="r">Value (MWK)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($categorySummary as $row)
+                            <tr>
+                                <td class="cv-product-name">{{ $row->product_name }}</td>
+                                <td class="r">{{ $row->branch_count }}</td>
+                                <td class="r">{{ number_format($row->total_qty, 0) }}</td>
+                                <td class="r cv-value">{{ number_format($row->total_value, 2) }}</td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td>Total</td>
+                                <td class="r">—</td>
+                                <td class="r">{{ number_format($categoryTotalQty, 0) }}</td>
+                                <td class="r">{{ number_format($categoryTotalValue, 2) }}</td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+                @else
+                <div class="cv-empty">
+                    <i class="ri-inbox-line"></i>
+                    No pending delivery notes for this date.
+                </div>
+                @endif
+                @endif
+
+            </div>
+            <div class="modal-footer" style="padding:10px 20px 14px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+{{-- ══ ACTIONS BOTTOM SHEET ════════════════════════════════════════════ --}}
+<div class="modal fade" id="actionsModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header mh-blue" style="border-radius:16px 16px 0 0 !important;">
+                <h5 class="modal-title mh-title"><i class="ri-menu-3-line"></i> Actions</h5>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:14px 16px 20px;">
+                <div style="display:flex;flex-direction:column;gap:8px;">
+
+                    <button class="action-sheet-btn" id="asSubmitAllBtn">
+                        <i class="ri-send-plane-fill" style="color:#4B5EBD;"></i>
+                        <div>
+                            <div style="font-weight:600;">Submit all pending notes</div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">All products · {{ $displayDate }}</div>
+                        </div>
+                    </button>
+
+                    <button class="action-sheet-btn" id="asSubmitBtn">
+                        <i class="ri-corner-up-right-line" style="color:#059669;"></i>
+                        <div>
+                            <div style="font-weight:600;">Submit current product</div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Marks pending notes as submitted</div>
+                        </div>
+                    </button>
+
+                    <button class="action-sheet-btn" id="asCancelBtn">
+                        <i class="ri-close-line" style="color:#d97706;"></i>
+                        <div>
+                            <div style="font-weight:600;">Cancel pending notes</div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Deletes unsubmitted notes for current product</div>
+                        </div>
+                    </button>
+
+                    <button class="action-sheet-btn" id="asAddProductBtn">
+                        <i class="ri-add-circle-line" style="color:#4B5EBD;"></i>
+                        <div>
+                            <div style="font-weight:600;">Add new product</div>
+                            <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Add to the base catalogue</div>
+                        </div>
+                    </button>
+
+                    @if($product)
+                    <button class="action-sheet-btn as-danger" id="asDeleteProductBtn">
+                        <i class="ri-delete-bin-5-line"></i>
+                        <div>
+                            <div style="font-weight:600;">Delete selected product</div>
+                            <div style="font-size:11px;color:#fca5a5;margin-top:1px;">{{ $product->name }}</div>
+                        </div>
+                    </button>
+                    @endif
+
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
 
 
 {{-- ══ DATE MODAL ══════════════════════════════════════════════════════ --}}
@@ -880,8 +1110,9 @@
                             ['Select product',  'Search for a base product in the search bar and click it — the page reloads with the product displayed in the counter bar and branch cards below.'],
                             ['Enter quantity',  'Type a quantity per branch. Saved automatically as a pending delivery note. A green check appears next to the branch name after each save.'],
                             ['Distribution / Unit of Issue', 'Counter bar shows total units entered. Set unit of issue (e.g. loaves per crate) to see the quantity distributed.'],
+                            ['Summary button',  'Shows the total pending distribution value across all products for the selected category and date.'],
                             ['Submit',          'Marks pending delivery notes as submitted and adds quantities to branch stock.'],
-                            ['Submit All',      'Submits ALL pending notes for the selected date across all products (header icon).'],
+                            ['Submit All',      'Submits ALL pending notes for the selected date across all products (via the Actions menu).'],
                             ['Cancel',          'Deletes all pending (unsubmitted) notes for the current product on the selected date.'],
                             ['Date — Today',    'Uses the current system date, auto-updates each day.'],
                             ['Date — Custom',   'Use for historical or future deliveries. Stored in your filter preferences.'],
@@ -1016,9 +1247,13 @@
 <script>
 $(document).ready(function () {
 
+    /* ── CSRF ─────────────────────────────────────────────────────────── */
+    var csrfToken = $('meta[name="csrf-token"]').attr('content')
+                 || $('input[name="_token"]').first().val();
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': csrfToken } });
+
     /* ── Toastr ─────────────────────────────────────────────────────────── */
     toastr.options = { timeOut: 5000, progressBar: true, positionClass: 'toast-top-end', closeButton: true };
-    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
 
     /* ── Helpers ─────────────────────────────────────────────────────────── */
     function showProgress() { $('#progressBar').show(); }
@@ -1029,20 +1264,19 @@ $(document).ready(function () {
         return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
     }
     function handleAjaxError(xhr) {
-        if (xhr.status === 0 && xhr.readyState === 0) {
-            toastr.error('Request timed out — check your connection.', 'Timeout');
-        } else if (xhr.status === 422) {
-            var msgs = '';
-            $.each(xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {}, function (k, v) { msgs += v + '\n'; });
-            toastr.error(msgs || 'Validation failed.', 'Validation Error');
-        } else if (xhr.status === 500) {
-            toastr.error(xhr.responseJSON && xhr.responseJSON.error ? xhr.responseJSON.error : 'Internal server error.', 'Server Error');
-        } else {
-            toastr.error('An unspecified error occurred.', 'Error');
-        }
+        var status = xhr.status;
+        var json   = null;
+        try { json = xhr.responseJSON || JSON.parse(xhr.responseText); } catch (e) {}
+        if (status === 419) { toastr.error('Your session has expired. The page will refresh in a moment.', 'Session Expired'); setTimeout(function () { location.reload(); }, 2000); return; }
+        if (status === 0)   { toastr.error('No response from server. Check your connection.', 'Connection Error'); return; }
+        if (status === 404) { toastr.error((json && (json.message || json.error)) || 'The requested endpoint was not found.', 'Not Found (404)'); return; }
+        if (status === 405) { toastr.error('HTTP method not allowed for this route.', 'Method Not Allowed (405)'); return; }
+        if (status === 422) { var msgs = Object.values((json && json.errors) || {}).flat().join('\n'); toastr.error(msgs || (json && json.message) || 'Validation failed.', 'Validation Error'); return; }
+        if (status === 500) { toastr.error((json && (json.message || json.error)) || 'An internal server error occurred.', 'Server Error (500)'); return; }
+        toastr.error((json && (json.message || json.error)) || ('Unexpected error (HTTP ' + status + ').'), 'Error');
     }
 
-    /* ── Product map ────────────────────────────────────────────────────── */
+    /* ── Product map ─────────────────────────────────────────────────── */
     var productMap = {};
     @foreach($baseProducts as $bp)
     productMap['{{ $bp->id }}'] = {
@@ -1059,39 +1293,36 @@ $(document).ready(function () {
     var activeDate      = '{{ $date }}';
     var allProducts     = Object.values(productMap);
 
-    /* ── Distribution counter ─────────────────────────────────────────────── */
+    /* ── Distribution counter ────────────────────────────────────────── */
     function recalcDistribution() {
         var total = 0;
         $('.bc-input').each(function () {
             var v = parseFloat($(this).val());
             if (!isNaN(v) && v > 0) total += v;
         });
-        var divider = parseFloat($('#dividerInput').val()) || 1;
-        if (divider < 1) divider = 1;
+        var divider = parseFloat($('#dividerInput').val());
+        if (isNaN(divider) || divider <= 0) divider = 1;
         var result = total / divider;
-
-        $('#distTotalVal').text(total % 1 === 0 ? total : total.toFixed(3));
+        $('#distTotalVal').text(total  % 1 === 0 ? total  : total.toFixed(3));
         $('#distResultVal').text(result % 1 === 0 ? result : result.toFixed(3));
     }
 
     $(document).on('input change', '.bc-input', recalcDistribution);
-
-    $('#dividerInput').on('input', function () {
-        var v = parseInt($(this).val());
-        if (isNaN(v) || v < 1) $(this).val(1);
-        recalcDistribution();
-    });
-
+    $('#dividerInput').on('input', recalcDistribution)
+                     .on('blur',  function () { var v = parseFloat($(this).val()); if (isNaN(v) || v <= 0) $(this).val(''); recalcDistribution(); });
     recalcDistribution();
 
-    /* ── Product search dropdown ──────────────────────────────────────────── */
+    /* ── Category distribution summary modal ─────────────────────────── */
+    $('#catSummaryBtn').on('click', function (e) {
+        e.preventDefault();
+        $('#catSummaryModal').modal('show');
+    });
+
+    /* ── Product search dropdown ─────────────────────────────────────── */
     var $dropdown = $('#productDropdown');
 
     function renderDropdown(list) {
-        if (!list.length) {
-            $dropdown.html('<div class="pd-empty"><i class="ri-search-line"></i> No products found</div>');
-            return;
-        }
+        if (!list.length) { $dropdown.html('<div class="pd-empty"><i class="ri-search-line"></i> No products found</div>'); return; }
         var html = '';
         list.slice(0, 40).forEach(function (p) {
             html += '<div class="pd-item" data-id="' + p.id + '">' +
@@ -1106,11 +1337,7 @@ $(document).ready(function () {
         $dropdown.html(html);
     }
 
-    $('#productSearch').on('focus', function () {
-        renderDropdown(allProducts.slice(0, 20));
-        $dropdown.addClass('open');
-    });
-
+    $('#productSearch').on('focus', function () { renderDropdown(allProducts.slice(0, 20)); $dropdown.addClass('open'); });
     $('#productSearch').on('input', function () {
         var val = $(this).val().toLowerCase().trim();
         if (!val) { renderDropdown(allProducts.slice(0, 20)); $dropdown.addClass('open'); return; }
@@ -1120,12 +1347,9 @@ $(document).ready(function () {
         renderDropdown(filtered);
         $dropdown.addClass('open');
     });
+    $(document).on('click', function (e) { if (!$(e.target).closest('.search-input-wrap').length) $dropdown.removeClass('open'); });
 
-    $(document).on('click', function (e) {
-        if (!$(e.target).closest('.search-input-wrap').length) $dropdown.removeClass('open');
-    });
-
-    /* ── Selecting a product ────────────────────────────────────────────── */
+    /* ── Selecting a product ─────────────────────────────────────────── */
     $dropdown.on('click', '.pd-item', function () {
         var id = String($(this).data('id'));
         if (!productMap[id]) return;
@@ -1135,32 +1359,22 @@ $(document).ready(function () {
         $('#selectProductForm').submit();
     });
 
-    /* ── Keyboard shortcut ⌘K / Ctrl+K ──────────────────────────────────── */
+    /* ── Keyboard shortcut ⌘K / Ctrl+K ──────────────────────────────── */
     $(document).on('keydown', function (e) {
-        if ((e.metaKey || e.ctrlKey) && e.key === 'k') {
-            e.preventDefault();
-            $('#productSearch').val('').focus();
-        }
-        if (e.key === 'Escape') {
-            $dropdown.removeClass('open');
-        }
+        if ((e.metaKey || e.ctrlKey) && e.key === 'k') { e.preventDefault(); $('#productSearch').val('').focus(); }
+        if (e.key === 'Escape') $dropdown.removeClass('open');
     });
 
-    /* ── Edit product via counter row pill ──────────────────────────────── */
+    /* ── Edit product via product pill ──────────────────────────────── */
     function openEditModal() {
         if (!activeProductId) return;
         var p = productMap[activeProductId];
         if (!p) return;
-        $('#ep-id').val(p.id);
-        $('#epModalName').text(p.name);
-        $('#ep-name').val(p.name);
-        $('#ep-sell').val(p.price);
-        $('#ep-cost').val(p.cost || '');
-        $('#ep-unit').val(p.unit);
-        $('#ep-code').val(p.code);
+        $('#ep-id').val(p.id); $('#epModalName').text(p.name);
+        $('#ep-name').val(p.name); $('#ep-sell').val(p.price);
+        $('#ep-cost').val(p.cost || ''); $('#ep-unit').val(p.unit); $('#ep-code').val(p.code);
         $('#editProductModal').modal('show');
     }
-
     $('#pcr-edit-icon').on('click', function () { openEditModal(); });
 
     $('#saveEditProductBtn').on('click', function () {
@@ -1171,83 +1385,73 @@ $(document).ready(function () {
         var self = $(this).prop('disabled', true);
         showProgress();
         $.ajax({
-            type: 'POST',
-            url:  '{{ route("retail.operations.baseproducts.update") }}',
+            type: 'POST', url: '{{ route("retail.operations.baseproducts.update") }}',
             data: { id: $('#ep-id').val(), name: name, selling_price: sell, cost_price: $('#ep-cost').val(), unit: $('#ep-unit').val(), code: $('#ep-code').val() },
             complete: function () { hideProgress(); self.prop('disabled', false); },
             success: function (data) {
-                if (data.status === 201) {
-                    toastr.success('Product updated.');
-                    $('#editProductModal').modal('hide');
-                    setTimeout(function () { location.reload(); }, 800);
-                } else { toastr.error(data.error || 'Failed to update.'); }
+                if (data.status === 201) { toastr.success('Product updated.'); $('#editProductModal').modal('hide'); setTimeout(function () { location.reload(); }, 800); }
+                else { toastr.error(data.error || 'Failed to update.'); }
             },
             error: handleAjaxError,
         });
     });
 
-    /* ── Delete product ────────────────────────────────────────────────── */
-    $('#deleteProductBtn').on('click', function (e) {
-        e.preventDefault();
-        if (!activeProductId) return;
-        var p = productMap[activeProductId];
-        $('#deleteProductName').text(p ? p.name : 'this product');
-        $('#deleteProductModal').modal('show');
-    });
+    /* ── Actions modal ───────────────────────────────────────────────── */
+    $('#actionsBtn').on('click', function (e) { e.preventDefault(); $('#actionsModal').modal('show'); });
 
+    /* ── Action sheet → Delete product ──────────────────────────────── */
+    $('#asDeleteProductBtn').on('click', function () {
+        $('#actionsModal').modal('hide');
+        setTimeout(function () {
+            if (!activeProductId) return;
+            var p = productMap[activeProductId];
+            $('#deleteProductName').text(p ? p.name : 'this product');
+            $('#deleteProductModal').modal('show');
+        }, 300);
+    });
     $('#deleteProductConfirmBtn').on('click', function () {
         $('#deleteProductModal').modal('hide');
         var $btn = $(this).prop('disabled', true);
         showProgress();
         $.ajax({
-            type: 'POST',
-            url:  '{{ route("retail.operations.actioncenter.product.delete") }}',
+            type: 'POST', url: '{{ route("retail.operations.actioncenter.product.delete") }}',
             data: { base_product_id: activeProductId },
             complete: function () { hideProgress(); $btn.prop('disabled', false); },
             success: function (data) {
-                if (data.success) {
-                    toastr.success(data.success);
-                    showProgress();
-                    $('#selectProductFormId').val('');
-                    $('#selectProductForm').submit();
-                } else { toastr.error(data.error || 'Failed to delete product.'); }
+                if (data.success) { toastr.success(data.success); showProgress(); $('#selectProductFormId').val(''); $('#selectProductForm').submit(); }
+                else { toastr.error(data.error || 'Failed to delete product.'); }
             },
             error: handleAjaxError,
         });
     });
 
-    /* ── Add new product ─────────────────────────────────────────────────── */
-    $('#addProductBtn').on('click', function (e) {
-        e.preventDefault();
-        $('#ap-name, #ap-code').val('');
-        $('#ap-sell, #ap-cost').val('');
-        $('#ap-unit').val('Each');
-        $('#ap-supplier').val('');
-        $('#addProductModal').modal('show');
-        setTimeout(function () { $('#ap-name').focus(); }, 400);
+    /* ── Action sheet → Add new product ─────────────────────────────── */
+    $('#asAddProductBtn').on('click', function () {
+        $('#actionsModal').modal('hide');
+        setTimeout(function () {
+            $('#ap-name, #ap-code').val(''); $('#ap-sell, #ap-cost').val('');
+            $('#ap-unit').val('Each'); $('#ap-supplier').val('');
+            $('#addProductModal').modal('show');
+            setTimeout(function () { $('#ap-name').focus(); }, 400);
+        }, 300);
     });
-
     $('#saveNewProductBtn').on('click', function () {
-        var name     = $('#ap-name').val().trim();
-        var supplier = $('#ap-supplier').val();
-        var sell     = $('#ap-sell').val();
+        var name = $('#ap-name').val().trim(), supplier = $('#ap-supplier').val(), sell = $('#ap-sell').val();
         if (!name)     { toastr.warning('Product name is required.'); $('#ap-name').focus(); return; }
         if (!supplier) { toastr.warning('Please select a supplier.');  $('#ap-supplier').focus(); return; }
         if (!sell || parseFloat(sell) < 0) { toastr.warning('Selling price is required.'); $('#ap-sell').focus(); return; }
         var self = $(this).prop('disabled', true);
         showProgress();
         $.ajax({
-            type: 'POST',
-            url:  '{{ route("retail.operations.baseproducts.insert") }}',
+            type: 'POST', url: '{{ route("retail.operations.baseproducts.insert") }}',
             data: { name: name, supplier: supplier, selling_price: sell, cost_price: $('#ap-cost').val(), unit: $('#ap-unit').val() || 'Each', code: $('#ap-code').val(), is_product: 1 },
             complete: function () { hideProgress(); self.prop('disabled', false); },
             success: function (data) {
                 if (data.status === 201) {
                     toastr.success('"' + name + '" added to catalogue.');
-                    var np = data.product;
                     $('#addProductModal').modal('hide');
                     showProgress();
-                    $('#selectProductFormId').val(String(np.id));
+                    $('#selectProductFormId').val(String(data.product.id));
                     $('#selectProductForm').submit();
                 } else { toastr.error(data.error || 'Failed to save product.'); }
             },
@@ -1255,15 +1459,15 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Route constants ─────────────────────────────────────────────────── */
+    /* ── Route constants ─────────────────────────────────────────────── */
     var routes = {
-        saveDnote: '{{ route("retail.operations.actioncenter.save.dnote") }}',
-        submit:    '{{ route("retail.operations.actioncenter.submit") }}',
-        submitAll: '{{ route("retail.operations.actioncenter.submitall") }}',
-        cancel:    '{{ route("retail.operations.actioncenter.cancel") }}',
+        saveDnote: '{{ route("retail.operations.actioncenter.dnote.save") }}',
+        submit:    '{{ route("retail.operations.actioncenter.dnote.submit") }}',
+        submitAll: '{{ route("retail.operations.actioncenter.dnote.submit-all") }}',
+        cancel:    '{{ route("retail.operations.actioncenter.dnote.cancel") }}',
     };
 
-    /* ── Auto-save branch inputs ──────────────────────────────────────────── */
+    /* ── Auto-save branch inputs ─────────────────────────────────────── */
     var saveTimer = {};
     $(document).on('input', '.bc-input', function () {
         var $input    = $(this);
@@ -1271,60 +1475,52 @@ $(document).ready(function () {
         var productId = $input.data('product-id');
         var quantity  = $input.val();
         var $row      = $('#ir-' + branchId);
+        var $card     = $input.closest('.branch-card');
         var $check    = $('#check-' + branchId);
 
-        $input.closest('.branch-card').toggleClass('has-value', parseFloat(quantity) > 0);
         clearTimeout(saveTimer[branchId]);
+        $check.removeClass('show');
+        $row.removeClass('state-saved state-error state-saving');
+        $card.toggleClass('has-value', quantity !== '' && parseFloat(quantity) > 0);
 
-        $row.removeClass('state-saved state-error').addClass('state-saving');
-        $check.removeClass('show'); // hide check while typing
-
-        if (quantity === '' || isNaN(parseFloat(quantity))) {
-            $row.removeClass('state-saving state-saved state-error');
-            return;
-        }
+        if (quantity === '' || isNaN(parseFloat(quantity))) return;
 
         saveTimer[branchId] = setTimeout(function () {
             $.ajax({
-                type: 'POST',
-                url:  routes.saveDnote,
+                type: 'POST', url: routes.saveDnote,
                 data: { branch_id: branchId, base_product_id: productId, quantity: quantity, delivery_date: activeDate },
                 success: function (res) {
                     $row.removeClass('state-saving state-error');
                     if (res.status === 200 || res.status === 201) {
-                        $row.addClass('state-saved');
-                        // Show green check icon next to branch name
-                        $check.addClass('show');
-                        setTimeout(function () { $row.removeClass('state-saved'); }, 2000);
+                        $row.addClass('state-saved'); $card.addClass('has-value'); $check.addClass('show');
+                        setTimeout(function () { $row.removeClass('state-saved'); $check.removeClass('show'); }, 2000);
                     } else {
-                        $row.addClass('state-error');
-                        toastr.error('Failed to save delivery note.');
+                        $card.removeClass('has-value');
+                        toastr.error('Failed to save for ' + $input.data('branch-name') + '.', 'Save Error');
                     }
                 },
-                error: function () {
-                    $row.removeClass('state-saving').addClass('state-error');
-                    toastr.error('Error saving delivery note.');
-                },
+                error: function (xhr) { $row.removeClass('state-saving'); $card.removeClass('has-value'); handleAjaxError(xhr); },
             });
         }, 600);
     });
 
-    /* ── Submit (single product) ─────────────────────────────────────────── */
-    $('#submitBtn').on('click', function () {
-        if (!activeProductId) { toastr.warning('Please select a product first.'); return; }
-        var p = productMap[activeProductId];
-        $('#submitConfirmProduct').text(p ? p.name : '');
-        $('#submitConfirmDate').text(activeDate);
-        $('#submitConfirmModal').modal('show');
+    /* ── Action sheet → Submit (single product) ──────────────────────── */
+    $('#asSubmitBtn').on('click', function () {
+        $('#actionsModal').modal('hide');
+        setTimeout(function () {
+            if (!activeProductId) { toastr.warning('Please select a product first.'); return; }
+            var p = productMap[activeProductId];
+            $('#submitConfirmProduct').text(p ? p.name : '');
+            $('#submitConfirmDate').text(activeDate);
+            $('#submitConfirmModal').modal('show');
+        }, 300);
     });
-
     $('#submitConfirmBtn').on('click', function () {
         $('#submitConfirmModal').modal('hide');
-        var $btn = $('#submitBtn').prop('disabled', true);
         showProgress();
+        var $btn = $(this).prop('disabled', true);
         $.ajax({
-            type: 'POST',
-            url:  routes.submit,
+            type: 'POST', url: routes.submit,
             data: { base_product_id: activeProductId, delivery_date: activeDate },
             complete: function () { hideProgress(); $btn.prop('disabled', false); },
             success: function (data) {
@@ -1335,22 +1531,19 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Submit All ───────────────────────────────────────────────────────── */
-    $('#submitAllBtn').on('click', function (e) {
-        e.preventDefault();
-        $('#submitAllDateLabel').text(activeDate);
-        $('#submitAllModal').modal('show');
+    /* ── Action sheet → Submit All ───────────────────────────────────── */
+    $('#asSubmitAllBtn').on('click', function () {
+        $('#actionsModal').modal('hide');
+        setTimeout(function () { $('#submitAllDateLabel').text(activeDate); $('#submitAllModal').modal('show'); }, 300);
     });
-
     $('#submitAllConfirmBtn').on('click', function () {
         $('#submitAllModal').modal('hide');
-        var $headerBtn = $('#submitAllBtn').css('opacity', '.5').css('pointer-events', 'none');
         showProgress();
+        var $btn = $(this).prop('disabled', true);
         $.ajax({
-            type: 'POST',
-            url:  routes.submitAll,
+            type: 'POST', url: routes.submitAll,
             data: { delivery_date: activeDate },
-            complete: function () { hideProgress(); $headerBtn.css('opacity', '').css('pointer-events', ''); },
+            complete: function () { hideProgress(); $btn.prop('disabled', false); },
             success: function (data) {
                 if (data.success) { toastr.success(data.success); setTimeout(function () { location.reload(); }, 800); }
                 if (data.info) toastr.info(data.info);
@@ -1359,22 +1552,23 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Cancel (single product) ─────────────────────────────────────────── */
-    $('#cancelBtn').on('click', function () {
-        if (!activeProductId) { toastr.warning('Please select a product first.'); return; }
-        var p = productMap[activeProductId];
-        $('#cancelConfirmProduct').text(p ? p.name : '');
-        $('#cancelConfirmDate').text(activeDate);
-        $('#cancelConfirmModal').modal('show');
+    /* ── Action sheet → Cancel (single product) ──────────────────────── */
+    $('#asCancelBtn').on('click', function () {
+        $('#actionsModal').modal('hide');
+        setTimeout(function () {
+            if (!activeProductId) { toastr.warning('Please select a product first.'); return; }
+            var p = productMap[activeProductId];
+            $('#cancelConfirmProduct').text(p ? p.name : '');
+            $('#cancelConfirmDate').text(activeDate);
+            $('#cancelConfirmModal').modal('show');
+        }, 300);
     });
-
     $('#cancelConfirmBtn').on('click', function () {
         $('#cancelConfirmModal').modal('hide');
-        var $btn = $('#cancelBtn').prop('disabled', true);
         showProgress();
+        var $btn = $(this).prop('disabled', true);
         $.ajax({
-            type: 'POST',
-            url:  routes.cancel,
+            type: 'POST', url: routes.cancel,
             data: { base_product_id: activeProductId, delivery_date: activeDate },
             complete: function () { hideProgress(); $btn.prop('disabled', false); },
             success: function (data) {
@@ -1383,7 +1577,7 @@ $(document).ready(function () {
                     $('.bc-input').val('');
                     $('.branch-card').removeClass('has-value');
                     $('.bc-input-row').removeClass('state-saving state-saved state-error');
-                    $('.bc-saved-check').removeClass('show'); // clear all check icons
+                    $('.bc-saved-check').removeClass('show');
                     recalcDistribution();
                 }
                 if (data.info) toastr.info(data.info);
@@ -1392,13 +1586,10 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Info modal ───────────────────────────────────────────────────────── */
-    $('#infoBtn').on('click', function (e) {
-        e.preventDefault();
-        $('#infoModal').modal('show');
-    });
+    /* ── Info modal ───────────────────────────────────────────────────── */
+    $('#infoBtn').on('click', function (e) { e.preventDefault(); $('#infoModal').modal('show'); });
 
-    /* ── Date modal ──────────────────────────────────────────────────────── */
+    /* ── Date modal ───────────────────────────────────────────────────── */
     var currentDateMode = '{{ $isCustom ? "custom" : "system" }}';
 
     window.setDateMode = function (mode) {
@@ -1412,14 +1603,15 @@ $(document).ready(function () {
 
     window.previewCustomDate = function (val) {
         if (!val) return;
-        var d  = new Date(val + 'T00:00:00');
+        var d = new Date(val + 'T00:00:00');
         var mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
         $('#dmcCustomVal').text(d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear());
         $('#dateFormValue').val(val);
     };
 
-    $('#dateModalBtn, #dateChip').on('click', function (e) {
+    $('#dateChip').on('click', function (e) {
         e.preventDefault();
+        if ($(this).hasClass('no-category')) return;
         setDateMode(currentDateMode);
         $('#dateModal').modal('show');
     });
@@ -1429,7 +1621,7 @@ $(document).ready(function () {
         previewCustomDate($(this).val());
     });
 
-    /* ── Flash messages ───────────────────────────────────────────────────── */
+    /* ── Flash messages ───────────────────────────────────────────────── */
     @if(Session::has('message'))
         toastr['{{ Session::get("alert-type","info") }}']('{{ Session::get("message") }}');
     @endif

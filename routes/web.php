@@ -205,7 +205,7 @@ Route::get('/retail/shopvalues/audit',[RetailBranchProductsController::class, 'g
 
 // ── Views ──────────────────────────────────────────────────────────────────
 Route::get('retail/operations/action-center',   [RetailActionCenterController::class, 'showActioncenterView'])->name('retail.operations.actioncenter');
-Route::get('retail/operations/delivery-notes',  [RetailActionCenterController::class, 'showDeliverynotesView'])->name('retail.operations.deliverynotes');
+
 Route::get('retail/operations/price-changes',   [RetailActionCenterController::class, 'showPricechangesView'])->name('retail.operations.pricechanges');
 
 // ── Action centre — reads ──────────────────────────────────────────────────
@@ -226,7 +226,32 @@ Route::post('retail/operations/action-center/product/delete',        [RetailActi
 Route::post('retail/operations/action-center/product/branch-price',  [RetailActionCenterController::class, 'saveBranchPrice'])->name('retail.operations.actioncenter.product.branch-price');
 
 
+// ── Delivery Notes view ────────────────────────────────────────────────────
+Route::get('retail/operations/delivery-notes',                              [RetailDeliveryNotesController::class, 'showDeliverynotesView'])->name('retail.operations.deliverynotes');
+Route::get('retail/operations/delivery-notes/details',                      [RetailDeliveryNotesController::class, 'showBranchDeliveryNoteDetailsView'])->name('retail.operations.deliverynote.details');
 
+// ── Delivery Notes — data & actions ───────────────────────────────────────
+Route::get('retail/operations/delivery-notes/branch-summary',               [RetailDeliveryNotesController::class, 'fetchBranchDeliveryNoteSummaryByDate'])->name('retail.operations.deliverynotes.branch-summary');
+Route::post('retail/operations/delivery-notes/branch/submit-pending',       [RetailDeliveryNotesController::class, 'submitAllPendingNotesForBranch'])->name('retail.operations.deliverynotes.branch.submit-pending');
+Route::get('retail/operations/delivery-notes/branch/pdf',                   [RetailDeliveryNotesController::class, 'exportBranchDeliveryNotesToPdf'])->name('retail.operations.deliverynotes.branch.export-pdf');
+Route::get('retail/operations/delivery-notes/branch/edit',                  [RetailDeliveryNotesController::class, 'showBranchDeliveryNoteEditView'])->name('retail.operations.deliverynotes.branch.edit-view');
+Route::get('retail/operations/delivery-notes/branch/details',               [RetailDeliveryNotesController::class, 'showBranchDeliveryNoteDetailsView'])->name('retail.operations.deliverynotes.branch.details');
+Route::get('retail/operations/delivery-notes/branch/lines',                 [RetailDeliveryNotesController::class, 'fetchBranchDeliveryNoteLines'])->name('retail.operations.deliverynotes.branch.lines');
+
+// ── Delivery Notes — single line operations ───────────────────────────────
+Route::post('retail/operations/delivery-notes/line/submit',                 [RetailDeliveryNotesController::class, 'submitSingleDeliveryNoteLine'])->name('retail.operations.deliverynotes.line.submit');
+Route::post('retail/operations/delivery-notes/line/unsubmit',               [RetailDeliveryNotesController::class, 'unsubmitSingleDeliveryNoteLine'])->name('retail.operations.deliverynotes.line.unsubmit');
+Route::post('retail/operations/delivery-notes/line/delete',                 [RetailDeliveryNotesController::class, 'deleteSingleDeliveryNoteLine'])->name('retail.operations.deliverynotes.line.delete');
+
+// ── Delivery Notes — bulk branch operations ───────────────────────────────
+Route::post('retail/operations/delivery-notes/bulk/submit-selected',        [RetailDeliveryNotesController::class, 'bulkSubmitSelectedDeliveryNotes'])->name('retail.operations.deliverynotes.bulk.submit-selected');
+Route::post('retail/operations/delivery-notes/bulk/unsubmit-selected',      [RetailDeliveryNotesController::class, 'bulkUnsubmitSelectedDeliveryNotes'])->name('retail.operations.deliverynotes.bulk.unsubmit-selected');
+Route::post('retail/operations/delivery-notes/bulk/delete-selected',        [RetailDeliveryNotesController::class, 'bulkDeleteSelectedDeliveryNotes'])->name('retail.operations.deliverynotes.bulk.delete-selected');
+
+// ── Delivery Notes — bulk line operations ─────────────────────────────────
+Route::post('retail/operations/delivery-notes/lines/bulk/submit',           [RetailDeliveryNotesController::class, 'bulkSubmitDeliveryNoteLines'])->name('retail.operations.deliverynotes.lines.bulk.submit');
+Route::post('retail/operations/delivery-notes/lines/bulk/unsubmit',         [RetailDeliveryNotesController::class, 'bulkUnsubmitDeliveryNoteLines'])->name('retail.operations.deliverynotes.lines.bulk.unsubmit');
+Route::post('retail/operations/delivery-notes/lines/bulk/delete',           [RetailDeliveryNotesController::class, 'bulkDeleteDeliveryNoteLines'])->name('retail.operations.deliverynotes.lines.bulk.delete');
 
 
 

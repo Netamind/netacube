@@ -49,30 +49,36 @@
             ->first(['id', 'name', 'unit', 'selling_price', 'cost_price', 'code']);
     }
 
-    $categorySummary = collect();
+    /* ── Category summary ─────────────────────────────────────────────
+     *  Per-branch totals for ALL notes on $date (submitted + pending).
+     *  Also track how many distinct products per branch are still pending
+     *  so we can show a "X unsubmitted" badge in the Amount column.
+     * ────────────────────────────────────────────────────────────────*/
+    $branchSummary      = collect();
+    $grandTotalCost     = 0;
+    $grandTotalValue    = 0;
+
     if ($selectedCategory) {
         $categoryBranchIds = $branches->pluck('id');
 
-        $categorySummary = DB::connection('tenant')
+        // All notes grouped by branch — total cost and selling value
+        $branchSummary = DB::connection('tenant')
             ->table('retail_deliverynotes as rdn')
-            ->join('retail_base_products as rbp', 'rbp.id', '=', 'rdn.base_product_id')
+            ->join('branches as b', 'b.id', '=', 'rdn.branch_id')
             ->whereIn('rdn.branch_id', $categoryBranchIds)
             ->where('rdn.delivery_date', $date)
-            ->where('rdn.submitted', false)
             ->select(
-                'rdn.base_product_id',
-                'rbp.name as product_name',
-                DB::raw('SUM(rdn.quantity) as total_qty'),
-                DB::raw('SUM(rdn.quantity * rdn.selling_price) as total_value'),
-                DB::raw('COUNT(DISTINCT rdn.branch_id) as branch_count')
+                'rdn.branch_id',
+                'b.name as branch_name',
+                DB::raw('SUM(rdn.quantity * rdn.cost_price) as total_cost'),
+                DB::raw('SUM(rdn.quantity * rdn.selling_price) as total_value')
             )
-            ->groupBy('rdn.base_product_id', 'rbp.name')
-            ->orderBy('rbp.name')
+            ->groupBy('rdn.branch_id', 'b.name')
+            ->orderBy('b.name')
             ->get();
 
-        $categoryTotalValue  = $categorySummary->sum('total_value');
-        $categoryTotalQty    = $categorySummary->sum('total_qty');
-        $categoryProductCount = $categorySummary->count();
+        $grandTotalCost  = $branchSummary->sum('total_cost');
+        $grandTotalValue = $branchSummary->sum('total_value');
     }
 @endphp
 
@@ -102,14 +108,12 @@
     flex-wrap: nowrap;
 }
 
-/* ch-left holds category select + date chip side by side */
 .ch-left {
     display: flex; align-items: center; gap: 8px;
     flex: 1; min-width: 0; overflow: hidden;
 }
 .ch-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
-/* Category select — shrinks to fit, never pushes date chip off screen */
 #categorySelectHeader {
     border: none; background: transparent; color: #fff;
     font-size: 15px; font-weight: 600; cursor: pointer;
@@ -121,14 +125,12 @@
 }
 #categorySelectHeader option { color: #1e293b; background: #fff; font-size: 13px; }
 
-/* Thin separator between category and date chip */
 .ch-sep {
     width: 1px; height: 20px;
     background: rgba(255,255,255,0.25);
     flex-shrink: 0;
 }
 
-/* Date chip — always visible next to category */
 .ch-date-chip {
     display: inline-flex; align-items: center; gap: 4px;
     background: rgba(255,255,255,0.15);
@@ -148,12 +150,9 @@
 .ch-date-chip.custom-mode .mode-badge { background: rgba(245,158,11,0.5); }
 .ch-date-chip .chip-edit-icon { font-size: 10px; opacity: .75; margin-left: 2px; }
 .ch-date-chip:hover .chip-edit-icon { opacity: 1; }
+.ch-date-chip.no-category { opacity: .6; cursor: default; pointer-events: none; }
 
-.ch-date-chip.no-category {
-    opacity: .6; cursor: default; pointer-events: none;
-}
-
-/* ── Header icon buttons (shared style with Actions + Info) ──────────── */
+/* ── Header icon buttons ──────────────────────────────────────────────── */
 .ch-btn {
     width: 30px; height: 30px; border-radius: 7px;
     background: #fff; border: 1px solid rgba(255,255,255,0.6);
@@ -178,7 +177,7 @@
 }
 .nav-pills .nav-link i { font-size: .95rem; margin-right: .3rem; }
 
-/* ── Search bar row — 3 col layout ───────────────────────────────────── */
+/* ── Search bar row ───────────────────────────────────────────────────── */
 .search-bar-row {
     display: flex; align-items: stretch;
     background: #eef0f8;
@@ -197,7 +196,6 @@
     #categorySelectHeader { max-width: 130px; }
 }
 
-/* Search input */
 .search-input-wrap { position: relative; width: 100%; }
 .search-input-inner {
     display: flex; align-items: center;
@@ -215,7 +213,6 @@
 }
 #productSearch::placeholder { color: #b0baca; }
 
-/* Dropdown */
 #productDropdown {
     display: none; position: absolute;
     top: calc(100% + 4px); left: 0; right: 0;
@@ -244,7 +241,7 @@
 .pd-item-price { font-size: 11px; font-weight: 600; color: #059669; white-space: nowrap; }
 .pd-empty { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; font-style: italic; }
 
-/* ── Inline product pill (col 2) ────────────────────────────────────── */
+/* ── Product pill ─────────────────────────────────────────────────────── */
 .sbr-product-pill {
     display: flex; align-items: center; gap: 8px;
     background: #f1f3f9; border: 1.5px solid #c5caec;
@@ -263,9 +260,7 @@
     font-size: 11px; font-weight: 700; color: #2d3a8c;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis; display: block;
 }
-.sbr-product-pill .pill-meta {
-    display: flex; align-items: center; gap: 4px; margin-top: 1px;
-}
+.sbr-product-pill .pill-meta { display: flex; align-items: center; gap: 4px; margin-top: 1px; }
 .sbr-product-pill .pill-badge {
     font-size: 8px; font-weight: 600; padding: 0px 5px; border-radius: 3px;
     white-space: nowrap; line-height: 1.5;
@@ -286,7 +281,7 @@
 }
 .sbr-product-empty i { font-size: 15px; }
 
-/* ── Counter col (col 3) ────────────────────────────────────────────── */
+/* ── Counter col ──────────────────────────────────────────────────────── */
 .sbr-counter {
     display: flex; align-items: center; gap: 0;
     width: 100%;
@@ -301,14 +296,8 @@
     height: 100%;
 }
 .sbr-cr-seg:last-child { border-right: none; }
-.sbr-cr-label {
-    font-size: 7px; font-weight: 700; color: #94a3b8;
-    text-transform: uppercase; letter-spacing: .7px; line-height: 1;
-}
-.sbr-cr-val {
-    font-size: 13px; font-weight: 800; color: #1e293b;
-    line-height: 1.2; font-variant-numeric: tabular-nums;
-}
+.sbr-cr-label { font-size: 7px; font-weight: 700; color: #94a3b8; text-transform: uppercase; letter-spacing: .7px; line-height: 1; }
+.sbr-cr-val { font-size: 13px; font-weight: 800; color: #1e293b; line-height: 1.2; font-variant-numeric: tabular-nums; }
 .sbr-cr-val.accent { color: #4B5EBD; }
 .sbr-cr-unit-input {
     width: 56px; height: 26px;
@@ -347,11 +336,7 @@
 .branch-card:hover { border-color: #e4e7f5; }
 .branch-card.has-value { border: 1.5px solid #4B5EBD; box-shadow: none; }
 
-/* ── Branch card header ──────────────────────────────────────────────── */
-.bc-header {
-    background: #f0f2fa;
-    border-bottom: 1.5px solid #dde1f0;
-}
+.bc-header { background: #f0f2fa; border-bottom: 1.5px solid #dde1f0; }
 .bc-name-row {
     display: flex; align-items: center; gap: 6px;
     padding: 8px 10px 4px;
@@ -369,10 +354,7 @@
 .bc-saved-check i { font-size: 8px; color: #fff; }
 .bc-saved-check.show { display: flex; }
 
-.bc-stats-row {
-    display: flex; align-items: center; gap: 0;
-    padding: 0 10px 8px;
-}
+.bc-stats-row { display: flex; align-items: center; gap: 0; padding: 0 10px 8px; }
 .bc-stat-piece { display: flex; align-items: baseline; gap: 2px; }
 .bc-stat-piece + .bc-stat-piece::before { content: '·'; color: #c5caec; font-size: 9px; margin: 0 5px; }
 .bc-stat-label { font-size: 8px; font-weight: 600; color: #b0baca; text-transform: uppercase; letter-spacing: .4px; }
@@ -381,7 +363,6 @@
 .bc-stat-val.v-delivered { color: #93a3d4; }
 .bc-stat-val.v-order     { color: #cbd5e1; }
 
-/* ── Branch input ────────────────────────────────────────────────────── */
 .bc-input {
     flex: 1; width: 100%; text-align: center;
     font-size: 20px; font-weight: 800;
@@ -434,22 +415,12 @@
 .dmc.active-cus .dmc-val { color: #d97706; }
 .dmc-desc { font-size: 10px; color: #94a3b8; margin-top: 2px; }
 
-/* ── Actions modal (bottom sheet style) ──────────────────────────────── */
-#actionsModal .modal-dialog {
-    margin: auto 0 0;
-    max-width: 100%;
-}
-#actionsModal .modal-content {
-    border-radius: 16px 16px 0 0;
-}
-#actionsModal .mh-blue {
-    border-radius: 16px 16px 0 0 !important;
-}
+/* ── Actions modal (bottom sheet) ────────────────────────────────────── */
+#actionsModal .modal-dialog { margin: auto 0 0; max-width: 100%; }
+#actionsModal .modal-content { border-radius: 16px 16px 0 0; }
+#actionsModal .mh-blue { border-radius: 16px 16px 0 0 !important; }
 @media (min-width: 480px) {
-    #actionsModal .modal-dialog {
-        margin: auto auto 0;
-        max-width: 400px;
-    }
+    #actionsModal .modal-dialog { margin: auto auto 0; max-width: 400px; }
 }
 
 .action-sheet-btn {
@@ -463,28 +434,117 @@
 .action-sheet-btn.as-danger:hover { background: #fee2e2; }
 .action-sheet-btn i { font-size: 18px; flex-shrink: 0; }
 
-/* ── Category distribution value modal ───────────────────────────────── */
-.cat-summary-header {
-    display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 10px;
-    margin-bottom: 16px;
+/* ── Summary modal ────────────────────────────────────────────────────── */
+/* Totals strip beneath header */
+.sum-totals-strip {
+    display: flex; align-items: stretch;
+    background: #f4f6ff;
+    border-bottom: 1.5px solid #e4e7f5;
+    padding: 0;
 }
-.cat-kpi {
-    background: #f8f9ff; border: 1.5px solid #dde1f0; border-radius: 9px;
-    padding: 12px 14px; text-align: center;
+.sum-strip-seg {
+    flex: 1; display: flex; flex-direction: column;
+    align-items: center; justify-content: center;
+    padding: 12px 10px;
 }
-.cat-kpi.accent { background: #eff3ff; border-color: #b0bcf0; }
-.cat-kpi .ck-label {
-    font-size: 9px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .6px; color: #94a3b8; margin-bottom: 4px;
+.sum-strip-seg.accent { background: #eff3ff; }
+.sum-strip-label {
+    font-size: 8px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .7px; color: #94a3b8; margin-bottom: 3px;
 }
-.cat-kpi.accent .ck-label { color: #6478c0; }
-.cat-kpi .ck-val {
-    font-size: 17px; font-weight: 800; color: #1e293b;
+.sum-strip-seg.accent .sum-strip-label { color: #6478c0; }
+.sum-strip-val {
+    font-size: 15px; font-weight: 800; color: #1e293b;
     font-variant-numeric: tabular-nums; line-height: 1;
 }
-.cat-kpi.accent .ck-val { color: #3b4fa0; }
+.sum-strip-seg.accent .sum-strip-val { color: #3b4fa0; }
+.sum-strip-divider { width: 1px; background: #dde1f0; margin: 10px 0; flex-shrink: 0; }
 
-/* Product breakdown table */
+/* Table */
+.sum-table { width: 100%; border-collapse: collapse; font-size: 12px; }
+.sum-th-name {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: #94a3b8;
+    padding: 9px 16px; background: #f8f9fa;
+    border-bottom: 1.5px solid #e2e8f0;
+    text-align: left;
+}
+.sum-th-c {
+    font-size: 9px; font-weight: 700; text-transform: uppercase;
+    letter-spacing: .5px; color: #94a3b8;
+    padding: 9px 16px; background: #f8f9fa;
+    border-bottom: 1.5px solid #e2e8f0;
+    text-align: center;
+}
+.sum-tr { border-bottom: 1px solid #f1f5f9; transition: background .1s; }
+.sum-tr:last-child { border-bottom: none; }
+.sum-tr:hover { background: #f8f9ff; }
+.sum-td-name {
+    padding: 9px 16px; color: #1e293b; font-weight: 600;
+    font-size: 12px; display: flex; align-items: center; gap: 8px;
+}
+.sum-td-c { padding: 9px 16px; text-align: center; font-variant-numeric: tabular-nums; }
+.sum-row-num {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; border-radius: 5px;
+    background: #eef0fa; color: #7080c4;
+    font-size: 9px; font-weight: 700; flex-shrink: 0;
+}
+.sum-cost   { color: #475569; font-weight: 500; }
+.sum-amount { color: #059669; font-weight: 700; }
+
+/* Grand total footer row */
+.sum-tfoot-tr { background: #f0f2fa; border-top: 2px solid #dde1f0; }
+.sum-tfoot-label {
+    padding: 10px 16px; font-size: 12px; font-weight: 700; color: #2d3a8c;
+}
+.sum-tfoot-num {
+    padding: 10px 16px; font-size: 12px; font-weight: 700; color: #1e293b;
+    font-variant-numeric: tabular-nums;
+}
+.sum-tfoot-num.accent { color: #3b4fa0; }
+
+/* Empty state */
+.sum-empty { padding: 48px 20px; text-align: center; }
+.sum-empty i { font-size: 36px; color: #dde1f0; display: block; margin-bottom: 10px; }
+.sum-empty p { font-size: 13px; color: #94a3b8; margin: 0; }
+
+/* ── Summary modal footer info icon + tooltip ─────────────────────────── */
+.sum-footer-info-icon {
+    font-size: 15px;
+    color: #a0aec0;
+    cursor: default;
+    transition: color .15s;
+}
+.sum-footer-info-wrap:hover .sum-footer-info-icon { color: #4B5EBD; }
+
+.sum-footer-tooltip {
+    display: none;
+    position: absolute;
+    bottom: calc(100% + 8px);
+    right: 0;
+    width: 220px;
+    background: #1e293b;
+    color: #e2e8f0;
+    font-size: 11px;
+    line-height: 1.5;
+    padding: 8px 10px;
+    border-radius: 7px;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    z-index: 9999;
+    pointer-events: none;
+    white-space: normal;
+}
+.sum-footer-tooltip::after {
+    content: '';
+    position: absolute;
+    top: 100%; right: 6px;
+    border: 5px solid transparent;
+    border-top-color: #1e293b;
+}
+.sum-footer-info-wrap:hover .sum-footer-tooltip { display: block; }
+
+/* ── Summary table (legacy cv-table kept for other modals) ────────────── */
 .cv-table { width: 100%; font-size: 12px; border-collapse: collapse; }
 .cv-table th {
     font-size: 9px; font-weight: 700; text-transform: uppercase;
@@ -497,7 +557,7 @@
 .cv-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
 .cv-table tr:last-child td { border-bottom: none; }
 .cv-table tr:hover td { background: #f8f9ff; }
-.cv-table .cv-product-name { font-weight: 600; color: #2d3a8c; }
+.cv-table .cv-name  { font-weight: 600; color: #2d3a8c; }
 .cv-table .cv-value { font-weight: 700; color: #059669; }
 .cv-table tfoot td {
     font-weight: 700; font-size: 12px; color: #1e293b;
@@ -505,10 +565,7 @@
     padding: 8px 10px;
 }
 .cv-table tfoot td.r { text-align: right; }
-.cv-empty {
-    text-align: center; padding: 30px 16px;
-    font-size: 12px; color: #94a3b8; font-style: italic;
-}
+.cv-empty { text-align: center; padding: 30px 16px; font-size: 12px; color: #94a3b8; font-style: italic; }
 .cv-empty i { font-size: 28px; color: #dde1f0; display: block; margin-bottom: 8px; }
 </style>
 
@@ -533,15 +590,12 @@
 <div class="card-header">
     <div class="ch-inner">
 
-        {{-- LEFT: category select + separator + date chip --}}
         <div class="ch-left">
-
-            {{-- Category select — also nulls action_product_id on change --}}
             <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
                   id="headerCategoryForm" style="margin:0;display:contents;">
                 @csrf
                 <input type="hidden" name="user_id"           value="{{ Auth::id() }}">
-                <input type="hidden" name="action_product_id" value="">{{-- reset product on category change --}}
+                <input type="hidden" name="action_product_id" value="">
                 <select name="category_id" id="categorySelectHeader"
                         onchange="document.getElementById('headerCategoryForm').submit()">
                     <option value="" hidden>{{ $selectedCategory ? $selectedCategory->category : '— Select Category —' }}</option>
@@ -553,10 +607,8 @@
                 </select>
             </form>
 
-            {{-- Separator --}}
             <div class="ch-sep"></div>
 
-            {{-- Date chip — always visible, disabled when no category --}}
             <div class="ch-date-chip {{ $isCustom ? 'custom-mode' : '' }} {{ !$selectedCategory ? 'no-category' : '' }}"
                  id="dateChip"
                  title="{{ $selectedCategory ? 'Change delivery date' : 'Select a category first' }}">
@@ -565,20 +617,16 @@
                 <span class="mode-badge" id="dateChipBadge">{{ $isCustom ? 'Custom' : 'Today' }}</span>
                 <i class="ri-pencil-line chip-edit-icon"></i>
             </div>
-
         </div>
 
-        {{-- RIGHT: Summary + Actions + Info --}}
         <div class="ch-right">
-
             @if($selectedCategory)
-            {{-- Category distribution summary button — same style as actions/info --}}
             <a href="#" class="ch-btn" id="catSummaryBtn" title="View distribution summary for {{ $displayDate }}">
                 <i class="ri-bar-chart-grouped-line"></i>
             </a>
-
+            {{-- Settings icon replacing the hamburger --}}
             <a href="#" class="ch-btn" id="actionsBtn" title="Actions">
-                <i class="ri-menu-3-line"></i>
+                <i class="ri-settings-3-line"></i>
             </a>
             @endif
             <a href="#" class="ch-btn" id="infoBtn" title="About Action Centre">
@@ -617,10 +665,9 @@
     </div>
 @else
 
-{{-- ══ Search bar row — 3 columns ════════════════════════════════════════ --}}
+{{-- ══ Search bar row ════════════════════════════════════════════════════ --}}
 <div class="search-bar-row">
 
-    {{-- Col 1: Search --}}
     <div class="sbr-col">
         <div class="search-input-wrap">
             <div class="search-input-inner">
@@ -633,7 +680,6 @@
         </div>
     </div>
 
-    {{-- Col 2: Selected product details --}}
     <div class="sbr-col" id="sbrProductCol">
         @if($product)
         <div class="sbr-product-pill" id="pcr-edit-icon" title="Edit product">
@@ -658,7 +704,6 @@
         @endif
     </div>
 
-    {{-- Col 3: Counter --}}
     <div class="sbr-col">
         <div class="sbr-counter">
             <div class="sbr-cr-seg">
@@ -764,96 +809,113 @@
 
 {{-- ══ CATEGORY DISTRIBUTION SUMMARY MODAL ════════════════════════════ --}}
 <div class="modal fade" id="catSummaryModal" tabindex="-1">
-    <div class="modal-dialog" style="max-width:560px;">
+    <div class="modal-dialog" style="max-width:520px;">
         <div class="modal-content">
-            <div class="modal-header mh-blue">
+
+            {{-- Header — title only, close button far right --}}
+            <div class="modal-header mh-blue" style="display:flex;align-items:center;justify-content:space-between;">
                 <h5 class="modal-title mh-title">
-                    <i class="ri-bar-chart-grouped-line"></i>
                     Distribution Summary
                 </h5>
-                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"
+                        style="margin:0;"></button>
             </div>
-            <div class="modal-body" style="padding:18px 20px 20px;">
 
-                {{-- Context line --}}
-                <div style="font-size:11px;color:#64748b;margin-bottom:14px;">
-                    Pending (unsubmitted) delivery notes for
-                    <strong>{{ $selectedCategory->category ?? '—' }}</strong> on
-                    <strong>{{ $displayDate }}</strong>.
-                </div>
+            {{-- Body --}}
+            <div class="modal-body" style="padding:0;">
 
                 @if($selectedCategory)
-                {{-- KPI row --}}
-                <div class="cat-summary-header">
-                    <div class="cat-kpi">
-                        <div class="ck-label">Products</div>
-                        <div class="ck-val">{{ $categoryProductCount }}</div>
+                @if($branchSummary->isNotEmpty())
+
+                {{-- Totals strip — Date | Cost | Amount --}}
+                <div class="sum-totals-strip">
+                    <div class="sum-strip-seg">
+                        <span class="sum-strip-label">Date</span>
+                        <span class="sum-strip-val" style="font-size:13px;font-weight:700;color:#3b4fa0;">
+                            {{ \Carbon\Carbon::parse($date)->format('d M Y') }}
+                        </span>
                     </div>
-                    <div class="cat-kpi">
-                        <div class="ck-label">Total Units</div>
-                        <div class="ck-val">{{ number_format($categoryTotalQty, 0) }}</div>
+                    <div class="sum-strip-divider"></div>
+                    <div class="sum-strip-seg">
+                        <span class="sum-strip-label">Total Cost</span>
+                        <span class="sum-strip-val">{{ number_format($grandTotalCost, 2) }}</span>
                     </div>
-                    <div class="cat-kpi accent">
-                        <div class="ck-label">Selling Value</div>
-                        <div class="ck-val">MWK {{ number_format($categoryTotalValue, 2) }}</div>
+                    <div class="sum-strip-divider"></div>
+                    <div class="sum-strip-seg accent">
+                        <span class="sum-strip-label">Total Amount</span>
+                        <span class="sum-strip-val">{{ number_format($grandTotalValue, 2) }}</span>
                     </div>
                 </div>
 
-                {{-- Per-product breakdown --}}
-                @if($categorySummary->isNotEmpty())
-                <div style="border:1.5px solid #dde1f0;border-radius:9px;overflow:hidden;">
-                    <table class="cv-table">
+                {{-- Table --}}
+                <div style="padding:0 0 4px;">
+                    <table class="sum-table">
                         <thead>
                             <tr>
-                                <th>Product</th>
-                                <th class="r">Branches</th>
-                                <th class="r">Units</th>
-                                <th class="r">Value (MWK)</th>
+                                <th class="sum-th-name">#&nbsp;&nbsp;Branch Name</th>
+                                <th class="sum-th-c">Total Cost (MWK)</th>
+                                <th class="sum-th-c">Amount (MWK)</th>
                             </tr>
                         </thead>
                         <tbody>
-                            @foreach($categorySummary as $row)
-                            <tr>
-                                <td class="cv-product-name">{{ $row->product_name }}</td>
-                                <td class="r">{{ $row->branch_count }}</td>
-                                <td class="r">{{ number_format($row->total_qty, 0) }}</td>
-                                <td class="r cv-value">{{ number_format($row->total_value, 2) }}</td>
+                            @foreach($branchSummary as $i => $row)
+                            <tr class="sum-tr">
+                                <td class="sum-td-name">
+                                    <span class="sum-row-num">{{ $i + 1 }}</span>
+                                    {{ $row->branch_name }}
+                                </td>
+                                <td class="sum-td-c sum-cost">{{ number_format($row->total_cost, 2) }}</td>
+                                <td class="sum-td-c sum-amount">{{ number_format($row->total_value, 2) }}</td>
                             </tr>
                             @endforeach
                         </tbody>
                         <tfoot>
-                            <tr>
-                                <td>Total</td>
-                                <td class="r">—</td>
-                                <td class="r">{{ number_format($categoryTotalQty, 0) }}</td>
-                                <td class="r">{{ number_format($categoryTotalValue, 2) }}</td>
+                            <tr class="sum-tfoot-tr">
+                                <td class="sum-tfoot-label">Grand Total</td>
+                                <td class="sum-td-c sum-tfoot-num">{{ number_format($grandTotalCost, 2) }}</td>
+                                <td class="sum-td-c sum-tfoot-num accent">{{ number_format($grandTotalValue, 2) }}</td>
                             </tr>
                         </tfoot>
                     </table>
                 </div>
+
                 @else
-                <div class="cv-empty">
-                    <i class="ri-inbox-line"></i>
-                    No pending delivery notes for this date.
+                <div class="sum-empty">
+                    <i class="ri-inbox-2-line"></i>
+                    <p>No delivery notes found for <strong>{{ $selectedCategory->category }}</strong> on {{ $displayDate }}.</p>
                 </div>
                 @endif
                 @endif
 
             </div>
-            <div class="modal-footer" style="padding:10px 20px 14px;">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+
+            {{-- Footer — category name left, info tooltip icon right --}}
+            <div class="modal-footer" style="padding:10px 18px 14px;background:#f8f9ff;border-top:1px solid #e8eaf5;display:flex;align-items:center;">
+                <span style="font-size:10px;color:#94a3b8;flex:1;">
+                    {{ $selectedCategory->category ?? '' }}
+                </span>
+
+                {{-- Info icon with hover tooltip --}}
+                <span style="position:relative;display:inline-flex;align-items:center;margin-right:10px;"
+                      class="sum-footer-info-wrap">
+                    <i class="ri-information-line sum-footer-info-icon"></i>
+                    <span class="sum-footer-tooltip">
+                        All delivery notes for {{ $selectedCategory->category ?? '' }} on {{ $displayDate }}.
+                        Includes both submitted and pending notes.
+                    </span>
+                </span>
             </div>
+
         </div>
     </div>
 </div>
-
 
 {{-- ══ ACTIONS BOTTOM SHEET ════════════════════════════════════════════ --}}
 <div class="modal fade" id="actionsModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header mh-blue" style="border-radius:16px 16px 0 0 !important;">
-                <h5 class="modal-title mh-title"><i class="ri-menu-3-line"></i> Actions</h5>
+                <h5 class="modal-title mh-title"><i class="ri-settings-3-line"></i> Actions</h5>
                 <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:14px 16px 20px;">
@@ -1110,7 +1172,7 @@
                             ['Select product',  'Search for a base product in the search bar and click it — the page reloads with the product displayed in the counter bar and branch cards below.'],
                             ['Enter quantity',  'Type a quantity per branch. Saved automatically as a pending delivery note. A green check appears next to the branch name after each save.'],
                             ['Distribution / Unit of Issue', 'Counter bar shows total units entered. Set unit of issue (e.g. loaves per crate) to see the quantity distributed.'],
-                            ['Summary button',  'Shows the total pending distribution value across all products for the selected category and date.'],
+                            ['Summary button',  'Shows the total pending distribution value across all branches and products for the selected category and date. Switch between By Branch and By Product tabs.'],
                             ['Submit',          'Marks pending delivery notes as submitted and adds quantities to branch stock.'],
                             ['Submit All',      'Submits ALL pending notes for the selected date across all products (via the Actions menu).'],
                             ['Cancel',          'Deletes all pending (unsubmitted) notes for the current product on the selected date.'],
@@ -1311,6 +1373,7 @@ $(document).ready(function () {
     $('#dividerInput').on('input', recalcDistribution)
                      .on('blur',  function () { var v = parseFloat($(this).val()); if (isNaN(v) || v <= 0) $(this).val(''); recalcDistribution(); });
     recalcDistribution();
+
 
     /* ── Category distribution summary modal ─────────────────────────── */
     $('#catSummaryBtn').on('click', function (e) {

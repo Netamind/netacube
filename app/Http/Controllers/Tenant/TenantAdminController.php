@@ -1802,4 +1802,1043 @@ public function downloadFile(Request $request)
             'notes'               => $supplier->notes,
         ];
     }
+
+
+
+/*
+|==========================================================================
+  PAYROLL PERIODS
+|==========================================================================
+*/
+
+// ── Helper — summary counts returned with every response ──────────────────
+private function payrollSummary(): array
+{
+    $rows = DB::connection('tenant')->table('payroll_periods')
+        ->selectRaw("status, COUNT(*) as cnt")
+        ->groupBy('status')
+        ->pluck('cnt', 'status')
+        ->toArray();
+
+    return [
+        'total'    => array_sum($rows),
+        'paid'     => $rows['paid']       ?? 0,
+        'approved' => $rows['approved']   ?? 0,
+        'draft'    => ($rows['draft'] ?? 0) + ($rows['processing'] ?? 0),
+    ];
+}
+
+// ── Helper — format a single period row for the frontend ──────────────────
+private function formatPeriod($period): array
+{
+    return [
+        'id'             => $period->id,
+        'name'           => $period->name,
+        'period_start'   => $period->period_start,
+        'period_end'     => $period->period_end,
+        'pay_date'       => $period->pay_date,
+        'status'         => $period->status,
+        'notes'          => $period->notes,
+        'employee_count' => $period->employee_count ?? 0,
+        'total_net_pay'  => $period->total_net_pay  ?? 0,
+    ];
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────
+public function showPayrollPeriodsView()
+{
+    // Attach employee count + total net pay per period
+    $periods = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->leftJoinSub(
+            DB::connection('tenant')
+                ->table('payroll_entries')
+                ->selectRaw('payroll_period_id, COUNT(*) as employee_count, SUM(net_pay) as total_net_pay')
+                ->groupBy('payroll_period_id'),
+            'sums',
+            'sums.payroll_period_id',
+            '=',
+            'payroll_periods.id'
+        )
+        ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
+        ->orderBy('payroll_periods.period_start', 'desc')
+        ->get();
+
+    $summary = $this->payrollSummary();
+
+    return view('tenants.admin.payroll-periods', [
+        'periods'         => $periods,
+        'totalPeriods'    => $summary['total'],
+        'paidPeriods'     => $summary['paid'],
+        'approvedPeriods' => $summary['approved'],
+        'draftPeriods'    => $summary['draft'],
+    ]);
+}
+
+// ── STORE (create new period) ─────────────────────────────────────────────
+public function storePayrollPeriod(Request $request)
+{
+    $request->validate([
+        'name'         => 'required|string|max:100|unique:tenant.payroll_periods,name',
+        'period_start' => 'required|date',
+        'period_end'   => 'required|date|after_or_equal:period_start',
+        'pay_date'     => 'required|date',
+        'notes'        => 'nullable|string|max:2000',
+    ]);
+
+    $id = DB::connection('tenant')->table('payroll_periods')->insertGetId([
+        'name'         => trim($request->name),
+        'period_start' => $request->period_start,
+        'period_end'   => $request->period_end,
+        'pay_date'     => $request->pay_date,
+        'status'       => 'draft',
+        'created_by'   => Auth::user()->name,
+        'notes'        => $request->notes,
+        'created_at'   => now(),
+        'updated_at'   => now(),
+    ]);
+
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Payroll period created successfully.',
+        'period'  => $this->formatPeriod($period),
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────────────
+public function updatePayrollPeriod(Request $request)
+{
+    $request->validate([
+        'id'           => 'required|integer|exists:tenant.payroll_periods,id',
+        'name'         => 'required|string|max:100|unique:tenant.payroll_periods,name,' . $request->id,
+        'period_start' => 'required|date',
+        'period_end'   => 'required|date|after_or_equal:period_start',
+        'pay_date'     => 'required|date',
+        'notes'        => 'nullable|string|max:2000',
+    ]);
+
+    // Only draft periods can be edited
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
+    if (!$period || $period->status !== 'draft') {
+        return response()->json(['error' => 'Only draft periods can be edited.', 'status' => 409], 409);
+    }
+
+    DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->update([
+        'name'         => trim($request->name),
+        'period_start' => $request->period_start,
+        'period_end'   => $request->period_end,
+        'pay_date'     => $request->pay_date,
+        'notes'        => $request->notes,
+        'updated_at'   => now(),
+    ]);
+
+    // Re-fetch with counts
+    $updated = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->leftJoinSub(
+            DB::connection('tenant')
+                ->table('payroll_entries')
+                ->selectRaw('payroll_period_id, COUNT(*) as employee_count, SUM(net_pay) as total_net_pay')
+                ->groupBy('payroll_period_id'),
+            'sums', 'sums.payroll_period_id', '=', 'payroll_periods.id'
+        )
+        ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
+        ->where('payroll_periods.id', $request->id)
+        ->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Payroll period updated successfully.',
+        'period'  => $this->formatPeriod($updated),
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+// ── GENERATE wage bill entries ────────────────────────────────────────────
+public function generatePayrollEntries(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.payroll_periods,id',
+    ]);
+
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
+
+    if (!$period || $period->status !== 'draft') {
+        return response()->json(['error' => 'Only draft periods can be generated.', 'status' => 409], 409);
+    }
+
+    // Get all active employees
+    $employees = DB::connection('tenant')->table('users')
+        ->where('active', 'Yes')
+        ->get();
+
+    $generated = 0;
+    $skipped   = 0;
+
+    foreach ($employees as $emp) {
+
+        // Skip if entry already exists for this period
+        $exists = DB::connection('tenant')->table('payroll_entries')
+            ->where('payroll_period_id', $period->id)
+            ->where('employee_id', $emp->id)
+            ->exists();
+
+        if ($exists) { $skipped++; continue; }
+
+        // ── Earnings ──────────────────────────────────────────────────────
+        $basicSalary = $emp->gross_salary ?? 0;
+        $grossPay    = $basicSalary; // allowances default 0; admin can edit in wage bill
+
+        // ── Pension ───────────────────────────────────────────────────────
+        $pension = DB::connection('tenant')->table('employee_pension')
+            ->where('employee_id', $emp->id)
+            ->where('status', 'active')
+            ->first();
+
+        $onPension       = (bool) $pension;
+        $pensionEmployee = 0;
+        $pensionEmployer = 0;
+
+        if ($pension) {
+            $pensionEmployee = round($basicSalary * ($pension->employee_rate / 100), 2);
+            $pensionEmployer = round($basicSalary * ($pension->employer_rate / 100), 2);
+        }
+
+        // ── PAYE (simple bracket — adjust to your country's tax table) ────
+        // Malawi PAYE brackets (monthly):
+        //   0       – 100,000  →  0%
+        //   100,001 – 300,000  →  25%
+        //   300,001 – 700,000  →  30%
+        //   700,001+           →  35%
+        $taxableIncome = $grossPay - $pensionEmployee;
+        $paye = 0;
+        if ($taxableIncome > 700000) {
+            $paye  = ($taxableIncome - 700000) * 0.35;
+            $paye += (700000 - 300000) * 0.30;
+            $paye += (300000 - 100000) * 0.25;
+        } elseif ($taxableIncome > 300000) {
+            $paye  = ($taxableIncome - 300000) * 0.30;
+            $paye += (300000 - 100000) * 0.25;
+        } elseif ($taxableIncome > 100000) {
+            $paye  = ($taxableIncome - 100000) * 0.25;
+        }
+        $paye = round($paye, 2);
+
+        // ── Active loan deduction ─────────────────────────────────────────
+        $loan = DB::connection('tenant')->table('employee_loans')
+            ->where('employee_id', $emp->id)
+            ->where('status', 'active')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        $loanDeduction = 0;
+        if ($loan) {
+            // Deduct the lesser of monthly_deduction or balance_remaining
+            $loanDeduction = min($loan->monthly_deduction, $loan->balance_remaining);
+        }
+
+        // ── Active advance deduction ──────────────────────────────────────
+        $advance = DB::connection('tenant')->table('employee_advances')
+            ->where('employee_id', $emp->id)
+            ->where('status', 'active')
+            ->orderBy('id', 'asc')
+            ->first();
+
+        $advanceDeduction = 0;
+        if ($advance) {
+            $advanceDeduction = min($advance->monthly_deduction, $advance->balance_remaining);
+        }
+
+        // ── Totals ────────────────────────────────────────────────────────
+        $totalDeductions = $pensionEmployee + $paye + $loanDeduction + $advanceDeduction;
+        $netPay          = $grossPay - $totalDeductions;
+
+        DB::connection('tenant')->table('payroll_entries')->insert([
+            'payroll_period_id'  => $period->id,
+            'employee_id'        => $emp->id,
+            'basic_salary'       => $basicSalary,
+            'gross_pay'          => $grossPay,
+            'on_pension'         => $onPension,
+            'pension_employee'   => $pensionEmployee,
+            'pension_employer'   => $pensionEmployer,
+            'paye'               => $paye,
+            'loan_deduction'     => $loanDeduction,
+            'advance_deduction'  => $advanceDeduction,
+            'total_deductions'   => $totalDeductions,
+            'net_pay'            => $netPay,
+            'status'             => 'draft',
+            'created_at'         => now(),
+            'updated_at'         => now(),
+        ]);
+
+        $generated++;
+    }
+
+    // Move period to 'processing'
+    DB::connection('tenant')->table('payroll_periods')
+        ->where('id', $period->id)
+        ->update(['status' => 'processing', 'updated_at' => now()]);
+
+    // Re-fetch with counts
+    $updated = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->leftJoinSub(
+            DB::connection('tenant')
+                ->table('payroll_entries')
+                ->selectRaw('payroll_period_id, COUNT(*) as employee_count, SUM(net_pay) as total_net_pay')
+                ->groupBy('payroll_period_id'),
+            'sums', 'sums.payroll_period_id', '=', 'payroll_periods.id'
+        )
+        ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
+        ->where('payroll_periods.id', $period->id)
+        ->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => "Wage bill generated for {$generated} employee(s). {$skipped} skipped (already existed).",
+        'period'  => $this->formatPeriod($updated),
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+// ── APPROVE ───────────────────────────────────────────────────────────────
+public function approvePayrollPeriod(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.payroll_periods,id',
+    ]);
+
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
+
+    if (!$period || $period->status !== 'processing') {
+        return response()->json(['error' => 'Only processing periods can be approved.', 'status' => 409], 409);
+    }
+
+    DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->update([
+        'status'      => 'approved',
+        'approved_by' => Auth::user()->name,
+        'approved_at' => now(),
+        'updated_at'  => now(),
+    ]);
+
+    // Also mark all entries as approved
+    DB::connection('tenant')->table('payroll_entries')
+        ->where('payroll_period_id', $request->id)
+        ->update(['status' => 'approved', 'updated_at' => now()]);
+
+    $updated = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->leftJoinSub(
+            DB::connection('tenant')
+                ->table('payroll_entries')
+                ->selectRaw('payroll_period_id, COUNT(*) as employee_count, SUM(net_pay) as total_net_pay')
+                ->groupBy('payroll_period_id'),
+            'sums', 'sums.payroll_period_id', '=', 'payroll_periods.id'
+        )
+        ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
+        ->where('payroll_periods.id', $request->id)
+        ->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Payroll period approved successfully.',
+        'period'  => $this->formatPeriod($updated),
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+// ── MARK PAID ─────────────────────────────────────────────────────────────
+public function markPayrollPeriodPaid(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.payroll_periods,id',
+    ]);
+
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
+
+    if (!$period || $period->status !== 'approved') {
+        return response()->json(['error' => 'Only approved periods can be marked as paid.', 'status' => 409], 409);
+    }
+
+    DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->update([
+        'status'     => 'paid',
+        'updated_at' => now(),
+    ]);
+
+    // Mark all entries as paid
+    DB::connection('tenant')->table('payroll_entries')
+        ->where('payroll_period_id', $request->id)
+        ->update(['status' => 'paid', 'updated_at' => now()]);
+
+    // ── Reduce loan balances ───────────────────────────────────────────────
+    $entries = DB::connection('tenant')->table('payroll_entries')
+        ->where('payroll_period_id', $request->id)
+        ->where('loan_deduction', '>', 0)
+        ->get();
+
+    foreach ($entries as $entry) {
+        $loan = DB::connection('tenant')->table('employee_loans')
+            ->where('employee_id', $entry->employee_id)
+            ->where('status', 'active')
+            ->first();
+
+        if ($loan) {
+            $newBalance = max(0, $loan->balance_remaining - $entry->loan_deduction);
+            $newStatus  = $newBalance <= 0 ? 'completed' : 'active';
+            DB::connection('tenant')->table('employee_loans')->where('id', $loan->id)->update([
+                'balance_remaining' => $newBalance,
+                'status'            => $newStatus,
+                'updated_at'        => now(),
+            ]);
+        }
+    }
+
+    // ── Reduce advance balances ────────────────────────────────────────────
+    $advEntries = DB::connection('tenant')->table('payroll_entries')
+        ->where('payroll_period_id', $request->id)
+        ->where('advance_deduction', '>', 0)
+        ->get();
+
+    foreach ($advEntries as $entry) {
+        $advance = DB::connection('tenant')->table('employee_advances')
+            ->where('employee_id', $entry->employee_id)
+            ->where('status', 'active')
+            ->first();
+
+        if ($advance) {
+            $newBalance = max(0, $advance->balance_remaining - $entry->advance_deduction);
+            $newStatus  = $newBalance <= 0 ? 'recovered' : 'active';
+            DB::connection('tenant')->table('employee_advances')->where('id', $advance->id)->update([
+                'balance_remaining' => $newBalance,
+                'status'            => $newStatus,
+                'updated_at'        => now(),
+            ]);
+        }
+    }
+
+    $updated = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->leftJoinSub(
+            DB::connection('tenant')
+                ->table('payroll_entries')
+                ->selectRaw('payroll_period_id, COUNT(*) as employee_count, SUM(net_pay) as total_net_pay')
+                ->groupBy('payroll_period_id'),
+            'sums', 'sums.payroll_period_id', '=', 'payroll_periods.id'
+        )
+        ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
+        ->where('payroll_periods.id', $request->id)
+        ->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Period marked as paid. Loan and advance balances updated.',
+        'period'  => $this->formatPeriod($updated),
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────
+public function deletePayrollPeriod(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.payroll_periods,id',
+    ]);
+
+    $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
+
+    if (!$period || $period->status !== 'draft') {
+        return response()->json(['error' => 'Only draft periods can be deleted.', 'status' => 409], 409);
+    }
+
+    // Delete entries first
+    DB::connection('tenant')->table('payroll_entries')
+        ->where('payroll_period_id', $request->id)
+        ->delete();
+
+    DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Payroll period deleted successfully.',
+        'summary' => $this->payrollSummary(),
+    ], 201);
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+/*
+    |==========================================================================
+      WAGE BILL
+    |==========================================================================
+    */
+
+    // ── Helper — wageBillTotals returned after every entry update ─────────────
+    private function wageBillTotals(int $periodId): array
+    {
+        $sums = DB::connection('tenant')->table('payroll_entries')
+            ->where('payroll_period_id', $periodId)
+            ->selectRaw('
+                SUM(gross_pay)          as gross_pay,
+                SUM(paye)               as paye,
+                SUM(pension_employee)   as pension_employee,
+                SUM(pension_employer)   as pension_employer,
+                SUM(loan_deduction)     as loan_deduction,
+                SUM(advance_deduction)  as advance_deduction,
+                SUM(other_deductions)   as other_deductions,
+                SUM(total_deductions)   as total_deductions,
+                SUM(net_pay)            as net_pay,
+                COUNT(*)                as employee_count
+            ')
+            ->first();
+
+        return [
+            'gross_pay'        => $sums->gross_pay        ?? 0,
+            'paye'             => $sums->paye             ?? 0,
+            'pension_employee' => $sums->pension_employee ?? 0,
+            'pension_employer' => $sums->pension_employer ?? 0,
+            'loan_deduction'   => $sums->loan_deduction   ?? 0,
+            'advance_deduction'=> $sums->advance_deduction?? 0,
+            'other_deductions' => $sums->other_deductions ?? 0,
+            'total_deductions' => $sums->total_deductions ?? 0,
+            'net_pay'          => $sums->net_pay          ?? 0,
+            'employee_count'   => $sums->employee_count   ?? 0,
+        ];
+    }
+
+    // ── Helper — format a single payroll entry row for the frontend ───────────
+    private function formatPayrollEntry($entry): array
+    {
+        return [
+            'id'                 => $entry->id,
+            'payroll_period_id'  => $entry->payroll_period_id,
+            'employee_id'        => $entry->employee_id,
+            'employee_name'      => $entry->employee_name      ?? '',
+            'employee_number'    => $entry->employee_number    ?? '',
+            'basic_salary'       => $entry->basic_salary,
+            'housing_allowance'  => $entry->housing_allowance,
+            'transport_allowance'=> $entry->transport_allowance,
+            'other_allowances'   => $entry->other_allowances,
+            'overtime_amount'    => $entry->overtime_amount,
+            'gross_pay'          => $entry->gross_pay,
+            'on_pension'         => (bool) $entry->on_pension,
+            'pension_employee'   => $entry->pension_employee,
+            'pension_employer'   => $entry->pension_employer,
+            'paye'               => $entry->paye,
+            'loan_deduction'     => $entry->loan_deduction,
+            'advance_deduction'  => $entry->advance_deduction,
+            'other_deductions'   => $entry->other_deductions,
+            'total_deductions'   => $entry->total_deductions,
+            'net_pay'            => $entry->net_pay,
+            'notes'              => $entry->notes,
+            'status'             => $entry->status,
+        ];
+    }
+
+
+
+public function showWageBillView(Request $request)
+{
+  
+    return view('tenants.admin.wagebill');
+}
+
+
+
+    // ── UPDATE ENTRY ──────────────────────────────────────────────────────────
+    public function updatePayrollEntry(Request $request)
+    {
+        $request->validate([
+            'id'                  => 'required|integer|exists:tenant.payroll_entries,id',
+            'basic_salary'        => 'required|numeric|min:0',
+            'housing_allowance'   => 'nullable|numeric|min:0',
+            'transport_allowance' => 'nullable|numeric|min:0',
+            'other_allowances'    => 'nullable|numeric|min:0',
+            'overtime_amount'     => 'nullable|numeric|min:0',
+            'paye'                => 'nullable|numeric|min:0',
+            'pension_employee'    => 'nullable|numeric|min:0',
+            'pension_employer'    => 'nullable|numeric|min:0',
+            'loan_deduction'      => 'nullable|numeric|min:0',
+            'advance_deduction'   => 'nullable|numeric|min:0',
+            'other_deductions'    => 'nullable|numeric|min:0',
+            'notes'               => 'nullable|string|max:2000',
+        ]);
+
+        // Confirm the period is still editable
+        $entry = DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->first();
+
+        if (!$entry) {
+            return response()->json(['error' => 'Entry not found.', 'status' => 404], 404);
+        }
+
+        $period = DB::connection('tenant')->table('payroll_periods')
+            ->where('id', $entry->payroll_period_id)
+            ->first();
+
+        if (!$period || !in_array($period->status, ['draft', 'processing'])) {
+            return response()->json([
+                'error'  => 'Entries can only be edited while the period is Draft or Processing.',
+                'status' => 409,
+            ], 409);
+        }
+
+        // ── Recompute totals server-side ──────────────────────────────────────
+        $basic     = (float) ($request->basic_salary        ?? 0);
+        $housing   = (float) ($request->housing_allowance   ?? 0);
+        $transport = (float) ($request->transport_allowance ?? 0);
+        $otherAllow= (float) ($request->other_allowances    ?? 0);
+        $overtime  = (float) ($request->overtime_amount     ?? 0);
+
+        $grossPay  = $basic + $housing + $transport + $otherAllow + $overtime;
+
+        $paye          = (float) ($request->paye             ?? 0);
+        $pensionEe     = (float) ($request->pension_employee ?? 0);
+        $pensionEr     = (float) ($request->pension_employer ?? 0);
+        $loanDed       = (float) ($request->loan_deduction   ?? 0);
+        $advanceDed    = (float) ($request->advance_deduction?? 0);
+        $otherDed      = (float) ($request->other_deductions ?? 0);
+
+        $totalDeductions = $paye + $pensionEe + $loanDed + $advanceDed + $otherDed;
+        $netPay          = max(0, $grossPay - $totalDeductions);
+
+        DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->update([
+            'basic_salary'        => $basic,
+            'housing_allowance'   => $housing,
+            'transport_allowance' => $transport,
+            'other_allowances'    => $otherAllow,
+            'overtime_amount'     => $overtime,
+            'gross_pay'           => $grossPay,
+            'paye'                => $paye,
+            'pension_employee'    => $pensionEe,
+            'pension_employer'    => $pensionEr,
+            'loan_deduction'      => $loanDed,
+            'advance_deduction'   => $advanceDed,
+            'other_deductions'    => $otherDed,
+            'total_deductions'    => $totalDeductions,
+            'net_pay'             => $netPay,
+            'notes'               => $request->notes,
+            'updated_at'          => now(),
+        ]);
+
+        // Re-fetch with employee name joined
+        $updated = DB::connection('tenant')
+            ->table('payroll_entries')
+            ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
+            ->where('payroll_entries.id', $request->id)
+            ->select(
+                'payroll_entries.*',
+                'users.name  as employee_name',
+                'users.phone as employee_number'
+            )
+            ->first();
+
+        return response()->json([
+            'status'  => 201,
+            'success' => 'Entry updated successfully.',
+            'entry'   => $this->formatPayrollEntry($updated),
+            'totals'  => $this->wageBillTotals($entry->payroll_period_id),
+        ], 201);
+    }
+
+    // ── DOWNLOAD PAYSLIP ──────────────────────────────────────────────────────
+    public function downloadPayslip(Request $request)
+    {
+        $entryId = $request->query('entry_id');
+
+        $entry = DB::connection('tenant')
+            ->table('payroll_entries')
+            ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
+            ->where('payroll_entries.id', $entryId)
+            ->select(
+                'payroll_entries.*',
+                'users.name         as employee_name',
+                'users.phone        as employee_number',
+                'users.position     as position',
+                'users.department   as department',
+                'users.bank_name    as bank_name',
+                'users.bank_account_number as bank_account_number'
+            )
+            ->first();
+
+        if (!$entry) {
+            abort(404, 'Payroll entry not found.');
+        }
+
+        $period = DB::connection('tenant')
+            ->table('payroll_periods')
+            ->where('id', $entry->payroll_period_id)
+            ->first();
+
+        $company = DB::connection('tenant')
+            ->table('company_info')
+            ->where('id', 1)
+            ->first();
+
+        $pdf = Pdf::loadView('tenants.admin.payslip-pdf', compact('entry', 'period', 'company'))
+                  ->setPaper('a5', 'portrait');
+
+        $filename = 'payslip_'
+            . str_replace(' ', '_', strtolower($entry->employee_name))
+            . '_' . $period->name
+            . '.pdf';
+
+        return $pdf->download($filename);
+    }
+
+
+// ============================================================
+//  PAYSLIPS — Main view
+//  GET /admin/hr/payroll/payslips
+// ============================================================
+public function showPayslipsView(Request $request)
+{
+    return view('tenants.admin.payslip-view');
+}
+
+
+// ============================================================
+//  PAYSLIPS — Statistics (AJAX)
+//  GET /admin/hr/payroll/payslips/stats
+//  Returns summary cards + per-period breakdown.
+// ============================================================
+public function getPayslipStats(Request $request)
+{
+    try {
+        $tenantDb = DB::connection('tenant');
+
+        // ── Overall totals ────────────────────────────────────────────
+        $totals = $tenantDb
+            ->table('payroll_entries')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+            ->whereIn('payroll_periods.status', ['approved', 'paid'])
+            ->selectRaw('
+                COUNT(*)                        as total_payslips,
+                COUNT(DISTINCT employee_id)     as total_employees,
+                SUM(gross_pay)                  as total_gross,
+                SUM(total_deductions)           as total_deductions,
+                SUM(net_pay)                    as total_net,
+                SUM(paye)                       as total_paye,
+                SUM(pension_employee)           as total_pension
+            ')
+            ->first();
+
+        $stats = [
+            ['label' => 'Total Payslips',    'value' => number_format($totals->total_payslips),                                          'css' => 'bg-sc1'],
+            ['label' => 'Employees',         'value' => number_format($totals->total_employees),                                         'css' => 'bg-sc2'],
+            ['label' => 'Total Gross Pay',   'value' => number_format($totals->total_gross, 2),                                          'css' => 'bg-sc3'],
+            ['label' => 'Total Net Pay',     'value' => number_format($totals->total_net, 2),                                            'css' => 'bg-sc4'],
+        ];
+
+        // ── Per-period breakdown ──────────────────────────────────────
+        $periodBreakdown = $tenantDb
+            ->table('payroll_entries')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+            ->whereIn('payroll_periods.status', ['approved', 'paid'])
+            ->selectRaw('
+                payroll_periods.id,
+                payroll_periods.name,
+                payroll_periods.status,
+                payroll_periods.pay_date,
+                COUNT(payroll_entries.id) as count,
+                SUM(gross_pay)            as gross_pay,
+                SUM(net_pay)              as net_pay
+            ')
+            ->groupBy(
+                'payroll_periods.id',
+                'payroll_periods.name',
+                'payroll_periods.status',
+                'payroll_periods.pay_date'
+            )
+            ->orderBy('payroll_periods.period_start', 'desc')
+            ->get();
+
+        return response()->json([
+            'status'           => 200,
+            'stats'            => $stats,
+            'period_breakdown' => $periodBreakdown,
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json(['status' => 500, 'error' => $e->getMessage()]);
+    }
+}
+
+
+// ============================================================
+//  PAYSLIPS — Email single payslip
+//  POST /admin/hr/payroll/payslips/email
+//  Body: entry_id, note (optional)
+// ============================================================
+public function emailPayslip(Request $request)
+{
+    $request->validate([
+        'entry_id' => 'required|integer',
+    ]);
+
+    try {
+        $tenantDb = DB::connection('tenant');
+
+        // ── Fetch entry with all joins needed by the payslip PDF ─────
+        $entry = $tenantDb
+            ->table('payroll_entries')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+            ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
+            ->leftJoin('branches',    'branches.id',        '=', 'users.branch')
+            ->where('payroll_entries.id', $request->entry_id)
+            ->select(
+                'payroll_entries.*',
+                'payroll_periods.name        as period_name',
+                'payroll_periods.period_start',
+                'payroll_periods.period_end',
+                'payroll_periods.pay_date',
+                'payroll_periods.status      as period_status',
+                'users.name                  as employee_name',
+                'users.email                 as employee_email',
+                'users.phone                 as employee_number',
+                'users.position              as position',
+                'users.department            as department',
+                'users.bank_name             as bank_name',
+                'users.bank_account_number   as bank_account_number',
+                'branches.name               as branch_name'
+            )
+            ->first();
+
+        if (!$entry) {
+            return response()->json(['status' => 404, 'error' => 'Entry not found.']);
+        }
+
+        if (empty($entry->employee_email)) {
+            return response()->json(['status' => 422, 'error' => 'Employee has no email address on file.']);
+        }
+
+        // ── Fetch company details ────────────────────────────────────
+        $company = $tenantDb->table('company_details')->first();
+
+        // ── Render the payslip PDF ───────────────────────────────────
+        $period = (object)[
+            'name'         => $entry->period_name,
+            'period_start' => $entry->period_start,
+            'period_end'   => $entry->period_end,
+            'pay_date'     => $entry->pay_date,
+            'status'       => $entry->period_status,
+        ];
+
+        $pdf = \PDF::loadView('tenants.admin.hr.payroll.payslip-pdf', compact('entry', 'period', 'company'))
+                   ->setPaper('a4', 'portrait');
+
+        $pdfContent  = $pdf->output();
+        $filename    = 'Payslip_' . str_replace(' ', '_', $entry->employee_name)
+                       . '_' . str_replace(' ', '_', $entry->period_name) . '.pdf';
+        $note        = $request->note ?? null;
+        $senderName  = Auth::user()->name ?? 'HR';
+
+        // ── Send via Mail ────────────────────────────────────────────
+        \Mail::send([], [], function ($message) use ($entry, $pdfContent, $filename, $note, $senderName, $company, $period) {
+            $message->to($entry->employee_email, $entry->employee_name)
+                    ->subject('Your Payslip — ' . $period->name)
+                    ->html(
+                        view('tenants.admin.hr.payroll.emails.payslip-email', compact('entry', 'period', 'note', 'senderName', 'company'))->render()
+                    )
+                    ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
+        });
+
+        // ── Log the send ─────────────────────────────────────────────
+        $tenantDb->table('payslip_email_logs')->insert([
+            'payroll_entry_id'  => $entry->id,
+            'employee_id'       => $entry->employee_id,
+            'payroll_period_id' => $entry->payroll_period_id,
+            'recipient_email'   => $entry->employee_email,
+            'send_type'         => 'single',
+            'status'            => 'sent',
+            'note'              => $note,
+            'sent_by'           => Auth::user()->name ?? null,
+            'created_at'        => now(),
+            'updated_at'        => now(),
+        ]);
+
+        return response()->json([
+            'status'  => 200,
+            'success' => 'Payslip sent to ' . $entry->employee_email,
+        ]);
+
+    } catch (\Exception $e) {
+        // Log failure if entry was found
+        if (!empty($entry)) {
+            DB::connection('tenant')->table('payslip_email_logs')->insert([
+                'payroll_entry_id'  => $entry->id,
+                'employee_id'       => $entry->employee_id,
+                'payroll_period_id' => $entry->payroll_period_id,
+                'recipient_email'   => $entry->employee_email ?? 'unknown',
+                'send_type'         => 'single',
+                'status'            => 'failed',
+                'note'              => $request->note ?? null,
+                'sent_by'           => Auth::user()->name ?? null,
+                'error_message'     => $e->getMessage(),
+                'created_at'        => now(),
+                'updated_at'        => now(),
+            ]);
+        }
+
+        return response()->json(['status' => 500, 'error' => 'Failed to send: ' . $e->getMessage()]);
+    }
+}
+
+
+// ============================================================
+//  PAYSLIPS — Bulk email payslips
+//  POST /admin/hr/payroll/payslips/bulkemail
+//  Body: entry_ids[] (array of integers), note (optional)
+// ============================================================
+public function bulkEmailPayslips(Request $request)
+{
+    $request->validate([
+        'entry_ids'   => 'required|array|min:1',
+        'entry_ids.*' => 'integer',
+    ]);
+
+    try {
+        $tenantDb   = DB::connection('tenant');
+        $company    = $tenantDb->table('company_details')->first();
+        $note       = $request->note ?? null;
+        $senderName = Auth::user()->name ?? 'HR';
+        $sent       = 0;
+        $skipped    = 0;
+        $failed     = 0;
+
+        // ── Fetch all requested entries in one query ─────────────────
+        $entries = $tenantDb
+            ->table('payroll_entries')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+            ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
+            ->leftJoin('branches',    'branches.id',        '=', 'users.branch')
+            ->whereIn('payroll_entries.id', $request->entry_ids)
+            ->select(
+                'payroll_entries.*',
+                'payroll_periods.name        as period_name',
+                'payroll_periods.period_start',
+                'payroll_periods.period_end',
+                'payroll_periods.pay_date',
+                'payroll_periods.status      as period_status',
+                'users.name                  as employee_name',
+                'users.email                 as employee_email',
+                'users.phone                 as employee_number',
+                'users.position              as position',
+                'users.department            as department',
+                'users.bank_name             as bank_name',
+                'users.bank_account_number   as bank_account_number',
+                'branches.name               as branch_name'
+            )
+            ->get();
+
+        foreach ($entries as $entry) {
+
+            // Skip employees with no email
+            if (empty($entry->employee_email)) {
+                $skipped++;
+                continue;
+            }
+
+            $period = (object)[
+                'name'         => $entry->period_name,
+                'period_start' => $entry->period_start,
+                'period_end'   => $entry->period_end,
+                'pay_date'     => $entry->pay_date,
+                'status'       => $entry->period_status,
+            ];
+
+            try {
+                // ── Render PDF for this employee ─────────────────────
+                $pdf = \PDF::loadView('tenants.admin.hr.payroll.payslip-pdf', compact('entry', 'period', 'company'))
+                           ->setPaper('a4', 'portrait');
+
+                $pdfContent = $pdf->output();
+                $filename   = 'Payslip_' . str_replace(' ', '_', $entry->employee_name)
+                              . '_' . str_replace(' ', '_', $entry->period_name) . '.pdf';
+
+                \Mail::send([], [], function ($message) use ($entry, $pdfContent, $filename, $note, $senderName, $company, $period) {
+                    $message->to($entry->employee_email, $entry->employee_name)
+                            ->subject('Your Payslip — ' . $period->name)
+                            ->html(
+                                view('tenants.admin.hr.payroll.emails.payslip-email', compact('entry', 'period', 'note', 'senderName', 'company'))->render()
+                            )
+                            ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
+                });
+
+                $tenantDb->table('payslip_email_logs')->insert([
+                    'payroll_entry_id'  => $entry->id,
+                    'employee_id'       => $entry->employee_id,
+                    'payroll_period_id' => $entry->payroll_period_id,
+                    'recipient_email'   => $entry->employee_email,
+                    'send_type'         => 'bulk',
+                    'status'            => 'sent',
+                    'note'              => $note,
+                    'sent_by'           => Auth::user()->name ?? null,
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]);
+
+                $sent++;
+
+            } catch (\Exception $e) {
+                $tenantDb->table('payslip_email_logs')->insert([
+                    'payroll_entry_id'  => $entry->id,
+                    'employee_id'       => $entry->employee_id,
+                    'payroll_period_id' => $entry->payroll_period_id,
+                    'recipient_email'   => $entry->employee_email,
+                    'send_type'         => 'bulk',
+                    'status'            => 'failed',
+                    'note'              => $note,
+                    'sent_by'           => Auth::user()->name ?? null,
+                    'error_message'     => $e->getMessage(),
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]);
+                $failed++;
+            }
+        }
+
+        $summary = "Sent: {$sent}";
+        if ($skipped) $summary .= ", Skipped (no email): {$skipped}";
+        if ($failed)  $summary .= ", Failed: {$failed}";
+
+        return response()->json([
+            'status'  => 200,
+            'success' => $summary,
+            'sent'    => $sent,
+            'skipped' => $skipped,
+            'failed'  => $failed,
+        ]);
+
+    } catch (\Exception $e) {
+        return response()->json(['status' => 500, 'error' => $e->getMessage()]);
+    }
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 }

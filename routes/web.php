@@ -145,9 +145,29 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
     Route::post('/admin/update-user-filters', [TenantAdminController::class, 'updateUserFilters'])->name('tenant.admin.update.filters');
 
 
-                                                                                                                                               
 
-});
+        Route::get('/admin/hr/payroll/periods',           [TenantAdminController::class, 'showPayrollPeriodsView'])->name('tenant.admin.hr.payroll.periods');
+        Route::post('/admin/hr/payroll/periods/store',    [TenantAdminController::class, 'storePayrollPeriod'])->name('tenant.admin.hr.payroll.period.store');
+        Route::post('/admin/hr/payroll/periods/update',   [TenantAdminController::class, 'updatePayrollPeriod'])->name('tenant.admin.hr.payroll.period.update');
+        Route::post('/admin/hr/payroll/periods/generate', [TenantAdminController::class, 'generatePayrollEntries'])->name('tenant.admin.hr.payroll.period.generate');
+        Route::post('/admin/hr/payroll/periods/approve',  [TenantAdminController::class, 'approvePayrollPeriod'])->name('tenant.admin.hr.payroll.period.approve');
+        Route::post('/admin/hr/payroll/periods/markpaid', [TenantAdminController::class, 'markPayrollPeriodPaid'])->name('tenant.admin.hr.payroll.period.markpaid');
+        Route::post('/admin/hr/payroll/periods/delete',   [TenantAdminController::class, 'deletePayrollPeriod'])->name('tenant.admin.hr.payroll.period.delete');
+
+
+
+        Route::get('/admin/hr/payroll/wagebill',               [TenantAdminController::class, 'showWageBillView'])->name('tenant.admin.hr.payroll.wagebill');
+        Route::post('/admin/hr/payroll/wagebill/entry/update', [TenantAdminController::class, 'updatePayrollEntry'])->name('tenant.admin.hr.payroll.wagebill.entry.update');
+        Route::get('/admin/hr/payroll/wagebill/payslip',       [TenantAdminController::class, 'downloadPayslip'])->name('tenant.admin.hr.payroll.wagebill.payslip');
+          
+        
+        // ── Payslips ──────────────────────────────────────────────────────────────
+Route::get( '/admin/hr/payroll/payslips',           [TenantAdminController::class, 'showPayslipsView'])  ->name('tenant.admin.hr.payroll.payslips');
+Route::get( '/admin/hr/payroll/payslips/stats',     [TenantAdminController::class, 'getPayslipStats'])   ->name('tenant.admin.hr.payroll.payslips.stats');
+Route::post('/admin/hr/payroll/payslips/email',     [TenantAdminController::class, 'emailPayslip'])      ->name('tenant.admin.hr.payroll.payslips.email');
+Route::post('/admin/hr/payroll/payslips/bulkemail', [TenantAdminController::class, 'bulkEmailPayslips']) ->name('tenant.admin.hr.payroll.payslips.bulkemail');
+
+    });
 
 
 

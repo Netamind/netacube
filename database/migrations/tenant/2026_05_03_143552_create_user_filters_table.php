@@ -56,6 +56,10 @@ return new class extends Migration
             $table->unsignedBigInteger('adjustment_id')->nullable();
             $table->unsignedBigInteger('transfer_id')->nullable();
 
+            // ── HR / Payroll ─────────────────────────────────────────────
+            $table->string('sector', 100)->nullable();               // ← added
+            $table->unsignedBigInteger('wagebill_period_id')->nullable(); // ← added
+
             // ── Dates ────────────────────────────────────────────────────
             $table->string('period', 30)->nullable();
             $table->date('date')->nullable();

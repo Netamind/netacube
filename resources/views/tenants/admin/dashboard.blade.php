@@ -279,7 +279,82 @@
                         </a>
                     </li> -->
 
-                
+                        <li class="side-nav-title mt-2">Human Resources</li>
+
+                        <li class="side-nav-item">
+                            <a data-bs-toggle="collapse" href="#sidebarPayroll" aria-expanded="false" class="side-nav-link">
+                                <i class="ri-money-pound-circle-fill"></i>
+                                <span> Payroll </span>
+                                <span class="menu-arrow"></span>
+                            </a>
+                            <div class="collapse" id="sidebarPayroll">
+                                <ul class="side-nav-second-level">
+                                    <li>
+                                        <a href="{{ route('tenant.admin.hr.payroll.periods') }}">
+                                            <i class="ri-calendar-check-line me-1"></i> Periods
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{ route('tenant.admin.hr.payroll.wagebill') }}">
+                                            <i class="ri-bill-line me-1"></i> Wage Bill
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="{{route('tenant.admin.hr.payroll.payslips') }}">
+                                            <i class="ri-file-paper-2-line me-1"></i> Payslips
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+
+                        <li class="side-nav-item">
+                            <a data-bs-toggle="collapse" href="#sidebarHrSetup" aria-expanded="false" class="side-nav-link">
+                                <i class="ri-settings-5-fill"></i>
+                                <span> HR Records </span>
+                                <span class="menu-arrow"></span>
+                            </a>
+                            <div class="collapse" id="sidebarHrSetup">
+                                <ul class="side-nav-second-level">
+                                    <li>
+                                        <a href="#">
+                                            <i class="ri-shield-check-line me-1"></i> Pension
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#">
+                                            <i class="ri-bank-line me-1"></i> Loans
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#">
+                                            <i class="ri-hand-coin-line me-1"></i> Advances
+                                        </a>
+                                    </li>
+                                    <li>
+                                        <a href="#">
+                                            <i class="ri-file-text-line me-1"></i> Offer Letters
+                                        </a>
+                                    </li>
+                                </ul>
+                            </div>
+                        </li>
+
+
+                                            
+
+
+
+
+
+
+
+
+
+
+
+
+
 
                     <li class="side-nav-title mt-2">System</li>
 

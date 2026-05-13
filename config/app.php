@@ -169,7 +169,8 @@ return [
         // App\Providers\BroadcastServiceProvider::class,
         App\Providers\EventServiceProvider::class,
         App\Providers\RouteServiceProvider::class,
-         Stancl\Tenancy\TenancyServiceProvider::class,
+        Stancl\Tenancy\TenancyServiceProvider::class,
+         App\Providers\MailServiceProvider::class
     ])->toArray(),
 
     /*

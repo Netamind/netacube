@@ -18,6 +18,7 @@ use Carbon\Carbon;
 use Illuminate\Validation\Rule;
 use DB;
 use Auth;
+use Mail;
 
 class TenantAdminController extends Controller
 {
@@ -2586,115 +2587,137 @@ public function getPayslipStats(Request $request)
 public function emailPayslip(Request $request)
 {
     $request->validate([
-        'entry_id' => 'required|integer',
+        'entry_id' => 'required|integer|exists:tenant.payroll_entries,id',
     ]);
 
+    $tenantDb = DB::connection('tenant');
+
+    // ── Fetch entry with all joins the PDF + email view need ──────────
+    $entry = $tenantDb
+        ->table('payroll_entries')
+        ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+        ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
+        ->leftJoin('branches',    'branches.id',        '=', 'users.branch')
+        ->where('payroll_entries.id', $request->entry_id)
+        ->select(
+            'payroll_entries.*',
+            'payroll_periods.name          as period_name',
+            'payroll_periods.period_start',
+            'payroll_periods.period_end',
+            'payroll_periods.pay_date',
+            'payroll_periods.status        as period_status',
+            'users.name                    as employee_name',
+            'users.email                   as employee_email',
+            'users.phone                   as employee_number',
+            'users.position                as position',
+            'users.department              as department',
+            'users.bank_name               as bank_name',
+            'users.bank_account_number     as bank_account_number',
+            'branches.name                 as branch_name'
+        )
+        ->first();
+
+    if (!$entry) {
+        return response()->json(['status' => 404, 'error' => 'Payroll entry not found.']);
+    }
+
+    if (empty($entry->employee_email)) {
+        return response()->json([
+            'status' => 422,
+            'error'  => 'Employee has no email address on file. Please update their profile first.',
+        ]);
+    }
+
+    // ── Company info ──────────────────────────────────────────────────
+    $company = $tenantDb->table('company_info')->where('id', 1)->first();
+
+    // ── Plain period object for the view ──────────────────────────────
+    $period = (object) [
+        'name'         => $entry->period_name,
+        'period_start' => $entry->period_start,
+        'period_end'   => $entry->period_end,
+        'pay_date'     => $entry->pay_date,
+        'status'       => $entry->period_status,
+    ];
+
+    // ── Render PDF ────────────────────────────────────────────────────
+    $pdf = Pdf::loadView('tenants.admin.payslip-pdf', [
+                'entry'   => $entry,
+                'period'  => $period,
+                'company' => $company,
+            ])
+            ->setPaper('a5', 'portrait')
+            ->setOptions(['defaultFont' => 'DejaVu Sans']);
+
+    $filename = 'Payslip_'
+              . str_replace(' ', '_', $entry->employee_name)
+              . '_' . str_replace([' ', '/'], '_', $entry->period_name)
+              . '.pdf';
+
+    // ── Data array passed into the blade email view ───────────────────
+    $emailData = [
+        'entry'       => $entry,
+        'period'      => $period,
+        'company'     => $company,
+        'note'        => $request->note ?? null,
+        'sender_name' => Auth::user()->name ?? 'HR',
+    ];
+
+    // ── Send mail — inner try/catch mirrors masterSendInvoiceFromTenantDetails
     try {
-        $tenantDb = DB::connection('tenant');
+        Mail::send(
+            'tenants.admin.payslip-email',
+            $emailData,
+            function ($message) use ($entry, $pdf, $filename, $period) {
+                $message->to($entry->employee_email, $entry->employee_name)
+                        ->subject('Your Payslip — ' . $period->name)
+                        ->attachData($pdf->output(), $filename, [
+                            'mime' => 'application/pdf',
+                        ]);
+            }
+        );
+    } catch (\Exception $mailException) {
+        \Log::error('Payslip email failed: ' . $mailException->getMessage());
 
-        // ── Fetch entry with all joins needed by the payslip PDF ─────
-        $entry = $tenantDb
-            ->table('payroll_entries')
-            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
-            ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
-            ->leftJoin('branches',    'branches.id',        '=', 'users.branch')
-            ->where('payroll_entries.id', $request->entry_id)
-            ->select(
-                'payroll_entries.*',
-                'payroll_periods.name        as period_name',
-                'payroll_periods.period_start',
-                'payroll_periods.period_end',
-                'payroll_periods.pay_date',
-                'payroll_periods.status      as period_status',
-                'users.name                  as employee_name',
-                'users.email                 as employee_email',
-                'users.phone                 as employee_number',
-                'users.position              as position',
-                'users.department            as department',
-                'users.bank_name             as bank_name',
-                'users.bank_account_number   as bank_account_number',
-                'branches.name               as branch_name'
-            )
-            ->first();
-
-        if (!$entry) {
-            return response()->json(['status' => 404, 'error' => 'Entry not found.']);
-        }
-
-        if (empty($entry->employee_email)) {
-            return response()->json(['status' => 422, 'error' => 'Employee has no email address on file.']);
-        }
-
-        // ── Fetch company details ────────────────────────────────────
-        $company = $tenantDb->table('company_details')->first();
-
-        // ── Render the payslip PDF ───────────────────────────────────
-        $period = (object)[
-            'name'         => $entry->period_name,
-            'period_start' => $entry->period_start,
-            'period_end'   => $entry->period_end,
-            'pay_date'     => $entry->pay_date,
-            'status'       => $entry->period_status,
-        ];
-
-        $pdf = \PDF::loadView('tenants.admin.hr.payroll.payslip-pdf', compact('entry', 'period', 'company'))
-                   ->setPaper('a4', 'portrait');
-
-        $pdfContent  = $pdf->output();
-        $filename    = 'Payslip_' . str_replace(' ', '_', $entry->employee_name)
-                       . '_' . str_replace(' ', '_', $entry->period_name) . '.pdf';
-        $note        = $request->note ?? null;
-        $senderName  = Auth::user()->name ?? 'HR';
-
-        // ── Send via Mail ────────────────────────────────────────────
-        \Mail::send([], [], function ($message) use ($entry, $pdfContent, $filename, $note, $senderName, $company, $period) {
-            $message->to($entry->employee_email, $entry->employee_name)
-                    ->subject('Your Payslip — ' . $period->name)
-                    ->html(
-                        view('tenants.admin.hr.payroll.emails.payslip-email', compact('entry', 'period', 'note', 'senderName', 'company'))->render()
-                    )
-                    ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
-        });
-
-        // ── Log the send ─────────────────────────────────────────────
         $tenantDb->table('payslip_email_logs')->insert([
             'payroll_entry_id'  => $entry->id,
             'employee_id'       => $entry->employee_id,
             'payroll_period_id' => $entry->payroll_period_id,
             'recipient_email'   => $entry->employee_email,
             'send_type'         => 'single',
-            'status'            => 'sent',
-            'note'              => $note,
+            'status'            => 'failed',
+            'note'              => $request->note ?? null,
             'sent_by'           => Auth::user()->name ?? null,
+            'error_message'     => $mailException->getMessage(),
             'created_at'        => now(),
             'updated_at'        => now(),
         ]);
 
         return response()->json([
-            'status'  => 200,
-            'success' => 'Payslip sent to ' . $entry->employee_email,
+            'status' => 500,
+            'error'  => 'Payslip record saved but email failed to send.',
         ]);
-
-    } catch (\Exception $e) {
-        // Log failure if entry was found
-        if (!empty($entry)) {
-            DB::connection('tenant')->table('payslip_email_logs')->insert([
-                'payroll_entry_id'  => $entry->id,
-                'employee_id'       => $entry->employee_id,
-                'payroll_period_id' => $entry->payroll_period_id,
-                'recipient_email'   => $entry->employee_email ?? 'unknown',
-                'send_type'         => 'single',
-                'status'            => 'failed',
-                'note'              => $request->note ?? null,
-                'sent_by'           => Auth::user()->name ?? null,
-                'error_message'     => $e->getMessage(),
-                'created_at'        => now(),
-                'updated_at'        => now(),
-            ]);
-        }
-
-        return response()->json(['status' => 500, 'error' => 'Failed to send: ' . $e->getMessage()]);
     }
+
+    // ── Log success ───────────────────────────────────────────────────
+    $tenantDb->table('payslip_email_logs')->insert([
+        'payroll_entry_id'  => $entry->id,
+        'employee_id'       => $entry->employee_id,
+        'payroll_period_id' => $entry->payroll_period_id,
+        'recipient_email'   => $entry->employee_email,
+        'send_type'         => 'single',
+        'status'            => 'sent',
+        'note'              => $request->note ?? null,
+        'sent_by'           => Auth::user()->name ?? null,
+        'error_message'     => null,
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    return response()->json([
+        'status'  => 200,
+        'success' => 'Payslip sent to ' . $entry->employee_email,
+    ]);
 }
 
 
@@ -2707,19 +2730,19 @@ public function bulkEmailPayslips(Request $request)
 {
     $request->validate([
         'entry_ids'   => 'required|array|min:1',
-        'entry_ids.*' => 'integer',
+        'entry_ids.*' => 'integer|exists:tenant.payroll_entries,id',
     ]);
 
-    try {
-        $tenantDb   = DB::connection('tenant');
-        $company    = $tenantDb->table('company_details')->first();
-        $note       = $request->note ?? null;
-        $senderName = Auth::user()->name ?? 'HR';
-        $sent       = 0;
-        $skipped    = 0;
-        $failed     = 0;
+    $tenantDb   = DB::connection('tenant');
+    $company    = $tenantDb->table('company_info')->where('id', 1)->first();
+    $note       = $request->note ?? null;
+    $senderName = Auth::user()->name ?? 'HR';
+    $sent       = 0;
+    $skipped    = 0;
+    $failed     = 0;
 
-        // ── Fetch all requested entries in one query ─────────────────
+    try {
+        // ── Fetch all requested entries in one query ──────────────────
         $entries = $tenantDb
             ->table('payroll_entries')
             ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
@@ -2728,31 +2751,44 @@ public function bulkEmailPayslips(Request $request)
             ->whereIn('payroll_entries.id', $request->entry_ids)
             ->select(
                 'payroll_entries.*',
-                'payroll_periods.name        as period_name',
+                'payroll_periods.name          as period_name',
                 'payroll_periods.period_start',
                 'payroll_periods.period_end',
                 'payroll_periods.pay_date',
-                'payroll_periods.status      as period_status',
-                'users.name                  as employee_name',
-                'users.email                 as employee_email',
-                'users.phone                 as employee_number',
-                'users.position              as position',
-                'users.department            as department',
-                'users.bank_name             as bank_name',
-                'users.bank_account_number   as bank_account_number',
-                'branches.name               as branch_name'
+                'payroll_periods.status        as period_status',
+                'users.name                    as employee_name',
+                'users.email                   as employee_email',
+                'users.phone                   as employee_number',
+                'users.position                as position',
+                'users.department              as department',
+                'users.bank_name               as bank_name',
+                'users.bank_account_number     as bank_account_number',
+                'branches.name                 as branch_name'
             )
             ->get();
 
         foreach ($entries as $entry) {
 
-            // Skip employees with no email
+            // ── Skip: no email address ────────────────────────────────
             if (empty($entry->employee_email)) {
+                $tenantDb->table('payslip_email_logs')->insert([
+                    'payroll_entry_id'  => $entry->id,
+                    'employee_id'       => $entry->employee_id,
+                    'payroll_period_id' => $entry->payroll_period_id,
+                    'recipient_email'   => 'none',
+                    'send_type'         => 'bulk',
+                    'status'            => 'skipped',
+                    'note'              => $note,
+                    'sent_by'           => $senderName,
+                    'error_message'     => 'No email address on file.',
+                    'created_at'        => now(),
+                    'updated_at'        => now(),
+                ]);
                 $skipped++;
                 continue;
             }
 
-            $period = (object)[
+            $period = (object) [
                 'name'         => $entry->period_name,
                 'period_start' => $entry->period_start,
                 'period_end'   => $entry->period_end,
@@ -2760,23 +2796,39 @@ public function bulkEmailPayslips(Request $request)
                 'status'       => $entry->period_status,
             ];
 
+            $emailData = [
+                'entry'       => $entry,
+                'period'      => $period,
+                'company'     => $company,
+                'note'        => $note,
+                'sender_name' => $senderName,
+            ];
+
             try {
-                // ── Render PDF for this employee ─────────────────────
-                $pdf = \PDF::loadView('tenants.admin.hr.payroll.payslip-pdf', compact('entry', 'period', 'company'))
-                           ->setPaper('a4', 'portrait');
+                $pdf = Pdf::loadView('tenants.admin.payslip-pdf', [
+                            'entry'   => $entry,
+                            'period'  => $period,
+                            'company' => $company,
+                        ])
+                        ->setPaper('a5', 'portrait')
+                        ->setOptions(['defaultFont' => 'DejaVu Sans']);
 
-                $pdfContent = $pdf->output();
-                $filename   = 'Payslip_' . str_replace(' ', '_', $entry->employee_name)
-                              . '_' . str_replace(' ', '_', $entry->period_name) . '.pdf';
+                $filename = 'Payslip_'
+                          . str_replace(' ', '_', $entry->employee_name)
+                          . '_' . str_replace([' ', '/'], '_', $entry->period_name)
+                          . '.pdf';
 
-                \Mail::send([], [], function ($message) use ($entry, $pdfContent, $filename, $note, $senderName, $company, $period) {
-                    $message->to($entry->employee_email, $entry->employee_name)
-                            ->subject('Your Payslip — ' . $period->name)
-                            ->html(
-                                view('tenants.admin.hr.payroll.emails.payslip-email', compact('entry', 'period', 'note', 'senderName', 'company'))->render()
-                            )
-                            ->attachData($pdfContent, $filename, ['mime' => 'application/pdf']);
-                });
+                Mail::send(
+                    'tenants.admin.payslip-email',
+                    $emailData,
+                    function ($message) use ($entry, $pdf, $filename, $period) {
+                        $message->to($entry->employee_email, $entry->employee_name)
+                                ->subject('Your Payslip — ' . $period->name)
+                                ->attachData($pdf->output(), $filename, [
+                                    'mime' => 'application/pdf',
+                                ]);
+                    }
+                );
 
                 $tenantDb->table('payslip_email_logs')->insert([
                     'payroll_entry_id'  => $entry->id,
@@ -2786,7 +2838,8 @@ public function bulkEmailPayslips(Request $request)
                     'send_type'         => 'bulk',
                     'status'            => 'sent',
                     'note'              => $note,
-                    'sent_by'           => Auth::user()->name ?? null,
+                    'sent_by'           => $senderName,
+                    'error_message'     => null,
                     'created_at'        => now(),
                     'updated_at'        => now(),
                 ]);
@@ -2794,6 +2847,8 @@ public function bulkEmailPayslips(Request $request)
                 $sent++;
 
             } catch (\Exception $e) {
+                \Log::error('Payslip bulk email failed for entry ' . $entry->id . ': ' . $e->getMessage());
+
                 $tenantDb->table('payslip_email_logs')->insert([
                     'payroll_entry_id'  => $entry->id,
                     'employee_id'       => $entry->employee_id,
@@ -2802,11 +2857,12 @@ public function bulkEmailPayslips(Request $request)
                     'send_type'         => 'bulk',
                     'status'            => 'failed',
                     'note'              => $note,
-                    'sent_by'           => Auth::user()->name ?? null,
+                    'sent_by'           => $senderName,
                     'error_message'     => $e->getMessage(),
                     'created_at'        => now(),
                     'updated_at'        => now(),
                 ]);
+
                 $failed++;
             }
         }
@@ -2824,10 +2880,545 @@ public function bulkEmailPayslips(Request $request)
         ]);
 
     } catch (\Exception $e) {
-        return response()->json(['status' => 500, 'error' => $e->getMessage()]);
+        \Log::error('Payslip bulk email failed: ' . $e->getMessage());
+        return response()->json(['status' => 500, 'error' => 'Failed to send payslips. Please try again.'], 500);
     }
 }
 
+
+
+// ── Helper — format a pension record for the frontend ─────────────────────
+private function formatPension($p): array
+{
+    $employee = DB::connection('tenant')->table('users')->where('id', $p->employee_id)->first();
+
+    return [
+        'id'                    => $p->id,
+        'employee_id'           => $p->employee_id,
+        'employee_name'         => $employee->name       ?? '',
+        'position'              => $employee->position   ?? '',
+        'department'            => $employee->department ?? '',
+        'pension_fund_name'     => $p->pension_fund_name,
+        'pension_member_number' => $p->pension_member_number,
+        'employee_rate'         => $p->employee_rate,
+        'employer_rate'         => $p->employer_rate,
+        'enrolled_on'           => $p->enrolled_on,
+        'enrolled_on_fmt'       => \Carbon\Carbon::parse($p->enrolled_on)->format('d M Y'),
+        'status'                => $p->status,
+        'notes'                 => $p->notes,
+    ];
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────
+public function showPensionView()
+{
+    return view('tenants.admin.pension');
+}
+
+// ── STORE ─────────────────────────────────────────────────────────────────
+public function storePension(Request $request)
+{
+    $request->validate([
+        'employee_id'           => 'required|integer|exists:tenant.users,id',
+        'pension_fund_name'     => 'nullable|string|max:255',
+        'pension_member_number' => 'nullable|string|max:100',
+        'employee_rate'         => 'required|numeric|min:0|max:100',
+        'employer_rate'         => 'required|numeric|min:0|max:100',
+        'enrolled_on'           => 'required|date',
+        'status'                => 'nullable|in:active,suspended,exited',
+        'notes'                 => 'nullable|string|max:2000',
+    ]);
+
+    // One pension record per employee
+    $exists = DB::connection('tenant')
+        ->table('employee_pension')
+        ->where('employee_id', $request->employee_id)
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'status' => 422,
+            'errors' => ['This employee is already enrolled in pension. Edit the existing record instead.'],
+        ], 422);
+    }
+
+    $id = DB::connection('tenant')->table('employee_pension')->insertGetId([
+        'employee_id'           => $request->employee_id,
+        'pension_fund_name'     => trim($request->pension_fund_name),
+        'pension_member_number' => trim($request->pension_member_number),
+        'employee_rate'         => $request->employee_rate,
+        'employer_rate'         => $request->employer_rate,
+        'enrolled_on'           => $request->enrolled_on,
+        'status'                => $request->status ?? 'active',
+        'notes'                 => $request->notes,
+        'created_at'            => now(),
+        'updated_at'            => now(),
+    ]);
+
+    $pension = DB::connection('tenant')->table('employee_pension')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Employee enrolled in pension successfully.',
+        'pension' => $this->formatPension($pension),
+    ], 201);
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────────────
+public function updatePension(Request $request)
+{
+    $request->validate([
+        'id'                    => 'required|integer|exists:tenant.employee_pension,id',
+        'pension_fund_name'     => 'nullable|string|max:255',
+        'pension_member_number' => 'nullable|string|max:100',
+        'employee_rate'         => 'required|numeric|min:0|max:100',
+        'employer_rate'         => 'required|numeric|min:0|max:100',
+        'enrolled_on'           => 'required|date',
+        'status'                => 'nullable|in:active,suspended,exited',
+        'notes'                 => 'nullable|string|max:2000',
+    ]);
+
+    DB::connection('tenant')->table('employee_pension')->where('id', $request->id)->update([
+        'pension_fund_name'     => trim($request->pension_fund_name),
+        'pension_member_number' => trim($request->pension_member_number),
+        'employee_rate'         => $request->employee_rate,
+        'employer_rate'         => $request->employer_rate,
+        'enrolled_on'           => $request->enrolled_on,
+        'status'                => $request->status ?? 'active',
+        'notes'                 => $request->notes,
+        'updated_at'            => now(),
+    ]);
+
+    $pension = DB::connection('tenant')->table('employee_pension')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Pension record updated successfully.',
+        'pension' => $this->formatPension($pension),
+    ], 201);
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────
+public function deletePension(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.employee_pension,id',
+    ]);
+
+    DB::connection('tenant')->table('employee_pension')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Pension record deleted successfully.',
+    ], 201);
+}
+
+
+
+
+/*
+|==========================================================================
+  LOANS
+|==========================================================================
+*/
+
+private function formatLoan($l): array
+{
+    $employee = DB::connection('tenant')->table('users')->where('id', $l->employee_id)->first();
+
+    return [
+        'id'                    => $l->id,
+        'employee_id'           => $l->employee_id,
+        'employee_name'         => $employee->name       ?? '',
+        'position'              => $employee->position   ?? '',
+        'department'            => $employee->department ?? '',
+        'loan_amount'           => $l->loan_amount,
+        'balance_remaining'     => $l->balance_remaining,
+        'monthly_deduction'     => $l->monthly_deduction,
+        'start_date'            => $l->start_date,
+        'start_date_fmt'        => \Carbon\Carbon::parse($l->start_date)->format('d M Y'),
+        'expected_end_date'     => $l->expected_end_date,
+        'expected_end_date_fmt' => $l->expected_end_date
+                                    ? \Carbon\Carbon::parse($l->expected_end_date)->format('d M Y')
+                                    : null,
+        'purpose'               => $l->purpose,
+        'approved_by'           => $l->approved_by,
+        'status'                => $l->status,
+        'notes'                 => $l->notes,
+    ];
+}
+
+public function showLoansView()
+{
+    return view('tenants.admin.loans');
+}
+
+public function storeLoan(Request $request)
+{
+    $request->validate([
+        'employee_id'       => 'required|integer|exists:tenant.users,id',
+        'loan_amount'       => 'required|numeric|min:0',
+        'monthly_deduction' => 'required|numeric|min:0',
+        'start_date'        => 'required|date',
+        'expected_end_date' => 'nullable|date|after_or_equal:start_date',
+        'purpose'           => 'nullable|string|max:255',
+        'approved_by'       => 'nullable|string|max:255',
+        'status'            => 'required|in:active,completed,cancelled',
+        'notes'             => 'nullable|string|max:2000',
+    ]);
+
+    $id = DB::connection('tenant')->table('employee_loans')->insertGetId([
+        'employee_id'       => $request->employee_id,
+        'loan_amount'       => $request->loan_amount,
+        'balance_remaining' => $request->loan_amount, // starts equal to loan amount
+        'monthly_deduction' => $request->monthly_deduction,
+        'start_date'        => $request->start_date,
+        'expected_end_date' => $request->expected_end_date,
+        'purpose'           => trim($request->purpose),
+        'approved_by'       => trim($request->approved_by),
+        'status'            => $request->status,
+        'notes'             => $request->notes,
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $loan = DB::connection('tenant')->table('employee_loans')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Loan added successfully.',
+        'loan'    => $this->formatLoan($loan),
+    ], 201);
+}
+
+public function updateLoan(Request $request)
+{
+    $request->validate([
+        'id'                => 'required|integer|exists:tenant.employee_loans,id',
+        'loan_amount'       => 'required|numeric|min:0',
+        'balance_remaining' => 'required|numeric|min:0',
+        'monthly_deduction' => 'required|numeric|min:0',
+        'start_date'        => 'required|date',
+        'expected_end_date' => 'nullable|date|after_or_equal:start_date',
+        'purpose'           => 'nullable|string|max:255',
+        'approved_by'       => 'nullable|string|max:255',
+        'status'            => 'required|in:active,completed,cancelled',
+        'notes'             => 'nullable|string|max:2000',
+    ]);
+
+    DB::connection('tenant')->table('employee_loans')->where('id', $request->id)->update([
+        'loan_amount'       => $request->loan_amount,
+        'balance_remaining' => $request->balance_remaining,
+        'monthly_deduction' => $request->monthly_deduction,
+        'start_date'        => $request->start_date,
+        'expected_end_date' => $request->expected_end_date,
+        'purpose'           => trim($request->purpose),
+        'approved_by'       => trim($request->approved_by),
+        'status'            => $request->status,
+        'notes'             => $request->notes,
+        'updated_at'        => now(),
+    ]);
+
+    $loan = DB::connection('tenant')->table('employee_loans')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Loan updated successfully.',
+        'loan'    => $this->formatLoan($loan),
+    ], 201);
+}
+
+public function deleteLoan(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.employee_loans,id',
+    ]);
+
+    DB::connection('tenant')->table('employee_loans')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Loan deleted successfully.',
+    ], 201);
+}
+
+
+/*
+|==========================================================================
+  ADVANCES
+|==========================================================================
+*/
+
+private function formatAdvance($a): array
+{
+    $employee = DB::connection('tenant')->table('users')->where('id', $a->employee_id)->first();
+
+    return [
+        'id'                => $a->id,
+        'employee_id'       => $a->employee_id,
+        'employee_name'     => $employee->name       ?? '',
+        'position'          => $employee->position   ?? '',
+        'department'        => $employee->department ?? '',
+        'advance_amount'    => $a->advance_amount,
+        'balance_remaining' => $a->balance_remaining,
+        'monthly_deduction' => $a->monthly_deduction,
+        'advance_date'      => $a->advance_date,
+        'advance_date_fmt'  => \Carbon\Carbon::parse($a->advance_date)->format('d M Y'),
+        'approved_by'       => $a->approved_by,
+        'status'            => $a->status,
+        'notes'             => $a->notes,
+    ];
+}
+
+public function showAdvancesView()
+{
+    return view('tenants.admin.advances');
+}
+
+public function storeAdvance(Request $request)
+{
+    $request->validate([
+        'employee_id'       => 'required|integer|exists:tenant.users,id',
+        'advance_amount'    => 'required|numeric|min:0',
+        'monthly_deduction' => 'required|numeric|min:0',
+        'advance_date'      => 'required|date',
+        'approved_by'       => 'nullable|string|max:255',
+        'status'            => 'required|in:active,recovered,cancelled',
+        'notes'             => 'nullable|string|max:2000',
+    ]);
+
+    $id = DB::connection('tenant')->table('employee_advances')->insertGetId([
+        'employee_id'       => $request->employee_id,
+        'advance_amount'    => $request->advance_amount,
+        'balance_remaining' => $request->advance_amount, // starts equal to advance amount
+        'monthly_deduction' => $request->monthly_deduction,
+        'advance_date'      => $request->advance_date,
+        'approved_by'       => trim($request->approved_by),
+        'status'            => $request->status,
+        'notes'             => $request->notes,
+        'created_at'        => now(),
+        'updated_at'        => now(),
+    ]);
+
+    $advance = DB::connection('tenant')->table('employee_advances')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Advance added successfully.',
+        'advance' => $this->formatAdvance($advance),
+    ], 201);
+}
+
+public function updateAdvance(Request $request)
+{
+    $request->validate([
+        'id'                => 'required|integer|exists:tenant.employee_advances,id',
+        'advance_amount'    => 'required|numeric|min:0',
+        'balance_remaining' => 'required|numeric|min:0',
+        'monthly_deduction' => 'required|numeric|min:0',
+        'advance_date'      => 'required|date',
+        'approved_by'       => 'nullable|string|max:255',
+        'status'            => 'required|in:active,recovered,cancelled',
+        'notes'             => 'nullable|string|max:2000',
+    ]);
+
+    DB::connection('tenant')->table('employee_advances')->where('id', $request->id)->update([
+        'advance_amount'    => $request->advance_amount,
+        'balance_remaining' => $request->balance_remaining,
+        'monthly_deduction' => $request->monthly_deduction,
+        'advance_date'      => $request->advance_date,
+        'approved_by'       => trim($request->approved_by),
+        'status'            => $request->status,
+        'notes'             => $request->notes,
+        'updated_at'        => now(),
+    ]);
+
+    $advance = DB::connection('tenant')->table('employee_advances')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Advance updated successfully.',
+        'advance' => $this->formatAdvance($advance),
+    ], 201);
+}
+
+public function deleteAdvance(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.employee_advances,id',
+    ]);
+
+    DB::connection('tenant')->table('employee_advances')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Advance deleted successfully.',
+    ], 201);
+}
+
+
+/*
+|==========================================================================
+  OFFER LETTERS
+|==========================================================================
+*/
+
+private function formatOfferLetter($l): array
+{
+    $employee = DB::connection('tenant')->table('users')->where('id', $l->employee_id)->first();
+
+    return [
+        'id'                 => $l->id,
+        'employee_id'        => $l->employee_id,
+        'employee_name'      => $employee->name       ?? '',
+        'current_position'   => $employee->position   ?? '',
+        'department'         => $employee->department ?? '',
+        'letter_type'        => $l->letter_type,
+        'issue_date'         => $l->issue_date,
+        'issue_date_fmt'     => \Carbon\Carbon::parse($l->issue_date)->format('d M Y'),
+        'start_date'         => $l->start_date,
+        'start_date_fmt'     => $l->start_date
+                                 ? \Carbon\Carbon::parse($l->start_date)->format('d M Y')
+                                 : null,
+        'offered_position'   => $l->offered_position,
+        'offered_department' => $l->offered_department,
+        'offered_salary'     => $l->offered_salary,
+        'file_path'          => $l->file_path,
+        'generated_by'       => $l->generated_by,
+        'notes'              => $l->notes,
+    ];
+}
+
+public function showOfferLettersView()
+{
+    return view('tenants.admin.offer-letters');
+}
+
+public function storeOfferLetter(Request $request)
+{
+    $request->validate([
+        'employee_id'        => 'required|integer|exists:tenant.users,id',
+        'letter_type'        => 'required|in:Offer,Confirmation,Promotion,Termination',
+        'issue_date'         => 'required|date',
+        'start_date'         => 'nullable|date',
+        'offered_position'   => 'nullable|string|max:255',
+        'offered_department' => 'nullable|string|max:255',
+        'offered_salary'     => 'nullable|numeric|min:0',
+        'notes'              => 'nullable|string|max:2000',
+    ]);
+
+    $id = DB::connection('tenant')->table('offer_letters')->insertGetId([
+        'employee_id'        => $request->employee_id,
+        'letter_type'        => $request->letter_type,
+        'issue_date'         => $request->issue_date,
+        'start_date'         => $request->start_date,
+        'offered_position'   => trim($request->offered_position),
+        'offered_department' => trim($request->offered_department),
+        'offered_salary'     => $request->offered_salary,
+        'generated_by'       => Auth::user()->name ?? 'System',
+        'notes'              => $request->notes,
+        'created_at'         => now(),
+        'updated_at'         => now(),
+    ]);
+
+    $letter = DB::connection('tenant')->table('offer_letters')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Letter generated successfully.',
+        'letter'  => $this->formatOfferLetter($letter),
+    ], 201);
+}
+
+public function updateOfferLetter(Request $request)
+{
+    $request->validate([
+        'id'                 => 'required|integer|exists:tenant.offer_letters,id',
+        'letter_type'        => 'required|in:Offer,Confirmation,Promotion,Termination',
+        'issue_date'         => 'required|date',
+        'start_date'         => 'nullable|date',
+        'offered_position'   => 'nullable|string|max:255',
+        'offered_department' => 'nullable|string|max:255',
+        'offered_salary'     => 'nullable|numeric|min:0',
+        'notes'              => 'nullable|string|max:2000',
+    ]);
+
+    DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->update([
+        'letter_type'        => $request->letter_type,
+        'issue_date'         => $request->issue_date,
+        'start_date'         => $request->start_date,
+        'offered_position'   => trim($request->offered_position),
+        'offered_department' => trim($request->offered_department),
+        'offered_salary'     => $request->offered_salary,
+        'notes'              => $request->notes,
+        'updated_at'         => now(),
+    ]);
+
+    $letter = DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Letter updated successfully.',
+        'letter'  => $this->formatOfferLetter($letter),
+    ], 201);
+}
+
+public function deleteOfferLetter(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.offer_letters,id',
+    ]);
+
+    $letter = DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->first();
+
+    // Delete stored PDF if it exists
+    if ($letter && $letter->file_path && File::exists(public_path($letter->file_path))) {
+        File::delete(public_path($letter->file_path));
+    }
+
+    DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Letter deleted successfully.',
+    ], 201);
+}
+
+public function downloadOfferLetter(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.offer_letters,id',
+    ]);
+
+    $letter = DB::connection('tenant')
+        ->table('offer_letters')
+        ->join('users', 'users.id', '=', 'offer_letters.employee_id')
+        ->select(
+            'offer_letters.*',
+            'users.name       as employee_name',
+            'users.position   as current_position',
+            'users.department as department',
+            'users.phone      as employee_phone',
+            'users.email      as employee_email'
+        )
+        ->where('offer_letters.id', $request->id)
+        ->first();
+
+    if (!$letter) {
+        abort(404, 'Letter not found.');
+    }
+
+    $company = DB::connection('tenant')->table('company_info')->where('id', 1)->first();
+
+    $pdf = Pdf::loadView('tenants.admin.offer-letter-pdf', compact('letter', 'company'))
+              ->setPaper('a4', 'portrait');
+
+    $filename = $letter->letter_type . '_'
+              . str_replace(' ', '_', $letter->employee_name) . '_'
+              . $letter->issue_date . '.pdf';
+
+    return $pdf->download($filename);
+}
 
 
 

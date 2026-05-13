@@ -162,10 +162,38 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
           
         
         // ── Payslips ──────────────────────────────────────────────────────────────
-Route::get( '/admin/hr/payroll/payslips',           [TenantAdminController::class, 'showPayslipsView'])  ->name('tenant.admin.hr.payroll.payslips');
-Route::get( '/admin/hr/payroll/payslips/stats',     [TenantAdminController::class, 'getPayslipStats'])   ->name('tenant.admin.hr.payroll.payslips.stats');
-Route::post('/admin/hr/payroll/payslips/email',     [TenantAdminController::class, 'emailPayslip'])      ->name('tenant.admin.hr.payroll.payslips.email');
-Route::post('/admin/hr/payroll/payslips/bulkemail', [TenantAdminController::class, 'bulkEmailPayslips']) ->name('tenant.admin.hr.payroll.payslips.bulkemail');
+        Route::get( '/admin/hr/payroll/payslips',           [TenantAdminController::class, 'showPayslipsView'])  ->name('tenant.admin.hr.payroll.payslips');
+        Route::get( '/admin/hr/payroll/payslips/stats',     [TenantAdminController::class, 'getPayslipStats'])   ->name('tenant.admin.hr.payroll.payslips.stats');
+        Route::post('/admin/hr/payroll/payslips/email',     [TenantAdminController::class, 'emailPayslip'])      ->name('tenant.admin.hr.payroll.payslips.email');
+        Route::post('/admin/hr/payroll/payslips/bulkemail', [TenantAdminController::class, 'bulkEmailPayslips']) ->name('tenant.admin.hr.payroll.payslips.bulkemail');
+
+                
+        Route::get( '/admin/hr/pension',        [TenantAdminController::class, 'showPensionView'])  ->name('tenant.admin.hr.pension');
+        Route::post('/admin/hr/pension/store',  [TenantAdminController::class, 'storePension'])     ->name('tenant.admin.hr.pension.store');
+        Route::post('/admin/hr/pension/update', [TenantAdminController::class, 'updatePension'])    ->name('tenant.admin.hr.pension.update');
+        Route::post('/admin/hr/pension/delete', [TenantAdminController::class, 'deletePension'])    ->name('tenant.admin.hr.pension.delete');
+        
+
+        // ── Loans ─────────────────────────────────────────────────────────────────
+        Route::get( '/admin/hr/loans',        [TenantAdminController::class, 'showLoansView'])  ->name('tenant.admin.hr.loans');
+        Route::post('/admin/hr/loans/store',  [TenantAdminController::class, 'storeLoan'])      ->name('tenant.admin.hr.loans.store');
+        Route::post('/admin/hr/loans/update', [TenantAdminController::class, 'updateLoan'])     ->name('tenant.admin.hr.loans.update');
+        Route::post('/admin/hr/loans/delete', [TenantAdminController::class, 'deleteLoan'])     ->name('tenant.admin.hr.loans.delete');
+
+        // ── Advances ──────────────────────────────────────────────────────────────
+        Route::get( '/admin/hr/advances',        [TenantAdminController::class, 'showAdvancesView']) ->name('tenant.admin.hr.advances');
+        Route::post('/admin/hr/advances/store',  [TenantAdminController::class, 'storeAdvance'])     ->name('tenant.admin.hr.advances.store');
+        Route::post('/admin/hr/advances/update', [TenantAdminController::class, 'updateAdvance'])    ->name('tenant.admin.hr.advances.update');
+        Route::post('/admin/hr/advances/delete', [TenantAdminController::class, 'deleteAdvance'])    ->name('tenant.admin.hr.advances.delete');
+
+        // ── Offer Letters ─────────────────────────────────────────────────────────
+        Route::get( '/admin/hr/offer-letters',          [TenantAdminController::class, 'showOfferLettersView']) ->name('tenant.admin.hr.offer.letters');
+        Route::post('/admin/hr/offer-letters/store',    [TenantAdminController::class, 'storeOfferLetter'])     ->name('tenant.admin.hr.offer.letters.store');
+        Route::post('/admin/hr/offer-letters/update',   [TenantAdminController::class, 'updateOfferLetter'])    ->name('tenant.admin.hr.offer.letters.update');
+        Route::post('/admin/hr/offer-letters/delete',   [TenantAdminController::class, 'deleteOfferLetter'])    ->name('tenant.admin.hr.offer.letters.delete');
+        Route::get( '/admin/hr/offer-letters/download', [TenantAdminController::class, 'downloadOfferLetter'])  ->name('tenant.admin.hr.offer.letters.download');
+
+
 
     });
 

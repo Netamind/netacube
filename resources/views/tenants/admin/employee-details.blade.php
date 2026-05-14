@@ -74,6 +74,14 @@
         margin: 0 0 16px 0;
     }
     #contract_end_date_row { display: none; }
+    .paye-toggle-wrap {
+        display: flex;
+        align-items: center;
+        height: calc(1.5em + 0.75rem + 2px);
+        padding-top: calc(0.375rem + 1px);
+    }
+    .paye-toggle-wrap .form-check-input { margin-top: 0; }
+    .paye-toggle-wrap .form-check-label { margin-left: 0.5rem; font-weight: 500; }
 </style>
 
 <div class="progress" id="progressBar" role="progressbar" aria-label="Animated striped"
@@ -82,11 +90,11 @@
     <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
 </div>
 
-
 {{--
-    Hidden form carrying ALL required fields.
-    Every tab AJAX call merges this so the backend never
-    gets a validation error for missing required fields.
+    Hidden base form — carries ALL fields every tab needs so the backend
+    validation for required fields never fails on a partial tab submit.
+    on_paye is a checkbox so we carry it as a plain hidden 0/1 here;
+    the tab form's value wins (it comes second in mergedData()).
 --}}
 <form id="baseDataForm" style="display:none">
     @csrf
@@ -107,6 +115,7 @@
     <input type="hidden" name="started_on"                  value="{{ $user->started_on }}">
     <input type="hidden" name="employment_type"             value="{{ $user->employment_type ?? 'Full-time' }}">
     <input type="hidden" name="contract_end_date"           value="{{ $user->contract_end_date }}">
+    <input type="hidden" name="on_paye"                     value="{{ $user->on_paye ? '1' : '0' }}">
     <input type="hidden" name="nextofkin_name"              value="{{ $user->nextofkin_name }}">
     <input type="hidden" name="nextofkin_relationship"      value="{{ $user->nextofkin_relationship }}">
     <input type="hidden" name="nextofkin_physical_address"  value="{{ $user->nextofkin_physical_address }}">
@@ -311,6 +320,20 @@
                                                 <input type="number" class="form-control" name="gross_salary" value="{{ $user->gross_salary }}">
                                             </div>
                                         </div>
+
+                                        {{-- ── ON PAYE ── --}}
+                                        <div class="row mb-3">
+                                            <label class="col-3 col-form-label">PAYE Deduction</label>
+                                            <div class="col-9">
+                                                <div class="form-check form-switch paye-toggle-wrap mt-1">
+                                                    <input class="form-check-input" type="checkbox" role="switch"
+                                                           name="on_paye" id="on_paye" value="1"
+                                                           {{ $user->on_paye ? 'checked' : '' }}>
+                                                    <label class="form-check-label" for="on_paye">Subject to PAYE</label>
+                                                </div>
+                                            </div>
+                                        </div>
+
                                     </div>
                                 </div>
 
@@ -512,18 +535,33 @@ $(function () {
 
     /**
      * Merge baseDataForm (all required fields) with the tab-specific form.
-     * The tab form's values come second so they WIN over the base values.
-     * Tab 1 (profileDataForm) sends itself directly since it already has everything.
+     * The tab form values come second so they WIN over the base values.
+     * Checkboxes are NOT serialised when unchecked, so we handle on_paye
+     * explicitly: if the tab form contains an on_paye field we use it;
+     * otherwise we strip on_paye from the base and send 0.
+     *
+     * For Tab 1 (profileDataForm) the checkbox is present in the form itself
+     * so we call it directly. For Tab 2 (financesDataForm) we use mergedData.
      */
     function mergedData(tabFormSelector) {
-        return $('#baseDataForm').serialize() + '&' + $(tabFormSelector).serialize();
+        // Start with base data minus any on_paye entry —
+        // the base carries a hidden 0/1 but the tab form checkbox is the truth.
+        var base = $('#baseDataForm').serialize()
+                       .split('&')
+                       .filter(function (p) { return p.indexOf('on_paye') === -1; })
+                       .join('&');
+        return base + '&' + $(tabFormSelector).serialize();
     }
 
     // Keep baseDataForm in sync when the user edits Tab 1 fields,
     // so subsequent tab saves carry the latest personal values.
     $('#profileDataForm').on('input change', 'input, select, textarea', function () {
         var name = $(this).attr('name');
-        if (name) {
+        if (!name) return;
+        // For the checkbox we store 0/1 in the hidden field
+        if (name === 'on_paye') {
+            $('#baseDataForm input[name="on_paye"]').val($(this).is(':checked') ? '1' : '0');
+        } else {
             $('#baseDataForm input[name="' + name + '"]').val($(this).val());
         }
     });

@@ -195,6 +195,13 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 
 
+        // ── PAYE Brackets ─────────────────────────────────────────────────────────
+        Route::get( '/admin/hr/paye/brackets',         [TenantAdminController::class, 'showPayeBracketsView'])  ->name('tenant.admin.hr.paye.brackets');
+        Route::post('/admin/hr/paye/brackets/store',   [TenantAdminController::class, 'storePayeBracket'])      ->name('tenant.admin.hr.paye.brackets.store');
+        Route::post('/admin/hr/paye/brackets/update',  [TenantAdminController::class, 'updatePayeBracket'])     ->name('tenant.admin.hr.paye.brackets.update');
+        Route::post('/admin/hr/paye/brackets/retire',  [TenantAdminController::class, 'retirePayeBracket'])     ->name('tenant.admin.hr.paye.brackets.retire');
+        Route::post('/admin/hr/paye/brackets/delete',  [TenantAdminController::class, 'deletePayeBracket'])     ->name('tenant.admin.hr.paye.brackets.delete');
+
     });
 
 

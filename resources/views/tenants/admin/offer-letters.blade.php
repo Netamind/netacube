@@ -1,4 +1,3 @@
-
 @extends('tenants.admin.dashboard')
 @section('content')
 @php
@@ -10,13 +9,20 @@
         ->join('users', 'users.id', '=', 'offer_letters.employee_id')
         ->select(
             'offer_letters.*',
-            'users.name       as employee_name',
-            'users.phone      as employee_number',
-            'users.position   as current_position',
-            'users.department as department'
+            'users.name         as employee_name',
+            'users.phone        as employee_number',
+            'users.position     as current_position',
+            'users.department   as department',
+            'users.gross_salary as current_salary'
         )
         ->orderBy('offer_letters.issue_date', 'desc')
         ->get();
+
+    // Map employee id → current salary so the modal can show it as a hint
+    $employeeSalaries = DB::connection('tenant')
+        ->table('users')
+        ->where('active', 'Yes')
+        ->pluck('gross_salary', 'id');
 
     $totalOffer        = $letters->where('letter_type', 'Offer')->count();
     $totalConfirmation = $letters->where('letter_type', 'Confirmation')->count();
@@ -48,7 +54,6 @@ table.dataTable.fixedHeader-floating,
 table.dataTable.fixedHeader-locked { background: #fff !important; border-bottom: none !important; }
 table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; }
 
-/* Letter type badges */
 .badge-Offer        { background: #4B5EBD; color: #fff; padding: 2px 9px; border-radius: 20px; font-size: 11px; }
 .badge-Confirmation { background: #198754; color: #fff; padding: 2px 9px; border-radius: 20px; font-size: 11px; }
 .badge-Promotion    { background: #0dcaf0; color: #fff; padding: 2px 9px; border-radius: 20px; font-size: 11px; }
@@ -78,7 +83,6 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 .bg-sc4 { background: linear-gradient(135deg, #ffc107, #f59e0b); }
 .bg-sc5 { background: linear-gradient(135deg, #dc3545, #f87171); }
 
-/* Letter type card select */
 .letter-type-grid { display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 12px; }
 .letter-type-card {
   flex: 1; min-width: 100px; border: 2px solid #e9ecef;
@@ -89,6 +93,20 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 .letter-type-card.selected { border-color: #4B5EBD; background: #e8eaf6; }
 .letter-type-card i { font-size: 22px; display: block; margin-bottom: 4px; }
 .letter-type-card span { font-size: 12px; font-weight: 600; color: #212529; }
+
+/* Salary reference hint box */
+.salary-ref-box {
+  background: #f0f4ff;
+  border: 1px solid #c8d0ed;
+  border-radius: 6px;
+  padding: 8px 12px;
+  font-size: 12px;
+  color: #4B5EBD;
+  margin-bottom: 8px;
+  display: none;
+}
+.salary-ref-box strong { font-size: 14px; }
+.salary-ref-note { font-size: 11px; color: #6c757d; margin-top: 2px; }
 </style>
 
 <div class="progress" id="progressBar" role="progressbar"
@@ -100,7 +118,6 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 <div class="row mb-3"></div>
 
 <div class="card">
-
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0">
       <i class="ri-file-text-line me-1"></i> Offer Letters
@@ -130,16 +147,17 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
       </thead>
       <tbody id="tbody">
         @foreach($letters as $l)
-          <?php $row = 'row' . $l->id; ?>
+          @php $row = 'row' . $l->id; @endphp
           <tr id="{{ $row }}">
             <td><strong>{{ $l->employee_name }}</strong></td>
             <td style="text-align:center"><span class="badge-{{ $l->letter_type }}">{{ $l->letter_type }}</span></td>
             <td style="text-align:center">{{ $l->offered_position ?? '—' }}</td>
-            <td style="text-align:center">{{ $l->offered_salary ? number_format($l->offered_salary, 2) : '—' }}</td>
+            <td style="text-align:center">{{ number_format($l->offered_salary, 2) }}</td>
             <td style="text-align:center">{{ \Carbon\Carbon::parse($l->issue_date)->format('d M Y') }}</td>
             <td style="text-align:center">{{ $l->start_date ? \Carbon\Carbon::parse($l->start_date)->format('d M Y') : '—' }}</td>
             <td style="text-align:center">{{ $l->generated_by ?? '—' }}</td>
             <td style="text-align:center; white-space:nowrap;">
+              {{-- VIEW --}}
               <a href="#" class="viewBtn"
                  data-id="{{ $l->id }}"
                  data-employee-name="{{ $l->employee_name }}"
@@ -148,33 +166,20 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
                  data-letter-type="{{ $l->letter_type }}"
                  data-offered-position="{{ $l->offered_position ?? '' }}"
                  data-offered-department="{{ $l->offered_department ?? '' }}"
-                 data-offered-salary="{{ $l->offered_salary ?? '' }}"
+                 data-offered-salary="{{ $l->offered_salary }}"
                  data-issue-date="{{ \Carbon\Carbon::parse($l->issue_date)->format('d M Y') }}"
                  data-start-date="{{ $l->start_date ? \Carbon\Carbon::parse($l->start_date)->format('d M Y') : '' }}"
                  data-generated-by="{{ $l->generated_by ?? '' }}"
+                 data-custom-message="{{ $l->custom_message ?? '' }}"
                  data-notes="{{ $l->notes ?? '' }}">
                 <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px;"></i>
               </a>
-              {{-- PDF download --}}
+              {{-- DOWNLOAD --}}
               <a href="{{ route('tenant.admin.hr.offer.letters.download', ['tenantName' => request()->route('tenantName')]) }}?id={{ $l->id }}"
                  title="Download PDF">
                 <i class="ri-file-download-line text-success" style="font-weight:bold;font-size:17px;"></i>
               </a>
-              <a href="#" class="editBtn"
-                 data-id="{{ $l->id }}"
-                 data-row="{{ $row }}"
-                 data-employee-id="{{ $l->employee_id }}"
-                 data-employee-name="{{ $l->employee_name }}"
-                 data-letter-type="{{ $l->letter_type }}"
-                 data-offered-position="{{ $l->offered_position ?? '' }}"
-                 data-offered-department="{{ $l->offered_department ?? '' }}"
-                 data-offered-salary="{{ $l->offered_salary ?? '' }}"
-                 data-issue-date="{{ $l->issue_date }}"
-                 data-start-date="{{ $l->start_date ?? '' }}"
-                 data-generated-by="{{ $l->generated_by ?? '' }}"
-                 data-notes="{{ $l->notes ?? '' }}">
-                <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px;"></i>
-              </a>
+              {{-- DELETE --}}
               <a href="#" class="deleteBtn"
                  data-id="{{ $l->id }}"
                  data-row="{{ $row }}"
@@ -187,7 +192,6 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
       </tbody>
     </table>
   </div>
-
 </div>
 </div></div></div>
 
@@ -210,7 +214,7 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
           </div>
           <div class="col-md col-6">
             <div class="stats-card bg-sc2">
-              <div class="sc-label">Offer Letters</div>
+              <div class="sc-label">Offer</div>
               <div class="sc-value">{{ $totalOffer }}</div>
             </div>
           </div>
@@ -246,24 +250,30 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header">
-      <h5 class="modal-title">Offer Letters</h5>
+      <h5 class="modal-title">Offer Letters — How it works</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body" style="font-size:13px;">
-      <p>Generate and track formal HR letters for employees. Each letter is stored as a record and can be downloaded as a PDF at any time.</p>
+      <p class="mb-3">Generate and track formal HR letters. Each letter stores its own salary snapshot so historical letters never change.</p>
       <p class="mb-1"><strong>Letter types</strong></p>
       <ul class="mb-3" style="padding-left:18px;">
-        <li class="mb-1"><strong>Offer</strong> — Initial employment offer for a new hire.</li>
-        <li class="mb-1"><strong>Confirmation</strong> — Confirms permanent employment after probation.</li>
-        <li class="mb-1"><strong>Promotion</strong> — Documents a change in position or salary.</li>
-        <li><strong>Termination</strong> — Formal notice of employment termination.</li>
+        <li class="mb-1"><strong>Offer</strong> — Initial employment offer. Updates employee's active salary.</li>
+        <li class="mb-1"><strong>Confirmation</strong> — Confirms permanent employment after probation. Salary for reference only, does not update employee profile.</li>
+        <li class="mb-1"><strong>Promotion</strong> — Documents a change in role or salary. Updates employee's active salary.</li>
+        <li><strong>Termination</strong> — Formal notice of termination. Salary for reference only.</li>
       </ul>
-      <p class="mb-1"><strong>How it works</strong></p>
-      <ol class="mb-0" style="padding-left:18px;">
-        <li class="mb-1">Select an employee and letter type, fill in the details, and save.</li>
-        <li class="mb-1">A letter record is created. Click the <i class="ri-file-download-line text-success"></i> icon to download the PDF at any time.</li>
-        <li>All generated letters are kept here for your HR audit trail.</li>
-      </ol>
+      <p class="mb-1"><strong>Editing policy</strong></p>
+      <ul class="mb-3" style="padding-left:18px;">
+        <li class="mb-1">Letters <strong>cannot be edited</strong> after generation to protect salary history integrity.</li>
+        <li>If a mistake was made, delete the letter and generate a new one.</li>
+      </ul>
+      <p class="mb-1"><strong>Salary behaviour</strong></p>
+      <ul class="mb-0" style="padding-left:18px;">
+        <li class="mb-1">The employee's current salary is shown as a <em>reference hint</em> when you open the form.</li>
+        <li class="mb-1">You must enter the salary explicitly — it is never filled in automatically.</li>
+        <li class="mb-1">For <strong>Offer</strong> and <strong>Promotion</strong> letters, saving the letter also updates the employee's salary in their profile.</li>
+        <li>Old letters always retain their original salary — re-downloading them always shows the correct historical figure.</li>
+      </ul>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
@@ -298,26 +308,40 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
+
         <div class="modal-section-title" style="margin-top:0;">Employee</div>
         <div class="row g-2 mb-2">
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Name</div><div class="pf-value" id="vName">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Current Position</div><div class="pf-value" id="vCurrentPosition">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Department</div><div class="pf-value" id="vDepartment">—</div></div></div>
         </div>
+
         <div class="modal-section-title">Letter Details</div>
         <div class="row g-2 mb-2">
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Letter Type</div><div class="pf-value" id="vLetterType">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Offered Position</div><div class="pf-value" id="vOfferedPosition">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Offered Department</div><div class="pf-value" id="vOfferedDept">—</div></div></div>
-          <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Offered Salary</div><div class="pf-value" id="vOfferedSalary">—</div></div></div>
+          <div class="col-md-4 col-6">
+            <div class="pf-group" style="background:#e8eaf6;">
+              <div class="pf-label">Offered Salary</div>
+              <div class="pf-value" id="vOfferedSalary" style="color:#4B5EBD;">—</div>
+            </div>
+          </div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Issue Date</div><div class="pf-value" id="vIssueDate">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Start Date</div><div class="pf-value" id="vStartDate">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Generated By</div><div class="pf-value" id="vGeneratedBy">—</div></div></div>
         </div>
+
+        <div id="vCustomMsgRow" style="display:none;">
+          <div class="modal-section-title">Custom Message</div>
+          <div class="pf-group"><div class="pf-value" id="vCustomMsg" style="font-size:13px;font-weight:400;white-space:pre-wrap;"></div></div>
+        </div>
+
         <div id="vNotesRow" style="display:none;">
           <div class="modal-section-title">Notes</div>
           <div class="pf-group"><div class="pf-value" id="vNotes" style="font-size:13px;font-weight:400;"></div></div>
         </div>
+
       </div>
       <div class="modal-footer d-flex justify-content-between">
         <a href="#" class="btn btn-success btn-sm" id="vDownloadBtn">
@@ -334,27 +358,31 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
 <div class="modal fade" id="newDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Generate Letter</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+      <div class="modal-header mh-blue">
+        <h5 class="modal-title mh-title"><i class="ri-add-circle-line"></i>&nbsp; Generate Letter</h5>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body">
         <form action="#" method="post" id="newDataForm">
           @csrf
+
           <div class="modal-section-title" style="margin-top:0;">Employee</div>
           <div class="row">
             <div class="form-group col-12 mb-3">
               <label style="font-size:13px;">Employee <span class="text-danger">*</span></label>
-              <select class="form-select select2" name="employee_id" required>
+              <select class="form-select select2" name="employee_id" id="newEmployeeSelect" required>
                 <option value="">— Select Employee —</option>
                 @foreach($employees as $emp)
-                  <option value="{{ $emp->id }}">{{ $emp->name }}</option>
+                  <option value="{{ $emp->id }}"
+                          data-salary="{{ $employeeSalaries[$emp->id] ?? 0 }}">
+                    {{ $emp->name }}
+                  </option>
                 @endforeach
               </select>
             </div>
           </div>
 
-          <div class="modal-section-title">Letter Type</div>
+          <div class="modal-section-title">Letter Type <span class="text-danger">*</span></div>
           <div class="letter-type-grid" id="letterTypeGrid">
             <div class="letter-type-card" data-type="Offer">
               <i class="ri-file-add-line text-primary"></i>
@@ -376,6 +404,13 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
           <input type="hidden" name="letter_type" id="newLetterType">
 
           <div class="modal-section-title">Letter Details</div>
+
+          {{-- Salary reference box: shown after employee is selected --}}
+          <div class="salary-ref-box" id="newSalaryRefBox">
+            <div>Current salary on record: <strong id="newSalaryRefValue"></strong></div>
+            <div class="salary-ref-note">Copy this value into the Offered Salary field below if the salary is unchanged.</div>
+          </div>
+
           <div class="row">
             <div class="form-group col-md-6 mb-3">
               <label style="font-size:13px;">Issue Date <span class="text-danger">*</span></label>
@@ -394,72 +429,32 @@ table.dataTable thead th.fixedHeader-floating { background: #e2e2e9 !important; 
               <input type="text" class="form-control" name="offered_department" placeholder="e.g. Operations">
             </div>
             <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Offered Salary</label>
-              <input type="number" step="0.01" min="0" class="form-control" name="offered_salary">
+              <label style="font-size:13px;">
+                Offered Salary <span class="text-danger">*</span>
+              </label>
+              <input type="number" step="0.01" min="0" class="form-control" name="offered_salary"
+                     id="newOfferedSalary" placeholder="Enter salary amount" required>
             </div>
             <div class="form-group col-12 mb-3">
-              <label style="font-size:13px;">Notes</label>
-              <textarea class="form-control" name="notes" rows="2" placeholder="Optional notes…"></textarea>
+              <label style="font-size:13px;">Custom Message
+                <span class="text-muted" style="font-size:11px;">(optional — printed on the letter)</span>
+              </label>
+              <textarea class="form-control" name="custom_message" rows="3"
+                placeholder="e.g. We look forward to welcoming you to the team."></textarea>
+            </div>
+            <div class="form-group col-12 mb-3">
+              <label style="font-size:13px;">Notes <span class="text-muted" style="font-size:11px;">(internal only — not printed)</span></label>
+              <textarea class="form-control" name="notes" rows="2" placeholder="Optional internal notes…"></textarea>
             </div>
           </div>
+
+          <div class="alert alert-info py-2 px-3" style="font-size:12px;" id="newSalaryNote" style="display:none;">
+            <i class="ri-information-line me-1"></i>
+            For <strong>Offer</strong> and <strong>Promotion</strong> letters, saving will also update the employee's salary in their profile to match the offered salary.
+          </div>
+
           <a href="#" class="btn btn-primary float-end mt-3 mb-2" id="submitDataBtn">Generate &amp; Save</a>
           <a href="#" class="btn btn-secondary float-end mt-3 mb-2 mx-2" id="cancelDataBtn">Cancel</a>
-        </form>
-      </div>
-    </div>
-  </div>
-</div>
-
-
-{{-- ══ EDIT MODAL ══ --}}
-<div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title">Edit Letter — <span id="editTitle"></span></h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body">
-        <form action="#" method="post" id="editDataForm">
-          @csrf
-          <input type="hidden" name="id"  id="editId">
-          <input type="hidden" name="row" id="editRow">
-          <div class="modal-section-title" style="margin-top:0;">Letter Type</div>
-          <select class="form-select mb-3" name="letter_type" id="editLetterType">
-            <option value="Offer">Offer</option>
-            <option value="Confirmation">Confirmation</option>
-            <option value="Promotion">Promotion</option>
-            <option value="Termination">Termination</option>
-          </select>
-          <div class="modal-section-title">Letter Details</div>
-          <div class="row">
-            <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Issue Date <span class="text-danger">*</span></label>
-              <input type="date" class="form-control" name="issue_date" id="editIssueDate" required>
-            </div>
-            <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Start Date</label>
-              <input type="date" class="form-control" name="start_date" id="editStartDate">
-            </div>
-            <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Offered Position</label>
-              <input type="text" class="form-control" name="offered_position" id="editOfferedPosition">
-            </div>
-            <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Offered Department</label>
-              <input type="text" class="form-control" name="offered_department" id="editOfferedDept">
-            </div>
-            <div class="form-group col-md-6 mb-3">
-              <label style="font-size:13px;">Offered Salary</label>
-              <input type="number" step="0.01" min="0" class="form-control" name="offered_salary" id="editOfferedSalary">
-            </div>
-            <div class="form-group col-12 mb-3">
-              <label style="font-size:13px;">Notes</label>
-              <textarea class="form-control" name="notes" id="editNotes" rows="2"></textarea>
-            </div>
-          </div>
-          <a href="#" class="btn btn-primary float-end mt-3 mb-2" id="submitUpdateDataBtn">Save Changes</a>
-          <a href="#" class="btn btn-secondary float-end mt-3 mb-2 mx-2" id="cancelEditDataBtn">Cancel</a>
         </form>
       </div>
     </div>
@@ -495,9 +490,10 @@ $(document).ready(function () {
 
     toastr.options = { closeButton: true, progressBar: true, showMethod: 'slideDown', timeOut: 5000, allowHtml: true };
 
-    var maintableTitle = @json($maintableTitle);
+    var maintableTitle  = @json($maintableTitle);
     var downloadBaseUrl = '{{ route("tenant.admin.hr.offer.letters.download", ["tenantName" => request()->route("tenantName")]) }}';
 
+    // ── DataTable ─────────────────────────────────────────────────────────
     var table = $('#maintable').DataTable({
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
         lengthChange: true,
@@ -511,79 +507,94 @@ $(document).ready(function () {
             { extend: 'csvHtml5',   title: maintableTitle, exportOptions: { columns: ':visible:not(:last-child)' } },
             { extend: 'pdfHtml5',   title: maintableTitle, exportOptions: { columns: ':visible:not(:last-child)' },
               orientation: 'landscape', pageSize: 'A4',
-              customize: function(doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
+              customize: function(doc) {
+                  doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split('');
+              }
             }
         ]
     });
     table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-    // ── Toolbar ───────────────────────────────────────────────────────────
+    // ── Toolbar buttons ───────────────────────────────────────────────────
     $('#statsBtn').click(function(e)        { e.preventDefault(); $('#statsModal').modal('show'); });
     $('#infoBtn').click(function(e)         { e.preventDefault(); $('#infoModal').modal('show'); });
     $('#tableButtonsBtn').click(function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
+
     $('#newDataBtn').click(function(e) {
         e.preventDefault();
         $('#newDataForm')[0].reset();
         $('#newLetterType').val('');
         $('.letter-type-card').removeClass('selected');
+        $('#newSalaryRefBox').hide();
+        $('#newSalaryNote').hide();
         $('#newDataModal').modal('show');
     });
-    $('#cancelDataBtn').click(function(e)   { e.preventDefault(); $('#newDataForm')[0].reset(); $('#newDataModal').modal('hide'); });
-    $('#cancelEditDataBtn').click(function(e){ e.preventDefault(); $('#editDataForm')[0].reset(); $('#editDataModal').modal('hide'); });
-    $('#keepSingleDataBtn').click(function(e){ e.preventDefault(); toastr.info("Record is safe", "OK"); $('#singleDeleteDataModal').modal('hide'); });
 
-    // ── Letter type card selection ─────────────────────────────────────────
+    $('#cancelDataBtn').click(function(e)     { e.preventDefault(); $('#newDataModal').modal('hide'); });
+    $('#keepSingleDataBtn').click(function(e) { e.preventDefault(); toastr.info('Record is safe.', 'OK'); $('#singleDeleteDataModal').modal('hide'); });
+
+    // ── Letter type card selection (add modal) ────────────────────────────
     $('#letterTypeGrid').on('click', '.letter-type-card', function() {
         $('.letter-type-card').removeClass('selected');
         $(this).addClass('selected');
-        $('#newLetterType').val($(this).data('type'));
+        var type = $(this).data('type');
+        $('#newLetterType').val(type);
+        if (type === 'Offer' || type === 'Promotion') {
+            $('#newSalaryNote').show();
+        } else {
+            $('#newSalaryNote').hide();
+        }
+    });
+
+    // ── Employee selection → show current salary as reference hint ────────
+    $('#newEmployeeSelect').on('change', function() {
+        var salary = parseFloat($(this).find(':selected').data('salary')) || 0;
+        if (salary > 0) {
+            $('#newSalaryRefValue').text(salary.toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+            $('#newSalaryRefBox').show();
+        } else {
+            $('#newSalaryRefBox').hide();
+        }
+        $('#newOfferedSalary').val('');
     });
 
     // ── Helpers ───────────────────────────────────────────────────────────
-    function fmt(n) { return parseFloat(n || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-    function badgeHtml(type) { return '<span class="badge-' + type + '">' + type + '</span>'; }
+    function fmt(n) {
+        return parseFloat(n || 0).toLocaleString('en', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+    function badgeHtml(type) {
+        return '<span class="badge-' + type + '">' + type + '</span>';
+    }
 
     function buildRow(l, row) {
-        var issueFmt = l.issue_date_fmt || l.issue_date;
-        var startFmt = l.start_date_fmt || l.start_date || '—';
+        var issueFmt = l.issue_date_fmt  || l.issue_date  || '—';
+        var startFmt = l.start_date_fmt  || l.start_date  || '—';
         return '<tr id="' + row + '">'
             + '<td><strong>' + l.employee_name + '</strong></td>'
             + '<td style="text-align:center">' + badgeHtml(l.letter_type) + '</td>'
             + '<td style="text-align:center">' + (l.offered_position || '—') + '</td>'
-            + '<td style="text-align:center">' + (l.offered_salary ? fmt(l.offered_salary) : '—') + '</td>'
+            + '<td style="text-align:center">' + fmt(l.offered_salary) + '</td>'
             + '<td style="text-align:center">' + issueFmt + '</td>'
             + '<td style="text-align:center">' + startFmt + '</td>'
             + '<td style="text-align:center">' + (l.generated_by || '—') + '</td>'
             + '<td style="text-align:center; white-space:nowrap;">'
             +   '<a href="#" class="viewBtn"'
-            +     ' data-id="' + l.id + '"'
-            +     ' data-employee-name="' + l.employee_name + '"'
-            +     ' data-current-position="' + (l.current_position||'') + '"'
-            +     ' data-department="' + (l.department||'') + '"'
-            +     ' data-letter-type="' + l.letter_type + '"'
-            +     ' data-offered-position="' + (l.offered_position||'') + '"'
-            +     ' data-offered-department="' + (l.offered_department||'') + '"'
-            +     ' data-offered-salary="' + (l.offered_salary||'') + '"'
-            +     ' data-issue-date="' + issueFmt + '"'
-            +     ' data-start-date="' + startFmt + '"'
-            +     ' data-generated-by="' + (l.generated_by||'') + '"'
-            +     ' data-notes="' + (l.notes||'') + '">'
+            +     ' data-id="'                 + l.id + '"'
+            +     ' data-employee-name="'      + l.employee_name + '"'
+            +     ' data-current-position="'   + (l.current_position   || '') + '"'
+            +     ' data-department="'         + (l.department         || '') + '"'
+            +     ' data-letter-type="'        + l.letter_type + '"'
+            +     ' data-offered-position="'   + (l.offered_position   || '') + '"'
+            +     ' data-offered-department="' + (l.offered_department || '') + '"'
+            +     ' data-offered-salary="'     + l.offered_salary + '"'
+            +     ' data-issue-date="'         + issueFmt + '"'
+            +     ' data-start-date="'         + startFmt + '"'
+            +     ' data-generated-by="'       + (l.generated_by       || '') + '"'
+            +     ' data-custom-message="'     + (l.custom_message     || '') + '"'
+            +     ' data-notes="'              + (l.notes              || '') + '">'
             +     '<i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px;"></i></a> '
             +   '<a href="' + downloadBaseUrl + '?id=' + l.id + '" title="Download PDF">'
             +     '<i class="ri-file-download-line text-success" style="font-weight:bold;font-size:17px;"></i></a> '
-            +   '<a href="#" class="editBtn"'
-            +     ' data-id="' + l.id + '" data-row="' + row + '"'
-            +     ' data-employee-id="' + l.employee_id + '"'
-            +     ' data-employee-name="' + l.employee_name + '"'
-            +     ' data-letter-type="' + l.letter_type + '"'
-            +     ' data-offered-position="' + (l.offered_position||'') + '"'
-            +     ' data-offered-department="' + (l.offered_department||'') + '"'
-            +     ' data-offered-salary="' + (l.offered_salary||'') + '"'
-            +     ' data-issue-date="' + l.issue_date + '"'
-            +     ' data-start-date="' + (l.start_date||'') + '"'
-            +     ' data-generated-by="' + (l.generated_by||'') + '"'
-            +     ' data-notes="' + (l.notes||'') + '">'
-            +     '<i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px;"></i></a> '
             +   '<a href="#" class="deleteBtn"'
             +     ' data-id="' + l.id + '" data-row="' + row + '"'
             +     ' data-name="' + l.employee_name + '">'
@@ -602,31 +613,23 @@ $(document).ready(function () {
         $('#vLetterType').html(badgeHtml(d.letterType));
         $('#vOfferedPosition').text(d.offeredPosition || '—');
         $('#vOfferedDept').text(d.offeredDepartment || '—');
-        $('#vOfferedSalary').text(d.offeredSalary ? fmt(d.offeredSalary) : '—');
+        $('#vOfferedSalary').text(fmt(d.offeredSalary));
         $('#vIssueDate').text(d.issueDate);
         $('#vStartDate').text(d.startDate || '—');
         $('#vGeneratedBy').text(d.generatedBy || '—');
         $('#vDownloadBtn').attr('href', downloadBaseUrl + '?id=' + d.id);
-        if (d.notes) { $('#vNotes').text(d.notes); $('#vNotesRow').show(); }
-        else          { $('#vNotesRow').hide(); }
-        $('#viewModal').modal('show');
-    });
 
-    // ── EDIT — populate ───────────────────────────────────────────────────
-    $('#tbody').on('click', '.editBtn', function(e) {
-        e.preventDefault();
-        var d = $(this).data();
-        $('#editId').val(d.id);
-        $('#editRow').val(d.row);
-        $('#editTitle').text(d.employeeName);
-        $('#editLetterType').val(d.letterType);
-        $('#editIssueDate').val(d.issueDate);
-        $('#editStartDate').val(d.startDate);
-        $('#editOfferedPosition').val(d.offeredPosition);
-        $('#editOfferedDept').val(d.offeredDepartment);
-        $('#editOfferedSalary').val(d.offeredSalary);
-        $('#editNotes').val(d.notes);
-        $('#editDataModal').modal('show');
+        if (d.customMessage) {
+            $('#vCustomMsg').text(d.customMessage);
+            $('#vCustomMsgRow').show();
+        } else { $('#vCustomMsgRow').hide(); }
+
+        if (d.notes) {
+            $('#vNotes').text(d.notes);
+            $('#vNotesRow').show();
+        } else { $('#vNotesRow').hide(); }
+
+        $('#viewModal').modal('show');
     });
 
     // ── DELETE — open ─────────────────────────────────────────────────────
@@ -642,7 +645,14 @@ $(document).ready(function () {
     // ── ADD — submit ──────────────────────────────────────────────────────
     $('#submitDataBtn').click(function(e) {
         e.preventDefault();
-        if (!$('#newLetterType').val()) { toastr.warning('Please select a letter type.', 'Required'); return; }
+        if (!$('#newLetterType').val()) {
+            toastr.warning('Please select a letter type.', 'Required');
+            return;
+        }
+        if (!$('#newOfferedSalary').val() || parseFloat($('#newOfferedSalary').val()) <= 0) {
+            toastr.warning('Offered Salary is required and must be greater than zero.', 'Required');
+            return;
+        }
         var self = $(this); self.prop('disabled', true);
         $.ajax({
             type: 'POST',
@@ -657,46 +667,20 @@ $(document).ready(function () {
                     var row = 'row' + data.letter.id;
                     table.row.add($(buildRow(data.letter, row))).draw(false);
                     $('#newDataModal').modal('hide');
+                    $('#newDataForm')[0].reset();
+                    $('.letter-type-card').removeClass('selected');
+                    $('#newSalaryRefBox').hide();
+                    $('#newSalaryNote').hide();
                 } else if (data.status === 422) {
-                    var msg = ''; $.each(data.errors, function(k, v) { msg += v + '\n'; });
+                    var msg = '';
+                    $.each(data.errors, function(k, v) { msg += v + '<br>'; });
                     toastr.error(msg, 'Validation');
                 } else { toastr.error(data.error || 'Failed.', 'Error'); }
             },
             error: function(xhr) {
                 if (xhr.status === 422) {
-                    var msg = ''; $.each(xhr.responseJSON.errors, function(k, v) { msg += v + '\n'; });
-                    toastr.error(msg, 'Validation');
-                } else { toastr.error('Server error.', 'Error'); }
-            }
-        });
-    });
-
-    // ── EDIT — submit ─────────────────────────────────────────────────────
-    $('#submitUpdateDataBtn').click(function(e) {
-        e.preventDefault();
-        var self = $(this); self.prop('disabled', true);
-        var row  = $('#editRow').val();
-        $.ajax({
-            type: 'POST',
-            url:  '{{ route("tenant.admin.hr.offer.letters.update", ["tenantName" => request()->route("tenantName")]) }}',
-            data: $('#editDataForm').serialize(),
-            timeout: 60000,
-            beforeSend: function() { $('#progressBar').show(); },
-            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
-            success: function(data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
-                    table.row('#' + row).remove();
-                    table.row.add($(buildRow(data.letter, row))).draw(false);
-                    $('#editDataModal').modal('hide');
-                } else if (data.status === 422) {
-                    var msg = ''; $.each(data.errors, function(k, v) { msg += v + '\n'; });
-                    toastr.error(msg, 'Validation');
-                } else { toastr.error(data.error || 'Failed.', 'Error'); }
-            },
-            error: function(xhr) {
-                if (xhr.status === 422) {
-                    var msg = ''; $.each(xhr.responseJSON.errors, function(k, v) { msg += v + '\n'; });
+                    var msg = '';
+                    $.each(xhr.responseJSON.errors, function(k, v) { msg += v + '<br>'; });
                     toastr.error(msg, 'Validation');
                 } else { toastr.error('Server error.', 'Error'); }
             }

@@ -167,6 +167,7 @@ class CreateHrPayrollTables extends Migration
             $table->string('file_path')->nullable();
             $table->string('generated_by')->nullable();
             $table->text('notes')->nullable();
+            $table->string('custom_message')->nullable();
             $table->timestamps();
         });
     }

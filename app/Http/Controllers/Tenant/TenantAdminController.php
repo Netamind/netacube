@@ -27,14 +27,29 @@ class TenantAdminController extends Controller
         return view('tenants.admin.dashboard');
     }
 
+
+    public function showEmployeesView()
+{
+    return view('tenants.admin.employees');
+}
+
+public function showEmployeeDetailsView(Request $request)
+{
+    $user = DB::connection('tenant')->table('users')->where('id', $request->id)->first();
+
+    if (!$user) {
+        abort(404, 'Employee not found.');
+    }
+
+    $branches = DB::connection('tenant')->table('branches')->get();
+    $roles    = DB::connection('tenant')->table('roles')->get();
+
+    return view('tenants.admin.employee-details', compact('user', 'branches', 'roles'));
+}
+
     public function showProfileView()
     {
         return view('tenants.admin.profile');
-    }
-
-    public function showEmployeesView()
-    {
-        return view('tenants.admin.employees');
     }
 
 
@@ -664,258 +679,226 @@ public function downloadFile(Request $request)
     }
 
 
-    /*
-    |--------------------------------------------------------------------------
-    | EMPLOYEE CRUD
-    |--------------------------------------------------------------------------
-    */
-
-    /**
-     * Helper — builds the full employee payload returned to the frontend.
-     * Keeps insertEmployee / updateEmployee / updateEmployeeDetails DRY.
-     */
-    private function formatEmployee($data): array
-    {
-        return [
-            'id'                           => $data->id,
-            'name'                         => $data->name,
-            'phone'                        => $data->phone,
-            'email'                        => $data->email,
-            'role'                         => $data->role,
-            'branch'                       => DB::connection('tenant')->table('branches')->where('id', $data->branch)->value('name'),
-            'department'                   => $data->department,
-            'position'                     => $data->position,
-            'gross_salary'                 => $data->gross_salary,
-            'dob'                          => $data->dob,
-            'started_on'                   => $data->started_on,
-            'idtype'                       => $data->idtype,
-            'idnumber'                     => $data->idnumber,
-            'home_address'                 => $data->home_address,
-            'current_residence'            => $data->current_residence,
-            'nextofkin_name'               => $data->nextofkin_name,
-            'nextofkin_relationship'       => $data->nextofkin_relationship,
-            'nextofkin_physical_address'   => $data->nextofkin_physical_address,
-            'nextofkin_contact'            => $data->nextofkin_contact,
-            // new fields
-            'employment_type'              => $data->employment_type,
-            'contract_end_date'            => $data->contract_end_date,
-            'bank_name'                    => $data->bank_name,
-            'bank_account_name'            => $data->bank_account_name,
-            'bank_account_number'          => $data->bank_account_number,
-            'bank_branch'                  => $data->bank_branch,
-            'bank_account_type'            => $data->bank_account_type,
-        ];
+ 
+private function formatEmployee($data): array
+{
+    return [
+        'id'                           => $data->id,
+        'name'                         => $data->name,
+        'phone'                        => $data->phone,
+        'email'                        => $data->email,
+        'role'                         => $data->role,
+        'branch'                       => DB::connection('tenant')->table('branches')->where('id', $data->branch)->value('name'),
+        'department'                   => $data->department,
+        'position'                     => $data->position,
+        'gross_salary'                 => $data->gross_salary,
+        'dob'                          => $data->dob,
+        'started_on'                   => $data->started_on,
+        'idtype'                       => $data->idtype,
+        'idnumber'                     => $data->idnumber,
+        'home_address'                 => $data->home_address,
+        'current_residence'            => $data->current_residence,
+        'nextofkin_name'               => $data->nextofkin_name,
+        'nextofkin_relationship'       => $data->nextofkin_relationship,
+        'nextofkin_physical_address'   => $data->nextofkin_physical_address,
+        'nextofkin_contact'            => $data->nextofkin_contact,
+        'employment_type'              => $data->employment_type,
+        'contract_end_date'            => $data->contract_end_date,
+        'bank_name'                    => $data->bank_name,
+        'bank_account_name'            => $data->bank_account_name,
+        'bank_account_number'          => $data->bank_account_number,
+        'bank_branch'                  => $data->bank_branch,
+        'bank_account_type'            => $data->bank_account_type,
+        'on_paye'                      => (bool) ($data->on_paye ?? false),
+    ];
+}
+ 
+private function employeeRules(?int $id = null): array
+{
+    $uniquePhone = 'required|string|unique:tenant.users,phone';
+    $uniqueEmail = 'required|email|unique:tenant.users,email';
+ 
+    if ($id) {
+        $uniquePhone .= ',' . $id;
+        $uniqueEmail .= ',' . $id;
     }
-
-    /**
-     * Shared validation rules for employee insert / update.
-     * Pass the employee $id when updating so unique rules ignore the current record.
-     */
-    private function employeeRules(?int $id = null): array
-    {
-        $uniquePhone = 'required|string|unique:tenant.users,phone';
-        $uniqueEmail = 'required|email|unique:tenant.users,email';
-
-        if ($id) {
-            $uniquePhone .= ',' . $id;
-            $uniqueEmail .= ',' . $id;
-        }
-
-        return [
-            'name'                         => 'required|string|max:255',
-            'phone'                        => $uniquePhone,
-            'email'                        => $uniqueEmail,
-            'role'                         => 'nullable|string',
-            'branch'                       => 'nullable|string',
-            'department'                   => 'nullable|string',
-            'position'                     => 'nullable|string',
-            'gross_salary'                 => 'nullable|integer',
-            'dob'                          => 'nullable|date',
-            'started_on'                   => 'nullable|date',
-            'idtype'                       => 'nullable|string',
-            'idnumber'                     => 'nullable|string',
-            'home_address'                 => 'nullable|string',
-            'current_residence'            => 'nullable|string',
-            'nextofkin_name'               => 'nullable|string',
-            'nextofkin_relationship'       => 'nullable|string',
-            'nextofkin_physical_address'   => 'nullable|string',
-            'nextofkin_contact'            => 'nullable|string',
-            // new fields
-            'employment_type'              => 'nullable|in:Full-time,Part-time,Contract,Casual',
-            'contract_end_date'            => 'nullable|date|after_or_equal:started_on',
-            'bank_name'                    => 'nullable|string|max:255',
-            'bank_account_name'            => 'nullable|string|max:255',
-            'bank_account_number'          => 'nullable|string|max:100',
-            'bank_branch'                  => 'nullable|string|max:255',
-            'bank_account_type'            => 'nullable|in:Savings,Current,Cheque',
-        ];
-    }
-
-    /**
-     * Builds the DB data array from the request for insert / update.
-     * Does NOT include system-only fields (password, active, entered_on).
-     */
-    private function employeeDataFromRequest(Request $request): array
-    {
-        return [
-            'name'                         => $request->name,
-            'phone'                        => $request->phone,
-            'email'                        => $request->email,
-            'role'                         => $request->role,
-            'branch'                       => $request->branch,
-            'department'                   => $request->department,
-            'position'                     => $request->position,
-            'gross_salary'                 => $request->gross_salary,
-            'dob'                          => $request->dob,
-            'started_on'                   => $request->started_on,
-            'idtype'                       => $request->idtype,
-            'idnumber'                     => $request->idnumber,
-            'home_address'                 => $request->home_address,
-            'current_residence'            => $request->current_residence,
-            'nextofkin_name'               => $request->nextofkin_name,
-            'nextofkin_relationship'       => $request->nextofkin_relationship,
-            'nextofkin_physical_address'   => $request->nextofkin_physical_address,
-            'nextofkin_contact'            => $request->nextofkin_contact,
-            // new fields
-            'employment_type'              => $request->employment_type ?? 'Full-time',
-            'contract_end_date'            => $request->contract_end_date,
-            'bank_name'                    => $request->bank_name,
-            'bank_account_name'            => $request->bank_account_name,
-            'bank_account_number'          => $request->bank_account_number,
-            'bank_branch'                  => $request->bank_branch,
-            'bank_account_type'            => $request->bank_account_type ?? 'Savings',
-        ];
-    }
-
-    public function insertEmployee(Request $request)
-    {
-        $validator = Validator::make($request->all(), $this->employeeRules());
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 422,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $data = $this->employeeDataFromRequest($request);
-
-        // system fields only on insert
-        $data['password']   = Hash::make('default123');
-        $data['active']     = 'Yes';
-        $data['entered_on'] = now();
-
-        $id = DB::connection('tenant')->table('users')->insertGetId($data);
-
-        $employee = DB::connection('tenant')->table('users')->where('id', $id)->first();
-
+ 
+    return [
+        'name'                         => 'required|string|max:255',
+        'phone'                        => $uniquePhone,
+        'email'                        => $uniqueEmail,
+        'role'                         => 'nullable|string',
+        'branch'                       => 'nullable|string',
+        'department'                   => 'nullable|string',
+        'position'                     => 'nullable|string',
+        'gross_salary'                 => 'nullable|integer',
+        'dob'                          => 'nullable|date',
+        'started_on'                   => 'nullable|date',
+        'idtype'                       => 'nullable|string',
+        'idnumber'                     => 'nullable|string',
+        'home_address'                 => 'nullable|string',
+        'current_residence'            => 'nullable|string',
+        'nextofkin_name'               => 'nullable|string',
+        'nextofkin_relationship'       => 'nullable|string',
+        'nextofkin_physical_address'   => 'nullable|string',
+        'nextofkin_contact'            => 'nullable|string',
+        'employment_type'              => 'nullable|in:Full-time,Part-time,Contract,Casual',
+        'contract_end_date'            => 'nullable|date|after_or_equal:started_on',
+        'bank_name'                    => 'nullable|string|max:255',
+        'bank_account_name'            => 'nullable|string|max:255',
+        'bank_account_number'          => 'nullable|string|max:100',
+        'bank_branch'                  => 'nullable|string|max:255',
+        'bank_account_type'            => 'nullable|in:Savings,Current,Cheque',
+        'on_paye'                      => 'nullable|boolean',
+    ];
+}
+ 
+private function employeeDataFromRequest(Request $request): array
+{
+    return [
+        'name'                         => $request->name,
+        'phone'                        => $request->phone,
+        'email'                        => $request->email,
+        'role'                         => $request->role,
+        'branch'                       => $request->branch,
+        'department'                   => $request->department,
+        'position'                     => $request->position,
+        'gross_salary'                 => $request->gross_salary,
+        'dob'                          => $request->dob,
+        'started_on'                   => $request->started_on,
+        'idtype'                       => $request->idtype,
+        'idnumber'                     => $request->idnumber,
+        'home_address'                 => $request->home_address,
+        'current_residence'            => $request->current_residence,
+        'nextofkin_name'               => $request->nextofkin_name,
+        'nextofkin_relationship'       => $request->nextofkin_relationship,
+        'nextofkin_physical_address'   => $request->nextofkin_physical_address,
+        'nextofkin_contact'            => $request->nextofkin_contact,
+        'employment_type'              => $request->employment_type ?? 'Full-time',
+        'contract_end_date'            => $request->contract_end_date,
+        'bank_name'                    => $request->bank_name,
+        'bank_account_name'            => $request->bank_account_name,
+        'bank_account_number'          => $request->bank_account_number,
+        'bank_branch'                  => $request->bank_branch,
+        'bank_account_type'            => $request->bank_account_type ?? 'Savings',
+        'on_paye'                      => $request->boolean('on_paye', false),
+    ];
+}
+ 
+public function insertEmployee(Request $request)
+{
+    $validator = Validator::make($request->all(), $this->employeeRules());
+ 
+    if ($validator->fails()) {
         return response()->json([
-            'status'   => 201,
-            'success'  => 'Employee added successfully!',
-            'employee' => $this->formatEmployee($employee),
-        ], 201);
+            'status' => 422,
+            'errors' => $validator->errors()
+        ], 422);
     }
-
-    public function updateEmployee(Request $request)
-    {
-        $validator = Validator::make($request->all(), $this->employeeRules((int) $request->id));
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 422,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::connection('tenant')->table('users')
-            ->where('id', $request->id)
-            ->update($this->employeeDataFromRequest($request));
-
-        $employee = DB::connection('tenant')->table('users')->where('id', $request->id)->first();
-
+ 
+    $data = $this->employeeDataFromRequest($request);
+ 
+    // system fields only on insert
+    $data['password']   = Hash::make('default123');
+    $data['active']     = 'Yes';
+    $data['entered_on'] = now();
+ 
+    $id = DB::connection('tenant')->table('users')->insertGetId($data);
+ 
+    $employee = DB::connection('tenant')->table('users')->where('id', $id)->first();
+ 
+    return response()->json([
+        'status'   => 201,
+        'success'  => 'Employee added successfully!',
+        'employee' => $this->formatEmployee($employee),
+    ], 201);
+}
+ 
+public function updateEmployee(Request $request)
+{
+    $validator = Validator::make($request->all(), $this->employeeRules((int) $request->id));
+ 
+    if ($validator->fails()) {
         return response()->json([
-            'status'   => 201,
-            'success'  => 'Employee updated successfully!',
-            'employee' => $this->formatEmployee($employee),
-        ], 201);
+            'status' => 422,
+            'errors' => $validator->errors()
+        ], 422);
     }
-
-    
-    public function showEmployeeDetailsView(Request $request)
-    {
-        $id = $request->query('id');
-
-        if (!$id) {
-            return redirect()
-                ->route('tenant.admin.employees')
-                ->with('error', 'Employee ID is required');
-        }
-
-        $user = DB::connection('tenant')
-            ->table('users')
-            ->where('id', $id)
-            ->first();
-
-        if (!$user) {
-            return redirect()
-                ->route('tenant.admin.employees')
-                ->with('error', 'Employee not found');
-        }
-
-        $branches = DB::connection('tenant')->table('branches')->get();
-        $roles    = DB::connection('tenant')->table('roles')->get();
-
-        return view('tenants.admin.employee-details', compact('user', 'branches', 'roles'));
+ 
+    DB::connection('tenant')->table('users')
+        ->where('id', $request->id)
+        ->update($this->employeeDataFromRequest($request));
+ 
+    $employee = DB::connection('tenant')->table('users')->where('id', $request->id)->first();
+ 
+    return response()->json([
+        'status'   => 201,
+        'success'  => 'Employee updated successfully!',
+        'employee' => $this->formatEmployee($employee),
+    ], 201);
+}
+ 
+public function updateEmployeeDetails(Request $request)
+{
+    $validator = Validator::make($request->all(), $this->employeeRules((int) $request->id));
+ 
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => 422,
+            'errors' => $validator->errors()
+        ], 422);
     }
-
-    public function updateEmployeeDetails(Request $request)
-    {
-        $validator = Validator::make($request->all(), $this->employeeRules((int) $request->id));
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 422,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        $updateData = DB::connection('tenant')->table('users')
-            ->where('id', $request->id)
-            ->update($this->employeeDataFromRequest($request));
-
-        if ($updateData) {
-            return response()->json([
-                'status'  => 201,
-                'success' => 'Employee updated successfully!',
-            ], 201);
-        } else {
-            return response()->json([
-                'status' => 203,
-                'error'  => 'Record not found or no data change detected',
-            ], 203);
-        }
-    }
-
-    public function deleteEmployee(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id' => 'required|exists:tenant.users,id'
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json([
-                'status' => 422,
-                'errors' => $validator->errors()
-            ], 422);
-        }
-
-        DB::connection('tenant')->table('users')->where('id', $request->id)->delete();
-
+ 
+    $updateData = DB::connection('tenant')->table('users')
+        ->where('id', $request->id)
+        ->update($this->employeeDataFromRequest($request));
+ 
+    if ($updateData) {
         return response()->json([
             'status'  => 201,
-            'success' => 'Employee deleted successfully!'
+            'success' => 'Employee updated successfully!',
         ], 201);
+    } else {
+        return response()->json([
+            'status' => 203,
+            'error'  => 'Record not found or no data change detected',
+        ], 203);
     }
+}
+ 
+public function deleteEmployee(Request $request)
+{
+    $validator = Validator::make($request->all(), [
+        'id' => 'required|exists:tenant.users,id'
+    ]);
+ 
+    if ($validator->fails()) {
+        return response()->json([
+            'status' => 422,
+            'errors' => $validator->errors()
+        ], 422);
+    }
+ 
+    DB::connection('tenant')->table('users')->where('id', $request->id)->delete();
+ 
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Employee deleted successfully!'
+    ], 201);
+}
+ 
+
+
+
+
+
+
+
+
+
+
+
+
 
     public function insertPaymentMethod(Request $request)
     {
@@ -1958,105 +1941,93 @@ public function updatePayrollPeriod(Request $request)
     ], 201);
 }
 
-// ── GENERATE wage bill entries ────────────────────────────────────────────
+
+// ============================================================
+//  GENERATE PAYROLL ENTRIES
+// ============================================================
+ 
 public function generatePayrollEntries(Request $request)
 {
     $request->validate([
         'id' => 'required|integer|exists:tenant.payroll_periods,id',
     ]);
-
+ 
     $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
-
+ 
     if (!$period || $period->status !== 'draft') {
         return response()->json(['error' => 'Only draft periods can be generated.', 'status' => 409], 409);
     }
-
+ 
     // Get all active employees
     $employees = DB::connection('tenant')->table('users')
         ->where('active', 'Yes')
         ->get();
-
+ 
     $generated = 0;
     $skipped   = 0;
-
+ 
     foreach ($employees as $emp) {
-
+ 
         // Skip if entry already exists for this period
         $exists = DB::connection('tenant')->table('payroll_entries')
             ->where('payroll_period_id', $period->id)
             ->where('employee_id', $emp->id)
             ->exists();
-
+ 
         if ($exists) { $skipped++; continue; }
-
+ 
         // ── Earnings ──────────────────────────────────────────────────────
         $basicSalary = $emp->gross_salary ?? 0;
         $grossPay    = $basicSalary; // allowances default 0; admin can edit in wage bill
-
+ 
         // ── Pension ───────────────────────────────────────────────────────
         $pension = DB::connection('tenant')->table('employee_pension')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->first();
-
+ 
         $onPension       = (bool) $pension;
         $pensionEmployee = 0;
         $pensionEmployer = 0;
-
+ 
         if ($pension) {
             $pensionEmployee = round($basicSalary * ($pension->employee_rate / 100), 2);
             $pensionEmployer = round($basicSalary * ($pension->employer_rate / 100), 2);
         }
-
-        // ── PAYE (simple bracket — adjust to your country's tax table) ────
-        // Malawi PAYE brackets (monthly):
-        //   0       – 100,000  →  0%
-        //   100,001 – 300,000  →  25%
-        //   300,001 – 700,000  →  30%
-        //   700,001+           →  35%
+ 
         $taxableIncome = $grossPay - $pensionEmployee;
-        $paye = 0;
-        if ($taxableIncome > 700000) {
-            $paye  = ($taxableIncome - 700000) * 0.35;
-            $paye += (700000 - 300000) * 0.30;
-            $paye += (300000 - 100000) * 0.25;
-        } elseif ($taxableIncome > 300000) {
-            $paye  = ($taxableIncome - 300000) * 0.30;
-            $paye += (300000 - 100000) * 0.25;
-        } elseif ($taxableIncome > 100000) {
-            $paye  = ($taxableIncome - 100000) * 0.25;
-        }
-        $paye = round($paye, 2);
-
+        $paye = (bool) ($emp->on_paye ?? false)
+            ? $this->calculatePAYE($taxableIncome)
+            : 0.00;
+ 
         // ── Active loan deduction ─────────────────────────────────────────
         $loan = DB::connection('tenant')->table('employee_loans')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->orderBy('id', 'asc')
             ->first();
-
+ 
         $loanDeduction = 0;
         if ($loan) {
-            // Deduct the lesser of monthly_deduction or balance_remaining
             $loanDeduction = min($loan->monthly_deduction, $loan->balance_remaining);
         }
-
+ 
         // ── Active advance deduction ──────────────────────────────────────
         $advance = DB::connection('tenant')->table('employee_advances')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->orderBy('id', 'asc')
             ->first();
-
+ 
         $advanceDeduction = 0;
         if ($advance) {
             $advanceDeduction = min($advance->monthly_deduction, $advance->balance_remaining);
         }
-
+ 
         // ── Totals ────────────────────────────────────────────────────────
         $totalDeductions = $pensionEmployee + $paye + $loanDeduction + $advanceDeduction;
         $netPay          = $grossPay - $totalDeductions;
-
+ 
         DB::connection('tenant')->table('payroll_entries')->insert([
             'payroll_period_id'  => $period->id,
             'employee_id'        => $emp->id,
@@ -2074,15 +2045,15 @@ public function generatePayrollEntries(Request $request)
             'created_at'         => now(),
             'updated_at'         => now(),
         ]);
-
+ 
         $generated++;
     }
-
+ 
     // Move period to 'processing'
     DB::connection('tenant')->table('payroll_periods')
         ->where('id', $period->id)
         ->update(['status' => 'processing', 'updated_at' => now()]);
-
+ 
     // Re-fetch with counts
     $updated = DB::connection('tenant')
         ->table('payroll_periods')
@@ -2096,7 +2067,7 @@ public function generatePayrollEntries(Request $request)
         ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
         ->where('payroll_periods.id', $period->id)
         ->first();
-
+ 
     return response()->json([
         'status'  => 201,
         'success' => "Wage bill generated for {$generated} employee(s). {$skipped} skipped (already existed).",
@@ -2104,6 +2075,170 @@ public function generatePayrollEntries(Request $request)
         'summary' => $this->payrollSummary(),
     ], 201);
 }
+ 
+ 
+// ============================================================
+//  UPDATE PAYROLL ENTRY  (wage bill edit)
+// ============================================================
+ 
+public function updatePayrollEntry(Request $request)
+{
+    $request->validate([
+        'id'                  => 'required|integer|exists:tenant.payroll_entries,id',
+        'basic_salary'        => 'required|numeric|min:0',
+        'housing_allowance'   => 'nullable|numeric|min:0',
+        'transport_allowance' => 'nullable|numeric|min:0',
+        'other_allowances'    => 'nullable|numeric|min:0',
+        'overtime_amount'     => 'nullable|numeric|min:0',
+        'paye'                => 'nullable|numeric|min:0',
+        'pension_employee'    => 'nullable|numeric|min:0',
+        'pension_employer'    => 'nullable|numeric|min:0',
+        'loan_deduction'      => 'nullable|numeric|min:0',
+        'advance_deduction'   => 'nullable|numeric|min:0',
+        'other_deductions'    => 'nullable|numeric|min:0',
+        'notes'               => 'nullable|string|max:2000',
+    ]);
+ 
+    // Confirm the entry exists
+    $entry = DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->first();
+ 
+    if (!$entry) {
+        return response()->json(['error' => 'Entry not found.', 'status' => 404], 404);
+    }
+ 
+    // Confirm the period is still editable
+    $period = DB::connection('tenant')->table('payroll_periods')
+        ->where('id', $entry->payroll_period_id)
+        ->first();
+ 
+    if (!$period || !in_array($period->status, ['draft', 'processing'])) {
+        return response()->json([
+            'error'  => 'Entries can only be edited while the period is Draft or Processing.',
+            'status' => 409,
+        ], 409);
+    }
+ 
+    // ── Pull the employee to re-check on_paye flag ────────────────────────
+    // The admin is allowed to override the paye field manually in the wage
+    // bill (e.g. to handle a mid-month joiner or a correction). We accept
+    // whatever value they submit but we surface a note if they supply PAYE
+    // for a non-PAYE employee so they are aware.
+    $employee = DB::connection('tenant')->table('users')->where('id', $entry->employee_id)->first();
+    $onPaye   = (bool) ($employee->on_paye ?? false);
+ 
+    // ── Recompute totals server-side ──────────────────────────────────────
+    $basic      = (float) ($request->basic_salary        ?? 0);
+    $housing    = (float) ($request->housing_allowance   ?? 0);
+    $transport  = (float) ($request->transport_allowance ?? 0);
+    $otherAllow = (float) ($request->other_allowances    ?? 0);
+    $overtime   = (float) ($request->overtime_amount     ?? 0);
+ 
+    $grossPay = $basic + $housing + $transport + $otherAllow + $overtime;
+ 
+    // If the employee is not on PAYE, force paye = 0 regardless of what
+    // was submitted, protecting against accidental deductions.
+    $paye       = $onPaye ? (float) ($request->paye ?? 0) : 0.00;
+    $pensionEe  = (float) ($request->pension_employee ?? 0);
+    $pensionEr  = (float) ($request->pension_employer ?? 0);
+    $loanDed    = (float) ($request->loan_deduction   ?? 0);
+    $advanceDed = (float) ($request->advance_deduction ?? 0);
+    $otherDed   = (float) ($request->other_deductions  ?? 0);
+ 
+    $totalDeductions = $paye + $pensionEe + $loanDed + $advanceDed + $otherDed;
+    $netPay          = max(0, $grossPay - $totalDeductions);
+ 
+    DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->update([
+        'basic_salary'        => $basic,
+        'housing_allowance'   => $housing,
+        'transport_allowance' => $transport,
+        'other_allowances'    => $otherAllow,
+        'overtime_amount'     => $overtime,
+        'gross_pay'           => $grossPay,
+        'paye'                => $paye,
+        'pension_employee'    => $pensionEe,
+        'pension_employer'    => $pensionEr,
+        'loan_deduction'      => $loanDed,
+        'advance_deduction'   => $advanceDed,
+        'other_deductions'    => $otherDed,
+        'total_deductions'    => $totalDeductions,
+        'net_pay'             => $netPay,
+        'notes'               => $request->notes,
+        'updated_at'          => now(),
+    ]);
+ 
+    // Re-fetch with employee name joined
+    $updated = DB::connection('tenant')
+        ->table('payroll_entries')
+        ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
+        ->where('payroll_entries.id', $request->id)
+        ->select(
+            'payroll_entries.*',
+            'users.name    as employee_name',
+            'users.phone   as employee_number',
+            'users.on_paye as on_paye'
+        )
+        ->first();
+ 
+    $response = [
+        'status'  => 201,
+        'success' => 'Entry updated successfully.',
+        'entry'   => $this->formatPayrollEntry($updated),
+        'totals'  => $this->wageBillTotals($entry->payroll_period_id),
+    ];
+ 
+    // Warn if PAYE was submitted for a non-PAYE employee and we zeroed it
+    if (!$onPaye && (float) ($request->paye ?? 0) > 0) {
+        $response['warning'] = 'PAYE was set to 0 because this employee is not marked as On PAYE.';
+    }
+ 
+    return response()->json($response, 201);
+}
+ 
+ 
+// ============================================================
+//  CALCULATE PAYE  (reads live from paye_brackets table)
+// ============================================================
+ 
+private function calculatePAYE(float $taxableIncome): float
+{
+    if ($taxableIncome <= 0) return 0.00;
+ 
+    $brackets = DB::connection('tenant')
+        ->table('paye_brackets')
+        ->whereNull('effective_to')       // active brackets only
+        ->orderBy('income_from', 'asc')
+        ->get();
+ 
+    if ($brackets->isEmpty()) return 0.00;
+ 
+    $paye      = 0.0;
+    $remaining = $taxableIncome;
+ 
+    foreach ($brackets as $bracket) {
+        if ($remaining <= 0) break;
+ 
+        // Tax-free band — consume the width, add nothing
+        if ($bracket->rate == 0) {
+            $bandWidth  = $bracket->income_to !== null
+                            ? ($bracket->income_to - $bracket->income_from)
+                            : $remaining;
+            $remaining -= min($remaining, $bandWidth);
+            continue;
+        }
+ 
+        // Top band has no ceiling — tax everything left
+        $bandWidth = $bracket->income_to !== null
+                        ? ($bracket->income_to - $bracket->income_from)
+                        : $remaining;
+ 
+        $taxable    = min($remaining, $bandWidth);
+        $paye      += $taxable * ($bracket->rate / 100);
+        $remaining -= $taxable;
+    }
+ 
+    return round($paye, 2);
+}
+ 
 
 // ── APPROVE ───────────────────────────────────────────────────────────────
 public function approvePayrollPeriod(Request $request)
@@ -2359,101 +2494,6 @@ public function showWageBillView(Request $request)
 }
 
 
-
-    // ── UPDATE ENTRY ──────────────────────────────────────────────────────────
-    public function updatePayrollEntry(Request $request)
-    {
-        $request->validate([
-            'id'                  => 'required|integer|exists:tenant.payroll_entries,id',
-            'basic_salary'        => 'required|numeric|min:0',
-            'housing_allowance'   => 'nullable|numeric|min:0',
-            'transport_allowance' => 'nullable|numeric|min:0',
-            'other_allowances'    => 'nullable|numeric|min:0',
-            'overtime_amount'     => 'nullable|numeric|min:0',
-            'paye'                => 'nullable|numeric|min:0',
-            'pension_employee'    => 'nullable|numeric|min:0',
-            'pension_employer'    => 'nullable|numeric|min:0',
-            'loan_deduction'      => 'nullable|numeric|min:0',
-            'advance_deduction'   => 'nullable|numeric|min:0',
-            'other_deductions'    => 'nullable|numeric|min:0',
-            'notes'               => 'nullable|string|max:2000',
-        ]);
-
-        // Confirm the period is still editable
-        $entry = DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->first();
-
-        if (!$entry) {
-            return response()->json(['error' => 'Entry not found.', 'status' => 404], 404);
-        }
-
-        $period = DB::connection('tenant')->table('payroll_periods')
-            ->where('id', $entry->payroll_period_id)
-            ->first();
-
-        if (!$period || !in_array($period->status, ['draft', 'processing'])) {
-            return response()->json([
-                'error'  => 'Entries can only be edited while the period is Draft or Processing.',
-                'status' => 409,
-            ], 409);
-        }
-
-        // ── Recompute totals server-side ──────────────────────────────────────
-        $basic     = (float) ($request->basic_salary        ?? 0);
-        $housing   = (float) ($request->housing_allowance   ?? 0);
-        $transport = (float) ($request->transport_allowance ?? 0);
-        $otherAllow= (float) ($request->other_allowances    ?? 0);
-        $overtime  = (float) ($request->overtime_amount     ?? 0);
-
-        $grossPay  = $basic + $housing + $transport + $otherAllow + $overtime;
-
-        $paye          = (float) ($request->paye             ?? 0);
-        $pensionEe     = (float) ($request->pension_employee ?? 0);
-        $pensionEr     = (float) ($request->pension_employer ?? 0);
-        $loanDed       = (float) ($request->loan_deduction   ?? 0);
-        $advanceDed    = (float) ($request->advance_deduction?? 0);
-        $otherDed      = (float) ($request->other_deductions ?? 0);
-
-        $totalDeductions = $paye + $pensionEe + $loanDed + $advanceDed + $otherDed;
-        $netPay          = max(0, $grossPay - $totalDeductions);
-
-        DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->update([
-            'basic_salary'        => $basic,
-            'housing_allowance'   => $housing,
-            'transport_allowance' => $transport,
-            'other_allowances'    => $otherAllow,
-            'overtime_amount'     => $overtime,
-            'gross_pay'           => $grossPay,
-            'paye'                => $paye,
-            'pension_employee'    => $pensionEe,
-            'pension_employer'    => $pensionEr,
-            'loan_deduction'      => $loanDed,
-            'advance_deduction'   => $advanceDed,
-            'other_deductions'    => $otherDed,
-            'total_deductions'    => $totalDeductions,
-            'net_pay'             => $netPay,
-            'notes'               => $request->notes,
-            'updated_at'          => now(),
-        ]);
-
-        // Re-fetch with employee name joined
-        $updated = DB::connection('tenant')
-            ->table('payroll_entries')
-            ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
-            ->where('payroll_entries.id', $request->id)
-            ->select(
-                'payroll_entries.*',
-                'users.name  as employee_name',
-                'users.phone as employee_number'
-            )
-            ->first();
-
-        return response()->json([
-            'status'  => 201,
-            'success' => 'Entry updated successfully.',
-            'entry'   => $this->formatPayrollEntry($updated),
-            'totals'  => $this->wageBillTotals($entry->payroll_period_id),
-        ], 201);
-    }
 
     // ── DOWNLOAD PAYSLIP ──────────────────────────────────────────────────────
     public function downloadPayslip(Request $request)
@@ -3259,41 +3299,49 @@ public function deleteAdvance(Request $request)
 
 /*
 |==========================================================================
-  OFFER LETTERS
+  OFFER LETTERS 
 |==========================================================================
 */
 
+// ── Helper — format a single offer letter row for the frontend ────────────
 private function formatOfferLetter($l): array
 {
+    // Pull fresh employee data for display fields that are not on the letter
     $employee = DB::connection('tenant')->table('users')->where('id', $l->employee_id)->first();
 
     return [
         'id'                 => $l->id,
         'employee_id'        => $l->employee_id,
-        'employee_name'      => $employee->name       ?? '',
-        'current_position'   => $employee->position   ?? '',
-        'department'         => $employee->department ?? '',
+        'employee_name'      => $employee->name         ?? '',
+        'current_position'   => $employee->position     ?? '',
+        'department'         => $employee->department   ?? '',
+        // current_salary is shown in the view as a reference hint only —
+        // it is NOT used on the PDF; the letter's own offered_salary is used.
+        'current_salary'     => $employee->gross_salary ?? 0,
         'letter_type'        => $l->letter_type,
         'issue_date'         => $l->issue_date,
         'issue_date_fmt'     => \Carbon\Carbon::parse($l->issue_date)->format('d M Y'),
         'start_date'         => $l->start_date,
         'start_date_fmt'     => $l->start_date
-                                 ? \Carbon\Carbon::parse($l->start_date)->format('d M Y')
-                                 : null,
+                                    ? \Carbon\Carbon::parse($l->start_date)->format('d M Y')
+                                    : null,
         'offered_position'   => $l->offered_position,
         'offered_department' => $l->offered_department,
-        'offered_salary'     => $l->offered_salary,
+        'offered_salary'     => $l->offered_salary,     // historical snapshot — never null
+        'custom_message'     => $l->custom_message,
         'file_path'          => $l->file_path,
         'generated_by'       => $l->generated_by,
         'notes'              => $l->notes,
     ];
 }
 
+// ── VIEW ──────────────────────────────────────────────────────────────────
 public function showOfferLettersView()
 {
     return view('tenants.admin.offer-letters');
 }
 
+// ── STORE ─────────────────────────────────────────────────────────────────
 public function storeOfferLetter(Request $request)
 {
     $request->validate([
@@ -3303,7 +3351,9 @@ public function storeOfferLetter(Request $request)
         'start_date'         => 'nullable|date',
         'offered_position'   => 'nullable|string|max:255',
         'offered_department' => 'nullable|string|max:255',
-        'offered_salary'     => 'nullable|numeric|min:0',
+        // Always required — frontend shows current salary as a reference hint
+        'offered_salary'     => 'required|numeric|min:0',
+        'custom_message'     => 'nullable|string|max:2000',
         'notes'              => 'nullable|string|max:2000',
     ]);
 
@@ -3315,11 +3365,24 @@ public function storeOfferLetter(Request $request)
         'offered_position'   => trim($request->offered_position),
         'offered_department' => trim($request->offered_department),
         'offered_salary'     => $request->offered_salary,
+        'custom_message'     => trim($request->custom_message),
         'generated_by'       => Auth::user()->name ?? 'System',
         'notes'              => $request->notes,
         'created_at'         => now(),
         'updated_at'         => now(),
     ]);
+
+    // Sync the employee's active salary for Offer and Promotion letters only.
+    // This makes users.gross_salary always reflect the latest formal letter
+    // while every old letter retains its own offered_salary snapshot.
+    if (in_array($request->letter_type, ['Offer', 'Promotion'])) {
+        DB::connection('tenant')
+            ->table('users')
+            ->where('id', $request->employee_id)
+            ->update([
+                'gross_salary' => $request->offered_salary,
+            ]);
+    }
 
     $letter = DB::connection('tenant')->table('offer_letters')->where('id', $id)->first();
 
@@ -3330,6 +3393,7 @@ public function storeOfferLetter(Request $request)
     ], 201);
 }
 
+// ── UPDATE ────────────────────────────────────────────────────────────────
 public function updateOfferLetter(Request $request)
 {
     $request->validate([
@@ -3339,7 +3403,8 @@ public function updateOfferLetter(Request $request)
         'start_date'         => 'nullable|date',
         'offered_position'   => 'nullable|string|max:255',
         'offered_department' => 'nullable|string|max:255',
-        'offered_salary'     => 'nullable|numeric|min:0',
+        'offered_salary'     => 'required|numeric|min:0',
+        'custom_message'     => 'nullable|string|max:2000',
         'notes'              => 'nullable|string|max:2000',
     ]);
 
@@ -3350,11 +3415,23 @@ public function updateOfferLetter(Request $request)
         'offered_position'   => trim($request->offered_position),
         'offered_department' => trim($request->offered_department),
         'offered_salary'     => $request->offered_salary,
+        'custom_message'     => trim($request->custom_message),
         'notes'              => $request->notes,
         'updated_at'         => now(),
     ]);
 
+    // Re-fetch the letter to get employee_id for the salary sync
     $letter = DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->first();
+
+    // Sync active salary for Offer and Promotion only
+    if (in_array($request->letter_type, ['Offer', 'Promotion'])) {
+        DB::connection('tenant')
+            ->table('users')
+            ->where('id', $letter->employee_id)
+            ->update([
+                'gross_salary' => $request->offered_salary,
+            ]);
+    }
 
     return response()->json([
         'status'  => 201,
@@ -3363,6 +3440,7 @@ public function updateOfferLetter(Request $request)
     ], 201);
 }
 
+// ── DELETE ────────────────────────────────────────────────────────────────
 public function deleteOfferLetter(Request $request)
 {
     $request->validate([
@@ -3370,11 +3448,6 @@ public function deleteOfferLetter(Request $request)
     ]);
 
     $letter = DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->first();
-
-    // Delete stored PDF if it exists
-    if ($letter && $letter->file_path && File::exists(public_path($letter->file_path))) {
-        File::delete(public_path($letter->file_path));
-    }
 
     DB::connection('tenant')->table('offer_letters')->where('id', $request->id)->delete();
 
@@ -3384,6 +3457,7 @@ public function deleteOfferLetter(Request $request)
     ], 201);
 }
 
+// ── DOWNLOAD PDF ──────────────────────────────────────────────────────────
 public function downloadOfferLetter(Request $request)
 {
     $request->validate([
@@ -3395,11 +3469,11 @@ public function downloadOfferLetter(Request $request)
         ->join('users', 'users.id', '=', 'offer_letters.employee_id')
         ->select(
             'offer_letters.*',
-            'users.name       as employee_name',
-            'users.position   as current_position',
-            'users.department as department',
-            'users.phone      as employee_phone',
-            'users.email      as employee_email'
+            'users.name         as employee_name',
+            'users.position     as current_position',
+            'users.department   as department',
+            'users.phone        as employee_phone',
+            'users.email        as employee_email'
         )
         ->where('offer_letters.id', $request->id)
         ->first();
@@ -3411,24 +3485,203 @@ public function downloadOfferLetter(Request $request)
     $company = DB::connection('tenant')->table('company_info')->where('id', 1)->first();
 
     $pdf = Pdf::loadView('tenants.admin.offer-letter-pdf', compact('letter', 'company'))
-              ->setPaper('a4', 'portrait');
+              ->setPaper('a4', 'portrait')
+              ->setOptions(['defaultFont' => 'DejaVu Sans']);
 
     $filename = $letter->letter_type . '_'
-              . str_replace(' ', '_', $letter->employee_name) . '_'
+              . str_replace(' ', '_', strtolower($letter->employee_name)) . '_'
               . $letter->issue_date . '.pdf';
 
     return $pdf->download($filename);
 }
 
+/*
+|--------------------------------------------------------------------------
+| VIEW
+|--------------------------------------------------------------------------
+*/
+public function showPayeBracketsView()
+{
+    return view('tenants.admin.paye-brackets');
+}
 
 
+/*
+|--------------------------------------------------------------------------
+| FORMAT HELPER
+|--------------------------------------------------------------------------
+*/
+private function formatBracket($b): array
+{
+    return [
+        'id'             => $b->id,
+        'income_from'    => $b->income_from,
+        'income_to'      => $b->income_to,
+        'rate'           => $b->rate,
+        'effective_from' => $b->effective_from,
+        'effective_to'   => $b->effective_to,
+        'description'    => $b->description,
+        'is_active'      => is_null($b->effective_to),
+        'income_from_fmt'=> number_format($b->income_from, 2),
+        'income_to_fmt'  => $b->income_to !== null ? number_format($b->income_to, 2) : 'No ceiling',
+        'rate_fmt'       => $b->rate . '%',
+    ];
+}
 
 
+/*
+|--------------------------------------------------------------------------
+| STORE
+|--------------------------------------------------------------------------
+*/
+public function storePayeBracket(Request $request)
+{
+    $request->validate([
+        'income_from'    => 'required|numeric|min:0',
+        'income_to'      => 'nullable|numeric|gt:income_from',
+        'rate'           => 'required|numeric|min:0|max:100',
+        'effective_from' => 'required|date',
+        'effective_to'   => 'nullable|date|after:effective_from',
+        'description'    => 'nullable|string|max:255',
+    ]);
+
+    // Only one bracket can be the open-ended top band (income_to = null) per active set
+    if (is_null($request->income_to)) {
+        $topExists = DB::connection('tenant')
+            ->table('paye_brackets')
+            ->whereNull('income_to')
+            ->whereNull('effective_to')
+            ->exists();
+
+        if ($topExists) {
+            return response()->json([
+                'status' => 422,
+                'errors' => ['An active top band (no ceiling) already exists. Retire it first before adding a new one.'],
+            ], 422);
+        }
+    }
+
+    $id = DB::connection('tenant')->table('paye_brackets')->insertGetId([
+        'income_from'    => $request->income_from,
+        'income_to'      => $request->income_to,
+        'rate'           => $request->rate,
+        'effective_from' => $request->effective_from,
+        'effective_to'   => $request->effective_to,
+        'description'    => trim($request->description),
+        'created_at'     => now(),
+        'updated_at'     => now(),
+    ]);
+
+    $bracket = DB::connection('tenant')->table('paye_brackets')->where('id', $id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'PAYE bracket added successfully.',
+        'bracket' => $this->formatBracket($bracket),
+    ], 201);
+}
 
 
+/*
+|--------------------------------------------------------------------------
+| UPDATE
+|--------------------------------------------------------------------------
+*/
+public function updatePayeBracket(Request $request)
+{
+    $request->validate([
+        'id'             => 'required|integer|exists:tenant.paye_brackets,id',
+        'income_from'    => 'required|numeric|min:0',
+        'income_to'      => 'nullable|numeric|gt:income_from',
+        'rate'           => 'required|numeric|min:0|max:100',
+        'effective_from' => 'required|date',
+        'effective_to'   => 'nullable|date|after:effective_from',
+        'description'    => 'nullable|string|max:255',
+    ]);
+
+    // Top-band uniqueness check (exclude self)
+    if (is_null($request->income_to)) {
+        $topExists = DB::connection('tenant')
+            ->table('paye_brackets')
+            ->whereNull('income_to')
+            ->whereNull('effective_to')
+            ->where('id', '!=', $request->id)
+            ->exists();
+
+        if ($topExists) {
+            return response()->json([
+                'status' => 422,
+                'errors' => ['An active top band (no ceiling) already exists.'],
+            ], 422);
+        }
+    }
+
+    DB::connection('tenant')->table('paye_brackets')->where('id', $request->id)->update([
+        'income_from'    => $request->income_from,
+        'income_to'      => $request->income_to,
+        'rate'           => $request->rate,
+        'effective_from' => $request->effective_from,
+        'effective_to'   => $request->effective_to,
+        'description'    => trim($request->description),
+        'updated_at'     => now(),
+    ]);
+
+    $bracket = DB::connection('tenant')->table('paye_brackets')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'PAYE bracket updated successfully.',
+        'bracket' => $this->formatBracket($bracket),
+    ], 201);
+}
 
 
+/*
+|--------------------------------------------------------------------------
+| RETIRE  (set effective_to without deleting — preserves audit trail)
+| Called when MRA issues new rates; you retire old brackets and add new ones.
+|--------------------------------------------------------------------------
+*/
+public function retirePayeBracket(Request $request)
+{
+    $request->validate([
+        'id'           => 'required|integer|exists:tenant.paye_brackets,id',
+        'effective_to' => 'required|date',
+    ]);
 
+    DB::connection('tenant')->table('paye_brackets')->where('id', $request->id)->update([
+        'effective_to' => $request->effective_to,
+        'updated_at'   => now(),
+    ]);
+
+    $bracket = DB::connection('tenant')->table('paye_brackets')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Bracket retired successfully.',
+        'bracket' => $this->formatBracket($bracket),
+    ], 201);
+}
+
+
+/*
+|--------------------------------------------------------------------------
+| DELETE  (only safe to delete brackets never used in any payroll run)
+|--------------------------------------------------------------------------
+*/
+public function deletePayeBracket(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.paye_brackets,id',
+    ]);
+
+    DB::connection('tenant')->table('paye_brackets')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'PAYE bracket deleted successfully.',
+    ], 201);
+}
 
 
 

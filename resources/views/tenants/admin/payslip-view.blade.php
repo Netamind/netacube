@@ -10,141 +10,211 @@
     $savedPeriodId   = ($pref->payslip_period_id   ?? null) ?: null;
     $savedEmployeeId = ($pref->payslip_employee_id ?? null) ?: null;
 
-    // ── Sectors — only those with actual approved/paid payroll entries ──────
-    // Chain: payroll_entries → users.branch → branches.sector
+    /*
+    |--------------------------------------------------------------------------
+    | SECTOR LIST
+    | Read from the dedicated `sectors` table — all sectors are always shown
+    | regardless of whether they have any payroll data yet. No annotations
+    | on the dropdown; the body handles all empty-state messaging.
+    |--------------------------------------------------------------------------
+    */
     $sectors = DB::connection('tenant')
-        ->table('payroll_entries')
-        ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
-        ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
-        ->join('branches',        'branches.id',        '=', 'users.branch')
-        ->whereIn('payroll_periods.status', ['approved', 'paid'])
-        ->whereNotNull('branches.sector')
-        ->where('branches.sector', '!=', '')
-        ->distinct()
-        ->orderBy('branches.sector')
-        ->pluck('branches.sector');
+        ->table('sectors')
+        ->orderBy('sector')
+        ->pluck('sector');
 
-    // ── Categories — scoped to branches that have actual payroll entries ────
-    // Base: all category IDs reachable via payroll_entries in approved/paid periods
-    $catBaseQuery = DB::connection('tenant')
-        ->table('payroll_entries')
-        ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
-        ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
-        ->join('branches',        'branches.id',        '=', 'users.branch')
-        ->whereIn('payroll_periods.status', ['approved', 'paid'])
-        ->whereNotNull('branches.category');
-
-    if ($savedSector) {
-        $catBaseQuery->where('branches.sector', $savedSector);
+    // If nothing saved yet, default to first available sector
+    if (!$savedSector && $sectors->isNotEmpty()) {
+        $savedSector = $sectors->first();
     }
 
-    $catIdsWithPayroll = $catBaseQuery
-        ->distinct()
-        ->pluck('branches.category')
-        ->map(fn($c) => (int)$c)
-        ->unique()
-        ->values();
+    /*
+    |--------------------------------------------------------------------------
+    | CATEGORY LIST
+    | Only categories that belong to branches in the selected sector
+    | AND have approved/paid payroll entries.
+    |--------------------------------------------------------------------------
+    */
+    $categories = collect();
+    if ($savedSector) {
+        $catIds = DB::connection('tenant')
+            ->table('branches')
+            ->join('users',           'users.branch',               '=', 'branches.id')
+            ->join('payroll_entries', 'payroll_entries.employee_id', '=', 'users.id')
+            ->join('payroll_periods', 'payroll_periods.id',          '=', 'payroll_entries.payroll_period_id')
+            ->whereIn('payroll_periods.status', ['approved', 'paid'])
+            ->where('branches.sector', $savedSector)
+            ->whereNotNull('branches.category')
+            ->distinct()
+            ->pluck('branches.category')
+            ->map(fn($c) => (int) $c)
+            ->unique()
+            ->values();
 
-    $categories = DB::connection('tenant')
-        ->table('categories')
-        ->whereIn('id', $catIdsWithPayroll)
-        ->orderBy('category')
-        ->get();
+        $categories = DB::connection('tenant')
+            ->table('categories')
+            ->whereIn('id', $catIds)
+            ->orderBy('category')
+            ->get();
+    }
 
     // If saved category no longer valid for this sector, drop it
-    if ($savedCatId && $categories->where('id', $savedCatId)->isEmpty()) {
+    if ($savedCatId && $categories->where('id', (int)$savedCatId)->isEmpty()) {
         $savedCatId = null;
     }
 
-    // ── Periods — scoped to sector + category chain ───────────────────────
-    $periodQuery = DB::connection('tenant')
-        ->table('payroll_periods')
-        ->whereIn('status', ['approved', 'paid'])
-        ->orderBy('period_start', 'desc');
+    /*
+    |--------------------------------------------------------------------------
+    | BRANCH IDs FOR CURRENT SECTOR + CATEGORY
+    |--------------------------------------------------------------------------
+    */
+    $filteredBranchIds = collect();
+    if ($savedSector) {
+        $branchQuery = DB::connection('tenant')
+            ->table('branches')
+            ->where('sector', $savedSector);
 
-    if ($savedSector || $savedCatId) {
-        // Find branch IDs that match sector + category constraints
-        $branchQuery = DB::connection('tenant')->table('branches');
-        if ($savedSector) $branchQuery->where('sector', $savedSector);
-        if ($savedCatId)  $branchQuery->where('category', $savedCatId);
-        $branchIds = $branchQuery->pluck('id');
+        if ($savedCatId) {
+            $branchQuery->where('category', (string) $savedCatId);
+        }
 
-        // Find employee IDs whose branch is in those branches
-        $empIds = DB::connection('tenant')
+        $filteredBranchIds = $branchQuery->pluck('id');
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | EMPLOYEE IDs IN THOSE BRANCHES
+    |--------------------------------------------------------------------------
+    */
+    $filteredEmployeeIds = collect();
+    if ($filteredBranchIds->isNotEmpty()) {
+        $filteredEmployeeIds = DB::connection('tenant')
             ->table('users')
-            ->whereIn('branch', $branchIds)
+            ->whereIn('branch', $filteredBranchIds)
             ->pluck('id');
+    }
 
-        // Scope periods to only those with entries for those employees
+    /*
+    |--------------------------------------------------------------------------
+    | PERIOD LIST
+    | Only periods that have entries for employees in the filtered branches.
+    |--------------------------------------------------------------------------
+    */
+    $periods = collect();
+    if ($filteredEmployeeIds->isNotEmpty()) {
         $periodIds = DB::connection('tenant')
             ->table('payroll_entries')
-            ->whereIn('employee_id', $empIds)
+            ->whereIn('employee_id', $filteredEmployeeIds)
             ->distinct()
             ->pluck('payroll_period_id');
 
-        $periodQuery->whereIn('id', $periodIds);
+        $periods = DB::connection('tenant')
+            ->table('payroll_periods')
+            ->whereIn('id', $periodIds)
+            ->whereIn('status', ['approved', 'paid'])
+            ->orderBy('period_start', 'desc')
+            ->get();
     }
 
-    $periods = $periodQuery->get();
-
-    // If saved period no longer valid for this sector/category, drop it
-    if ($savedPeriodId && $periods->where('id', $savedPeriodId)->isEmpty()) {
+    // If saved period no longer valid, drop it
+    if ($savedPeriodId && $periods->where('id', (int)$savedPeriodId)->isEmpty()) {
         $savedPeriodId = null;
     }
 
-    // ── Employees — all active (filtered in query below) ─────────────────
-    $employees = DB::connection('tenant')
-        ->table('users')
-        ->where('active', 'Yes')
-        ->orderBy('name')
-        ->get();
+    /*
+    |--------------------------------------------------------------------------
+    | EMPLOYEE SELECT LIST
+    |--------------------------------------------------------------------------
+    */
+    $employees = collect();
+    if ($filteredEmployeeIds->isNotEmpty()) {
+        $employees = DB::connection('tenant')
+            ->table('users')
+            ->whereIn('id', $filteredEmployeeIds)
+            ->where('active', 'Yes')
+            ->orderBy('name')
+            ->get();
+    }
 
-    // ── Main payslip query ────────────────────────────────────────────────
-    $query = DB::connection('tenant')
-        ->table('payroll_entries')
-        ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
-        ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
-        ->leftJoin('branches',    'branches.id',        '=', 'users.branch')
-        ->leftJoin('categories',  'categories.id',      '=', 'branches.category')
+    // If saved employee no longer in filtered list, drop it
+    if ($savedEmployeeId && $employees->where('id', (int)$savedEmployeeId)->isEmpty()) {
+        $savedEmployeeId = null;
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | CURRENT SECTOR HAS PAYSLIPS?
+    | Check whether the selected sector has any approved/paid payroll entries
+    | at all — used to choose the correct empty-state message in the body.
+    |--------------------------------------------------------------------------
+    */
+    $currentSectorHasPayslips = $savedSector && DB::connection('tenant')
+        ->table('branches')
+        ->join('users',           'users.branch',               '=', 'branches.id')
+        ->join('payroll_entries', 'payroll_entries.employee_id', '=', 'users.id')
+        ->join('payroll_periods', 'payroll_periods.id',          '=', 'payroll_entries.payroll_period_id')
         ->whereIn('payroll_periods.status', ['approved', 'paid'])
-        ->select(
-            'payroll_entries.id',
-            'payroll_entries.payroll_period_id',
-            'payroll_entries.employee_id',
-            'payroll_entries.gross_pay',
-            'payroll_entries.total_deductions',
-            'payroll_entries.net_pay',
-            'payroll_entries.on_pension',
-            'payroll_entries.paye',
-            'payroll_entries.pension_employee',
-            'payroll_entries.loan_deduction',
-            'payroll_entries.advance_deduction',
-            'payroll_entries.other_deductions',
-            'payroll_entries.notes as entry_notes',
-            'payroll_periods.name        as period_name',
-            'payroll_periods.period_start',
-            'payroll_periods.period_end',
-            'payroll_periods.pay_date',
-            'payroll_periods.status      as period_status',
-            'users.name                  as employee_name',
-            'users.phone                 as employee_number',
-            'users.email                 as employee_email',
-            'users.position              as position',
-            'users.department            as department',
-            'branches.name               as branch_name',
-            'branches.sector             as branch_sector',
-            'categories.id               as category_id',
-            'categories.category         as category_name'
-        );
+        ->where('branches.sector', $savedSector)
+        ->exists();
 
-    if ($savedSector)     $query->where('branches.sector', $savedSector);
-    if ($savedCatId)      $query->where('categories.id', $savedCatId);
-    if ($savedPeriodId)   $query->where('payroll_entries.payroll_period_id', $savedPeriodId);
-    if ($savedEmployeeId) $query->where('payroll_entries.employee_id', $savedEmployeeId);
+    /*
+    |--------------------------------------------------------------------------
+    | MAIN PAYSLIP QUERY
+    |--------------------------------------------------------------------------
+    */
+    $payslips = collect();
+    if ($filteredBranchIds->isNotEmpty() && $currentSectorHasPayslips) {
+        $query = DB::connection('tenant')
+            ->table('payroll_entries')
+            ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
+            ->join('users',           'users.id',           '=', 'payroll_entries.employee_id')
+            ->join('branches',        'branches.id',        '=', 'users.branch')
+            ->leftJoin('categories',  'categories.id',      '=', 'branches.category')
+            ->whereIn('payroll_periods.status', ['approved', 'paid'])
+            ->whereIn('users.branch', $filteredBranchIds)
+            ->select(
+                'payroll_entries.id',
+                'payroll_entries.payroll_period_id',
+                'payroll_entries.employee_id',
+                'payroll_entries.gross_pay',
+                'payroll_entries.total_deductions',
+                'payroll_entries.net_pay',
+                'payroll_entries.on_pension',
+                'payroll_entries.paye',
+                'payroll_entries.pension_employee',
+                'payroll_entries.loan_deduction',
+                'payroll_entries.advance_deduction',
+                'payroll_entries.other_deductions',
+                'payroll_entries.notes as entry_notes',
+                'payroll_periods.name        as period_name',
+                'payroll_periods.period_start',
+                'payroll_periods.period_end',
+                'payroll_periods.pay_date',
+                'payroll_periods.status      as period_status',
+                'users.name                  as employee_name',
+                'users.phone                 as employee_number',
+                'users.email                 as employee_email',
+                'users.position              as position',
+                'users.department            as department',
+                'branches.name               as branch_name',
+                'branches.sector             as branch_sector',
+                'categories.id               as category_id',
+                'categories.category         as category_name'
+            );
 
-    $payslips = $query->orderBy('payroll_periods.period_start', 'desc')
-                      ->orderBy('users.name', 'asc')
-                      ->get();
+        if ($savedPeriodId) {
+            $query->where('payroll_entries.payroll_period_id', (int)$savedPeriodId);
+        }
+
+        if ($savedEmployeeId) {
+            $query->where('payroll_entries.employee_id', (int)$savedEmployeeId);
+        }
+
+        $payslips = $query
+            ->orderBy('payroll_periods.period_start', 'desc')
+            ->orderBy('users.name', 'asc')
+            ->get();
+    }
 
     $totalNetPay     = $payslips->sum('net_pay');
     $totalGrossPay   = $payslips->sum('gross_pay');
@@ -175,13 +245,14 @@
 }
 .card-header .btn-light:hover { background-color:#f8f9fa; transition:background-color 0.2s; }
 
-/* ── Sector select in header (mirrors branch products pattern) ──────────── */
+/* ── Sector select in header ────────────────────────────────────────────── */
 #sectorSelectHeader {
   border: none; background: transparent; color: #fff;
   font-size: 18px; font-weight: 600; cursor: pointer;
-  padding: 0; outline: none; max-width: 320px;
+  padding: 0; outline: none; max-width: 360px;
 }
 #sectorSelectHeader option { color: #1e293b; background: #fff; font-size: 14px; }
+#sectorSelectHeader:disabled { opacity: 0.75; cursor: default; }
 
 /* ── Filter bar ─────────────────────────────────────────────────────────── */
 .card-filter {
@@ -214,7 +285,7 @@
 }
 .stats-strip-item .s-value { font-size:18px; font-weight:700; color:#1e293b; display:block; }
 
-/* ── Bulk action button in stats strip ──────────────────────────────────── */
+/* ── Bulk action button ─────────────────────────────────────────────────── */
 .stats-strip-action {
   display:flex; align-items:center; justify-content:center;
   padding:12px 20px; border-right:1px solid #d6daf0; background:#f8f9fc;
@@ -240,24 +311,19 @@
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
 .empty-state { padding:52px 20px; text-align:center; color:#94a3b8; }
-.empty-state i { font-size:52px; display:block; margin-bottom:12px; color:#c8d0ed; }
 .empty-state h5 { color:#64748b; font-weight:600; margin-bottom:6px; }
 .empty-state p  { font-size:13px; }
 
-/* ── Modal header helpers ───────────────────────────────────────────────── */
+/* ── Modal helpers ──────────────────────────────────────────────────────── */
 .mh-blue  { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-title { color:#fff; font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; }
 .mh-close { filter:brightness(0) invert(1); opacity:.8; }
 .mh-close:hover { opacity:1; }
-
-/* ── Section title (modal) ──────────────────────────────────────────────── */
 .modal-section-title {
   font-size:11px; font-weight:600; text-transform:uppercase;
   letter-spacing:.07em; color:#6c757d;
   border-bottom:1px solid #e9ecef; padding-bottom:6px; margin:16px 0 10px;
 }
-
-/* ── Field groups (modal) ───────────────────────────────────────────────── */
 .pf-group { background:#f8f9fa; border-radius:6px; padding:9px 12px; }
 .pf-label { font-size:11px; color:#6c757d; text-transform:uppercase; letter-spacing:.05em; }
 .pf-value { font-size:14px; font-weight:600; color:#212529; }
@@ -292,27 +358,39 @@
 
 <div class="card">
 
-  {{-- ── Card header ─────────────────────────────────────────────────────── --}}
+  {{-- ── Card header — sector selector ──────────────────────────────────── --}}
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0" style="gap:8px;">
       <i class="ri-file-paper-2-line" style="flex-shrink:0;"></i>
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
-            id="headerSectorForm" style="margin:0;display:inline;">
-        @csrf
-        <input type="hidden" name="user_id"             value="{{ Auth::id() }}">
-        <input type="hidden" name="payslip_category_id" value="">
-        <input type="hidden" name="payslip_period_id"   value="">
-        <input type="hidden" name="payslip_employee_id" value="">
-        <select name="sector" id="sectorSelectHeader"
-                onchange="document.getElementById('headerSectorForm').submit()">
-          <option value="" {{ !$savedSector ? 'selected' : '' }}>All Sectors</option>
-          @foreach($sectors as $sec)
-            <option value="{{ $sec }}" {{ $savedSector === $sec ? 'selected' : '' }}>
-              {{ $sec }} (Sector)
-            </option>
-          @endforeach
-        </select>
-      </form>
+
+      @if($sectors->isEmpty())
+        {{-- No sectors configured at all — show plain text, no form --}}
+        <span style="font-size:18px; font-weight:600; opacity:0.75;">
+          — No Sectors Configured —
+        </span>
+      @else
+        <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+              id="headerSectorForm" style="margin:0;display:inline;">
+          @csrf
+          {{--
+              When sector changes we clear category, period, and employee
+              so stale cross-sector values never leak through.
+          --}}
+          <input type="hidden" name="user_id"             value="{{ Auth::id() }}">
+          <input type="hidden" name="payslip_category_id" value="">
+          <input type="hidden" name="payslip_period_id"   value="">
+          <input type="hidden" name="payslip_employee_id" value="">
+          <select name="sector" id="sectorSelectHeader"
+                  onchange="document.getElementById('headerSectorForm').submit()">
+            @foreach($sectors as $sec)
+              <option value="{{ $sec }}" {{ $savedSector === $sec ? 'selected' : '' }}>
+                {{ $sec }}
+              </option>
+            @endforeach
+          </select>
+        </form>
+      @endif
+
     </h4>
     <div class="d-flex align-items-center" style="gap:4px;">
       <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="statsBtn"        title="Statistics"><i class="ri-bar-chart-2-line"></i></a>
@@ -324,28 +402,30 @@
   {{-- ── Filter bar ───────────────────────────────────────────────────────── --}}
   <div class="card-filter">
 
+    {{-- Category — scoped to current sector --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterCatForm" style="display:contents;">
       @csrf
       <input type="hidden" name="user_id"             value="{{ Auth::id() }}">
       <input type="hidden" name="sector"              value="{{ $savedSector }}">
-      <input type="hidden" name="payslip_period_id"   value="{{ $savedPeriodId }}">
-      <input type="hidden" name="payslip_employee_id" value="{{ $savedEmployeeId }}">
+      <input type="hidden" name="payslip_period_id"   value="">
+      <input type="hidden" name="payslip_employee_id" value="">
       <label>Category:</label>
       <select name="payslip_category_id" onchange="document.getElementById('filterCatForm').submit()">
         <option value="">All Categories</option>
         @forelse($categories as $cat)
-          <option value="{{ $cat->id }}" {{ $savedCatId == $cat->id ? 'selected' : '' }}>
+          <option value="{{ $cat->id }}" {{ (int)$savedCatId === $cat->id ? 'selected' : '' }}>
             {{ $cat->category }}
           </option>
         @empty
-          <option value="" disabled>No categories found</option>
+          <option value="" disabled>No categories for this sector</option>
         @endforelse
       </select>
     </form>
 
     <div class="filter-divider"></div>
 
+    {{-- Period — scoped to sector + category --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterPeriodForm" style="display:contents;">
       @csrf
@@ -357,7 +437,7 @@
       <select name="payslip_period_id" onchange="document.getElementById('filterPeriodForm').submit()">
         <option value="">All Periods</option>
         @forelse($periods as $per)
-          <option value="{{ $per->id }}" {{ $savedPeriodId == $per->id ? 'selected' : '' }}>
+          <option value="{{ $per->id }}" {{ (int)$savedPeriodId === $per->id ? 'selected' : '' }}>
             {{ $per->name }}
             ({{ \Carbon\Carbon::parse($per->period_start)->format('d M') }}
              &ndash; {{ \Carbon\Carbon::parse($per->period_end)->format('d M Y') }})
@@ -370,6 +450,7 @@
 
     <div class="filter-divider"></div>
 
+    {{-- Employee — scoped to sector + category --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterEmployeeForm" style="display:contents;">
       @csrf
@@ -381,18 +462,19 @@
       <select name="payslip_employee_id" onchange="document.getElementById('filterEmployeeForm').submit()">
         <option value="">All Employees</option>
         @foreach($employees as $emp)
-          <option value="{{ $emp->id }}" {{ $savedEmployeeId == $emp->id ? 'selected' : '' }}>
+          <option value="{{ $emp->id }}" {{ (int)$savedEmployeeId === $emp->id ? 'selected' : '' }}>
             {{ $emp->name }}
           </option>
         @endforeach
       </select>
     </form>
 
+    {{-- Clear — resets period, category, employee but keeps sector --}}
     <div class="ms-auto">
       <form method="POST" action="{{ route('tenant.admin.update.filters') }}" style="display:inline;">
         @csrf
         <input type="hidden" name="user_id"             value="{{ Auth::id() }}">
-        <input type="hidden" name="sector"              value="">
+        <input type="hidden" name="sector"              value="{{ $savedSector }}">
         <input type="hidden" name="payslip_period_id"   value="">
         <input type="hidden" name="payslip_category_id" value="">
         <input type="hidden" name="payslip_employee_id" value="">
@@ -429,17 +511,43 @@
   {{-- ── Table / empty state ─────────────────────────────────────────────── --}}
   <div class="card-body">
 
-    @if($payslips->isEmpty())
+    @if($sectors->isEmpty())
+
+      {{-- ── No sectors exist at all ── --}}
       <div class="empty-state">
-        <i class="ri-file-paper-2-line"></i>
-        <h5>No Payslips Found</h5>
+        <h5>No Sectors Configured</h5>
         <p>
-          No payslips exist for the selected filters.<br>
-          Payslips are available for <strong>Approved</strong> or <strong>Paid</strong> periods only.<br>
-          Go to <a href="{{ route('tenant.admin.hr.payroll.periods', ['tenantName' => request()->route('tenantName')]) }}">Payroll Periods</a>
-          to generate and approve a period first.
+          There are no sectors set up in the system yet.<br>
+          Please assign a <strong>Sector</strong> to your branches before payslips can be viewed here.
         </p>
       </div>
+
+    @elseif(!$currentSectorHasPayslips)
+
+      {{-- ── Sector exists but has zero approved/paid payroll entries ── --}}
+      <div class="empty-state">
+        <h5>No Payslips for This Sector</h5>
+        <p>
+          The <strong>{{ $savedSector }}</strong> sector has no <strong>Approved</strong> or <strong>Paid</strong> payroll periods yet.
+          Once a payroll period is approved or paid for employees in this sector, their payslips will appear here.<br><br>
+          <a href="{{ route('tenant.admin.hr.payroll.periods', ['tenantName' => request()->route('tenantName')]) }}">
+            Go to Payroll Periods &rarr;
+          </a>
+        </p>
+      </div>
+
+    @elseif($payslips->isEmpty())
+
+      {{-- ── Sector has payslips, but the current filter combination returns none ── --}}
+      <div class="empty-state">
+        <h5>No Payslips Match Your Filters</h5>
+        <p>
+          <strong>{{ $savedSector }}</strong> has payslip data, but nothing matches
+          the current Category / Period / Employee combination.<br>
+          Try adjusting or <strong>clearing the filters</strong> above to broaden the results.
+        </p>
+      </div>
+
     @else
 
     <table id="maintable" class="table table-sm table-striped row-border order-column w-100">
@@ -532,10 +640,11 @@
 
 </div></div></div>
 
+{{-- ══════════════════════════════════════════════════════════════════════ --}}
+{{-- MODALS                                                                 --}}
+{{-- ══════════════════════════════════════════════════════════════════════ --}}
 
-{{-- ══════════════════════════════════════════════════════════════════
-     STATISTICS MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- STATISTICS MODAL --}}
 <div class="modal fade" id="statsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -553,9 +662,7 @@
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     INFO MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- INFO MODAL --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header mh-blue">
@@ -563,24 +670,24 @@
       <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body" style="font-size:13px;">
-      <p>The <strong>Payslips</strong> page is a centralised view of all employee payslips across every <strong>Approved</strong> and <strong>Paid</strong> payroll period.</p>
+      <p>The <strong>Payslips</strong> page shows all employee payslips for <strong>Approved</strong> and <strong>Paid</strong> payroll periods, scoped to the selected sector.</p>
       <p class="mb-1"><strong>Filters</strong></p>
       <ul class="mb-3" style="padding-left:18px;">
-        <li class="mb-1"><strong>Period</strong> — Narrow down to a specific payroll run.</li>
-        <li class="mb-1"><strong>Category</strong> — Show only employees whose branch belongs to a particular category.</li>
+        <li class="mb-1"><strong>Sector</strong> (header) — The primary scope. Changing it clears all other filters.</li>
+        <li class="mb-1"><strong>Category</strong> — Further narrow to a category within the sector. Changing it resets period and employee.</li>
+        <li class="mb-1"><strong>Period</strong> — Narrow to a specific payroll run.</li>
         <li class="mb-1"><strong>Employee</strong> — View a single employee's full payslip history.</li>
       </ul>
       <p class="mb-1"><strong>Row actions</strong></p>
       <ul class="mb-3" style="padding-left:18px;">
-        <li class="mb-1"><i class="ri-eye-line text-primary"></i> <strong>View</strong> — Full breakdown summary without downloading.</li>
-        <li class="mb-1"><i class="ri-file-download-line text-success"></i> <strong>Download</strong> — PDF payslip for the employee.</li>
-        <li><i class="ri-mail-send-line text-info"></i> <strong>Email</strong> — Sends the payslip PDF to the employee's registered email.</li>
+        <li class="mb-1"><i class="ri-eye-line text-primary"></i> <strong>View</strong> — Full breakdown without downloading.</li>
+        <li class="mb-1"><i class="ri-file-download-line text-success"></i> <strong>Download</strong> — PDF payslip.</li>
+        <li><i class="ri-mail-send-line text-info"></i> <strong>Email</strong> — Sends PDF to the employee's email.</li>
       </ul>
-      <p class="mb-1"><strong>Bulk actions</strong></p>
-      <p>Tick multiple rows — the <strong>Bulk Actions</strong> button in the summary strip activates. Click it to download or email all selected payslips at once.</p>
       <div class="alert alert-warning mt-3 mb-0">
         <i class="ri-error-warning-line me-1"></i>
         Only <strong>Approved</strong> and <strong>Paid</strong> periods appear here.
+        Sectors with no qualifying periods are still shown in the dropdown but will display an explanatory message.
       </div>
     </div>
     <div class="modal-footer">
@@ -589,9 +696,7 @@
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     DATATABLE EXPORT MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- EXPORT MODAL --}}
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header">
@@ -605,9 +710,7 @@
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     VIEW PAYSLIP DETAIL MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- VIEW PAYSLIP DETAIL MODAL --}}
 <div class="modal fade" id="viewSlipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -618,7 +721,6 @@
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
-
         <div class="modal-section-title">Employee</div>
         <div class="row g-2 mb-2">
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Name</div><div class="pf-value" id="vName">—</div></div></div>
@@ -628,7 +730,6 @@
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Department</div><div class="pf-value" id="vDepartment">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Branch / Category</div><div class="pf-value" id="vBranchCat">—</div></div></div>
         </div>
-
         <div class="modal-section-title">Period</div>
         <div class="row g-2 mb-2">
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Period</div><div class="pf-value" id="vPeriod">—</div></div></div>
@@ -636,7 +737,6 @@
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Pay Date</div><div class="pf-value" id="vPayDate">—</div></div></div>
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Status</div><div class="pf-value" id="vStatus">—</div></div></div>
         </div>
-
         <div class="modal-section-title">Deductions Breakdown</div>
         <div class="row g-2 mb-2">
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">PAYE</div><div class="pf-value" id="vPaye">—</div></div></div>
@@ -644,45 +744,21 @@
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Loan</div><div class="pf-value" id="vLoan">—</div></div></div>
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Advance</div><div class="pf-value" id="vAdvance">—</div></div></div>
         </div>
-
         <div class="modal-section-title">Summary</div>
         <div class="row g-2 mb-2">
-          <div class="col-md-4 col-6">
-            <div class="pf-group" style="background:#e8f5e9;">
-              <div class="pf-label">Gross Pay</div>
-              <div class="pf-value text-success" id="vGross">—</div>
-            </div>
-          </div>
-          <div class="col-md-4 col-6">
-            <div class="pf-group" style="background:#fdecea;">
-              <div class="pf-label">Total Deductions</div>
-              <div class="pf-value text-danger" id="vDeductions">—</div>
-            </div>
-          </div>
-          <div class="col-md-4 col-6">
-            <div class="pf-group" style="background:#e8eaf6;">
-              <div class="pf-label">Net Pay</div>
-              <div class="pf-value text-primary" id="vNet">—</div>
-            </div>
-          </div>
+          <div class="col-md-4 col-6"><div class="pf-group" style="background:#e8f5e9;"><div class="pf-label">Gross Pay</div><div class="pf-value text-success" id="vGross">—</div></div></div>
+          <div class="col-md-4 col-6"><div class="pf-group" style="background:#fdecea;"><div class="pf-label">Total Deductions</div><div class="pf-value text-danger" id="vDeductions">—</div></div></div>
+          <div class="col-md-4 col-6"><div class="pf-group" style="background:#e8eaf6;"><div class="pf-label">Net Pay</div><div class="pf-value text-primary" id="vNet">—</div></div></div>
         </div>
-
         <div id="vNotesRow" style="display:none;">
           <div class="modal-section-title">Notes</div>
-          <div class="pf-group">
-            <div class="pf-value" id="vNotes" style="font-size:13px;font-weight:400;"></div>
-          </div>
+          <div class="pf-group"><div class="pf-value" id="vNotes" style="font-size:13px;font-weight:400;"></div></div>
         </div>
-
       </div>
       <div class="modal-footer d-flex justify-content-between">
         <div>
-          <a href="#" class="btn btn-success btn-sm" id="vDownloadBtn">
-            <i class="ri-file-download-line me-1"></i> Download PDF
-          </a>
-          <a href="#" class="btn btn-info btn-sm ms-1 text-white" id="vEmailBtn">
-            <i class="ri-mail-send-line me-1"></i> Email Payslip
-          </a>
+          <a href="#" class="btn btn-success btn-sm" id="vDownloadBtn"><i class="ri-file-download-line me-1"></i> Download PDF</a>
+          <a href="#" class="btn btn-info btn-sm ms-1 text-white" id="vEmailBtn"><i class="ri-mail-send-line me-1"></i> Email Payslip</a>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
@@ -690,9 +766,7 @@
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     EMAIL PAYSLIP MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- EMAIL PAYSLIP MODAL --}}
 <div class="modal fade" id="emailSlipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:430px;">
     <div class="modal-content">
@@ -703,8 +777,7 @@
       <div class="modal-body p-4">
         <p style="font-size:13px;" class="mb-3">
           Send payslip for <strong id="emailName"></strong>
-          (<span id="emailPeriod" class="text-primary fw-bold"></span>)
-          to their registered email.
+          (<span id="emailPeriod" class="text-primary fw-bold"></span>) to their registered email.
         </p>
         <div class="pf-group mb-3">
           <div class="pf-label">Recipient</div>
@@ -712,15 +785,11 @@
         </div>
         <div class="alert alert-warning py-2" id="noEmailAlert" style="display:none;font-size:12px;">
           <i class="ri-error-warning-line me-1"></i>
-          This employee has no email address on file. Please update their profile first.
+          This employee has no email address on file.
         </div>
         <div class="form-group">
-          <label style="font-size:13px;font-weight:600;">
-            Additional Note <small class="text-muted fw-normal">(optional)</small>
-          </label>
-          <textarea class="form-control" id="emailNote" rows="2"
-                    placeholder="Add a short note to include in the email…"
-                    style="font-size:13px;"></textarea>
+          <label style="font-size:13px;font-weight:600;">Additional Note <small class="text-muted fw-normal">(optional)</small></label>
+          <textarea class="form-control" id="emailNote" rows="2" placeholder="Add a short note…" style="font-size:13px;"></textarea>
         </div>
         <input type="hidden" id="emailEntryId">
       </div>
@@ -734,9 +803,7 @@
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     BULK ACTIONS MODAL
-══════════════════════════════════════════════════════════════════ --}}
+{{-- BULK ACTIONS MODAL --}}
 <div class="modal fade" id="bulkActionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:480px;">
     <div class="modal-content">
@@ -748,8 +815,6 @@
       </div>
       <div class="modal-body p-4">
         <div class="row g-3">
-
-          {{-- Download --}}
           <div class="col-6">
             <div class="bulk-action-card" id="bulkDownloadCard">
               <i class="ri-file-download-line text-success"></i>
@@ -757,8 +822,6 @@
               <div class="ba-sub">Opens each payslip in a new tab</div>
             </div>
           </div>
-
-          {{-- Email --}}
           <div class="col-6">
             <div class="bulk-action-card" id="bulkEmailCard">
               <i class="ri-mail-send-line text-info"></i>
@@ -766,37 +829,25 @@
               <div class="ba-sub">Sends each employee their PDF</div>
             </div>
           </div>
-
         </div>
-
-        {{-- Email note — shown when email card is selected --}}
         <div id="bulkEmailNoteWrap" style="display:none;margin-top:18px;">
           <div class="modal-section-title" style="margin-top:0;">Email Note</div>
           <div class="alert alert-info py-2 mb-2" style="font-size:12px;">
-            <i class="ri-information-line me-1"></i>
-            Employees with no email on file will be skipped.
+            <i class="ri-information-line me-1"></i> Employees with no email on file will be skipped.
           </div>
-          <textarea class="form-control" id="bulkEmailNote" rows="2"
-                    placeholder="Optional note to include in every email…"
-                    style="font-size:13px;"></textarea>
+          <textarea class="form-control" id="bulkEmailNote" rows="2" placeholder="Optional note…" style="font-size:13px;"></textarea>
         </div>
-
-        {{-- Download confirm — shown when download card is selected --}}
         <div id="bulkDownloadNoteWrap" style="display:none;margin-top:18px;">
           <div class="alert alert-warning py-2 mb-0" style="font-size:12px;">
-            <i class="ri-error-warning-line me-1"></i>
-            Your browser may block multiple popups. Allow popups for this site if prompted.
+            <i class="ri-error-warning-line me-1"></i> Your browser may block multiple popups. Allow popups if prompted.
           </div>
         </div>
-
       </div>
-      <div class="modal-footer d-flex justify-content-end align-items-center">
-        <div class="d-flex gap-2">
-          <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-          <button type="button" class="btn btn-primary btn-sm" id="confirmBulkActionBtn" style="display:none;">
-            <i class="ri-check-line me-1"></i> Confirm
-          </button>
-        </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="confirmBulkActionBtn" style="display:none;">
+          <i class="ri-check-line me-1"></i> Confirm
+        </button>
       </div>
     </div>
   </div>
@@ -816,86 +867,50 @@ $(document).ready(function () {
     var bulkEmailUrl   = '{{ route("tenant.admin.hr.payroll.payslips.bulkemail",["tenantName" => request()->route("tenantName")]) }}';
     var csrfToken      = '{{ csrf_token() }}';
 
-    // ── DataTable — exactly as events table ───────────────────────────────
     @if($payslips->isNotEmpty())
     var table = $('#maintable').DataTable({
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
         lengthChange: true,
-        lengthMenu: [
-            [25, 50, 100, -1],
-            [25, 50, 100, 'All']
-        ],
-        fixedColumns: {
-            leftColumns: 1
-        },
+        lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'All']],
+        fixedColumns: { leftColumns: 1 },
         scrollX: true,
         buttons: [
-            {
-                extend: 'excelHtml5',
-                title: 'Payslips',
-                exportOptions: { columns: ':visible:not(:last-child)' }
-            },
-            {
-                extend: 'csvHtml5',
-                title: 'Payslips',
-                exportOptions: { columns: ':visible:not(:last-child)' }
-            },
-            {
-                extend: 'pdfHtml5',
-                title: 'Payslips',
-                exportOptions: { columns: ':visible:not(:last-child)' },
-                orientation: 'landscape',
-                pageSize: 'A3',
-                customize: function(doc) {
-                    doc.content[1].table.widths =
-                        Array(doc.content[1].table.body[0].length + 1).join('*').split('');
-                }
+            { extend: 'excelHtml5', title: 'Payslips', exportOptions: { columns: ':visible:not(:last-child)' } },
+            { extend: 'csvHtml5',   title: 'Payslips', exportOptions: { columns: ':visible:not(:last-child)' } },
+            { extend: 'pdfHtml5',   title: 'Payslips', exportOptions: { columns: ':visible:not(:last-child)' },
+              orientation: 'landscape', pageSize: 'A3',
+              customize: function(doc) {
+                  doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split('');
+              }
             }
         ]
     });
     table.buttons().container().appendTo($('#buttonsModal .buttons'));
     @endif
 
-    // ── Bootstrap modals ──────────────────────────────────────────────────
     var viewSlipModal    = new bootstrap.Modal('#viewSlipModal');
     var emailSlipModal   = new bootstrap.Modal('#emailSlipModal');
     var bulkActionsModal = new bootstrap.Modal('#bulkActionsModal');
 
-    // ── Toolbar buttons ───────────────────────────────────────────────────
     $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
     $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
 
-    // ── Statistics ────────────────────────────────────────────────────────
     $('#statsBtn').on('click', function(e) {
         e.preventDefault();
-        $('#statsModalBody').html(
-            '<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div>' +
-            '<p class="mt-2 text-muted">Loading…</p></div>'
-        );
+        $('#statsModalBody').html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading…</p></div>');
         $('#statsModal').modal('show');
         $.get(statsUrl, function(data) {
             if (data.status !== 200) { $('#statsModalBody').html('<p class="text-danger text-center">Failed.</p>'); return; }
             var html = '<div class="row g-3">';
             $.each(data.stats, function(i, s) {
-                html += '<div class="col-md-3 col-6"><div class="stats-card ' + s.css + '">'
-                      + '<div class="sc-label">' + s.label + '</div>'
-                      + '<div class="sc-value">' + s.value + '</div>'
-                      + '</div></div>';
+                html += '<div class="col-md-3 col-6"><div class="stats-card ' + s.css + '"><div class="sc-label">' + s.label + '</div><div class="sc-value">' + s.value + '</div></div></div>';
             });
             html += '</div>';
             if (data.period_breakdown && data.period_breakdown.length) {
                 html += '<div class="modal-section-title mt-4" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#6c757d;border-bottom:1px solid #e9ecef;padding-bottom:6px;">By Period</div>';
-                html += '<div style="overflow-x:auto;"><table class="table table-sm table-striped" style="font-size:12px;margin-top:8px;">'
-                      + '<thead><tr><th>Period</th><th class="text-center">Employees</th>'
-                      + '<th class="text-center">Gross Pay</th><th class="text-center">Net Pay</th>'
-                      + '<th class="text-center">Status</th></tr></thead><tbody>';
+                html += '<div style="overflow-x:auto;"><table class="table table-sm table-striped" style="font-size:12px;margin-top:8px;"><thead><tr><th>Period</th><th class="text-center">Employees</th><th class="text-center">Gross Pay</th><th class="text-center">Net Pay</th><th class="text-center">Status</th></tr></thead><tbody>';
                 $.each(data.period_breakdown, function(i, p) {
-                    html += '<tr><td><strong>' + p.name + '</strong></td>'
-                          + '<td class="text-center">' + p.count + '</td>'
-                          + '<td class="text-center">' + parseFloat(p.gross_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</td>'
-                          + '<td class="text-center"><strong class="text-primary">' + parseFloat(p.net_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</strong></td>'
-                          + '<td class="text-center"><span class="badge-' + p.status + '">' + p.status.charAt(0).toUpperCase() + p.status.slice(1) + '</span></td>'
-                          + '</tr>';
+                    html += '<tr><td><strong>' + p.name + '</strong></td><td class="text-center">' + p.count + '</td><td class="text-center">' + parseFloat(p.gross_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</td><td class="text-center"><strong class="text-primary">' + parseFloat(p.net_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</strong></td><td class="text-center"><span class="badge-' + p.status + '">' + p.status.charAt(0).toUpperCase() + p.status.slice(1) + '</span></td></tr>';
                 });
                 html += '</tbody></table></div>';
             }
@@ -903,12 +918,10 @@ $(document).ready(function () {
         }).fail(function() { $('#statsModalBody').html('<p class="text-danger text-center">Failed to load statistics.</p>'); });
     });
 
-    // ── Number formatter ──────────────────────────────────────────────────
     function fmt(n) {
         return parseFloat(n || 0).toLocaleString('en', { minimumFractionDigits:2, maximumFractionDigits:2 });
     }
 
-    // ── VIEW payslip detail ───────────────────────────────────────────────
     $('#tbody').on('click', '.viewSlipBtn', function(e) {
         e.preventDefault();
         var d = $(this).data();
@@ -931,7 +944,7 @@ $(document).ready(function () {
         $('#vDeductions').text(fmt(d.deductions));
         $('#vNet').text(fmt(d.net));
         if (d.notes) { $('#vNotes').text(d.notes); $('#vNotesRow').show(); }
-        else          { $('#vNotesRow').hide(); }
+        else { $('#vNotesRow').hide(); }
         $('#vDownloadBtn').attr('href', payslipBaseUrl + '?entry_id=' + d.id);
         $('#vEmailBtn').off('click').on('click', function(e) {
             e.preventDefault();
@@ -941,7 +954,6 @@ $(document).ready(function () {
         viewSlipModal.show();
     });
 
-    // ── EMAIL — open ──────────────────────────────────────────────────────
     function openEmailModal(entryId, name, email, period) {
         $('#emailEntryId').val(entryId);
         $('#emailName').text(name);
@@ -965,7 +977,6 @@ $(document).ready(function () {
         openEmailModal(d.id, d.name, d.email, d.period);
     });
 
-    // ── EMAIL — send ──────────────────────────────────────────────────────
     $('#confirmEmailBtn').on('click', function(e) {
         e.preventDefault();
         if ($(this).hasClass('disabled')) return;
@@ -983,19 +994,13 @@ $(document).ready(function () {
         });
     });
 
-    // ── CHECKBOX / BULK SELECTION ─────────────────────────────────────────
     function getChecked() { return $('.row-check:checked'); }
 
     function updateBulkState() {
-        var checked = getChecked();
-        var count   = checked.length;
-        var $btn    = $('#bulkActionBtn');
+        var count = getChecked().length;
         $('#bulkBadge').text(count);
-        if (count > 0) {
-            $btn.prop('disabled', false).addClass('active');
-        } else {
-            $btn.prop('disabled', true).removeClass('active');
-        }
+        if (count > 0) { $('#bulkActionBtn').prop('disabled', false).addClass('active'); }
+        else           { $('#bulkActionBtn').prop('disabled', true).removeClass('active'); }
     }
 
     $('#selectAll').on('click', function() {
@@ -1004,55 +1009,39 @@ $(document).ready(function () {
     });
 
     $('#tbody').on('click', '.row-check', function() {
-        var total   = $('.row-check').length;
-        var checked = getChecked().length;
-        $('#selectAll').prop('indeterminate', checked > 0 && checked < total);
-        $('#selectAll').prop('checked', checked === total);
+        var total = $('.row-check').length, checked = getChecked().length;
+        $('#selectAll').prop('indeterminate', checked > 0 && checked < total).prop('checked', checked === total);
         updateBulkState();
     });
 
-    // ── BULK ACTIONS MODAL — open ─────────────────────────────────────────
     $('#bulkActionBtn').on('click', function() {
         var checked = getChecked();
         if (!checked.length) return;
-
-        var count = checked.length;
-        $('#bulkModalCount').text(count);
-        $('#bulkEmailNoteWrap').hide();
-        $('#bulkDownloadNoteWrap').hide();
+        $('#bulkModalCount').text(checked.length);
+        $('#bulkEmailNoteWrap, #bulkDownloadNoteWrap').hide();
         $('#confirmBulkActionBtn').hide();
         $('#bulkDownloadCard, #bulkEmailCard').css({ 'border-color':'#e9ecef', 'background':'' });
         $('#bulkEmailNote').val('');
         $('#confirmBulkActionBtn').data('action', '');
-
         bulkActionsModal.show();
     });
 
-    // ── BULK ACTIONS MODAL — card selection ───────────────────────────────
     $('#bulkDownloadCard').on('click', function() {
         $('#bulkDownloadCard').css({ 'border-color':'#198754', 'background':'#f0faf3' });
         $('#bulkEmailCard').css({ 'border-color':'#e9ecef', 'background':'' });
-        $('#bulkEmailNoteWrap').hide();
-        $('#bulkDownloadNoteWrap').show();
-        $('#confirmBulkActionBtn').data('action', 'download').show()
-            .removeClass('btn-info').addClass('btn-success')
-            .html('<i class="ri-file-download-line me-1"></i> Download All');
+        $('#bulkEmailNoteWrap').hide(); $('#bulkDownloadNoteWrap').show();
+        $('#confirmBulkActionBtn').data('action', 'download').show().removeClass('btn-info').addClass('btn-success').html('<i class="ri-file-download-line me-1"></i> Download All');
     });
 
     $('#bulkEmailCard').on('click', function() {
         $('#bulkEmailCard').css({ 'border-color':'#0dcaf0', 'background':'#f0fbfc' });
         $('#bulkDownloadCard').css({ 'border-color':'#e9ecef', 'background':'' });
-        $('#bulkDownloadNoteWrap').hide();
-        $('#bulkEmailNoteWrap').show();
-        $('#confirmBulkActionBtn').data('action', 'email').show()
-            .removeClass('btn-success').addClass('btn-info')
-            .html('<i class="ri-mail-send-line me-1"></i> Send All');
+        $('#bulkDownloadNoteWrap').hide(); $('#bulkEmailNoteWrap').show();
+        $('#confirmBulkActionBtn').data('action', 'email').show().removeClass('btn-success').addClass('btn-info').html('<i class="ri-mail-send-line me-1"></i> Send All');
     });
 
-    // ── BULK ACTIONS MODAL — confirm ──────────────────────────────────────
     $('#confirmBulkActionBtn').on('click', function() {
         var action = $(this).data('action');
-
         if (action === 'download') {
             bulkActionsModal.hide();
             getChecked().each(function(i) {
@@ -1061,9 +1050,7 @@ $(document).ready(function () {
             });
             $('.row-check, #selectAll').prop('checked', false).prop('indeterminate', false);
             updateBulkState();
-        }
-
-        else if (action === 'email') {
+        } else if (action === 'email') {
             var ids = [];
             getChecked().each(function() { ids.push($(this).data('id')); });
             if (!ids.length) return;
@@ -1079,9 +1066,7 @@ $(document).ready(function () {
                         bulkActionsModal.hide();
                         $('.row-check, #selectAll').prop('checked', false).prop('indeterminate', false);
                         updateBulkState();
-                    } else {
-                        toastr.error(data.error || 'Some emails failed.', 'Error');
-                    }
+                    } else { toastr.error(data.error || 'Some emails failed.', 'Error'); }
                 },
                 error: function() { toastr.error('Server error.', 'Error'); }
             });

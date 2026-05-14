@@ -216,6 +216,7 @@
                             <ul class="side-nav-second-level">
                                 <li><a href="{{ route('tenant.admin.company.info') }}">Info</a></li>
                                 <li><a href="{{ route('tenant.admin.employees') }}">Employees</a></li>
+                                <li><a href="{{ route('tenant.admin.hr.paye.brackets') }}">Paye</a></li>
                                 <li><a href="{{ route('tenant.admin.roles') }}">Roles</a></li>
                                 <li><a href="{{ route('tenant.admin.permissions') }}">Permissions</a></li>
                                 <li><a href="{{ route('tenant.admin.currency') }}">Currency</a></li>

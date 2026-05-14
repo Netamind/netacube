@@ -32,8 +32,9 @@ class CreateUsersTable extends Migration
             $table->date('started_on')->nullable();
             $table->date('entered_on')->nullable();
             $table->string('active')->default('Yes');
-            $table->string('employment_type')->default('Full-time'); // new
-            $table->date('contract_end_date')->nullable();           // new
+            $table->string('employment_type')->default('Full-time'); 
+            $table->date('contract_end_date')->nullable(); 
+            $table->boolean('on_paye')->default(false);            
 
             // Address
             $table->string('home_address')->nullable();
@@ -41,11 +42,11 @@ class CreateUsersTable extends Migration
 
 
             // Banking
-            $table->string('bank_name')->nullable();                 // new
-            $table->string('bank_account_name')->nullable();         // new
-            $table->string('bank_account_number')->nullable();       // new
-            $table->string('bank_branch')->nullable();               // new
-            $table->string('bank_account_type')->default('Savings'); // new
+            $table->string('bank_name')->nullable();                 
+            $table->string('bank_account_name')->nullable();         
+            $table->string('bank_account_number')->nullable();       
+            $table->string('bank_branch')->nullable();               
+            $table->string('bank_account_type')->default('Savings'); 
 
             // Next of kin
             $table->string('nextofkin_name')->nullable();

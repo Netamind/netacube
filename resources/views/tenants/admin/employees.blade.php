@@ -29,6 +29,14 @@
         margin: 18px 0 12px 0;
     }
     #contract_end_date_wrap, #edit_contract_end_date_wrap { display: none; }
+    .form-check-paye {
+        display: flex;
+        align-items: center;
+        height: calc(1.5em + 0.75rem + 2px);
+        padding-top: calc(0.375rem + 1px);
+    }
+    .form-check-paye .form-check-input { margin-top: 0; }
+    .form-check-paye .form-check-label { margin-left: 0.5rem; font-weight: 500; }
 </style>
 
 <div class="progress" id="progressBar" role="progressbar" aria-label="Animated striped" aria-valuenow="75" aria-valuemin="0" aria-valuemax="100" style="height: 8px; transform: rotate(180deg);display:none">
@@ -52,8 +60,8 @@
 <?php
     $maintableTitle = "Employees Management";
     $employees = DB::connection('tenant')->table('users')->get();
-    $branches = DB::connection('tenant')->table('branches')->get();
-    $roles = DB::connection('tenant')->table('roles')->get();
+    $branches  = DB::connection('tenant')->table('branches')->get();
+    $roles     = DB::connection('tenant')->table('roles')->get();
 ?>
 </div>
 
@@ -68,6 +76,7 @@
         <th style="text-align:center">Branch</th>
         <th style="text-align:center">Department</th>
         <th style="text-align:center">Position</th>
+        <th style="text-align:center">On PAYE</th>
         <th style="text-align:center">Action</th>
     </tr>
     </thead>
@@ -80,10 +89,17 @@
             <td style="text-align:center">{{ $emp->email }}</td>
             <td style="text-align:center">{{ $emp->role ?? '—' }}</td>
             <td style="text-align:center">
-                {{ DB::connection('tenant')->table('branches')->where('id',$emp->branch)->value('name') }}
+                {{ DB::connection('tenant')->table('branches')->where('id',$emp->branch)->value('name') ?? '—' }}
             </td>
             <td style="text-align:center">{{ $emp->department ?? '—' }}</td>
             <td style="text-align:center">{{ $emp->position ?? '—' }}</td>
+            <td style="text-align:center">
+                @if($emp->on_paye)
+                    <span class="badge bg-success">Yes</span>
+                @else
+                    <span class="badge bg-secondary">No</span>
+                @endif
+            </td>
             <td style="text-align:center">
                 <a href="{{ route('tenant.admin.employee.details') }}?id={{ $emp->id }}" class="btn btn-light text-primary btn-sm" title="View Details">
                     <i class="ri-eye-line"></i>
@@ -115,7 +131,8 @@
                    editBankAccountName="{{ $emp->bank_account_name ?? '' }}"
                    editBankAccountNumber="{{ $emp->bank_account_number ?? '' }}"
                    editBankBranch="{{ $emp->bank_branch ?? '' }}"
-                   editBankAccountType="{{ $emp->bank_account_type ?? 'Savings' }}">
+                   editBankAccountType="{{ $emp->bank_account_type ?? 'Savings' }}"
+                   editOnPaye="{{ $emp->on_paye ? '1' : '0' }}">
                    <i class="ri-edit-box-line"></i>
                 </a>
             </td>
@@ -168,7 +185,9 @@
 </div>
 </section>
 
-{{-- Add New Employee Modal --}}
+{{-- ══════════════════════════════════════════════════════════════
+     ADD NEW EMPLOYEE MODAL
+══════════════════════════════════════════════════════════════ --}}
 <section>
 <div class="modal fade" id="newDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -184,35 +203,35 @@
                     {{-- PERSONAL INFO --}}
                     <div class="modal-section-title">Personal Information</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Full name (<span style="color:red">*</span>)</label>
                             <input type="text" class="form-control" name="name" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Phone (<span style="color:red">*</span>)</label>
                             <input type="text" class="form-control" name="phone" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Email (<span style="color:red">*</span>)</label>
                             <input type="email" class="form-control" name="email" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Date of Birth</label>
                             <input type="date" class="form-control" name="dob" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>ID Type</label>
                             <input type="text" class="form-control" name="idtype" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>ID Number</label>
                             <input type="text" class="form-control" name="idnumber" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Home Address</label>
                             <textarea class="form-control" name="home_address" autocomplete="off"></textarea>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Current Residence</label>
                             <textarea class="form-control" name="current_residence" autocomplete="off"></textarea>
                         </div>
@@ -221,7 +240,7 @@
                     {{-- EMPLOYMENT --}}
                     <div class="modal-section-title">Employment</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Role (<span style="color:red">*</span>)</label>
                             <select class="form-control" name="role" required>
                                 <option value="">-- Select Role --</option>
@@ -230,7 +249,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Branch (<span style="color:red">*</span>)</label>
                             <select class="form-control" name="branch" required>
                                 <option value="">-- Select Branch --</option>
@@ -239,23 +258,23 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Department</label>
                             <input type="text" class="form-control" name="department" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Position</label>
                             <input type="text" class="form-control" name="position" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Gross Salary</label>
                             <input type="number" class="form-control" name="gross_salary" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Started On</label>
                             <input type="date" class="form-control" name="started_on" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Employment Type</label>
                             <select class="form-control" name="employment_type" id="employment_type">
                                 <option value="Full-time">Full-time</option>
@@ -264,32 +283,41 @@
                                 <option value="Casual">Casual</option>
                             </select>
                         </div>
-                        <div class="form-group col-md-6" id="contract_end_date_wrap">
+                        <div class="form-group col-md-6 mb-2" id="contract_end_date_wrap">
                             <label>Contract End Date</label>
                             <input type="date" class="form-control" name="contract_end_date" autocomplete="off">
+                        </div>
+                        {{-- ── ON PAYE TOGGLE ── --}}
+                        <div class="form-group col-md-6 mb-2">
+                            <label class="d-block">PAYE Deduction</label>
+                            <div class="form-check form-switch form-check-paye">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       name="on_paye" id="on_paye" value="1">
+                                <label class="form-check-label" for="on_paye">Subject to PAYE</label>
+                            </div>
                         </div>
                     </div>
 
                     {{-- BANKING --}}
                     <div class="modal-section-title">Banking Details</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Bank Name</label>
                             <input type="text" class="form-control" name="bank_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Name</label>
                             <input type="text" class="form-control" name="bank_account_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Number</label>
                             <input type="text" class="form-control" name="bank_account_number" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Bank Branch</label>
                             <input type="text" class="form-control" name="bank_branch" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Type</label>
                             <select class="form-control" name="bank_account_type">
                                 <option value="Savings">Savings</option>
@@ -302,19 +330,19 @@
                     {{-- NEXT OF KIN --}}
                     <div class="modal-section-title">Next of Kin</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Name</label>
                             <input type="text" class="form-control" name="nextofkin_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Relationship</label>
                             <input type="text" class="form-control" name="nextofkin_relationship" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Physical Address</label>
                             <input type="text" class="form-control" name="nextofkin_physical_address" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Contact</label>
                             <input type="text" class="form-control" name="nextofkin_contact" autocomplete="off">
                         </div>
@@ -329,7 +357,9 @@
 </div>
 </section>
 
-{{-- Edit Modal --}}
+{{-- ══════════════════════════════════════════════════════════════
+     EDIT EMPLOYEE MODAL
+══════════════════════════════════════════════════════════════ --}}
 <section>
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
@@ -341,41 +371,41 @@
             <div class="modal-body">
                 <form action="#" method="post" id="editDataForm">
                     @csrf
-                    <input type="hidden" name="id" id="editId">
+                    <input type="hidden" name="id"      id="editId">
                     <input type="hidden" name="editrow" id="editRow">
 
                     {{-- PERSONAL INFO --}}
                     <div class="modal-section-title">Personal Information</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Full name</label>
                             <input type="text" class="form-control" id="editName" name="name" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Phone</label>
                             <input type="text" class="form-control" id="editPhone" name="phone" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Email</label>
                             <input type="email" class="form-control" id="editEmail" name="email" autocomplete="off" required>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Date of Birth</label>
                             <input type="date" class="form-control" id="editDob" name="dob" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>ID Type</label>
                             <input type="text" class="form-control" id="editIdType" name="idtype" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>ID Number</label>
                             <input type="text" class="form-control" id="editIdNumber" name="idnumber" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Home Address</label>
                             <textarea class="form-control" id="editHomeAddress" name="home_address" autocomplete="off"></textarea>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Current Residence</label>
                             <textarea class="form-control" id="editCurrentResidence" name="current_residence" autocomplete="off"></textarea>
                         </div>
@@ -384,7 +414,7 @@
                     {{-- EMPLOYMENT --}}
                     <div class="modal-section-title">Employment</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Role</label>
                             <select class="form-control" id="editRole" name="role" required>
                                 @foreach($roles as $r)
@@ -392,7 +422,7 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Branch</label>
                             <select class="form-control" id="editBranch" name="branch" required>
                                 @foreach($branches as $b)
@@ -400,23 +430,23 @@
                                 @endforeach
                             </select>
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Department</label>
                             <input type="text" class="form-control" id="editDepartment" name="department" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Position</label>
                             <input type="text" class="form-control" id="editPosition" name="position" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Gross Salary</label>
                             <input type="number" class="form-control" id="editGrossSalary" name="gross_salary" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Started On</label>
                             <input type="date" class="form-control" id="editStartedOn" name="started_on" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Employment Type</label>
                             <select class="form-control" id="editEmploymentType" name="employment_type">
                                 <option value="Full-time">Full-time</option>
@@ -425,32 +455,41 @@
                                 <option value="Casual">Casual</option>
                             </select>
                         </div>
-                        <div class="form-group col-md-6" id="edit_contract_end_date_wrap">
+                        <div class="form-group col-md-6 mb-2" id="edit_contract_end_date_wrap">
                             <label>Contract End Date</label>
                             <input type="date" class="form-control" id="editContractEndDate" name="contract_end_date" autocomplete="off">
+                        </div>
+                        {{-- ── ON PAYE TOGGLE ── --}}
+                        <div class="form-group col-md-6 mb-2">
+                            <label class="d-block">PAYE Deduction</label>
+                            <div class="form-check form-switch form-check-paye">
+                                <input class="form-check-input" type="checkbox" role="switch"
+                                       name="on_paye" id="editOnPaye" value="1">
+                                <label class="form-check-label" for="editOnPaye">Subject to PAYE</label>
+                            </div>
                         </div>
                     </div>
 
                     {{-- BANKING --}}
                     <div class="modal-section-title">Banking Details</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Bank Name</label>
                             <input type="text" class="form-control" id="editBankName" name="bank_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Name</label>
                             <input type="text" class="form-control" id="editBankAccountName" name="bank_account_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Number</label>
                             <input type="text" class="form-control" id="editBankAccountNumber" name="bank_account_number" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Bank Branch</label>
                             <input type="text" class="form-control" id="editBankBranch" name="bank_branch" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Account Type</label>
                             <select class="form-control" id="editBankAccountType" name="bank_account_type">
                                 <option value="Savings">Savings</option>
@@ -463,19 +502,19 @@
                     {{-- NEXT OF KIN --}}
                     <div class="modal-section-title">Next of Kin</div>
                     <div class="row">
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Name</label>
                             <input type="text" class="form-control" id="editNextofkinName" name="nextofkin_name" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Relationship</label>
                             <input type="text" class="form-control" id="editNextofkinRelationship" name="nextofkin_relationship" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Physical Address</label>
                             <input type="text" class="form-control" id="editNextofkinPhysicalAddress" name="nextofkin_physical_address" autocomplete="off">
                         </div>
-                        <div class="form-group col-md-6">
+                        <div class="form-group col-md-6 mb-2">
                             <label>Contact</label>
                             <input type="text" class="form-control" id="editNextofkinContact" name="nextofkin_contact" autocomplete="off">
                         </div>
@@ -503,21 +542,26 @@ $(document).ready(function () {
         allowHtml: true
     };
 
-    // Show / hide contract end date when employment type = Contract
+    // ── Contract end date toggle ──────────────────────────────────────────────
     function toggleContractDate(selectEl, wrapId) {
         $(wrapId).toggle($(selectEl).val() === 'Contract');
     }
-
     $('#employment_type').on('change', function () {
         toggleContractDate(this, '#contract_end_date_wrap');
     });
-
     $('#editEmploymentType').on('change', function () {
         toggleContractDate(this, '#edit_contract_end_date_wrap');
     });
 
+    // ── Build updated table row after add / edit ──────────────────────────────
+    function payeBadge(onPaye) {
+        return onPaye
+            ? '<span class="badge bg-success">Yes</span>'
+            : '<span class="badge bg-secondary">No</span>';
+    }
+
     function buildRowHtml(e, row) {
-        var viewUrl  = "{{ route('tenant.admin.employee.details') }}?id=" + e.id;
+        var viewUrl = "{{ route('tenant.admin.employee.details') }}?id=" + e.id;
         return `<tr id="${row}">
             <td>${e.name}</td>
             <td style="text-align:center">${e.phone}</td>
@@ -526,6 +570,7 @@ $(document).ready(function () {
             <td style="text-align:center">${e.branch || '—'}</td>
             <td style="text-align:center">${e.department || '—'}</td>
             <td style="text-align:center">${e.position || '—'}</td>
+            <td style="text-align:center">${payeBadge(e.on_paye)}</td>
             <td style="text-align:center">
                 <a href="${viewUrl}" class="btn btn-light text-primary btn-sm" title="View Details"><i class="ri-eye-line"></i></a>
                 <a href="#" class="editDataBtn btn btn-light text-info btn-sm"
@@ -555,7 +600,8 @@ $(document).ready(function () {
                    editBankAccountName="${e.bank_account_name || ''}"
                    editBankAccountNumber="${e.bank_account_number || ''}"
                    editBankBranch="${e.bank_branch || ''}"
-                   editBankAccountType="${e.bank_account_type || 'Savings'}">
+                   editBankAccountType="${e.bank_account_type || 'Savings'}"
+                   editOnPaye="${e.on_paye ? '1' : '0'}">
                    <i class="ri-edit-box-line"></i>
                 </a>
             </td>
@@ -573,18 +619,26 @@ $(document).ready(function () {
                 { extend: 'excelHtml5', title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
                 { extend: 'csvHtml5',   title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' } },
                 { extend: 'pdfHtml5',   title: @json($maintableTitle), exportOptions: { columns: ':visible:not(:last-child)' },
-                  customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
+                  customize: function (doc) {
+                      doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split('');
+                  }
                 }
             ]
         });
 
         table.buttons().container().appendTo($('#buttonsModal .buttons'));
 
-        $('#newDataBtn').click(function (e) { e.preventDefault(); $('#newDataForm')[0].reset(); $('#contract_end_date_wrap').hide(); $('#newDataModal').modal('show'); });
-        $('#infoBtn').click(function (e) { e.preventDefault(); $('#infoModal').modal('show'); });
-        $('#tableButtonsBtn').click(function (e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
+        $('#newDataBtn').click(function (e) {
+            e.preventDefault();
+            $('#newDataForm')[0].reset();
+            $('#on_paye').prop('checked', false);
+            $('#contract_end_date_wrap').hide();
+            $('#newDataModal').modal('show');
+        });
+        $('#infoBtn').click(function (e)          { e.preventDefault(); $('#infoModal').modal('show'); });
+        $('#tableButtonsBtn').click(function (e)  { e.preventDefault(); $('#buttonsModal').modal('show'); });
 
-        // ── ADD ──────────────────────────────────────────────────────────────
+        // ── ADD ───────────────────────────────────────────────────────────────
         $('#submitDataBtn').click(function (e) {
             e.preventDefault();
             var self = $(this); self.prop('disabled', true);
@@ -592,7 +646,7 @@ $(document).ready(function () {
             $.ajax({
                 type: 'POST',
                 url: '{{ route("tenant.admin.employee.insert") }}',
-                data: $('#newDataForm').serialize() + '&_token={{ csrf_token() }}',
+                data: $('#newDataForm').serialize(),
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },
                 complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
@@ -602,6 +656,7 @@ $(document).ready(function () {
                         var newRow = "row" + data.employee.id;
                         table.row.add($(buildRowHtml(data.employee, newRow))).draw(false);
                         $('#newDataModal').modal('hide');
+                        $('#newDataForm')[0].reset();
                     } else if (data.status === 422) {
                         var msg = ''; $.each(data.errors, function (k, v) { msg += v + '\n'; });
                         toastr.error(msg, 'Validation Errors');
@@ -611,16 +666,14 @@ $(document).ready(function () {
                 },
                 error: function (xhr, status) {
                     if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error');
-                    } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error');
+                        toastr.error('The request timed out.', 'Timeout Error');
                     } else if (xhr.status === 422) {
                         var msg = ''; $.each(xhr.responseJSON.errors, function (k, v) { msg += v + '\n'; });
                         toastr.error(msg, 'Validation Errors');
                     } else if (xhr.status === 500) {
-                        toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error');
+                        toastr.error('Server error occurred.', 'Server Error');
                     } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Unspecified Error');
+                        toastr.error('Unspecified error occurred.', 'Error');
                     }
                 }
             });
@@ -629,6 +682,7 @@ $(document).ready(function () {
         $('#cancelDataBtn').click(function (e) {
             e.preventDefault();
             $('#newDataForm')[0].reset();
+            $('#on_paye').prop('checked', false);
             $('#contract_end_date_wrap').hide();
             $('#newDataModal').modal('hide');
         });
@@ -662,8 +716,13 @@ $(document).ready(function () {
             $('#editBankAccountNumber').val($(this).attr('editBankAccountNumber'));
             $('#editBankBranch').val($(this).attr('editBankBranch'));
             $('#editBankAccountType').val($(this).attr('editBankAccountType'));
-            // show/hide contract end date
+
+            // ── on_paye checkbox ──
+            $('#editOnPaye').prop('checked', $(this).attr('editOnPaye') === '1');
+
+            // show / hide contract end date
             $('#edit_contract_end_date_wrap').toggle($(this).attr('editEmploymentType') === 'Contract');
+
             $('#editDataModal').modal('show');
         });
 
@@ -676,7 +735,7 @@ $(document).ready(function () {
             $.ajax({
                 type: 'POST',
                 url: '{{ route("tenant.admin.employee.update") }}',
-                data: $('#editDataForm').serialize() + '&_token={{ csrf_token() }}',
+                data: $('#editDataForm').serialize(),
                 timeout: 60000,
                 beforeSend: function () { $('#progressBar').show(); },
                 complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
@@ -695,16 +754,14 @@ $(document).ready(function () {
                 },
                 error: function (xhr, status) {
                     if (status === 'timeout') {
-                        toastr.error('The request timed out. Please check your internet connection and try again.', 'Timeout Error');
-                    } else if (xhr.status === 0) {
-                        toastr.error('Unable to connect. Please check your internet connection and try again.', 'Connection Error');
+                        toastr.error('The request timed out.', 'Timeout Error');
                     } else if (xhr.status === 422) {
                         var msg = ''; $.each(xhr.responseJSON.errors, function (k, v) { msg += v + '\n'; });
                         toastr.error(msg, 'Validation Errors');
                     } else if (xhr.status === 500) {
-                        toastr.error('Server error occurred. Please refresh the page and try again.', 'Server Error');
+                        toastr.error('Server error occurred.', 'Server Error');
                     } else {
-                        toastr.error('Unspecified error occurred. Try again later.', 'Unspecified Error');
+                        toastr.error('Unspecified error occurred.', 'Error');
                     }
                 }
             });
@@ -713,6 +770,7 @@ $(document).ready(function () {
         $('#cancelEditDataBtn').click(function (e) {
             e.preventDefault();
             $('#editDataForm')[0].reset();
+            $('#editOnPaye').prop('checked', false);
             $('#edit_contract_end_date_wrap').hide();
             $('#editDataModal').modal('hide');
         });

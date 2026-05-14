@@ -292,17 +292,17 @@
                                 <ul class="side-nav-second-level">
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.payroll.periods') }}">
-                                            <i class="ri-calendar-check-line me-1"></i> Periods
+                                             Periods
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.payroll.wagebill') }}">
-                                            <i class="ri-bill-line me-1"></i> Wage Bill
+                                          Wage Bill
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{route('tenant.admin.hr.payroll.payslips') }}">
-                                            <i class="ri-file-paper-2-line me-1"></i> Payslips
+                                         Payslips
                                         </a>
                                     </li>
                                 </ul>
@@ -319,22 +319,30 @@
                                 <ul class="side-nav-second-level">
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.pension') }}">
-                                            <i class="ri-shield-check-line me-1"></i> Pension
+                                        Pension
                                         </a> 
                                     </li>
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.loans') }}">
-                                            <i class="ri-bank-line me-1"></i> Loans
+                                         Loans
                                         </a>
                                     </li>
+
+                                     <li>
+                                        <a href="{{ route('tenant.admin.hr.allowances') }}">
+                                           Allowances
+                                        </a>
+                                    </li>
+
+                                   
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.advances') }}">
-                                            <i class="ri-hand-coin-line me-1"></i> Advances
+                                         Advances
                                         </a>
                                     </li>
                                     <li>
                                         <a href="{{ route('tenant.admin.hr.offer.letters') }}">
-                                            <i class="ri-file-text-line me-1"></i> Offer Letters
+                                           Offer Letters
                                         </a>
                                     </li>
                                 </ul>

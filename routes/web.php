@@ -202,7 +202,18 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
         Route::post('/admin/hr/paye/brackets/retire',  [TenantAdminController::class, 'retirePayeBracket'])     ->name('tenant.admin.hr.paye.brackets.retire');
         Route::post('/admin/hr/paye/brackets/delete',  [TenantAdminController::class, 'deletePayeBracket'])     ->name('tenant.admin.hr.paye.brackets.delete');
 
-    });
+   
+
+
+
+        Route::get( '/admin/hr/allowances',        [TenantAdminController::class, 'showAllowancesView']) ->name('tenant.admin.hr.allowances');
+        Route::post('/admin/hr/allowances/store',  [TenantAdminController::class, 'storeAllowance'])     ->name('tenant.admin.hr.allowances.store');
+        Route::post('/admin/hr/allowances/update', [TenantAdminController::class, 'updateAllowance'])    ->name('tenant.admin.hr.allowances.update');
+        Route::post('/admin/hr/allowances/delete', [TenantAdminController::class, 'deleteAllowance'])    ->name('tenant.admin.hr.allowances.delete');
+    
+    
+        Route::get('/admin/hr/allowances/history', [TenantAdminController::class, 'showAllowanceHistoryView'])->name('tenant.admin.hr.allowances.history');
+        });
 
 
 

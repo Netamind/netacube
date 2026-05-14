@@ -1943,118 +1943,197 @@ public function updatePayrollPeriod(Request $request)
 
 
 // ============================================================
+//  FORMAT PAYROLL ENTRY HELPER
+// ============================================================
+private function formatPayrollEntry($entry): array
+{
+    return [
+        'id'                              => $entry->id,
+        'payroll_period_id'               => $entry->payroll_period_id,
+        'employee_id'                     => $entry->employee_id,
+        'employee_name'                   => $entry->employee_name      ?? '',
+        'employee_number'                 => $entry->employee_number    ?? '',
+
+        // Earnings
+        'basic_salary'                    => $entry->basic_salary,
+        'housing_allowance'               => $entry->housing_allowance,
+        'transport_allowance'             => $entry->transport_allowance,
+        'medical_allowance'               => $entry->medical_allowance,
+        'meal_allowance'                  => $entry->meal_allowance,
+        'other_recurring_allowance'       => $entry->other_recurring_allowance,
+        'other_recurring_allowance_label' => $entry->other_recurring_allowance_label ?? 'Other Recurring',
+        'acting_allowance'                => $entry->acting_allowance,
+        'commissions'                     => $entry->commissions,
+        'other_variable_allowance'        => $entry->other_variable_allowance,
+        'other_variable_allowance_label'  => $entry->other_variable_allowance_label  ?? 'Other Variable',
+        'overtime_amount'                 => $entry->overtime_amount,
+        'gross_pay'                       => $entry->gross_pay,
+
+        // Deductions
+        'on_pension'                      => (bool) $entry->on_pension,
+        'pension_employee'                => $entry->pension_employee,
+        'pension_employer'                => $entry->pension_employer,
+        'paye'                            => $entry->paye,
+        'loan_deduction'                  => $entry->loan_deduction,
+        'advance_deduction'               => $entry->advance_deduction,
+        'other_deductions'                => $entry->other_deductions,
+        'total_deductions'                => $entry->total_deductions,
+        'net_pay'                         => $entry->net_pay,
+
+        'notes'                           => $entry->notes,
+        'status'                          => $entry->status,
+    ];
+}
+
+
+// ============================================================
 //  GENERATE PAYROLL ENTRIES
 // ============================================================
- 
 public function generatePayrollEntries(Request $request)
 {
     $request->validate([
         'id' => 'required|integer|exists:tenant.payroll_periods,id',
     ]);
- 
+
     $period = DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->first();
- 
+
     if (!$period || $period->status !== 'draft') {
         return response()->json(['error' => 'Only draft periods can be generated.', 'status' => 409], 409);
     }
- 
-    // Get all active employees
+
     $employees = DB::connection('tenant')->table('users')
         ->where('active', 'Yes')
         ->get();
- 
+
     $generated = 0;
     $skipped   = 0;
- 
+
     foreach ($employees as $emp) {
- 
-        // Skip if entry already exists for this period
+
         $exists = DB::connection('tenant')->table('payroll_entries')
             ->where('payroll_period_id', $period->id)
             ->where('employee_id', $emp->id)
             ->exists();
- 
+
         if ($exists) { $skipped++; continue; }
- 
-        // ── Earnings ──────────────────────────────────────────────────────
-        $basicSalary = $emp->gross_salary ?? 0;
-        $grossPay    = $basicSalary; // allowances default 0; admin can edit in wage bill
- 
-        // ── Pension ───────────────────────────────────────────────────────
+
+        $basicSalary = (float) ($emp->gross_salary ?? 0);
+
+        // ── Read allowance record ─────────────────────────────────────
+        $ar = DB::connection('tenant')
+            ->table('employee_allowances')
+            ->where('employee_id', $emp->id)
+            ->first();
+
+        $housingAllowance    = (float) ($ar->housing_allowance             ?? 0);
+        $transportAllowance  = (float) ($ar->transport_allowance           ?? 0);
+        $medicalAllowance    = (float) ($ar->medical_allowance             ?? 0);
+        $mealAllowance       = (float) ($ar->meal_allowance                ?? 0);
+        $otherRecurring      = (float) ($ar->other_recurring_allowance     ?? 0);
+        $otherRecurringLabel = $ar->other_recurring_allowance_label        ?? null;
+        $actingAllowance     = (float) ($ar->acting_allowance              ?? 0);
+        $commissions         = (float) ($ar->commissions                   ?? 0);
+        $otherVariable       = (float) ($ar->other_variable_allowance      ?? 0);
+        $otherVariableLabel  = $ar->other_variable_allowance_label         ?? null;
+        $overtimeAmount      = 0; // filled by admin in wage bill edit if needed
+
+        $grossPay = $basicSalary
+                  + $housingAllowance + $transportAllowance
+                  + $medicalAllowance + $mealAllowance + $otherRecurring
+                  + $actingAllowance  + $commissions   + $otherVariable
+                  + $overtimeAmount;
+
+        // ── Pension ───────────────────────────────────────────────────
         $pension = DB::connection('tenant')->table('employee_pension')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->first();
- 
+
         $onPension       = (bool) $pension;
         $pensionEmployee = 0;
         $pensionEmployer = 0;
- 
+
         if ($pension) {
             $pensionEmployee = round($basicSalary * ($pension->employee_rate / 100), 2);
             $pensionEmployer = round($basicSalary * ($pension->employer_rate / 100), 2);
         }
- 
+
         $taxableIncome = $grossPay - $pensionEmployee;
         $paye = (bool) ($emp->on_paye ?? false)
             ? $this->calculatePAYE($taxableIncome)
             : 0.00;
- 
-        // ── Active loan deduction ─────────────────────────────────────────
+
+        // ── Loan ──────────────────────────────────────────────────────
         $loan = DB::connection('tenant')->table('employee_loans')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->orderBy('id', 'asc')
             ->first();
- 
-        $loanDeduction = 0;
-        if ($loan) {
-            $loanDeduction = min($loan->monthly_deduction, $loan->balance_remaining);
-        }
- 
-        // ── Active advance deduction ──────────────────────────────────────
+
+        $loanDeduction = $loan ? min($loan->monthly_deduction, $loan->balance_remaining) : 0;
+
+        // ── Advance ───────────────────────────────────────────────────
         $advance = DB::connection('tenant')->table('employee_advances')
             ->where('employee_id', $emp->id)
             ->where('status', 'active')
             ->orderBy('id', 'asc')
             ->first();
- 
-        $advanceDeduction = 0;
-        if ($advance) {
-            $advanceDeduction = min($advance->monthly_deduction, $advance->balance_remaining);
-        }
- 
-        // ── Totals ────────────────────────────────────────────────────────
+
+        $advanceDeduction = $advance ? min($advance->monthly_deduction, $advance->balance_remaining) : 0;
+
         $totalDeductions = $pensionEmployee + $paye + $loanDeduction + $advanceDeduction;
-        $netPay          = $grossPay - $totalDeductions;
- 
+        $netPay          = max(0, $grossPay - $totalDeductions);
+
+        // ── Insert — frozen snapshot of every allowance column ────────
         DB::connection('tenant')->table('payroll_entries')->insert([
-            'payroll_period_id'  => $period->id,
-            'employee_id'        => $emp->id,
-            'basic_salary'       => $basicSalary,
-            'gross_pay'          => $grossPay,
-            'on_pension'         => $onPension,
-            'pension_employee'   => $pensionEmployee,
-            'pension_employer'   => $pensionEmployer,
-            'paye'               => $paye,
-            'loan_deduction'     => $loanDeduction,
-            'advance_deduction'  => $advanceDeduction,
-            'total_deductions'   => $totalDeductions,
-            'net_pay'            => $netPay,
-            'status'             => 'draft',
-            'created_at'         => now(),
-            'updated_at'         => now(),
+            'payroll_period_id'               => $period->id,
+            'employee_id'                     => $emp->id,
+            'basic_salary'                    => $basicSalary,
+            'housing_allowance'               => $housingAllowance,
+            'transport_allowance'             => $transportAllowance,
+            'medical_allowance'               => $medicalAllowance,
+            'meal_allowance'                  => $mealAllowance,
+            'other_recurring_allowance'       => $otherRecurring,
+            'other_recurring_allowance_label' => $otherRecurringLabel,
+            'acting_allowance'                => $actingAllowance,
+            'commissions'                     => $commissions,
+            'other_variable_allowance'        => $otherVariable,          // correct column name
+            'other_variable_allowance_label'  => $otherVariableLabel,
+            'overtime_amount'                 => $overtimeAmount,
+            'gross_pay'                       => $grossPay,
+            'on_pension'                      => $onPension,
+            'pension_employee'                => $pensionEmployee,
+            'pension_employer'                => $pensionEmployer,
+            'paye'                            => $paye,
+            'loan_deduction'                  => $loanDeduction,
+            'advance_deduction'               => $advanceDeduction,
+            'other_deductions'                => 0,
+            'total_deductions'                => $totalDeductions,
+            'net_pay'                         => $netPay,
+            'status'                          => 'draft',
+            'created_at'                      => now(),
+            'updated_at'                      => now(),
         ]);
- 
+
         $generated++;
+
+        // ── Reset variable tier if configured ─────────────────────────
+        if ($ar && $ar->variable_reset_on_generate) {
+            DB::connection('tenant')->table('employee_allowances')
+                ->where('employee_id', $emp->id)
+                ->update([
+                    'acting_allowance'         => 0,
+                    'commissions'              => 0,
+                    'other_variable_allowance' => 0,
+                    'updated_at'               => now(),
+                ]);
+        }
     }
- 
-    // Move period to 'processing'
+
     DB::connection('tenant')->table('payroll_periods')
         ->where('id', $period->id)
         ->update(['status' => 'processing', 'updated_at' => now()]);
- 
-    // Re-fetch with counts
+
     $updated = DB::connection('tenant')
         ->table('payroll_periods')
         ->leftJoinSub(
@@ -2067,7 +2146,7 @@ public function generatePayrollEntries(Request $request)
         ->select('payroll_periods.*', 'sums.employee_count', 'sums.total_net_pay')
         ->where('payroll_periods.id', $period->id)
         ->first();
- 
+
     return response()->json([
         'status'  => 201,
         'success' => "Wage bill generated for {$generated} employee(s). {$skipped} skipped (already existed).",
@@ -2075,98 +2154,102 @@ public function generatePayrollEntries(Request $request)
         'summary' => $this->payrollSummary(),
     ], 201);
 }
- 
- 
+
+
 // ============================================================
 //  UPDATE PAYROLL ENTRY  (wage bill edit)
 // ============================================================
- 
 public function updatePayrollEntry(Request $request)
 {
     $request->validate([
-        'id'                  => 'required|integer|exists:tenant.payroll_entries,id',
-        'basic_salary'        => 'required|numeric|min:0',
-        'housing_allowance'   => 'nullable|numeric|min:0',
-        'transport_allowance' => 'nullable|numeric|min:0',
-        'other_allowances'    => 'nullable|numeric|min:0',
-        'overtime_amount'     => 'nullable|numeric|min:0',
-        'paye'                => 'nullable|numeric|min:0',
-        'pension_employee'    => 'nullable|numeric|min:0',
-        'pension_employer'    => 'nullable|numeric|min:0',
-        'loan_deduction'      => 'nullable|numeric|min:0',
-        'advance_deduction'   => 'nullable|numeric|min:0',
-        'other_deductions'    => 'nullable|numeric|min:0',
-        'notes'               => 'nullable|string|max:2000',
+        'id'                          => 'required|integer|exists:tenant.payroll_entries,id',
+        'basic_salary'                => 'required|numeric|min:0',
+        'housing_allowance'           => 'nullable|numeric|min:0',
+        'transport_allowance'         => 'nullable|numeric|min:0',
+        'medical_allowance'           => 'nullable|numeric|min:0',
+        'meal_allowance'              => 'nullable|numeric|min:0',
+        'other_recurring_allowance'   => 'nullable|numeric|min:0',
+        'acting_allowance'            => 'nullable|numeric|min:0',
+        'commissions'                 => 'nullable|numeric|min:0',
+        'other_variable_allowance'    => 'nullable|numeric|min:0',
+        'overtime_amount'             => 'nullable|numeric|min:0',
+        'paye'                        => 'nullable|numeric|min:0',
+        'pension_employee'            => 'nullable|numeric|min:0',
+        'pension_employer'            => 'nullable|numeric|min:0',
+        'loan_deduction'              => 'nullable|numeric|min:0',
+        'advance_deduction'           => 'nullable|numeric|min:0',
+        'other_deductions'            => 'nullable|numeric|min:0',
+        'notes'                       => 'nullable|string|max:2000',
     ]);
- 
-    // Confirm the entry exists
+
     $entry = DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->first();
- 
+
     if (!$entry) {
         return response()->json(['error' => 'Entry not found.', 'status' => 404], 404);
     }
- 
-    // Confirm the period is still editable
+
     $period = DB::connection('tenant')->table('payroll_periods')
         ->where('id', $entry->payroll_period_id)
         ->first();
- 
+
     if (!$period || !in_array($period->status, ['draft', 'processing'])) {
         return response()->json([
             'error'  => 'Entries can only be edited while the period is Draft or Processing.',
             'status' => 409,
         ], 409);
     }
- 
-    // ── Pull the employee to re-check on_paye flag ────────────────────────
-    // The admin is allowed to override the paye field manually in the wage
-    // bill (e.g. to handle a mid-month joiner or a correction). We accept
-    // whatever value they submit but we surface a note if they supply PAYE
-    // for a non-PAYE employee so they are aware.
+
     $employee = DB::connection('tenant')->table('users')->where('id', $entry->employee_id)->first();
     $onPaye   = (bool) ($employee->on_paye ?? false);
- 
-    // ── Recompute totals server-side ──────────────────────────────────────
-    $basic      = (float) ($request->basic_salary        ?? 0);
-    $housing    = (float) ($request->housing_allowance   ?? 0);
-    $transport  = (float) ($request->transport_allowance ?? 0);
-    $otherAllow = (float) ($request->other_allowances    ?? 0);
-    $overtime   = (float) ($request->overtime_amount     ?? 0);
- 
-    $grossPay = $basic + $housing + $transport + $otherAllow + $overtime;
- 
-    // If the employee is not on PAYE, force paye = 0 regardless of what
-    // was submitted, protecting against accidental deductions.
+
+    $basic       = (float) ($request->basic_salary              ?? 0);
+    $housing     = (float) ($request->housing_allowance         ?? 0);
+    $transport   = (float) ($request->transport_allowance       ?? 0);
+    $medical     = (float) ($request->medical_allowance         ?? 0);
+    $meal        = (float) ($request->meal_allowance            ?? 0);
+    $otherRecurr = (float) ($request->other_recurring_allowance ?? 0);
+    $acting      = (float) ($request->acting_allowance          ?? 0);
+    $commissions = (float) ($request->commissions               ?? 0);
+    $otherVar    = (float) ($request->other_variable_allowance  ?? 0);
+    $overtime    = (float) ($request->overtime_amount           ?? 0);
+
+    $grossPay = $basic + $housing + $transport + $medical + $meal
+              + $otherRecurr + $acting + $commissions + $otherVar + $overtime;
+
     $paye       = $onPaye ? (float) ($request->paye ?? 0) : 0.00;
-    $pensionEe  = (float) ($request->pension_employee ?? 0);
-    $pensionEr  = (float) ($request->pension_employer ?? 0);
-    $loanDed    = (float) ($request->loan_deduction   ?? 0);
+    $pensionEe  = (float) ($request->pension_employee  ?? 0);
+    $pensionEr  = (float) ($request->pension_employer  ?? 0);
+    $loanDed    = (float) ($request->loan_deduction    ?? 0);
     $advanceDed = (float) ($request->advance_deduction ?? 0);
     $otherDed   = (float) ($request->other_deductions  ?? 0);
- 
+
     $totalDeductions = $paye + $pensionEe + $loanDed + $advanceDed + $otherDed;
     $netPay          = max(0, $grossPay - $totalDeductions);
- 
+
     DB::connection('tenant')->table('payroll_entries')->where('id', $request->id)->update([
-        'basic_salary'        => $basic,
-        'housing_allowance'   => $housing,
-        'transport_allowance' => $transport,
-        'other_allowances'    => $otherAllow,
-        'overtime_amount'     => $overtime,
-        'gross_pay'           => $grossPay,
-        'paye'                => $paye,
-        'pension_employee'    => $pensionEe,
-        'pension_employer'    => $pensionEr,
-        'loan_deduction'      => $loanDed,
-        'advance_deduction'   => $advanceDed,
-        'other_deductions'    => $otherDed,
-        'total_deductions'    => $totalDeductions,
-        'net_pay'             => $netPay,
-        'notes'               => $request->notes,
-        'updated_at'          => now(),
+        'basic_salary'                    => $basic,
+        'housing_allowance'               => $housing,
+        'transport_allowance'             => $transport,
+        'medical_allowance'               => $medical,
+        'meal_allowance'                  => $meal,
+        'other_recurring_allowance'       => $otherRecurr,
+        'acting_allowance'                => $acting,
+        'commissions'                     => $commissions,
+        'other_variable_allowance'        => $otherVar,
+        'overtime_amount'                 => $overtime,
+        'gross_pay'                       => $grossPay,
+        'paye'                            => $paye,
+        'pension_employee'                => $pensionEe,
+        'pension_employer'                => $pensionEr,
+        'loan_deduction'                  => $loanDed,
+        'advance_deduction'               => $advanceDed,
+        'other_deductions'                => $otherDed,
+        'total_deductions'                => $totalDeductions,
+        'net_pay'                         => $netPay,
+        'notes'                           => $request->notes,
+        'updated_at'                      => now(),
     ]);
- 
-    // Re-fetch with employee name joined
+
     $updated = DB::connection('tenant')
         ->table('payroll_entries')
         ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
@@ -2178,23 +2261,42 @@ public function updatePayrollEntry(Request $request)
             'users.on_paye as on_paye'
         )
         ->first();
- 
+
     $response = [
         'status'  => 201,
         'success' => 'Entry updated successfully.',
         'entry'   => $this->formatPayrollEntry($updated),
         'totals'  => $this->wageBillTotals($entry->payroll_period_id),
     ];
- 
-    // Warn if PAYE was submitted for a non-PAYE employee and we zeroed it
+
     if (!$onPaye && (float) ($request->paye ?? 0) > 0) {
         $response['warning'] = 'PAYE was set to 0 because this employee is not marked as On PAYE.';
     }
- 
+
     return response()->json($response, 201);
 }
- 
- 
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 // ============================================================
 //  CALCULATE PAYE  (reads live from paye_brackets table)
 // ============================================================
@@ -2456,91 +2558,64 @@ public function deletePayrollPeriod(Request $request)
         ];
     }
 
-    // ── Helper — format a single payroll entry row for the frontend ───────────
-    private function formatPayrollEntry($entry): array
-    {
-        return [
-            'id'                 => $entry->id,
-            'payroll_period_id'  => $entry->payroll_period_id,
-            'employee_id'        => $entry->employee_id,
-            'employee_name'      => $entry->employee_name      ?? '',
-            'employee_number'    => $entry->employee_number    ?? '',
-            'basic_salary'       => $entry->basic_salary,
-            'housing_allowance'  => $entry->housing_allowance,
-            'transport_allowance'=> $entry->transport_allowance,
-            'other_allowances'   => $entry->other_allowances,
-            'overtime_amount'    => $entry->overtime_amount,
-            'gross_pay'          => $entry->gross_pay,
-            'on_pension'         => (bool) $entry->on_pension,
-            'pension_employee'   => $entry->pension_employee,
-            'pension_employer'   => $entry->pension_employer,
-            'paye'               => $entry->paye,
-            'loan_deduction'     => $entry->loan_deduction,
-            'advance_deduction'  => $entry->advance_deduction,
-            'other_deductions'   => $entry->other_deductions,
-            'total_deductions'   => $entry->total_deductions,
-            'net_pay'            => $entry->net_pay,
-            'notes'              => $entry->notes,
-            'status'             => $entry->status,
-        ];
-    }
-
-
 
 public function showWageBillView(Request $request)
 {
   
     return view('tenants.admin.wagebill');
 }
+public function downloadPayslip(Request $request)
+{
+    $entryId = $request->query('entry_id');
 
-
-
-    // ── DOWNLOAD PAYSLIP ──────────────────────────────────────────────────────
-    public function downloadPayslip(Request $request)
-    {
-        $entryId = $request->query('entry_id');
-
-        $entry = DB::connection('tenant')
-            ->table('payroll_entries')
-            ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
-            ->where('payroll_entries.id', $entryId)
-            ->select(
-                'payroll_entries.*',
-                'users.name         as employee_name',
-                'users.phone        as employee_number',
-                'users.position     as position',
-                'users.department   as department',
-                'users.bank_name    as bank_name',
-                'users.bank_account_number as bank_account_number'
-            )
-            ->first();
-
-        if (!$entry) {
-            abort(404, 'Payroll entry not found.');
-        }
-
-        $period = DB::connection('tenant')
-            ->table('payroll_periods')
-            ->where('id', $entry->payroll_period_id)
-            ->first();
-
-        $company = DB::connection('tenant')
-            ->table('company_info')
-            ->where('id', 1)
-            ->first();
-
-        $pdf = Pdf::loadView('tenants.admin.payslip-pdf', compact('entry', 'period', 'company'))
-                  ->setPaper('a5', 'portrait');
-
-        $filename = 'payslip_'
-            . str_replace(' ', '_', strtolower($entry->employee_name))
-            . '_' . $period->name
-            . '.pdf';
-
-        return $pdf->download($filename);
+    if (!$entryId) {
+        abort(400, 'entry_id is required.');
     }
 
+    $entry = DB::connection('tenant')
+        ->table('payroll_entries')
+        ->join('users', 'users.id', '=', 'payroll_entries.employee_id')
+        ->where('payroll_entries.id', $entryId)
+        ->select(
+            'payroll_entries.*',          // all payroll columns incl. every allowance
+            'users.name                   as employee_name',
+            'users.phone                  as employee_number',
+            'users.position               as position',
+            'users.department             as department',
+            'users.bank_name              as bank_name',
+            'users.bank_account_number    as bank_account_number'
+        )
+        ->first();
 
+    if (!$entry) {
+        abort(404, 'Payroll entry not found.');
+    }
+
+    $period = DB::connection('tenant')
+        ->table('payroll_periods')
+        ->where('id', $entry->payroll_period_id)
+        ->first();
+
+    if (!$period) {
+        abort(404, 'Payroll period not found.');
+    }
+
+    $company = DB::connection('tenant')
+        ->table('company_info')
+        ->where('id', 1)
+        ->first();
+
+    $pdf = Pdf::loadView('tenants.admin.payslip-pdf', compact('entry', 'period', 'company'))
+              ->setPaper('a5', 'portrait')
+              ->setOptions(['defaultFont' => 'DejaVu Sans']);
+
+    $filename = 'payslip_'
+        . str_replace(' ', '_', strtolower($entry->employee_name))
+        . '_' . str_replace([' ', '/'], '_', $period->name)
+        . '.pdf';
+
+    return $pdf->download($filename);
+}
 // ============================================================
 //  PAYSLIPS — Main view
 //  GET /admin/hr/payroll/payslips
@@ -3684,5 +3759,219 @@ public function deletePayeBracket(Request $request)
 }
 
 
+
+
+
+/*
+|==========================================================================
+  ALLOWANCES
+|==========================================================================
+*/
+
+// ── Helper — format a single allowance row for the frontend ───────────────
+private function formatAllowance($a): array
+{
+    $employee = DB::connection('tenant')->table('users')->where('id', $a->employee_id)->first();
+
+    return [
+        'id'                              => $a->id,
+        'employee_id'                     => $a->employee_id,
+        'employee_name'                   => $employee->name       ?? '',
+        'position'                        => $employee->position   ?? '',
+        'department'                      => $employee->department ?? '',
+
+        // Recurring tier
+        'housing_allowance'               => $a->housing_allowance,
+        'transport_allowance'             => $a->transport_allowance,
+        'medical_allowance'               => $a->medical_allowance,
+        'meal_allowance'                  => $a->meal_allowance,
+        'other_recurring_allowance'       => $a->other_recurring_allowance,
+        'other_recurring_allowance_label' => $a->other_recurring_allowance_label,
+
+        // Variable tier
+        'acting_allowance'                => $a->acting_allowance,
+        'commissions'                     => $a->commissions,
+        'other_variable_allowance'        => $a->other_variable_allowance,
+        'other_variable_allowance_label'  => $a->other_variable_allowance_label,
+
+        // Control
+        'variable_reset_on_generate'      => (bool) $a->variable_reset_on_generate,
+
+        // Dates
+        'effective_from'                  => $a->effective_from,
+        'effective_from_fmt'              => \Carbon\Carbon::parse($a->effective_from)->format('d M Y'),
+
+        'notes' => $a->notes,
+    ];
+}
+
+// ── VIEW ──────────────────────────────────────────────────────────────────
+public function showAllowancesView()
+{
+    return view('tenants.admin.allowances');
+}
+
+// ── STORE ─────────────────────────────────────────────────────────────────
+public function storeAllowance(Request $request)
+{
+    $request->validate([
+        'employee_id'                     => 'required|integer|exists:tenant.users,id',
+        'housing_allowance'               => 'nullable|numeric|min:0',
+        'transport_allowance'             => 'nullable|numeric|min:0',
+        'medical_allowance'               => 'nullable|numeric|min:0',
+        'meal_allowance'                  => 'nullable|numeric|min:0',
+        'other_recurring_allowance'       => 'nullable|numeric|min:0',
+        'other_recurring_allowance_label' => 'nullable|string|max:100',
+        'acting_allowance'                => 'nullable|numeric|min:0',
+        'commissions'                     => 'nullable|numeric|min:0',
+        'other_variable_allowance'        => 'nullable|numeric|min:0',
+        'other_variable_allowance_label'  => 'nullable|string|max:100',
+        'effective_from'                  => 'required|date',
+        'notes'                           => 'nullable|string|max:2000',
+    ]);
+
+    // One allowance record per employee
+    $exists = DB::connection('tenant')
+        ->table('employee_allowances')
+        ->where('employee_id', $request->employee_id)
+        ->exists();
+
+    if ($exists) {
+        return response()->json([
+            'status' => 422,
+            'errors' => ['This employee already has an allowance package. Edit the existing record instead.'],
+        ], 422);
+    }
+
+    $id = DB::connection('tenant')->table('employee_allowances')->insertGetId([
+        'employee_id'                     => $request->employee_id,
+        'housing_allowance'               => $request->housing_allowance               ?? 0,
+        'transport_allowance'             => $request->transport_allowance             ?? 0,
+        'medical_allowance'               => $request->medical_allowance               ?? 0,
+        'meal_allowance'                  => $request->meal_allowance                  ?? 0,
+        'other_recurring_allowance'       => $request->other_recurring_allowance       ?? 0,
+        'other_recurring_allowance_label' => trim($request->other_recurring_allowance_label ?? ''),
+        'acting_allowance'                => $request->acting_allowance                ?? 0,
+        'commissions'                     => $request->commissions                     ?? 0,
+        'other_variable_allowance'        => $request->other_variable_allowance        ?? 0,
+        'other_variable_allowance_label'  => trim($request->other_variable_allowance_label ?? ''),
+        'variable_reset_on_generate'      => $request->has('variable_reset_on_generate') ? 1 : 0,
+        'effective_from'                  => $request->effective_from,
+        'notes'                           => $request->notes,
+        'created_at'                      => now(),
+        'updated_at'                      => now(),
+    ]);
+
+    // ── Write initial history snapshot ────────────────────────────────────
+    $this->writeAllowanceHistory($id, 'Initial setup', Auth::user()->name ?? 'System');
+
+    $allowance = DB::connection('tenant')->table('employee_allowances')->where('id', $id)->first();
+
+    return response()->json([
+        'status'    => 201,
+        'success'   => 'Allowance package created successfully.',
+        'allowance' => $this->formatAllowance($allowance),
+    ], 201);
+}
+
+// ── UPDATE ────────────────────────────────────────────────────────────────
+public function updateAllowance(Request $request)
+{
+    $request->validate([
+        'id'                              => 'required|integer|exists:tenant.employee_allowances,id',
+        'housing_allowance'               => 'nullable|numeric|min:0',
+        'transport_allowance'             => 'nullable|numeric|min:0',
+        'medical_allowance'               => 'nullable|numeric|min:0',
+        'meal_allowance'                  => 'nullable|numeric|min:0',
+        'other_recurring_allowance'       => 'nullable|numeric|min:0',
+        'other_recurring_allowance_label' => 'nullable|string|max:100',
+        'acting_allowance'                => 'nullable|numeric|min:0',
+        'commissions'                     => 'nullable|numeric|min:0',
+        'other_variable_allowance'        => 'nullable|numeric|min:0',
+        'other_variable_allowance_label'  => 'nullable|string|max:100',
+        'effective_from'                  => 'required|date',
+        'notes'                           => 'nullable|string|max:2000',
+        'change_reason'                   => 'nullable|string|max:255',
+    ]);
+
+    DB::connection('tenant')->table('employee_allowances')->where('id', $request->id)->update([
+        'housing_allowance'               => $request->housing_allowance               ?? 0,
+        'transport_allowance'             => $request->transport_allowance             ?? 0,
+        'medical_allowance'               => $request->medical_allowance               ?? 0,
+        'meal_allowance'                  => $request->meal_allowance                  ?? 0,
+        'other_recurring_allowance'       => $request->other_recurring_allowance       ?? 0,
+        'other_recurring_allowance_label' => trim($request->other_recurring_allowance_label ?? ''),
+        'acting_allowance'                => $request->acting_allowance                ?? 0,
+        'commissions'                     => $request->commissions                     ?? 0,
+        'other_variable_allowance'        => $request->other_variable_allowance        ?? 0,
+        'other_variable_allowance_label'  => trim($request->other_variable_allowance_label ?? ''),
+        'variable_reset_on_generate'      => $request->has('variable_reset_on_generate') ? 1 : 0,
+        'effective_from'                  => $request->effective_from,
+        'notes'                           => $request->notes,
+        'updated_at'                      => now(),
+    ]);
+
+    // ── Write history snapshot after every update ─────────────────────────
+    $this->writeAllowanceHistory(
+        $request->id,
+        $request->change_reason ?? 'Manual update',
+        Auth::user()->name ?? 'System'
+    );
+
+    $allowance = DB::connection('tenant')->table('employee_allowances')->where('id', $request->id)->first();
+
+    return response()->json([
+        'status'    => 201,
+        'success'   => 'Allowance package updated successfully.',
+        'allowance' => $this->formatAllowance($allowance),
+    ], 201);
+}
+
+// ── DELETE ────────────────────────────────────────────────────────────────
+public function deleteAllowance(Request $request)
+{
+    $request->validate([
+        'id' => 'required|integer|exists:tenant.employee_allowances,id',
+    ]);
+
+    // History rows cascade via FK; but if you prefer explicit control:
+    // DB::connection('tenant')->table('employee_allowance_history')->where('employee_id', ...)->delete();
+    DB::connection('tenant')->table('employee_allowances')->where('id', $request->id)->delete();
+
+    return response()->json([
+        'status'  => 201,
+        'success' => 'Allowance package deleted successfully.',
+    ], 201);
+}
+
+// ── PRIVATE — write a history snapshot ───────────────────────────────────
+private function writeAllowanceHistory(int $allowanceId, ?string $reason, ?string $changedBy): void
+{
+    $a = DB::connection('tenant')->table('employee_allowances')->where('id', $allowanceId)->first();
+
+    if (!$a) return;
+
+    DB::connection('tenant')->table('employee_allowance_history')->insert([
+        'employee_id'                     => $a->employee_id,
+        'housing_allowance'               => $a->housing_allowance,
+        'transport_allowance'             => $a->transport_allowance,
+        'medical_allowance'               => $a->medical_allowance,
+        'meal_allowance'                  => $a->meal_allowance,
+        'other_recurring_allowance'       => $a->other_recurring_allowance,
+        'other_recurring_allowance_label' => $a->other_recurring_allowance_label,
+        'acting_allowance'                => $a->acting_allowance,
+        'commissions'                     => $a->commissions,
+        'other_variable_allowance'        => $a->other_variable_allowance,
+        'other_variable_allowance_label'  => $a->other_variable_allowance_label,
+        'change_reason'                   => $reason,
+        'changed_by'                      => $changedBy,
+        'effective_from'                  => $a->effective_from,
+        'created_at'                      => now(),
+    ]);
+}
+public function showAllowanceHistoryView()
+{
+    return view('tenants.admin.allowance-history');
+}
 
 }

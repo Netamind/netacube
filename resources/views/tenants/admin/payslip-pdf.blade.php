@@ -43,9 +43,7 @@ body {
            display: block; margin-top: 3px; }
 
 /* ════════════════════════════════════════════════
-   EMPLOYEE + META BAND  (two rows, same table)
-   Row 1: Name / Position / Department / Pay Period / Pension / Ref
-   Row 2: Bank Name / Account No / Pay Date / Status / (spans)
+   EMPLOYEE + META BAND
 ════════════════════════════════════════════════ */
 .info { width: 100%; border-collapse: collapse; margin-top: 7px;
         border: 1px solid #dde3f5; }
@@ -57,12 +55,9 @@ body {
 }
 .info td:last-child { border-right: none; }
 .info tr:last-child td { border-bottom: none; }
-/* accent stripe on left edge */
 .info tr:first-child td:first-child { border-left: 3px solid #4B5EBD; }
 .info tr:last-child  td:first-child { border-left: 3px solid #4B5EBD; }
-/* row 1 background */
 .info tr:first-child td { background: #f4f6fb; }
-/* row 2 background */
 .info tr:last-child  td { background: #fafbfe; }
 
 .il { font-size: 6px; font-weight: 700; text-transform: uppercase;
@@ -71,22 +66,17 @@ body {
 .iv-sm { font-size: 7.5px; font-weight: 600; color: #1e293b; display: block; }
 .iv-ref { font-size: 7px; font-weight: 700; color: #4B5EBD; display: block; }
 
-/* pension badges */
 .bon  { background: #dcfce7; color: #15803d; border: 1px solid #86efac;
         padding: 1px 5px; border-radius: 5px; font-size: 6.5px; font-weight: 700; }
 .boff { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0;
         padding: 1px 5px; border-radius: 5px; font-size: 6.5px; }
 
 /* ════════════════════════════════════════════════
-   THREE-COLUMN PAYMENTS / DEDUCTIONS / SUMMARY
-   Equal height: outer <td> set to height:170px;
-   inner table fills it top-down, subtotal pinned
-   by being last row.
+   THREE-COLUMN BODY
 ════════════════════════════════════════════════ */
 .body { width: 100%; border-collapse: collapse; margin-top: 8px;
         border: 1px solid #dde3f5; }
 
-/* column header cells */
 .ch {
     background: #4B5EBD; color: #fff;
     font-size: 7px; font-weight: 700;
@@ -97,17 +87,15 @@ body {
 }
 .ch:last-child { border-right: none; }
 
-/* outer data cells — fixed height forces equal columns */
 .dc {
     width: 33.33%;
     vertical-align: top;
     border-right: 1px solid #dde3f5;
     padding: 0;
-    height: 162px;        /* fixed — enough for 6 rows + subtotal */
+    height: 200px;
 }
 .dc:last-child { border-right: none; }
 
-/* inner line-item table */
 .lt { width: 100%; border-collapse: collapse; }
 .lt tr { border-bottom: 1px solid #eef0f7; }
 .lt tr:last-child { border-bottom: none; }
@@ -124,7 +112,6 @@ body {
 .lt tr.st td.av  { color: #4B5EBD; }
 .lt tr.st td.ard { color: #c0392b; font-weight: 700; }
 
-/* YTD / This Month summary table — same structure */
 .yt { width: 100%; border-collapse: collapse; }
 .yt tr { border-bottom: 1px solid #eef0f7; }
 .yt tr:last-child { border-bottom: none; }
@@ -140,9 +127,7 @@ body {
 }
 
 /* ════════════════════════════════════════════════
-   NET PAY SUMMARY — branded indigo strip
-   Sits directly below body table (no gap).
-   Three cells matching the three columns above.
+   NET PAY BAR
 ════════════════════════════════════════════════ */
 .net { width: 100%; border-collapse: collapse; }
 .net td {
@@ -158,9 +143,9 @@ body {
       color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px; }
 .nv { font-size: 12px; font-weight: 800; display: block;
       font-variant-numeric: tabular-nums; color: #fff; }
-.nv-hi { color: #fff; }          /* gross  — plain white  */
-.nv-ded { color: #fca5a5; }      /* deduct — soft red     */
-.nv-net { color: #bbf7d0; }      /* net pay — soft green  */
+.nv-hi  { color: #fff; }
+.nv-ded { color: #fca5a5; }
+.nv-net { color: #bbf7d0; }
 .ns { font-size: 6.5px; color: rgba(255,255,255,0.5);
       display: block; margin-top: 2px; }
 
@@ -200,25 +185,45 @@ body {
 <body>
 
 <?php
+    /* ── Reference hash ──────────────────────────────────────────────────── */
     $refHash = strtoupper(substr(
         md5($entry->id . $entry->payroll_period_id . $entry->net_pay . $entry->employee_id), 0, 6
     ));
     $slipRef = 'PSL-' . $entry->payroll_period_id . '-' . $entry->id . '-' . $refHash;
 
-    $base = \DB::connection('tenant')
+    /* ── All individual allowances — safe fallback to 0 ─────────────────── */
+    $housingAllowance    = (float) ($entry->housing_allowance            ?? 0);
+    $transportAllowance  = (float) ($entry->transport_allowance          ?? 0);
+    $medicalAllowance    = (float) ($entry->medical_allowance            ?? 0);
+    $mealAllowance       = (float) ($entry->meal_allowance               ?? 0);
+    $otherRecurring      = (float) ($entry->other_recurring_allowance    ?? 0);
+    $otherRecurringLabel = $entry->other_recurring_allowance_label       ?? 'Other Recurring';
+    $actingAllowance     = (float) ($entry->acting_allowance             ?? 0);
+    $commissions         = (float) ($entry->commissions                  ?? 0);
+    $otherVariable       = (float) ($entry->other_variable_allowance     ?? 0);
+    $otherVariableLabel  = $entry->other_variable_allowance_label        ?? 'Other Variable';
+    $overtimeAmount      = (float) ($entry->overtime_amount              ?? 0);
+
+    /* Total allowances (everything above basic) */
+    $totalAllowances = $housingAllowance + $transportAllowance + $medicalAllowance
+                     + $mealAllowance    + $otherRecurring     + $actingAllowance
+                     + $commissions      + $otherVariable      + $overtimeAmount;
+
+    /* ── YTD — paid periods only, up to and including this period ────────── */
+    $ytdBase = \DB::connection('tenant')
         ->table('payroll_entries')
         ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
         ->where('payroll_entries.employee_id', $entry->employee_id)
         ->where('payroll_periods.status', 'paid')
         ->where('payroll_periods.period_end', '<=', $period->period_end);
 
-    $ytdGross   = (clone $base)->sum('payroll_entries.gross_pay');
-    $ytdTax     = (clone $base)->sum('payroll_entries.paye');
-    $ytdPension = (clone $base)->sum('payroll_entries.pension_employee');
-    $ytdNet     = (clone $base)->sum('payroll_entries.net_pay');
+    $ytdGross   = (clone $ytdBase)->sum('payroll_entries.gross_pay');
+    $ytdTax     = (clone $ytdBase)->sum('payroll_entries.paye');
+    $ytdPension = (clone $ytdBase)->sum('payroll_entries.pension_employee');
+    $ytdNet     = (clone $ytdBase)->sum('payroll_entries.net_pay');
 ?>
 
-{{-- ══ HEADER ═══════════════════════════════════════════════════════════ --}}
+{{-- ══ HEADER ══ --}}
 <table class="hdr">
   <tr>
     <td class="hdr-left">
@@ -244,10 +249,8 @@ body {
   </tr>
 </table>
 
-{{-- ══ EMPLOYEE + META INFO (two rows in one table) ══════════════════════ --}}
+{{-- ══ EMPLOYEE + META INFO ══ --}}
 <table class="info">
-
-  {{-- Row 1: employee details --}}
   <tr>
     <td style="width:24%;">
       <span class="il">Employee Name</span>
@@ -284,8 +287,6 @@ body {
       <span class="iv">{{ ucfirst($period->status) }}</span>
     </td>
   </tr>
-
-  {{-- Row 2: banking + reference --}}
   <tr>
     <td style="width:24%;">
       <span class="il">Bank Name</span>
@@ -303,15 +304,14 @@ body {
       <span class="il">Document Reference</span>
       <span class="iv-ref">{{ $slipRef }}</span>
     </td>
-    <td style="width:9%;" colspan="2" style="border-right:none;">
+    <td style="width:9%;" colspan="2">
       <span class="il">Generated</span>
       <span class="iv-sm">{{ \Carbon\Carbon::now()->format('d M Y') }}</span>
     </td>
   </tr>
-
 </table>
 
-{{-- ══ THREE-COLUMN BODY ══════════════════════════════════════════════════ --}}
+{{-- ══ THREE-COLUMN BODY ══ --}}
 <table class="body">
   <tr>
     <td class="ch" style="width:33.33%;">Payments</td>
@@ -323,19 +323,49 @@ body {
     {{-- PAYMENTS --}}
     <td class="dc">
       <table class="lt">
-        <tr><td class="lb">Basic Salary</td>
-            <td class="av">{{ number_format($entry->basic_salary,2) }}</td></tr>
-        <tr><td class="lb">Housing Allowance</td>
-            <td class="{{ $entry->housing_allowance==0 ? 'az' : 'av' }}">{{ number_format($entry->housing_allowance,2) }}</td></tr>
-        <tr><td class="lb">Transport Allowance</td>
-            <td class="{{ $entry->transport_allowance==0 ? 'az' : 'av' }}">{{ number_format($entry->transport_allowance,2) }}</td></tr>
-        <tr><td class="lb">Other Allowances</td>
-            <td class="{{ $entry->other_allowances==0 ? 'az' : 'av' }}">{{ number_format($entry->other_allowances,2) }}</td></tr>
-        <tr><td class="lb">Overtime</td>
-            <td class="{{ $entry->overtime_amount==0 ? 'az' : 'av' }}">{{ number_format($entry->overtime_amount,2) }}</td></tr>
+        <tr>
+          <td class="lb">Basic Salary</td>
+          <td class="av">{{ number_format((float)($entry->basic_salary ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Housing Allowance</td>
+          <td class="{{ $housingAllowance == 0 ? 'az' : 'av' }}">{{ number_format($housingAllowance, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Transport Allowance</td>
+          <td class="{{ $transportAllowance == 0 ? 'az' : 'av' }}">{{ number_format($transportAllowance, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Medical Allowance</td>
+          <td class="{{ $medicalAllowance == 0 ? 'az' : 'av' }}">{{ number_format($medicalAllowance, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Meal Allowance</td>
+          <td class="{{ $mealAllowance == 0 ? 'az' : 'av' }}">{{ number_format($mealAllowance, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">{{ $otherRecurringLabel ?: 'Other Recurring' }}</td>
+          <td class="{{ $otherRecurring == 0 ? 'az' : 'av' }}">{{ number_format($otherRecurring, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Acting Allowance</td>
+          <td class="{{ $actingAllowance == 0 ? 'az' : 'av' }}">{{ number_format($actingAllowance, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Commissions</td>
+          <td class="{{ $commissions == 0 ? 'az' : 'av' }}">{{ number_format($commissions, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">{{ $otherVariableLabel ?: 'Other Variable' }}</td>
+          <td class="{{ $otherVariable == 0 ? 'az' : 'av' }}">{{ number_format($otherVariable, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Overtime</td>
+          <td class="{{ $overtimeAmount == 0 ? 'az' : 'av' }}">{{ number_format($overtimeAmount, 2) }}</td>
+        </tr>
         <tr class="st">
           <td class="lb">Total Gross Pay</td>
-          <td class="av">{{ number_format($entry->gross_pay,2) }}</td>
+          <td class="av">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</td>
         </tr>
       </table>
     </td>
@@ -343,72 +373,108 @@ body {
     {{-- DEDUCTIONS --}}
     <td class="dc">
       <table class="lt">
-        <tr><td class="lb">PAYE (Income Tax)</td>
-            <td class="{{ $entry->paye==0 ? 'az' : 'av' }}">{{ number_format($entry->paye,2) }}</td></tr>
-        <tr><td class="lb">Pension (Employee)</td>
-            <td class="{{ $entry->pension_employee==0 ? 'az' : 'av' }}">{{ number_format($entry->pension_employee,2) }}</td></tr>
-        <tr><td class="lb">Pension (Employer)</td>
-            <td class="{{ $entry->pension_employer==0 ? 'az' : 'av' }}">{{ number_format($entry->pension_employer,2) }}</td></tr>
-        <tr><td class="lb">Loan Deduction</td>
-            <td class="{{ $entry->loan_deduction==0 ? 'az' : 'av' }}">{{ number_format($entry->loan_deduction,2) }}</td></tr>
-        <tr><td class="lb">Advance Recovery</td>
-            <td class="{{ $entry->advance_deduction==0 ? 'az' : 'av' }}">{{ number_format($entry->advance_deduction,2) }}</td></tr>
-        <tr><td class="lb">Other Deductions</td>
-            <td class="{{ $entry->other_deductions==0 ? 'az' : 'av' }}">{{ number_format($entry->other_deductions,2) }}</td></tr>
+        <tr>
+          <td class="lb">PAYE (Income Tax)</td>
+          <td class="{{ ($entry->paye ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->paye ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Pension (Employee)</td>
+          <td class="{{ ($entry->pension_employee ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->pension_employee ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Pension (Employer)</td>
+          <td class="{{ ($entry->pension_employer ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->pension_employer ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Loan Deduction</td>
+          <td class="{{ ($entry->loan_deduction ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->loan_deduction ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Advance Recovery</td>
+          <td class="{{ ($entry->advance_deduction ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->advance_deduction ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Other Deductions</td>
+          <td class="{{ ($entry->other_deductions ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->other_deductions ?? 0), 2) }}</td>
+        </tr>
         <tr class="st">
           <td class="lb">Total Deductions</td>
-          <td class="ard">{{ number_format($entry->total_deductions,2) }}</td>
+          <td class="ard">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</td>
         </tr>
       </table>
     </td>
 
-    {{-- SUMMARY --}}
+    {{-- SUMMARY / YTD --}}
     <td class="dc">
       <table class="yt">
-        <tr class="yt-hd"><td colspan="2">Year to Date</td></tr>
-        <tr><td class="lb">Gross Pay</td>
-            <td class="av">{{ number_format($ytdGross,2) }}</td></tr>
-        <tr><td class="lb">Tax Paid</td>
-            <td class="av">{{ number_format($ytdTax,2) }}</td></tr>
-        <tr><td class="lb">Pension Paid</td>
-            <td class="av">{{ number_format($ytdPension,2) }}</td></tr>
-        <tr><td class="lb">Net Pay</td>
-            <td class="av">{{ number_format($ytdNet,2) }}</td></tr>
-        <tr class="yt-hd"><td colspan="2">This Month</td></tr>
-        <tr><td class="lb">Gross Pay</td>
-            <td class="av">{{ number_format($entry->gross_pay,2) }}</td></tr>
-        <tr><td class="lb">Income Tax</td>
-            <td class="av">{{ number_format($entry->paye,2) }}</td></tr>
-        <tr><td class="lb">Pension (Ee)</td>
-            <td class="av">{{ number_format($entry->pension_employee,2) }}</td></tr>
-        <tr><td class="lb">Total Deductions</td>
-            <td class="av" style="color:#c0392b;">{{ number_format($entry->total_deductions,2) }}</td></tr>
+        <tr class="yt-hd"><td colspan="2">Year to Date (Paid Periods)</td></tr>
+        <tr>
+          <td class="lb">Gross Pay</td>
+          <td class="av">{{ number_format($ytdGross, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Tax Paid</td>
+          <td class="av">{{ number_format($ytdTax, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Pension Paid</td>
+          <td class="av">{{ number_format($ytdPension, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Net Pay</td>
+          <td class="av">{{ number_format($ytdNet, 2) }}</td>
+        </tr>
+        <tr class="yt-hd"><td colspan="2">This Period</td></tr>
+        <tr>
+          <td class="lb">Basic Pay</td>
+          <td class="av">{{ number_format((float)($entry->basic_salary ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Allowances</td>
+          <td class="av">{{ number_format($totalAllowances, 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Gross Pay</td>
+          <td class="av">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Income Tax (PAYE)</td>
+          <td class="av">{{ number_format((float)($entry->paye ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Pension (Ee)</td>
+          <td class="av">{{ number_format((float)($entry->pension_employee ?? 0), 2) }}</td>
+        </tr>
+        <tr>
+          <td class="lb">Total Deductions</td>
+          <td class="av" style="color:#c0392b;">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</td>
+        </tr>
       </table>
     </td>
 
   </tr>
 </table>
 
-{{-- ══ NET PAY BAR (indigo, sits flush below body) ═══════════════════════ --}}
+{{-- ══ NET PAY BAR ══ --}}
 <table class="net">
   <tr>
     <td>
       <span class="nl">Total Gross Payments</span>
-      <span class="nv nv-hi">MWK {{ number_format($entry->gross_pay,2) }}</span>
+      <span class="nv nv-hi">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</span>
     </td>
     <td>
       <span class="nl">Total Deductions</span>
-      <span class="nv nv-ded">MWK {{ number_format($entry->total_deductions,2) }}</span>
+      <span class="nv nv-ded">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</span>
     </td>
     <td>
       <span class="nl">Net Pay</span>
-      <span class="nv nv-net">MWK {{ number_format($entry->net_pay,2) }}</span>
+      <span class="nv nv-net">{{ number_format((float)($entry->net_pay ?? 0), 2) }}</span>
       <span class="ns">{{ $period->name }} &bull; {{ \Carbon\Carbon::parse($period->pay_date)->format('d M Y') }}</span>
     </td>
   </tr>
 </table>
 
-{{-- ══ SIGNATURE ROW ══════════════════════════════════════════════════════ --}}
+{{-- ══ SIGNATURE ROW ══ --}}
 <table class="sig">
   <tr>
     <td>
@@ -432,7 +498,7 @@ body {
 
 <div class="foot-space"></div>
 
-{{-- ══ FIXED FOOTER ═══════════════════════════════════════════════════════ --}}
+{{-- ══ FIXED FOOTER ══ --}}
 <div class="pgfoot">
   <table>
     <tr>

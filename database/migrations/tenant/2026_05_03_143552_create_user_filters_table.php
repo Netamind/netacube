@@ -59,11 +59,12 @@ return new class extends Migration
             // ── HR / Payroll ─────────────────────────────────────────────
             $table->string('sector', 100)->nullable();
             $table->unsignedBigInteger('wagebill_period_id')->nullable();
+            $table->unsignedBigInteger('wagebill_category_id')->nullable(); // ← added
 
             // ── Payslips ─────────────────────────────────────────────────
-            $table->unsignedBigInteger('payslip_period_id')->nullable();   // payroll period filter on payslip page
-            $table->unsignedBigInteger('payslip_category_id')->nullable(); // category filter on payslip page
-            $table->unsignedBigInteger('payslip_employee_id')->nullable(); // employee filter on payslip page
+            $table->unsignedBigInteger('payslip_period_id')->nullable();
+            $table->unsignedBigInteger('payslip_category_id')->nullable();
+            $table->unsignedBigInteger('payslip_employee_id')->nullable();
 
             // ── Dates ────────────────────────────────────────────────────
             $table->string('period', 30)->nullable();

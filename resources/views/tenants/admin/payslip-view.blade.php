@@ -13,9 +13,6 @@
     /*
     |--------------------------------------------------------------------------
     | SECTOR LIST
-    | Read from the dedicated `sectors` table — all sectors are always shown
-    | regardless of whether they have any payroll data yet. No annotations
-    | on the dropdown; the body handles all empty-state messaging.
     |--------------------------------------------------------------------------
     */
     $sectors = DB::connection('tenant')
@@ -23,7 +20,6 @@
         ->orderBy('sector')
         ->pluck('sector');
 
-    // If nothing saved yet, default to first available sector
     if (!$savedSector && $sectors->isNotEmpty()) {
         $savedSector = $sectors->first();
     }
@@ -31,8 +27,6 @@
     /*
     |--------------------------------------------------------------------------
     | CATEGORY LIST
-    | Only categories that belong to branches in the selected sector
-    | AND have approved/paid payroll entries.
     |--------------------------------------------------------------------------
     */
     $categories = collect();
@@ -58,14 +52,13 @@
             ->get();
     }
 
-    // If saved category no longer valid for this sector, drop it
     if ($savedCatId && $categories->where('id', (int)$savedCatId)->isEmpty()) {
         $savedCatId = null;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | BRANCH IDs FOR CURRENT SECTOR + CATEGORY
+    | BRANCH IDs
     |--------------------------------------------------------------------------
     */
     $filteredBranchIds = collect();
@@ -73,17 +66,15 @@
         $branchQuery = DB::connection('tenant')
             ->table('branches')
             ->where('sector', $savedSector);
-
         if ($savedCatId) {
             $branchQuery->where('category', (string) $savedCatId);
         }
-
         $filteredBranchIds = $branchQuery->pluck('id');
     }
 
     /*
     |--------------------------------------------------------------------------
-    | EMPLOYEE IDs IN THOSE BRANCHES
+    | EMPLOYEE IDs
     |--------------------------------------------------------------------------
     */
     $filteredEmployeeIds = collect();
@@ -96,8 +87,7 @@
 
     /*
     |--------------------------------------------------------------------------
-    | PERIOD LIST
-    | Only periods that have entries for employees in the filtered branches.
+    | PERIOD LIST — approved/paid only, ALWAYS required
     |--------------------------------------------------------------------------
     */
     $periods = collect();
@@ -116,7 +106,11 @@
             ->get();
     }
 
-    // If saved period no longer valid, drop it
+    // Auto-select most recent period if nothing saved
+    if (!$savedPeriodId && $periods->isNotEmpty()) {
+        $savedPeriodId = $periods->first()->id;
+    }
+
     if ($savedPeriodId && $periods->where('id', (int)$savedPeriodId)->isEmpty()) {
         $savedPeriodId = null;
     }
@@ -127,25 +121,28 @@
     |--------------------------------------------------------------------------
     */
     $employees = collect();
-    if ($filteredEmployeeIds->isNotEmpty()) {
+    if ($filteredEmployeeIds->isNotEmpty() && $savedPeriodId) {
+        // Only employees who have an entry in the selected period
+        $empIdsInPeriod = DB::connection('tenant')
+            ->table('payroll_entries')
+            ->where('payroll_period_id', (int)$savedPeriodId)
+            ->whereIn('employee_id', $filteredEmployeeIds)
+            ->pluck('employee_id');
+
         $employees = DB::connection('tenant')
             ->table('users')
-            ->whereIn('id', $filteredEmployeeIds)
-            ->where('active', 'Yes')
+            ->whereIn('id', $empIdsInPeriod)
             ->orderBy('name')
             ->get();
     }
 
-    // If saved employee no longer in filtered list, drop it
     if ($savedEmployeeId && $employees->where('id', (int)$savedEmployeeId)->isEmpty()) {
         $savedEmployeeId = null;
     }
 
     /*
     |--------------------------------------------------------------------------
-    | CURRENT SECTOR HAS PAYSLIPS?
-    | Check whether the selected sector has any approved/paid payroll entries
-    | at all — used to choose the correct empty-state message in the body.
+    | SECTOR HAS PAYSLIPS?
     |--------------------------------------------------------------------------
     */
     $currentSectorHasPayslips = $savedSector && DB::connection('tenant')
@@ -159,11 +156,21 @@
 
     /*
     |--------------------------------------------------------------------------
-    | MAIN PAYSLIP QUERY
+    | SELECTED PERIOD OBJECT
+    |--------------------------------------------------------------------------
+    */
+    $selectedPeriod = null;
+    if ($savedPeriodId) {
+        $selectedPeriod = $periods->where('id', (int)$savedPeriodId)->first();
+    }
+
+    /*
+    |--------------------------------------------------------------------------
+    | MAIN PAYSLIP QUERY — period is MANDATORY
     |--------------------------------------------------------------------------
     */
     $payslips = collect();
-    if ($filteredBranchIds->isNotEmpty() && $currentSectorHasPayslips) {
+    if ($filteredBranchIds->isNotEmpty() && $currentSectorHasPayslips && $savedPeriodId) {
         $query = DB::connection('tenant')
             ->table('payroll_entries')
             ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
@@ -172,46 +179,60 @@
             ->leftJoin('categories',  'categories.id',      '=', 'branches.category')
             ->whereIn('payroll_periods.status', ['approved', 'paid'])
             ->whereIn('users.branch', $filteredBranchIds)
+            ->where('payroll_entries.payroll_period_id', (int)$savedPeriodId)
             ->select(
                 'payroll_entries.id',
                 'payroll_entries.payroll_period_id',
                 'payroll_entries.employee_id',
+                // Earnings
+                'payroll_entries.basic_salary',
+                'payroll_entries.housing_allowance',
+                'payroll_entries.transport_allowance',
+                'payroll_entries.medical_allowance',
+                'payroll_entries.meal_allowance',
+                'payroll_entries.other_recurring_allowance',
+                'payroll_entries.other_recurring_allowance_label',
+                'payroll_entries.acting_allowance',
+                'payroll_entries.commissions',
+                'payroll_entries.other_variable_allowance',
+                'payroll_entries.other_variable_allowance_label',
+                'payroll_entries.overtime_amount',
                 'payroll_entries.gross_pay',
-                'payroll_entries.total_deductions',
-                'payroll_entries.net_pay',
+                // Deductions
                 'payroll_entries.on_pension',
                 'payroll_entries.paye',
                 'payroll_entries.pension_employee',
+                'payroll_entries.pension_employer',
                 'payroll_entries.loan_deduction',
                 'payroll_entries.advance_deduction',
                 'payroll_entries.other_deductions',
+                'payroll_entries.total_deductions',
+                'payroll_entries.net_pay',
                 'payroll_entries.notes as entry_notes',
+                // Period
                 'payroll_periods.name        as period_name',
                 'payroll_periods.period_start',
                 'payroll_periods.period_end',
                 'payroll_periods.pay_date',
                 'payroll_periods.status      as period_status',
+                // Employee
                 'users.name                  as employee_name',
                 'users.phone                 as employee_number',
                 'users.email                 as employee_email',
                 'users.position              as position',
                 'users.department            as department',
+                // Branch / Category
                 'branches.name               as branch_name',
                 'branches.sector             as branch_sector',
                 'categories.id               as category_id',
                 'categories.category         as category_name'
             );
 
-        if ($savedPeriodId) {
-            $query->where('payroll_entries.payroll_period_id', (int)$savedPeriodId);
-        }
-
         if ($savedEmployeeId) {
             $query->where('payroll_entries.employee_id', (int)$savedEmployeeId);
         }
 
         $payslips = $query
-            ->orderBy('payroll_periods.period_start', 'desc')
             ->orderBy('users.name', 'asc')
             ->get();
     }
@@ -219,6 +240,8 @@
     $totalNetPay     = $payslips->sum('net_pay');
     $totalGrossPay   = $payslips->sum('gross_pay');
     $totalDeductions = $payslips->sum('total_deductions');
+    $totalBasic      = $payslips->sum('basic_salary');
+    $totalAllowances = $totalGrossPay - $totalBasic;
 @endphp
 
 <style>
@@ -264,13 +287,43 @@
   font-size:12px; height:30px; padding:0 8px; border-radius:6px;
   border:1px solid #c8d0ed; background:#fff; min-width:140px; max-width:220px;
 }
+.card-filter select.required-select {
+  border-color: #4B5EBD;
+  font-weight: 600;
+}
 .filter-divider { width:1px; height:22px; background:#c8d0ed; margin:0 4px; }
+@media (max-width: 767px) {
+  .card-filter { flex-direction:column; align-items:stretch; padding:10px 1rem; gap:8px; }
+  .card-filter select { max-width:100%; min-width:0; width:100%; }
+  .filter-divider { display:none; }
+}
 
 /* ── Period status badges ───────────────────────────────────────────────── */
 .badge-draft      { background:#6c757d; color:#fff; padding:2px 9px; border-radius:20px; font-size:11px; }
 .badge-processing { background:#0dcaf0; color:#fff; padding:2px 9px; border-radius:20px; font-size:11px; }
 .badge-approved   { background:#198754; color:#fff; padding:2px 9px; border-radius:20px; font-size:11px; }
 .badge-paid       { background:#4B5EBD; color:#fff; padding:2px 9px; border-radius:20px; font-size:11px; }
+
+/* ── Period meta strip ──────────────────────────────────────────────────── */
+.period-meta-strip {
+  background:#f8f9fa; border-bottom:1px solid #e9ecef;
+  padding:10px 1.5rem; display:flex; flex-wrap:wrap;
+  align-items:center; gap:0; font-size:12px;
+}
+.meta-group { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
+.meta-item  { display:flex; flex-direction:column; padding:2px 20px 2px 0; }
+.meta-item:last-child { padding-right:0; }
+.meta-label { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; font-weight:600; white-space:nowrap; }
+.meta-value { font-weight:600; color:#212529; white-space:nowrap; }
+.meta-divider { width:2px; height:36px; background:#e2e6f0; margin:0 20px; flex-shrink:0; }
+.meta-fin-group { display:flex; flex-direction:column; padding:0 20px; }
+.meta-fin-group + .meta-fin-group { border-left:1px dashed #d6daf0; }
+.meta-fin-group:last-child { padding-right:0; }
+.meta-fin-group-label { font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:#9ca3af; font-weight:700; margin-bottom:4px; }
+.meta-fin-items { display:flex; gap:20px; }
+.meta-fin-item  { display:flex; flex-direction:column; }
+.meta-fin-item .fin-label { font-size:10px; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
+.meta-fin-item .fin-value { font-size:13px; font-weight:700; white-space:nowrap; }
 
 /* ── Stats strip ────────────────────────────────────────────────────────── */
 .stats-strip { display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid #d6daf0; }
@@ -311,6 +364,7 @@
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
 .empty-state { padding:52px 20px; text-align:center; color:#94a3b8; }
+.empty-state i { font-size:52px; display:block; margin-bottom:12px; color:#c8d0ed; }
 .empty-state h5 { color:#64748b; font-weight:600; margin-bottom:6px; }
 .empty-state p  { font-size:13px; }
 
@@ -327,6 +381,27 @@
 .pf-group { background:#f8f9fa; border-radius:6px; padding:9px 12px; }
 .pf-label { font-size:11px; color:#6c757d; text-transform:uppercase; letter-spacing:.05em; }
 .pf-value { font-size:14px; font-weight:600; color:#212529; }
+
+/* ── Allowances breakdown chip in view modal ────────────────────────────── */
+.allow-breakdown {
+  background:#f1f5fb; border:1px solid #d6daf0; border-radius:8px;
+  padding:10px 14px; font-size:12px; margin-bottom:8px;
+}
+.allow-breakdown .allow-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:3px 0; border-bottom:1px dashed #e2e8f0;
+}
+.allow-breakdown .allow-row:last-child { border-bottom:none; }
+.allow-breakdown .allow-label { color:#475569; }
+.allow-breakdown .allow-value { font-weight:600; color:#1e293b; }
+.allow-breakdown .allow-zero  { color:#c8d0e8; font-weight:400; }
+.allow-breakdown .allow-total-row {
+  display:flex; justify-content:space-between; align-items:center;
+  padding:5px 0 0; margin-top:4px; font-weight:700;
+  border-top:2px solid #c8d0ed;
+}
+.allow-breakdown .allow-total-label { color:#4B5EBD; font-size:13px; }
+.allow-breakdown .allow-total-value { color:#4B5EBD; font-size:13px; }
 
 /* ── Stats modal cards ──────────────────────────────────────────────────── */
 .stats-card { border-radius:10px; padding:14px 18px; color:#fff; text-align:center; }
@@ -358,24 +433,17 @@
 
 <div class="card">
 
-  {{-- ── Card header — sector selector ──────────────────────────────────── --}}
+  {{-- ── Card header ──────────────────────────────────────────────────────── --}}
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0" style="gap:8px;">
       <i class="ri-file-paper-2-line" style="flex-shrink:0;"></i>
 
       @if($sectors->isEmpty())
-        {{-- No sectors configured at all — show plain text, no form --}}
-        <span style="font-size:18px; font-weight:600; opacity:0.75;">
-          — No Sectors Configured —
-        </span>
+        <span style="font-size:18px; font-weight:600; opacity:0.75;">— No Sectors Configured —</span>
       @else
         <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
               id="headerSectorForm" style="margin:0;display:inline;">
           @csrf
-          {{--
-              When sector changes we clear category, period, and employee
-              so stale cross-sector values never leak through.
-          --}}
           <input type="hidden" name="user_id"             value="{{ Auth::id() }}">
           <input type="hidden" name="payslip_category_id" value="">
           <input type="hidden" name="payslip_period_id"   value="">
@@ -383,14 +451,11 @@
           <select name="sector" id="sectorSelectHeader"
                   onchange="document.getElementById('headerSectorForm').submit()">
             @foreach($sectors as $sec)
-              <option value="{{ $sec }}" {{ $savedSector === $sec ? 'selected' : '' }}>
-                {{ $sec }}
-              </option>
+              <option value="{{ $sec }}" {{ $savedSector === $sec ? 'selected' : '' }}>{{ $sec }}</option>
             @endforeach
           </select>
         </form>
       @endif
-
     </h4>
     <div class="d-flex align-items-center" style="gap:4px;">
       <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="statsBtn"        title="Statistics"><i class="ri-bar-chart-2-line"></i></a>
@@ -402,7 +467,7 @@
   {{-- ── Filter bar ───────────────────────────────────────────────────────── --}}
   <div class="card-filter">
 
-    {{-- Category — scoped to current sector --}}
+    {{-- Category --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterCatForm" style="display:contents;">
       @csrf
@@ -425,32 +490,40 @@
 
     <div class="filter-divider"></div>
 
-    {{-- Period — scoped to sector + category --}}
+    {{-- Period — REQUIRED, no "All Periods" option --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterPeriodForm" style="display:contents;">
       @csrf
       <input type="hidden" name="user_id"              value="{{ Auth::id() }}">
       <input type="hidden" name="sector"               value="{{ $savedSector }}">
       <input type="hidden" name="payslip_category_id"  value="{{ $savedCatId }}">
-      <input type="hidden" name="payslip_employee_id"  value="{{ $savedEmployeeId }}">
-      <label>Period:</label>
-      <select name="payslip_period_id" onchange="document.getElementById('filterPeriodForm').submit()">
-        <option value="">All Periods</option>
-        @forelse($periods as $per)
-          <option value="{{ $per->id }}" {{ (int)$savedPeriodId === $per->id ? 'selected' : '' }}>
-            {{ $per->name }}
-            ({{ \Carbon\Carbon::parse($per->period_start)->format('d M') }}
-             &ndash; {{ \Carbon\Carbon::parse($per->period_end)->format('d M Y') }})
-          </option>
-        @empty
-          <option value="" disabled>No periods found for this selection</option>
-        @endforelse
+      <input type="hidden" name="payslip_employee_id"  value="">
+      <label>
+        Period: <span style="color:#dc3545;font-size:10px;margin-left:3px;" title="Required">&#9679;</span>
+      </label>
+      <select name="payslip_period_id" class="required-select"
+              onchange="document.getElementById('filterPeriodForm').submit()">
+        @if($periods->isEmpty())
+          <option value="">— No periods available —</option>
+        @else
+          @if(!$savedPeriodId)
+            <option value="" disabled selected>— Select a Period —</option>
+          @endif
+          @foreach($periods as $per)
+            <option value="{{ $per->id }}" {{ (int)$savedPeriodId === $per->id ? 'selected' : '' }}>
+              {{ $per->name }}
+              ({{ \Carbon\Carbon::parse($per->period_start)->format('d M') }}
+               &ndash; {{ \Carbon\Carbon::parse($per->period_end)->format('d M Y') }})
+              — {{ ucfirst($per->status) }}
+            </option>
+          @endforeach
+        @endif
       </select>
     </form>
 
     <div class="filter-divider"></div>
 
-    {{-- Employee — scoped to sector + category --}}
+    {{-- Employee --}}
     <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
           id="filterEmployeeForm" style="display:contents;">
       @csrf
@@ -459,7 +532,9 @@
       <input type="hidden" name="payslip_period_id"   value="{{ $savedPeriodId }}">
       <input type="hidden" name="payslip_category_id" value="{{ $savedCatId }}">
       <label>Employee:</label>
-      <select name="payslip_employee_id" onchange="document.getElementById('filterEmployeeForm').submit()">
+      <select name="payslip_employee_id"
+              onchange="document.getElementById('filterEmployeeForm').submit()"
+              {{ !$savedPeriodId ? 'disabled' : '' }}>
         <option value="">All Employees</option>
         @foreach($employees as $emp)
           <option value="{{ $emp->id }}" {{ (int)$savedEmployeeId === $emp->id ? 'selected' : '' }}>
@@ -469,7 +544,6 @@
       </select>
     </form>
 
-    {{-- Clear — resets period, category, employee but keeps sector --}}
     <div class="ms-auto">
       <form method="POST" action="{{ route('tenant.admin.update.filters') }}" style="display:inline;">
         @csrf
@@ -483,8 +557,79 @@
         </button>
       </form>
     </div>
-
   </div>
+
+  {{-- ── Period meta strip ────────────────────────────────────────────────── --}}
+  @if($selectedPeriod)
+  <div class="period-meta-strip">
+    <div class="meta-group">
+      <div class="meta-item">
+        <span class="meta-label">Period</span>
+        <span class="meta-value">{{ $selectedPeriod->name }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Start</span>
+        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_start)->format('d M Y') }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">End</span>
+        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_end)->format('d M Y') }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Pay Date</span>
+        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->pay_date)->format('d M Y') }}</span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Status</span>
+        <span class="meta-value"><span class="badge-{{ $selectedPeriod->status }}">{{ ucfirst($selectedPeriod->status) }}</span></span>
+      </div>
+      <div class="meta-item">
+        <span class="meta-label">Employees</span>
+        <span class="meta-value">{{ $payslips->count() }}</span>
+      </div>
+    </div>
+
+    <div class="meta-divider"></div>
+
+    <div class="meta-fin-group">
+      <div class="meta-fin-group-label">Earnings</div>
+      <div class="meta-fin-items">
+        <div class="meta-fin-item">
+          <span class="fin-label">Basic Pay</span>
+          <span class="fin-value">{{ number_format($totalBasic, 2) }}</span>
+        </div>
+        <div class="meta-fin-item">
+          <span class="fin-label">Allowances</span>
+          <span class="fin-value">{{ number_format($totalAllowances, 2) }}</span>
+        </div>
+        <div class="meta-fin-item">
+          <span class="fin-label">Gross Pay</span>
+          <span class="fin-value" style="color:#198754;">{{ number_format($totalGrossPay, 2) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-fin-group">
+      <div class="meta-fin-group-label">Deductions</div>
+      <div class="meta-fin-items">
+        <div class="meta-fin-item">
+          <span class="fin-label">Total Ded.</span>
+          <span class="fin-value" style="color:#dc3545;">{{ number_format($totalDeductions, 2) }}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="meta-fin-group">
+      <div class="meta-fin-group-label">Take-Home</div>
+      <div class="meta-fin-items">
+        <div class="meta-fin-item">
+          <span class="fin-label">Net Pay</span>
+          <span class="fin-value" style="color:#4B5EBD;font-size:15px;">{{ number_format($totalNetPay, 2) }}</span>
+        </div>
+      </div>
+    </div>
+  </div>
+  @endif
 
   {{-- ── Stats strip ──────────────────────────────────────────────────────── --}}
   <div class="stats-strip">
@@ -512,52 +657,51 @@
   <div class="card-body">
 
     @if($sectors->isEmpty())
-
-      {{-- ── No sectors exist at all ── --}}
       <div class="empty-state">
+        <i class="ri-building-4-line"></i>
         <h5>No Sectors Configured</h5>
-        <p>
-          There are no sectors set up in the system yet.<br>
-          Please assign a <strong>Sector</strong> to your branches before payslips can be viewed here.
-        </p>
+        <p>Please assign a <strong>Sector</strong> to your branches before payslips can be viewed here.</p>
       </div>
 
     @elseif(!$currentSectorHasPayslips)
-
-      {{-- ── Sector exists but has zero approved/paid payroll entries ── --}}
       <div class="empty-state">
+        <i class="ri-calendar-check-line"></i>
         <h5>No Payslips for This Sector</h5>
         <p>
-          The <strong>{{ $savedSector }}</strong> sector has no <strong>Approved</strong> or <strong>Paid</strong> payroll periods yet.
-          Once a payroll period is approved or paid for employees in this sector, their payslips will appear here.<br><br>
+          The <strong>{{ $savedSector }}</strong> sector has no <strong>Approved</strong> or <strong>Paid</strong> payroll periods yet.<br><br>
           <a href="{{ route('tenant.admin.hr.payroll.periods', ['tenantName' => request()->route('tenantName')]) }}">
             Go to Payroll Periods &rarr;
           </a>
         </p>
       </div>
 
-    @elseif($payslips->isEmpty())
-
-      {{-- ── Sector has payslips, but the current filter combination returns none ── --}}
+    @elseif(!$savedPeriodId)
       <div class="empty-state">
+        <i class="ri-calendar-line"></i>
+        <h5>Select a Payroll Period</h5>
+        <p>Choose a period from the filter bar above. Payslips are always viewed one period at a time.</p>
+      </div>
+
+    @elseif($payslips->isEmpty())
+      <div class="empty-state">
+        <i class="ri-file-list-3-line"></i>
         <h5>No Payslips Match Your Filters</h5>
         <p>
-          <strong>{{ $savedSector }}</strong> has payslip data, but nothing matches
-          the current Category / Period / Employee combination.<br>
-          Try adjusting or <strong>clearing the filters</strong> above to broaden the results.
+          No entries found for the selected period{{ $savedCatId ? ' and category' : '' }}{{ $savedEmployeeId ? ' and employee' : '' }}.<br>
+          Try adjusting or <strong>clearing the filters</strong> above.
         </p>
       </div>
 
     @else
 
-    <table id="maintable" class="table table-sm table-striped row-border order-column w-100">
+    <table id="maintable" class="table table-sm table-striped row-border order-column w-100" style="margin-top:12px;">
       <thead style="background-color:#e2e2e9">
         <tr>
           <th><input type="checkbox" id="selectAll">&nbsp;&nbsp;Employee</th>
           <th style="text-align:center">Position</th>
           <th style="text-align:center">Branch</th>
-          <th style="text-align:center">Period</th>
-          <th style="text-align:center">Pay Date</th>
+          <th style="text-align:center">Basic Pay</th>
+          <th style="text-align:center">Allowances</th>
           <th style="text-align:center">Gross Pay</th>
           <th style="text-align:center">Deductions</th>
           <th style="text-align:center">Net Pay</th>
@@ -567,31 +711,33 @@
       </thead>
       <tbody id="tbody">
         @foreach($payslips as $slip)
+          @php
+            $slipAllowances = $slip->gross_pay - $slip->basic_salary;
+          @endphp
           <tr id="row{{ $slip->id }}">
             <td>
               <input type="checkbox" class="row-check" value="{{ $slip->id }}"
                      data-id="{{ $slip->id }}"
-                     data-row-id="row{{ $slip->id }}"
                      data-name="{{ $slip->employee_name }}"
                      data-email="{{ $slip->employee_email }}"
-                     data-period="{{ $slip->period_name }}">&nbsp;{{ $slip->employee_name }}
+                     data-period="{{ $slip->period_name }}">&nbsp;<strong>{{ $slip->employee_name }}</strong>
             </td>
             <td style="text-align:center">{{ $slip->position ?? '—' }}</td>
             <td style="text-align:center">{{ $slip->branch_name ?? '—' }}</td>
+            <td style="text-align:center">{{ number_format($slip->basic_salary, 2) }}</td>
             <td style="text-align:center">
-              {{ $slip->period_name }}<br>
-              <small class="text-muted">
-                {{ \Carbon\Carbon::parse($slip->period_start)->format('d M') }}
-                &ndash;
-                {{ \Carbon\Carbon::parse($slip->period_end)->format('d M Y') }}
-              </small>
+              @if($slipAllowances != 0)
+                <strong>{{ number_format($slipAllowances, 2) }}</strong>
+              @else
+                {{ number_format($slipAllowances, 2) }}
+              @endif
             </td>
-            <td style="text-align:center">{{ \Carbon\Carbon::parse($slip->pay_date)->format('d M Y') }}</td>
-            <td style="text-align:center">{{ number_format($slip->gross_pay, 2) }}</td>
+            <td style="text-align:center"><strong>{{ number_format($slip->gross_pay, 2) }}</strong></td>
             <td style="text-align:center"><span style="color:#dc3545;">{{ number_format($slip->total_deductions, 2) }}</span></td>
             <td style="text-align:center"><strong class="text-primary">{{ number_format($slip->net_pay, 2) }}</strong></td>
             <td style="text-align:center"><span class="badge-{{ $slip->period_status }}">{{ ucfirst($slip->period_status) }}</span></td>
-            <td style="text-align:center">
+            <td style="text-align:center; white-space:nowrap;">
+              {{-- VIEW --}}
               <a href="#" class="viewSlipBtn"
                  data-id="{{ $slip->id }}"
                  data-employee-name="{{ $slip->employee_name }}"
@@ -606,27 +752,45 @@
                  data-period-end="{{ \Carbon\Carbon::parse($slip->period_end)->format('d M Y') }}"
                  data-pay-date="{{ \Carbon\Carbon::parse($slip->pay_date)->format('d M Y') }}"
                  data-period-status="{{ $slip->period_status }}"
+                 data-basic="{{ $slip->basic_salary }}"
+                 data-housing="{{ $slip->housing_allowance }}"
+                 data-transport="{{ $slip->transport_allowance }}"
+                 data-medical="{{ $slip->medical_allowance }}"
+                 data-meal="{{ $slip->meal_allowance }}"
+                 data-other-recurring="{{ $slip->other_recurring_allowance }}"
+                 data-other-recurring-label="{{ $slip->other_recurring_allowance_label ?? '' }}"
+                 data-acting="{{ $slip->acting_allowance }}"
+                 data-commissions="{{ $slip->commissions }}"
+                 data-other-variable="{{ $slip->other_variable_allowance }}"
+                 data-other-variable-label="{{ $slip->other_variable_allowance_label ?? '' }}"
+                 data-overtime="{{ $slip->overtime_amount }}"
                  data-gross="{{ $slip->gross_pay }}"
-                 data-deductions="{{ $slip->total_deductions }}"
-                 data-net="{{ $slip->net_pay }}"
                  data-on-pension="{{ $slip->on_pension }}"
                  data-paye="{{ $slip->paye }}"
                  data-pension-ee="{{ $slip->pension_employee }}"
+                 data-pension-er="{{ $slip->pension_employer }}"
                  data-loan="{{ $slip->loan_deduction }}"
                  data-advance="{{ $slip->advance_deduction }}"
                  data-other-ded="{{ $slip->other_deductions }}"
-                 data-notes="{{ $slip->entry_notes ?? '' }}">
-                <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
+                 data-deductions="{{ $slip->total_deductions }}"
+                 data-net="{{ $slip->net_pay }}"
+                 data-notes="{{ $slip->entry_notes ?? '' }}"
+                 title="View Details">
+                <i class="ri-eye-line text-primary" style="font-size:17px;"></i>
               </a>
-              <a href="{{ route('tenant.admin.hr.payroll.wagebill.payslip', ['tenantName' => request()->route('tenantName')]) }}?entry_id={{ $slip->id }}">
-                <i class="ri-file-download-line text-success" style="font-weight:bold;font-size:17px"></i>
+              {{-- DOWNLOAD --}}
+              <a href="{{ route('tenant.admin.hr.payroll.wagebill.payslip', ['tenantName' => request()->route('tenantName')]) }}?entry_id={{ $slip->id }}"
+                 title="Download PDF">
+                <i class="ri-file-download-line text-success" style="font-size:17px;"></i>
               </a>
+              {{-- EMAIL --}}
               <a href="#" class="emailSlipBtn"
                  data-id="{{ $slip->id }}"
                  data-name="{{ $slip->employee_name }}"
                  data-email="{{ $slip->employee_email ?? '' }}"
-                 data-period="{{ $slip->period_name }}">
-                <i class="ri-mail-send-line text-info" style="font-weight:bold;font-size:17px"></i>
+                 data-period="{{ $slip->period_name }}"
+                 title="Email Payslip">
+                <i class="ri-mail-send-line text-info" style="font-size:17px;"></i>
               </a>
             </td>
           </tr>
@@ -640,11 +804,10 @@
 
 </div></div></div>
 
-{{-- ══════════════════════════════════════════════════════════════════════ --}}
-{{-- MODALS                                                                 --}}
-{{-- ══════════════════════════════════════════════════════════════════════ --}}
 
-{{-- STATISTICS MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — STATISTICS
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="statsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -662,7 +825,9 @@
   </div>
 </div>
 
-{{-- INFO MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — INFO
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header mh-blue">
@@ -670,25 +835,20 @@
       <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body" style="font-size:13px;">
-      <p>The <strong>Payslips</strong> page shows all employee payslips for <strong>Approved</strong> and <strong>Paid</strong> payroll periods, scoped to the selected sector.</p>
+      <p>The <strong>Payslips</strong> page shows payslips for <strong>Approved</strong> and <strong>Paid</strong> periods. A period must always be selected — payslips cannot be viewed across all periods at once.</p>
       <p class="mb-1"><strong>Filters</strong></p>
       <ul class="mb-3" style="padding-left:18px;">
-        <li class="mb-1"><strong>Sector</strong> (header) — The primary scope. Changing it clears all other filters.</li>
-        <li class="mb-1"><strong>Category</strong> — Further narrow to a category within the sector. Changing it resets period and employee.</li>
-        <li class="mb-1"><strong>Period</strong> — Narrow to a specific payroll run.</li>
-        <li class="mb-1"><strong>Employee</strong> — View a single employee's full payslip history.</li>
+        <li class="mb-1"><strong>Sector</strong> (header) — Primary scope. Changing it clears all other filters.</li>
+        <li class="mb-1"><strong>Category</strong> — Narrow to a category within the sector.</li>
+        <li class="mb-1"><strong>Period &#9679;</strong> — Required. Defaults to the most recent period. Changing it resets the employee filter.</li>
+        <li class="mb-1"><strong>Employee</strong> — View a single employee's payslip for the selected period.</li>
       </ul>
       <p class="mb-1"><strong>Row actions</strong></p>
-      <ul class="mb-3" style="padding-left:18px;">
-        <li class="mb-1"><i class="ri-eye-line text-primary"></i> <strong>View</strong> — Full breakdown without downloading.</li>
+      <ul class="mb-0" style="padding-left:18px;">
+        <li class="mb-1"><i class="ri-eye-line text-primary"></i> <strong>View</strong> — Full earnings and deductions breakdown.</li>
         <li class="mb-1"><i class="ri-file-download-line text-success"></i> <strong>Download</strong> — PDF payslip.</li>
-        <li><i class="ri-mail-send-line text-info"></i> <strong>Email</strong> — Sends PDF to the employee's email.</li>
+        <li><i class="ri-mail-send-line text-info"></i> <strong>Email</strong> — Sends PDF to the employee's email address.</li>
       </ul>
-      <div class="alert alert-warning mt-3 mb-0">
-        <i class="ri-error-warning-line me-1"></i>
-        Only <strong>Approved</strong> and <strong>Paid</strong> periods appear here.
-        Sectors with no qualifying periods are still shown in the dropdown but will display an explanatory message.
-      </div>
     </div>
     <div class="modal-footer">
       <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
@@ -696,7 +856,9 @@
   </div></div>
 </div>
 
-{{-- EXPORT MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — EXPORT
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content">
     <div class="modal-header">
@@ -710,7 +872,9 @@
   </div></div>
 </div>
 
-{{-- VIEW PAYSLIP DETAIL MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — VIEW PAYSLIP DETAIL  (full earnings + deductions)
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="viewSlipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content">
@@ -721,6 +885,8 @@
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body p-4">
+
+        {{-- Employee --}}
         <div class="modal-section-title">Employee</div>
         <div class="row g-2 mb-2">
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Name</div><div class="pf-value" id="vName">—</div></div></div>
@@ -730,6 +896,8 @@
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Department</div><div class="pf-value" id="vDepartment">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group"><div class="pf-label">Branch / Category</div><div class="pf-value" id="vBranchCat">—</div></div></div>
         </div>
+
+        {{-- Period --}}
         <div class="modal-section-title">Period</div>
         <div class="row g-2 mb-2">
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Period</div><div class="pf-value" id="vPeriod">—</div></div></div>
@@ -737,28 +905,108 @@
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Pay Date</div><div class="pf-value" id="vPayDate">—</div></div></div>
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Status</div><div class="pf-value" id="vStatus">—</div></div></div>
         </div>
-        <div class="modal-section-title">Deductions Breakdown</div>
+
+        {{-- Earnings --}}
+        <div class="modal-section-title">Earnings</div>
+
+        {{-- Basic Pay --}}
+        <div class="row g-2 mb-2">
+          <div class="col-12">
+            <div class="pf-group" style="background:#f0f4ff;">
+              <div class="pf-label">Basic Pay</div>
+              <div class="pf-value" id="vBasic">0.00</div>
+            </div>
+          </div>
+        </div>
+
+        {{-- Allowances breakdown --}}
+        <div class="allow-breakdown">
+          <div class="allow-row">
+            <span class="allow-label">Housing Allowance</span>
+            <span class="allow-value" id="vHousing">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Transport Allowance</span>
+            <span class="allow-value" id="vTransport">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Medical Allowance</span>
+            <span class="allow-value" id="vMedical">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Meal Allowance</span>
+            <span class="allow-value" id="vMeal">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Other Recurring &mdash; <em id="vOtherRecurringLabel" style="color:#4B5EBD;font-style:normal;"></em></span>
+            <span class="allow-value" id="vOtherRecurring">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Acting Allowance</span>
+            <span class="allow-value" id="vActing">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Commissions</span>
+            <span class="allow-value" id="vCommissions">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Other Variable &mdash; <em id="vOtherVariableLabel" style="color:#4B5EBD;font-style:normal;"></em></span>
+            <span class="allow-value" id="vOtherVariable">0.00</span>
+          </div>
+          <div class="allow-row">
+            <span class="allow-label">Overtime</span>
+            <span class="allow-value" id="vOvertime">0.00</span>
+          </div>
+          <div class="allow-total-row">
+            <span class="allow-total-label">Total Allowances</span>
+            <span class="allow-total-value" id="vAllowancesTotal">0.00</span>
+          </div>
+        </div>
+
+        {{-- Gross Pay --}}
+        <div class="row g-2 mb-2">
+          <div class="col-12">
+            <div class="pf-group" style="background:#e8f5e9;">
+              <div class="pf-label">Gross Pay (Basic + Allowances)</div>
+              <div class="pf-value text-success" id="vGross">0.00</div>
+            </div>
+          </div>
+        </div>
+
+        {{-- Deductions --}}
+        <div class="modal-section-title">Deductions</div>
         <div class="row g-2 mb-2">
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">PAYE</div><div class="pf-value" id="vPaye">—</div></div></div>
-          <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Pension (Ee)</div><div class="pf-value" id="vPensionEe">—</div></div></div>
+          <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Pension (Employee)</div><div class="pf-value" id="vPensionEe">—</div></div></div>
+          <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Pension (Employer)</div><div class="pf-value" id="vPensionEr">—</div></div></div>
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Loan</div><div class="pf-value" id="vLoan">—</div></div></div>
           <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Advance</div><div class="pf-value" id="vAdvance">—</div></div></div>
+          <div class="col-md-3 col-6"><div class="pf-group"><div class="pf-label">Other Deductions</div><div class="pf-value" id="vOtherDed">—</div></div></div>
         </div>
+
+        {{-- Summary --}}
         <div class="modal-section-title">Summary</div>
         <div class="row g-2 mb-2">
-          <div class="col-md-4 col-6"><div class="pf-group" style="background:#e8f5e9;"><div class="pf-label">Gross Pay</div><div class="pf-value text-success" id="vGross">—</div></div></div>
+          <div class="col-md-4 col-6"><div class="pf-group" style="background:#e8f5e9;"><div class="pf-label">Gross Pay</div><div class="pf-value text-success" id="vGross2">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group" style="background:#fdecea;"><div class="pf-label">Total Deductions</div><div class="pf-value text-danger" id="vDeductions">—</div></div></div>
           <div class="col-md-4 col-6"><div class="pf-group" style="background:#e8eaf6;"><div class="pf-label">Net Pay</div><div class="pf-value text-primary" id="vNet">—</div></div></div>
         </div>
+
+        {{-- Notes --}}
         <div id="vNotesRow" style="display:none;">
           <div class="modal-section-title">Notes</div>
           <div class="pf-group"><div class="pf-value" id="vNotes" style="font-size:13px;font-weight:400;"></div></div>
         </div>
+
       </div>
       <div class="modal-footer d-flex justify-content-between">
         <div>
-          <a href="#" class="btn btn-success btn-sm" id="vDownloadBtn"><i class="ri-file-download-line me-1"></i> Download PDF</a>
-          <a href="#" class="btn btn-info btn-sm ms-1 text-white" id="vEmailBtn"><i class="ri-mail-send-line me-1"></i> Email Payslip</a>
+          <a href="#" class="btn btn-success btn-sm" id="vDownloadBtn">
+            <i class="ri-file-download-line me-1"></i> Download PDF
+          </a>
+          <a href="#" class="btn btn-info btn-sm ms-1 text-white" id="vEmailBtn">
+            <i class="ri-mail-send-line me-1"></i> Email Payslip
+          </a>
         </div>
         <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
       </div>
@@ -766,7 +1014,9 @@
   </div>
 </div>
 
-{{-- EMAIL PAYSLIP MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — EMAIL PAYSLIP
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="emailSlipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:430px;">
     <div class="modal-content">
@@ -803,7 +1053,9 @@
   </div>
 </div>
 
-{{-- BULK ACTIONS MODAL --}}
+{{-- ════════════════════════════════════════════════════════════════════════
+     MODAL — BULK ACTIONS
+════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="bulkActionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:480px;">
     <div class="modal-content">
@@ -872,8 +1124,9 @@ $(document).ready(function () {
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
         lengthChange: true,
         lengthMenu: [[25, 50, 100, -1], [25, 50, 100, 'All']],
-        fixedColumns: { leftColumns: 1 },
+        fixedColumns: { left: 1 },
         scrollX: true,
+        columnDefs: [{ targets: [9], orderable: false }],
         buttons: [
             { extend: 'excelHtml5', title: 'Payslips', exportOptions: { columns: ':visible:not(:last-child)' } },
             { extend: 'csvHtml5',   title: 'Payslips', exportOptions: { columns: ':visible:not(:last-child)' } },
@@ -895,6 +1148,7 @@ $(document).ready(function () {
     $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
     $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
 
+    // ── Statistics ─────────────────────────────────────────────────────────
     $('#statsBtn').on('click', function(e) {
         e.preventDefault();
         $('#statsModalBody').html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading…</p></div>');
@@ -918,42 +1172,97 @@ $(document).ready(function () {
         }).fail(function() { $('#statsModalBody').html('<p class="text-danger text-center">Failed to load statistics.</p>'); });
     });
 
+    // ── Number formatter ───────────────────────────────────────────────────
     function fmt(n) {
         return parseFloat(n || 0).toLocaleString('en', { minimumFractionDigits:2, maximumFractionDigits:2 });
     }
 
+    // ── VIEW payslip detail ────────────────────────────────────────────────
     $('#tbody').on('click', '.viewSlipBtn', function(e) {
         e.preventDefault();
         var d = $(this).data();
+
+        // Header
         $('#vSlipTitle').text(d.employeeName + ' — ' + d.period);
+
+        // Employee
         $('#vName').text(d.employeeName);
         $('#vNumber').text(d.employeeNumber || '—');
-        $('#vEmail').text(d.employeeEmail || '—');
-        $('#vPosition').text(d.position || '—');
+        $('#vEmail').text(d.employeeEmail   || '—');
+        $('#vPosition').text(d.position     || '—');
         $('#vDepartment').text(d.department || '—');
         $('#vBranchCat').text((d.branch || '—') + (d.category ? ' / ' + d.category : ''));
+
+        // Period
         $('#vPeriod').text(d.period);
         $('#vDates').text(d.periodStart + ' – ' + d.periodEnd);
         $('#vPayDate').text(d.payDate);
         $('#vStatus').html('<span class="badge-' + d.periodStatus + '">' + d.periodStatus.charAt(0).toUpperCase() + d.periodStatus.slice(1) + '</span>');
+
+        // Basic Pay
+        $('#vBasic').text(fmt(d.basic));
+
+        // Allowances breakdown
+        $('#vHousing').text(fmt(d.housing));
+        $('#vTransport').text(fmt(d.transport));
+        $('#vMedical').text(fmt(d.medical));
+        $('#vMeal').text(fmt(d.meal));
+        $('#vOtherRecurringLabel').text(d.otherRecurringLabel || 'Other Recurring');
+        $('#vOtherRecurring').text(fmt(d.otherRecurring));
+        $('#vActing').text(fmt(d.acting));
+        $('#vCommissions').text(fmt(d.commissions));
+        $('#vOtherVariableLabel').text(d.otherVariableLabel || 'Other Variable');
+        $('#vOtherVariable').text(fmt(d.otherVariable));
+        $('#vOvertime').text(fmt(d.overtime));
+
+        // Style zero values
+        $('#vHousing, #vTransport, #vMedical, #vMeal, #vOtherRecurring, #vActing, #vCommissions, #vOtherVariable, #vOvertime').each(function() {
+            var val = parseFloat($(this).text().replace(/,/g,''));
+            $(this).toggleClass('allow-zero', val === 0);
+        });
+
+        // Allowances total
+        var allowTotal = parseFloat(d.housing       || 0)
+                       + parseFloat(d.transport     || 0)
+                       + parseFloat(d.medical       || 0)
+                       + parseFloat(d.meal          || 0)
+                       + parseFloat(d.otherRecurring|| 0)
+                       + parseFloat(d.acting        || 0)
+                       + parseFloat(d.commissions   || 0)
+                       + parseFloat(d.otherVariable || 0)
+                       + parseFloat(d.overtime      || 0);
+        $('#vAllowancesTotal').text(fmt(allowTotal));
+
+        // Gross
+        $('#vGross').text(fmt(d.gross));
+        $('#vGross2').text(fmt(d.gross));
+
+        // Deductions
         $('#vPaye').text(fmt(d.paye));
         $('#vPensionEe').text(fmt(d.pensionEe));
+        $('#vPensionEr').text(fmt(d.pensionEr));
         $('#vLoan').text(fmt(d.loan));
         $('#vAdvance').text(fmt(d.advance));
-        $('#vGross').text(fmt(d.gross));
+        $('#vOtherDed').text(fmt(d.otherDed));
         $('#vDeductions').text(fmt(d.deductions));
         $('#vNet').text(fmt(d.net));
+
+        // Notes
         if (d.notes) { $('#vNotes').text(d.notes); $('#vNotesRow').show(); }
-        else { $('#vNotesRow').hide(); }
+        else         { $('#vNotesRow').hide(); }
+
+        // Action buttons
         $('#vDownloadBtn').attr('href', payslipBaseUrl + '?entry_id=' + d.id);
         $('#vEmailBtn').off('click').on('click', function(e) {
             e.preventDefault();
             viewSlipModal.hide();
             setTimeout(function() { openEmailModal(d.id, d.employeeName, d.employeeEmail, d.period); }, 400);
         });
+
         viewSlipModal.show();
     });
 
+    // ── Email modal ────────────────────────────────────────────────────────
     function openEmailModal(entryId, name, email, period) {
         $('#emailEntryId').val(entryId);
         $('#emailName').text(name);
@@ -994,6 +1303,7 @@ $(document).ready(function () {
         });
     });
 
+    // ── Bulk selection ─────────────────────────────────────────────────────
     function getChecked() { return $('.row-check:checked'); }
 
     function updateBulkState() {
@@ -1014,6 +1324,7 @@ $(document).ready(function () {
         updateBulkState();
     });
 
+    // ── Bulk actions modal ─────────────────────────────────────────────────
     $('#bulkActionBtn').on('click', function() {
         var checked = getChecked();
         if (!checked.length) return;

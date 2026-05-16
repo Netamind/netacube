@@ -12,62 +12,68 @@
             font-size: 10px;
             color: #1a1a2e;
             background: #fff;
-        }
-
-        .page {
-            margin: 0;
-            padding: 28px 46px 70px 46px;
+            padding: 20px 40px 60px 40px;
         }
 
         /* ══════════════════════════════════════════
-           LETTERHEAD
+           HEADER — payslip-style
         ══════════════════════════════════════════ */
-
-        /* Coloured band behind the company header */
-        .header-band {
-            background: #4B5EBD;
-            margin: -28px -46px 0 -46px;
-            padding: 16px 46px 14px 46px;
-        }
-        .header-band-inner {
+        .hdr-tbl {
             width: 100%;
+            border-collapse: collapse;
         }
-        .company-name-white {
-            font-size: 19px;
-            font-weight: 700;
-            color: #ffffff;
-            letter-spacing: 0.4px;
-        }
-        .company-meta-white {
-            font-size: 8px;
-            color: rgba(255,255,255,0.80);
-            margin-top: 3px;
-            line-height: 1.6;
-        }
+        .hdr-tbl td { vertical-align: middle; padding: 0; }
 
-        /* Letter-type badge on the right side of the band */
-        .header-badge-cell {
-            text-align: right;
-            vertical-align: middle;
-        }
-        .letter-type-pill {
+        /* Vertical accent bar */
+        .accent-bar {
             display: inline-block;
-            padding: 5px 14px;
-            border-radius: 20px;
-            font-size: 9px;
-            font-weight: 700;
-            letter-spacing: 0.12em;
-            text-transform: uppercase;
-            border: 2px solid rgba(255,255,255,0.7);
-            color: #fff;
+            width: 3px;
+            height: 28px;
+            background: #4B5EBD;
+            vertical-align: middle;
+            margin-right: 8px;
         }
 
-        /* Thin accent under the band */
-        .header-accent {
-            height: 3px;
-            background: #f0a500;
-            margin: 0 -46px;
-            margin-bottom: 14px;
+        .co-block  { display: inline-block; vertical-align: middle; }
+        .co-name   { font-size: 13px; font-weight: 900; color: #1a1a1a; display: block; letter-spacing: -0.2px; }
+        .co-meta   { font-size: 7px; color: #666; display: block; margin-top: 2px; line-height: 1.7; }
+
+        /* Right side: letter type badge + ref info */
+        .hdr-right { text-align: right; }
+        .letter-eyebrow {
+            font-size: 6px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #4B5EBD;
+            display: inline-block;
+            border-bottom: 1px solid #4B5EBD;
+            padding-bottom: 2px;
+            margin-bottom: 4px;
+        }
+        .letter-type-large {
+            font-size: 11px;
+            font-weight: 900;
+            color: #1a1a1a;
+            display: block;
+        }
+        .hdr-ref   { font-size: 6px; color: #555; display: block; margin-top: 2px; }
+        .hdr-date  { font-size: 6px; font-weight: 700; color: #1a1a1a; display: block; margin-top: 1px; }
+
+        /* Rule under header */
+        .hdr-rule  { border: none; border-top: 0.5px solid #1a1a1a; margin: 10px 0 0 0; }
+
+        /* ══════════════════════════════════════════
+           CONFIDENTIAL STRIP
+        ══════════════════════════════════════════ */
+        .confidential-strip {
+            text-align: right;
+            font-size: 7px;
+            font-weight: 700;
+            color: #dc2626;
+            letter-spacing: 0.14em;
+            text-transform: uppercase;
+            margin: 8px 0 6px 0;
         }
 
         /* ══════════════════════════════════════════
@@ -186,13 +192,12 @@
         }
 
         /* ══════════════════════════════════════════
-           DETAILS TABLE — two-column key/value grid
+           DETAILS TABLE
         ══════════════════════════════════════════ */
         .details-outer {
             width: 100%;
             border-collapse: collapse;
             border: 1px solid #e2e8f0;
-            border-radius: 4px;
             margin-bottom: 10px;
             font-size: 9px;
         }
@@ -212,11 +217,9 @@
             color: #1a1a2e;
             font-weight: 700;
         }
-        /* Salary highlight row */
         .salary-row td { background: #eef0fb !important; }
         .salary-row td:first-child { color: #4B5EBD !important; }
         .salary-row td:last-child  { color: #4B5EBD !important; font-size: 10.5px; }
-        /* Top border accent on first row */
         .details-outer tr:first-child td { border-top: 2px solid #4B5EBD; }
 
         /* ══════════════════════════════════════════
@@ -251,7 +254,6 @@
             margin-bottom: 10px;
             text-align: justify;
         }
-
         .closing-salutation {
             font-size: 9.5px;
             color: #334155;
@@ -261,18 +263,19 @@
         /* ══════════════════════════════════════════
            SIGNATURE BLOCK
         ══════════════════════════════════════════ */
-        .sig-table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-top: 4px;
-        }
-        .sig-table td { vertical-align: bottom; padding: 0; }
-        .sig-table td.sig-left  { width: 50%; padding-right: 20px; }
-        .sig-table td.sig-right { width: 50%; }
+        .sig-wrap { margin-top: 10px; }
+        .sig-tbl  { width: 100%; border-collapse: collapse; }
+        .sig-tbl td { vertical-align: bottom; width: 50%; padding: 0 20px 0 0; }
+        .sig-tbl td:last-child { padding-right: 0; text-align: right; }
 
-        .sig-line-wrap { border-bottom: 1.5px solid #1a1a2e; padding-bottom: 2px; height: 26px; }
-        .sig-name  { font-size: 9.5px; font-weight: 700; color: #1a1a2e; margin-top: 3px; }
-        .sig-title { font-size: 8.5px; color: #64748b; margin-top: 1px; }
+        .sig-line-top {
+            border-top: 0.5px solid #888;
+            padding-top: 4px;
+            margin-top: 22px;
+        }
+        .sig-name  { font-size: 7.5px; font-weight: 700; color: #1a1a1a; display: block; }
+        .sig-role  { font-size: 6.5px; color: #888; text-transform: uppercase;
+                     letter-spacing: 0.4px; display: block; margin-top: 1px; }
         .sig-stamp {
             display: inline-block;
             width: 50px; height: 50px;
@@ -305,9 +308,9 @@
         }
         .accept-table { width: 100%; border-collapse: collapse; }
         .accept-table td { padding: 0; vertical-align: bottom; }
-        .accept-table td.ac-col { width: 30%; padding-right: 20px; }
+        .accept-table td.ac-col  { width: 30%; padding-right: 20px; }
         .accept-table td.ac-wide { width: 38%; padding-right: 20px; }
-        .accept-line { border-bottom: 1px solid #94a3b8; height: 30px; display: block; width: 100%; }
+        .accept-line  { border-bottom: 1px solid #94a3b8; height: 30px; display: block; width: 100%; }
         .accept-label { font-size: 8px; color: #94a3b8; margin-top: 3px; }
 
         /* ══════════════════════════════════════════
@@ -333,63 +336,70 @@
         }
 
         /* ══════════════════════════════════════════
-           CONFIDENTIAL WATERMARK STRIP
+           FOOTER — payslip-style fixed bottom rule
         ══════════════════════════════════════════ */
-        .confidential-strip {
-            text-align: right;
-            font-size: 7px;
-            font-weight: 700;
-            color: #dc2626;
-            letter-spacing: 0.14em;
-            text-transform: uppercase;
-            margin-bottom: 6px;
-        }
+        .foot-space { height: 20px; }
 
-        /* ══════════════════════════════════════════
-           FOOTER
-        ══════════════════════════════════════════ */
-        .footer {
+        .pgfoot {
             position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: #4B5EBD;
-            padding: 6px 46px;
-            font-size: 7px;
-            color: rgba(255,255,255,0.80);
-            text-align: center;
+            bottom: 10px;
+            left: 40px;
+            right: 40px;
+            border-top: 0.5px solid #ccc;
+            padding-top: 4px;
         }
-        .footer strong { color: #fff; }
+        .pgfoot-tbl { width: 100%; border-collapse: collapse; }
+        .pgfoot-tbl td {
+            font-size: 6px;
+            color: #999;
+            vertical-align: middle;
+        }
+        .pgfoot-tbl td.pr { text-align: right; }
     </style>
 </head>
 <body>
-<div class="page">
 
-    {{-- ── HEADER BAND ── --}}
-    <div class="header-band">
-        <table class="header-band-inner" style="width:100%; border-collapse:collapse;">
-            <tr>
-                <td style="vertical-align:middle;">
-                    <div class="company-name-white">{{ $company->business_name ?? 'Company Name' }}</div>
-                    <div class="company-meta-white">
+    {{-- ── HEADER (payslip-style) ── --}}
+    <table class="hdr-tbl">
+        <tr>
+            <td style="width:58%;">
+                <span class="accent-bar"></span>
+                <span class="co-block">
+                    <span class="co-name">{{ $company->business_name ?? 'Company Name' }}</span>
+                    <span class="co-meta">
                         @php
                             $meta = [];
                             if (!empty($company->physical_address)) $meta[] = $company->physical_address;
                             if (!empty($company->primary_number))   $meta[] = 'Tel: ' . $company->primary_number;
                             if (!empty($company->email_address))    $meta[] = $company->email_address;
-                            echo implode(' &nbsp;|&nbsp; ', $meta);
+                            echo implode(' &nbsp;&bull;&nbsp; ', $meta);
                         @endphp
-                    </div>
-                </td>
-                <td class="header-badge-cell" style="text-align:right; vertical-align:middle; white-space:nowrap;">
-                    <span class="letter-type-pill">{{ $letter->letter_type }} Letter</span>
-                </td>
-            </tr>
-        </table>
-    </div>
-
-    {{-- ── GOLD ACCENT LINE ── --}}
-    <div class="header-accent"></div>
+                    </span>
+                </span>
+            </td>
+            <td class="hdr-right" style="width:42%;">
+                <span class="letter-eyebrow">{{ $letter->letter_type }} Letter</span>
+                <span class="letter-type-large">
+                    @php
+                        $subjects = [
+                            'Offer'        => 'Offer of Employment',
+                            'Confirmation' => 'Confirmation of Employment',
+                            'Promotion'    => 'Promotion / Change of Role',
+                            'Termination'  => 'Termination of Employment',
+                        ];
+                        echo $subjects[$letter->letter_type] ?? ($letter->letter_type . ' Letter');
+                    @endphp
+                </span>
+                <span class="hdr-ref">
+                    Ref:&nbsp;{{ strtoupper(substr($letter->letter_type, 0, 3)) }}-{{ str_pad($letter->id, 5, '0', STR_PAD_LEFT) }}/{{ \Carbon\Carbon::parse($letter->issue_date)->format('Y') }}
+                </span>
+                <span class="hdr-date">
+                    Issued: {{ \Carbon\Carbon::parse($letter->issue_date)->format('d M Y') }}
+                </span>
+            </td>
+        </tr>
+    </table>
+    <hr class="hdr-rule">
 
     {{-- ── CONFIDENTIAL STRIP ── --}}
     <div class="confidential-strip">Strictly Confidential</div>
@@ -423,18 +433,19 @@
     </div>
 
     {{-- ── SUBJECT ── --}}
-    @php
-        $subjects = [
-            'Offer'        => 'Offer of Employment',
-            'Confirmation' => 'Confirmation of Employment',
-            'Promotion'    => 'Promotion / Change of Role',
-            'Termination'  => 'Termination of Employment',
-        ];
-        $subjectText = $subjects[$letter->letter_type] ?? ($letter->letter_type . ' Letter');
-    @endphp
     <div class="subject-wrap">
         <div class="subject-label">Subject</div>
-        <div class="subject-text">{{ $subjectText }}</div>
+        <div class="subject-text">
+            @php
+                $subjects = [
+                    'Offer'        => 'Offer of Employment',
+                    'Confirmation' => 'Confirmation of Employment',
+                    'Promotion'    => 'Promotion / Change of Role',
+                    'Termination'  => 'Termination of Employment',
+                ];
+                echo $subjects[$letter->letter_type] ?? ($letter->letter_type . ' Letter');
+            @endphp
+        </div>
     </div>
 
     {{-- ── OPENING PARAGRAPH ── --}}
@@ -571,7 +582,7 @@
         @endif
     </div>
 
-    {{-- ── NOTES (internal — printed here clearly labelled) ── --}}
+    {{-- ── NOTES ── --}}
     @if(!empty($letter->notes))
         <div class="notes-box">
             <div class="notes-title">Notes</div>
@@ -582,18 +593,21 @@
     {{-- ── SIGNATURE ── --}}
     <div class="closing-salutation">Yours sincerely,</div>
 
-    <table class="sig-table">
-        <tr>
-            <td class="sig-left">
-                <div class="sig-line-wrap"></div>
-                <div class="sig-name">{{ $letter->generated_by ?? 'Human Resources Manager' }}</div>
-                <div class="sig-title">Human Resources &nbsp;|&nbsp; {{ $company->business_name ?? '' }}</div>
-            </td>
-            <td class="sig-right" style="text-align:right; vertical-align:bottom;">
-                <div class="sig-stamp">Official<br>Seal</div>
-            </td>
-        </tr>
-    </table>
+    <div class="sig-wrap">
+        <table class="sig-tbl">
+            <tr>
+                <td>
+                    <div class="sig-line-top">
+                        <span class="sig-name">{{ $letter->generated_by ?? 'Human Resources Manager' }}</span>
+                        <span class="sig-role">Human Resources &nbsp;|&nbsp; {{ $company->business_name ?? '' }}</span>
+                    </div>
+                </td>
+                <td style="text-align:right; vertical-align:bottom;">
+                    <div class="sig-stamp">Official<br>Seal</div>
+                </td>
+            </tr>
+        </table>
+    </div>
 
     {{-- ── ACCEPTANCE BLOCK (Offer & Promotion only) ── --}}
     @if(in_array($letter->letter_type, ['Offer', 'Promotion']))
@@ -621,19 +635,25 @@
         </div>
     @endif
 
-</div>
+    <div class="foot-space"></div>
 
-{{-- ── FOOTER ── --}}
-<div class="footer">
-    @php
-        $footerParts = [];
-        if (!empty($company->business_name))    $footerParts[] = '<strong>' . $company->business_name . '</strong>';
-        if (!empty($company->physical_address)) $footerParts[] = $company->physical_address;
-        if (!empty($company->primary_number))   $footerParts[] = $company->primary_number;
-        if (!empty($company->email_address))    $footerParts[] = $company->email_address;
-        echo implode(' &nbsp;&bull;&nbsp; ', $footerParts);
-    @endphp
-    &nbsp;&nbsp;&mdash;&nbsp;&nbsp; This document is strictly confidential and intended solely for the named recipient.
+{{-- ── FOOTER (payslip-style fixed rule) ── --}}
+<div class="pgfoot">
+    <table class="pgfoot-tbl">
+        <tr>
+            <td>
+                @php
+                    $footerParts = [];
+                    if (!empty($company->business_name))    $footerParts[] = $company->business_name;
+                    if (!empty($company->physical_address)) $footerParts[] = $company->physical_address;
+                    if (!empty($company->primary_number))   $footerParts[] = $company->primary_number;
+                    if (!empty($company->email_address))    $footerParts[] = $company->email_address;
+                    echo implode(' &nbsp;&bull;&nbsp; ', $footerParts);
+                @endphp
+            </td>
+            <td class="pr">This document is strictly confidential and intended solely for the named recipient.</td>
+        </tr>
+    </table>
 </div>
 
 </body>

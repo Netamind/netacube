@@ -468,22 +468,17 @@
     <ul class="nav nav-pills mb-0">
         <li class="nav-item">
             <a href="{{ route('retail.operations.actioncenter') }}" class="nav-link">
-                <i class="ri-send-plane-line"></i> Action Centre
+                <i class="ri-send-plane-line"></i> Actioncentre
             </a>
         </li>
         <li class="nav-item">
             <a href="{{ route('retail.operations.deliverynotes') }}" class="nav-link active">
-                <i class="ri-file-list-3-line"></i> Delivery Notes
+                <i class="ri-file-list-3-line"></i> Deliverynotes
             </a>
         </li>
         <li class="nav-item">
             <a href="{{ route('retail.operations.pricechanges') }}" class="nav-link">
-                <i class="ri-price-tag-3-line"></i> Price Changes
-            </a>
-        </li>
-        <li class="nav-item">
-            <a href="{{ route('retail.operations.deliverynote.details') }}" class="nav-link">
-                <i class="ri-file-text-line"></i> Note Details
+                <i class="ri-price-tag-3-line"></i> Pricechanges
             </a>
         </li>
     </ul>
@@ -553,14 +548,8 @@
                 <th style="text-align:center">Actions</th>
             </tr>
         </thead>
-        <tbody id="dnTableBody">
-            <tr>
-                <td colspan="8" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:13px;">
-                    <i class="ri-loader-4-line" style="font-size:24px;display:block;margin-bottom:8px;animation:spin 1s linear infinite;"></i>
-                    Loading delivery notes…
-                </td>
-            </tr>
-        </tbody>
+        {{-- ▼ CHANGED: empty tbody — DataTable handles "no data" state natively --}}
+        <tbody id="dnTableBody"></tbody>
     </table>
 </div>
 
@@ -947,6 +936,40 @@ $(document).ready(function () {
         toastr.error((json && (json.message || json.error)) || 'Unexpected error (HTTP ' + xhr.status + ').', 'Error');
     }
 
+    /* ── ▼ CHANGED: initialise DataTable once on page load with empty tbody ── */
+    @if($selectedCategory)
+    dtTable = $('#dnTable').DataTable({
+        dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>Brt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
+        lengthChange: true,
+        lengthMenu:   [[25, 50, 100, -1], [25, 50, 100, 'All']],
+        pageLength:   25,
+        fixedColumns: { left: 1 },
+        scrollX:      true,
+        order:        [[0, 'asc']],
+        columnDefs:   [
+            { orderable: false, targets: [7] },
+            { className: 'text-center', targets: [1, 2, 3, 4, 5, 6, 7] },
+        ],
+        buttons: [
+            { extend: 'excelHtml5', title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
+            { extend: 'csvHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
+            { extend: 'pdfHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' },
+              customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
+            },
+        ],
+        language: {
+            search: '',
+            searchPlaceholder: 'Search branches…',
+            /* ▼ CHANGED: clean "no data" messages — no spinner, no loading text */
+            emptyTable:  'No delivery notes found for this date.',
+            zeroRecords: 'No branches match your search.',
+        },
+    });
+
+    /* Move DataTable buttons into download modal once on init */
+    dtTable.buttons().container().appendTo($('#downloadModal .buttons'));
+    @endif
+
     /* ── Selection state ─────────────────────────────────────────────── */
     function getSelectedBranchIds() {
         var ids = [];
@@ -990,9 +1013,10 @@ $(document).ready(function () {
         $('#bulkActionsModal').modal('show');
     });
 
-    /* ── Load table data ─────────────────────────────────────────────── */
+    /* ── Load table data ──────────────────────────────────────────────── */
     function loadTable() {
-        if (!activeCategoryId) return;
+        if (!activeCategoryId || !dtTable) return;
+
         showProgress();
         $('#tableLoadingOverlay').css('display', 'flex');
         $('#selectAllRows').prop('checked', false);
@@ -1018,13 +1042,10 @@ $(document).ready(function () {
                 var pdfBase     = '{{ route("retail.operations.deliverynotes.branch.export-pdf") }}';
                 var detailsBase = '{{ route("retail.operations.deliverynotes.branch.details") }}';
 
-                /* Rows */
-                var html = '';
-                if (!rows.length) {
-                    html = '<tr><td colspan="8" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:13px;">'
-                         + '<i class="ri-inbox-2-line" style="font-size:36px;display:block;margin-bottom:10px;color:#dde1f0;"></i>'
-                         + 'No delivery notes for this category on ' + activeDate + '.</td></tr>';
-                } else {
+                /* ── ▼ CHANGED: clear DataTable rows, then add new ones, then redraw ── */
+                dtTable.clear();
+
+                if (rows.length) {
                     rows.forEach(function (r) {
                         var branchErrors = dummyErrors[String(r.branch_id)] || [];
                         var errCount     = branchErrors.length;
@@ -1037,20 +1058,16 @@ $(document).ready(function () {
                             ? '<a href="#" class="dn-action-btn btn-submit dn-submit-btn" data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" title="Submit pending notes"><i class="ri-corner-up-right-line"></i></a>'
                             : '<span class="dn-action-btn btn-disabled" title="No pending notes"><i class="ri-corner-up-right-line"></i></span>';
 
-                        /* PDF — same tab via hidden form POST-like approach; use direct anchor, no target="_blank" */
                         var pdfUrl     = pdfBase     + '?branch_id=' + r.branch_id + '&date=' + activeDate;
                         var detailsUrl = detailsBase + '?branch_id=' + r.branch_id + '&date=' + activeDate;
 
-                        /* PDF download in same tab — use window.location via JS click */
-                        var pdfBtn = '<a href="' + pdfUrl + '" class="dn-action-btn btn-pdf dn-pdf-btn" title="Download PDF" data-url="' + pdfUrl + '"><i class="ri-file-pdf-2-line"></i></a>';
-
-                        /* Details button — distinct icon conveying "view note details" */
+                        var pdfBtn     = '<a href="' + pdfUrl + '" class="dn-action-btn btn-pdf dn-pdf-btn" title="Download PDF" data-url="' + pdfUrl + '"><i class="ri-file-pdf-2-line"></i></a>';
                         var detailsBtn = '<a href="' + detailsUrl + '" class="dn-action-btn btn-details" title="View delivery note details"><i class="ri-receipt-line"></i></a>';
 
                         var submittedVal = r.submitted_note_count > 0 ? r.submitted_note_count : '—';
                         var pendingVal   = r.pending_note_count   > 0 ? r.pending_note_count   : '—';
 
-                        html += '<tr>'
+                        var rowHtml = '<tr>'
                             + '<td>'
                             +   '<input type="checkbox" class="dn-row-check" value="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" style="margin-right:8px;vertical-align:middle;">'
                             +   '<strong>' + r.branch_name + '</strong>'
@@ -1063,50 +1080,21 @@ $(document).ready(function () {
                             + '<td style="text-align:center">' + errBadge + '</td>'
                             + '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px;">' + submitBtn + pdfBtn + detailsBtn + '</div></td>'
                             + '</tr>';
+
+                        dtTable.row.add($(rowHtml));
                     });
                 }
 
-                $('#dnTableBody').html(html);
-
-                /* Re-init DataTable */
-                if ($.fn.DataTable.isDataTable('#dnTable')) { $('#dnTable').DataTable().destroy(); }
-                dtTable = $('#dnTable').DataTable({
-                    dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>Brt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
-                    lengthChange: true,
-                    lengthMenu:   [[25, 50, 100, -1], [25, 50, 100, 'All']],
-                    pageLength:   25,
-                    fixedColumns: { left: 1 },
-                    scrollX:      true,
-                    order:        [[0, 'asc']],
-                    columnDefs:   [
-                        { orderable: false, targets: [7] },
-                        { className: 'text-center', targets: [1, 2, 3, 4, 5, 6, 7] },
-                    ],
-                    buttons: [
-                        { extend: 'excelHtml5', title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
-                        { extend: 'csvHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
-                        { extend: 'pdfHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' },
-                          customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
-                        },
-                    ],
-                    language: {
-                        search: '',
-                        searchPlaceholder: 'Search branches…',
-                        emptyTable: 'No delivery notes found.',
-                    },
-                });
-
-                /* Move DataTable buttons into download modal */
-                $('#downloadModal .buttons').empty();
-                dtTable.buttons().container().appendTo($('#downloadModal .buttons'));
-
+                /* ▼ CHANGED: single draw call after all rows are added
+                   DataTable shows "No delivery notes found for this date." automatically when rows = 0 */
+                dtTable.draw();
                 updateSelectionUI();
             },
             error: handleAjaxError,
         });
     }
 
-    /* ── PDF download — same tab (no new window) ─────────────────────── */
+    /* ── PDF download — same tab ──────────────────────────────────────── */
     $(document).on('click', '.dn-pdf-btn', function (e) {
         e.preventDefault();
         window.location.href = $(this).data('url');
@@ -1122,10 +1110,10 @@ $(document).ready(function () {
         }
         var html = '';
         errors.forEach(function (err) {
-            var diffClass      = err.diff.charAt(0) === '+' ? 'err-diff-pos' : 'err-diff-neg';
-            var statusClass    = err.status === 'Approved' ? 'err-status-approved'
-                               : err.status === 'Rejected' ? 'err-status-rejected'
-                               : 'err-status-pending';
+            var diffClass   = err.diff.charAt(0) === '+' ? 'err-diff-pos' : 'err-diff-neg';
+            var statusClass = err.status === 'Approved' ? 'err-status-approved'
+                            : err.status === 'Rejected' ? 'err-status-rejected'
+                            : 'err-status-pending';
             var actDisabled = (err.status !== 'Pending') ? ' disabled' : '';
             html += '<tr id="errRow-' + err.id + '">'
                 + '<td>' + err.product + '</td>'

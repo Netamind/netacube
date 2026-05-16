@@ -83,58 +83,89 @@ class BaseproductsController extends Controller
     // ─────────────────────────────────────────────────────────────────────────
     //  UPDATE
     // ─────────────────────────────────────────────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────
+//  UPDATE
+// ─────────────────────────────────────────────────────────────────────────
 
-    public function updateBaseproduct(Request $request)
-    {
-        $request->validate([
-            'id'            => 'required|integer|exists:tenant.retail_base_products,id',
-            'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
-            'description'   => 'nullable|string|max:2000',
-            'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
-            'supplier'      => 'required|string|max:255',
-            'unit'          => 'required|string|max:50',
-            'cost_price'    => 'nullable|numeric|min:0',
-            'selling_price' => 'nullable|numeric|min:0',
-            'is_product'    => 'nullable|boolean',
-        ], [
-            'name.unique'       => 'A product with this name already exists in the base catalogue.',
-            'code.unique'       => 'This code (SKU) is already used by another product.',
-            'supplier.required' => 'A supplier is required.',
-        ]);
+public function updateBaseproduct(Request $request)
+{
+    $request->validate([
+        'id'            => 'required|integer|exists:tenant.retail_base_products,id',
+        'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
+        'description'   => 'nullable|string|max:2000',
+        'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
+        'supplier'      => 'required|string|max:255',
+        'unit'          => 'required|string|max:50',
+        'cost_price'    => 'nullable|numeric|min:0',
+        'selling_price' => 'nullable|numeric|min:0',
+        'is_product'    => 'nullable|boolean',
+    ], [
+        'name.unique'       => 'A product with this name already exists in the base catalogue.',
+        'code.unique'       => 'This code (SKU) is already used by another product.',
+        'supplier.required' => 'A supplier is required.',
+    ]);
 
-        $data = [
-            'name'          => trim($request->name),
-            'description'   => $request->description ? trim($request->description) : null,
-            'code'          => $request->code         ? trim($request->code)        : null,
-            'supplier'      => trim($request->supplier),
-            'unit'          => trim($request->unit ?? 'Each'),
-            'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
-            'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
-            'is_product'    => (int) ($request->is_product ?? 1),
-            'updated_at'    => now(),
-        ];
+    $data = [
+        'name'          => trim($request->name),
+        'description'   => $request->description ? trim($request->description) : null,
+        'code'          => $request->code         ? trim($request->code)        : null,
+        'supplier'      => trim($request->supplier),
+        'unit'          => trim($request->unit ?? 'Each'),
+        'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
+        'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
+        'is_product'    => (int) ($request->is_product ?? 1),
+        'updated_at'    => now(),
+    ];
 
-        $updated = DB::connection('tenant')
-            ->table('retail_base_products')
-            ->where('id', $request->id)
-            ->update($data);
+    $updated = DB::connection('tenant')
+        ->table('retail_base_products')
+        ->where('id', $request->id)
+        ->update($data);
 
-        if ($updated !== false) {
-            $product = DB::connection('tenant')
-                ->table('retail_base_products')
-                ->where('id', $request->id)
-                ->first();
+    // ── Handle branch price overrides ─────────────────────────────────────
+    $branchOverrides  = $request->input('branch_overrides', []);
+    $overridesUpdated = 0;
 
-            return response()->json([
-                'success' => 'Product updated successfully.',
-                'status'  => 201,
-                'product' => $this->formatProduct($product),
-            ]);
+    if (!empty($branchOverrides) && is_array($branchOverrides)) {
+        foreach ($branchOverrides as $override) {
+            $bpId  = isset($override['id'])            ? (int)   $override['id']            : null;
+            $price = isset($override['selling_price']) ? (float) $override['selling_price'] : null;
+
+            if (!$bpId || $price === null) continue;
+
+            $affected = DB::connection('tenant')
+                ->table('retail_branch_products')
+                ->where('id', $bpId)
+                ->update([
+                    'selling_price' => $price,
+                    'updated_at'    => now(),
+                ]);
+
+            if ($affected) $overridesUpdated++;
         }
-
-        return response()->json(['error' => 'Product not found or no changes made.', 'status' => 409]);
     }
 
+    if ($updated !== false) {
+        $product = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $request->id)
+            ->first();
+
+        $message = 'Product updated successfully.';
+        if ($overridesUpdated > 0) {
+            $message .= ' ' . $overridesUpdated . ' branch price' . ($overridesUpdated > 1 ? 's' : '') . ' updated.';
+        }
+
+        return response()->json([
+            'success'           => $message,
+            'status'            => 201,
+            'product'           => $this->formatProduct($product),
+            'overrides_updated' => $overridesUpdated,
+        ]);
+    }
+
+    return response()->json(['error' => 'Product not found or no changes made.', 'status' => 409]);
+}
     // ─────────────────────────────────────────────────────────────────────────
     //  SINGLE DELETE
     // ─────────────────────────────────────────────────────────────────────────
@@ -389,6 +420,40 @@ public function importBaseproductRow(Request $request)
     }
 
     return response()->json(['error' => 'Database insert failed.', 'status' => 500]);
+}
+
+
+// ─────────────────────────────────────────────────────────────────────────
+//  BRANCH PRICE OVERRIDES — for Edit Product modal
+// ─────────────────────────────────────────────────────────────────────────
+
+public function getBranchOverrides(Request $request)
+{
+    $request->validate([
+        'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
+    ]);
+
+    $base = DB::connection('tenant')
+        ->table('retail_base_products')
+        ->where('id', $request->base_product_id)
+        ->first(['selling_price']);
+
+    $baseSell = (float) ($base->selling_price ?? 0);
+
+    $overrides = DB::connection('tenant')
+        ->table('retail_branch_products as rbp')
+        ->join('branches as b', 'b.id', '=', 'rbp.branch_id')
+        ->where('rbp.base_product_id', $request->base_product_id)
+        ->whereNotNull('rbp.selling_price')
+        ->select('rbp.id', 'b.name as branch_name', 'rbp.selling_price')
+        ->orderBy('b.name')
+        ->get()
+        ->filter(function ($row) use ($baseSell) {
+            return abs((float) $row->selling_price - $baseSell) > 0.0001;
+        })
+        ->values();
+
+    return response()->json(['overrides' => $overrides]);
 }
 
 }

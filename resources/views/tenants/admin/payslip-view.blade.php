@@ -106,7 +106,6 @@
             ->get();
     }
 
-    // Auto-select most recent period if nothing saved
     if (!$savedPeriodId && $periods->isNotEmpty()) {
         $savedPeriodId = $periods->first()->id;
     }
@@ -122,7 +121,6 @@
     */
     $employees = collect();
     if ($filteredEmployeeIds->isNotEmpty() && $savedPeriodId) {
-        // Only employees who have an entry in the selected period
         $empIdsInPeriod = DB::connection('tenant')
             ->table('payroll_entries')
             ->where('payroll_period_id', (int)$savedPeriodId)
@@ -184,7 +182,6 @@
                 'payroll_entries.id',
                 'payroll_entries.payroll_period_id',
                 'payroll_entries.employee_id',
-                // Earnings
                 'payroll_entries.basic_salary',
                 'payroll_entries.housing_allowance',
                 'payroll_entries.transport_allowance',
@@ -198,7 +195,6 @@
                 'payroll_entries.other_variable_allowance_label',
                 'payroll_entries.overtime_amount',
                 'payroll_entries.gross_pay',
-                // Deductions
                 'payroll_entries.on_pension',
                 'payroll_entries.paye',
                 'payroll_entries.pension_employee',
@@ -209,19 +205,16 @@
                 'payroll_entries.total_deductions',
                 'payroll_entries.net_pay',
                 'payroll_entries.notes as entry_notes',
-                // Period
                 'payroll_periods.name        as period_name',
                 'payroll_periods.period_start',
                 'payroll_periods.period_end',
                 'payroll_periods.pay_date',
                 'payroll_periods.status      as period_status',
-                // Employee
                 'users.name                  as employee_name',
                 'users.phone                 as employee_number',
                 'users.email                 as employee_email',
                 'users.position              as position',
                 'users.department            as department',
-                // Branch / Category
                 'branches.name               as branch_name',
                 'branches.sector             as branch_sector',
                 'categories.id               as category_id',
@@ -232,9 +225,7 @@
             $query->where('payroll_entries.employee_id', (int)$savedEmployeeId);
         }
 
-        $payslips = $query
-            ->orderBy('users.name', 'asc')
-            ->get();
+        $payslips = $query->orderBy('users.name', 'asc')->get();
     }
 
     $totalNetPay     = $payslips->sum('net_pay');
@@ -310,57 +301,79 @@
   padding:10px 1.5rem; display:flex; flex-wrap:wrap;
   align-items:center; gap:0; font-size:12px;
 }
-.meta-group { display:flex; align-items:center; flex-wrap:wrap; gap:0; }
-.meta-item  { display:flex; flex-direction:column; padding:2px 20px 2px 0; }
+.meta-item  { display:flex; flex-direction:column; padding:2px 24px 2px 0; }
 .meta-item:last-child { padding-right:0; }
 .meta-label { font-size:10px; text-transform:uppercase; letter-spacing:.05em; color:#6c757d; font-weight:600; white-space:nowrap; }
 .meta-value { font-weight:600; color:#212529; white-space:nowrap; }
-.meta-divider { width:2px; height:36px; background:#e2e6f0; margin:0 20px; flex-shrink:0; }
-.meta-fin-group { display:flex; flex-direction:column; padding:0 20px; }
-.meta-fin-group + .meta-fin-group { border-left:1px dashed #d6daf0; }
-.meta-fin-group:last-child { padding-right:0; }
-.meta-fin-group-label { font-size:9px; text-transform:uppercase; letter-spacing:.07em; color:#9ca3af; font-weight:700; margin-bottom:4px; }
-.meta-fin-items { display:flex; gap:20px; }
-.meta-fin-item  { display:flex; flex-direction:column; }
-.meta-fin-item .fin-label { font-size:10px; color:#6c757d; font-weight:600; text-transform:uppercase; letter-spacing:.04em; white-space:nowrap; }
-.meta-fin-item .fin-value { font-size:13px; font-weight:700; white-space:nowrap; }
+@media (max-width: 767px) {
+  .period-meta-strip {
+    display: grid; grid-template-columns: 1fr 1fr;
+    gap: 0; padding: 0;
+  }
+  .meta-item {
+    padding: 8px 12px; border-bottom: 1px solid #e9ecef;
+    border-right: 1px solid #e9ecef;
+  }
+  .meta-item:nth-child(even) { border-right: none; }
+  .meta-item:nth-last-child(-n+2) { border-bottom: none; }
+}
 
 /* ── Stats strip ────────────────────────────────────────────────────────── */
-.stats-strip { display:flex; flex-wrap:wrap; gap:0; border-bottom:1px solid #d6daf0; }
+.stats-strip {
+  display: flex; align-items: stretch; flex-wrap: wrap;
+  border-bottom: 1px solid #d6daf0; background: #f8f9fc;
+}
 .stats-strip-item {
-  flex:1; min-width:140px; padding:12px 20px;
-  border-right:1px solid #d6daf0; background:#f8f9fc;
+  flex: 1; min-width: 140px; padding: 10px 16px;
+  border-right: 1px solid #d6daf0; border-bottom: 0;
+  display: flex; flex-direction: column; justify-content: center; gap: 3px;
 }
-.stats-strip-item:last-child { border-right:none; }
+.stats-strip-item:last-child { border-right: none; }
 .stats-strip-item .s-label {
-  font-size:10px; font-weight:700; text-transform:uppercase;
-  letter-spacing:.06em; color:#94a3b8; display:block; margin-bottom:3px;
+  font-size: 11px; font-weight: 700; text-transform: uppercase;
+  letter-spacing: .06em; color: #94a3b8; display: block;
 }
-.stats-strip-item .s-value { font-size:18px; font-weight:700; color:#1e293b; display:block; }
-
-/* ── Bulk action button ─────────────────────────────────────────────────── */
+.stats-strip-item .s-value {
+  font-size: 16px; font-weight: 700; color: #1e293b;
+  display: block; white-space: nowrap;
+}
 .stats-strip-action {
-  display:flex; align-items:center; justify-content:center;
-  padding:12px 20px; border-right:1px solid #d6daf0; background:#f8f9fc;
-  min-width:160px;
+  display: flex; align-items: center; justify-content: center;
+  padding: 10px 16px; border-right: 1px solid #d6daf0; flex-shrink: 0;
 }
 #bulkActionBtn {
-  position:relative; height:34px; padding:0 16px;
-  display:flex; align-items:center; gap:6px;
-  font-size:12px; font-weight:600; border-radius:6px;
-  border:1px solid #c8d0ed; background:#fff; color:#94a3b8;
-  cursor:default; transition:all .2s;
+  position: relative; height: 34px; padding: 0 14px;
+  display: flex; align-items: center; gap: 6px;
+  font-size: 12px; font-weight: 600; border-radius: 6px;
+  border: 1px solid #c8d0ed; background: #fff; color: #94a3b8;
+  cursor: default; transition: all .2s; white-space: nowrap;
 }
 #bulkActionBtn.active {
-  border-color:#4B5EBD; background:#4B5EBD; color:#fff; cursor:pointer;
+  border-color: #4B5EBD; background: #eef0f7; color: #4B5EBD; cursor: pointer;
 }
-#bulkActionBtn.active:hover { background:#3a4ea8; border-color:#3a4ea8; }
+#bulkActionBtn.active:hover { background: #4B5EBD; color: #fff; }
 #bulkActionBtn .bulk-badge {
-  position:absolute; top:-8px; right:-8px;
-  background:#dc3545; color:#fff; font-size:11px;
-  padding:1px 6px; border-radius:50%; display:none; line-height:1.6;
+  position: absolute; top: -8px; right: -8px;
+  background: #dc3545; color: #fff; font-size: 10px;
+  padding: 1px 5px; border-radius: 50%; display: none; line-height: 1.6;
 }
-#bulkActionBtn.active .bulk-badge { display:block; }
+#bulkActionBtn.active .bulk-badge { display: block; }
+@media (max-width: 767px) {
+  .stats-strip { flex-direction: column; }
+  .stats-strip-action {
+    justify-content: flex-start; padding: 10px 16px;
+    border-right: none; border-bottom: 1px solid #d6daf0;
+  }
+  .stats-strip-item {
+    min-width: 0; flex: none; width: 100%;
+    border-right: none; border-bottom: 1px solid #d6daf0;
+    flex-direction: row; justify-content: space-between; align-items: center;
+    padding: 9px 16px;
+  }
+  .stats-strip-item:last-child { border-bottom: none; }
+  .stats-strip-item .s-label { font-size: 12px; letter-spacing: 0; }
+  .stats-strip-item .s-value { font-size: 14px; }
+}
 
 /* ── Empty state ────────────────────────────────────────────────────────── */
 .empty-state { padding:52px 20px; text-align:center; color:#94a3b8; }
@@ -402,15 +415,6 @@
 }
 .allow-breakdown .allow-total-label { color:#4B5EBD; font-size:13px; }
 .allow-breakdown .allow-total-value { color:#4B5EBD; font-size:13px; }
-
-/* ── Stats modal cards ──────────────────────────────────────────────────── */
-.stats-card { border-radius:10px; padding:14px 18px; color:#fff; text-align:center; }
-.stats-card .sc-label { font-size:11px; opacity:.85; text-transform:uppercase; letter-spacing:.05em; }
-.stats-card .sc-value { font-size:26px; font-weight:700; line-height:1.3; }
-.bg-sc1 { background:linear-gradient(135deg,#4B5EBD,#6c7fe0); }
-.bg-sc2 { background:linear-gradient(135deg,#0dcaf0,#0891b2); }
-.bg-sc3 { background:linear-gradient(135deg,#dc3545,#f87171); }
-.bg-sc4 { background:linear-gradient(135deg,#198754,#27c87e); }
 
 /* ── Bulk action modal ──────────────────────────────────────────────────── */
 .bulk-action-card {
@@ -458,7 +462,6 @@
       @endif
     </h4>
     <div class="d-flex align-items-center" style="gap:4px;">
-      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="statsBtn"        title="Statistics"><i class="ri-bar-chart-2-line"></i></a>
       <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn"         title="Info"><i class="ri-information-line"></i></a>
       <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Export Table"><i class="ri-table-line"></i></a>
     </div>
@@ -559,79 +562,39 @@
     </div>
   </div>
 
-  {{-- ── Period meta strip ────────────────────────────────────────────────── --}}
+  {{-- ── Period meta strip — contextual info only, no financial totals ──── --}}
   @if($selectedPeriod)
   <div class="period-meta-strip">
-    <div class="meta-group">
-      <div class="meta-item">
-        <span class="meta-label">Period</span>
-        <span class="meta-value">{{ $selectedPeriod->name }}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Start</span>
-        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_start)->format('d M Y') }}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">End</span>
-        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_end)->format('d M Y') }}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Pay Date</span>
-        <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->pay_date)->format('d M Y') }}</span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Status</span>
-        <span class="meta-value"><span class="badge-{{ $selectedPeriod->status }}">{{ ucfirst($selectedPeriod->status) }}</span></span>
-      </div>
-      <div class="meta-item">
-        <span class="meta-label">Employees</span>
-        <span class="meta-value">{{ $payslips->count() }}</span>
-      </div>
+    <div class="meta-item">
+      <span class="meta-label">Period</span>
+      <span class="meta-value">{{ $selectedPeriod->name }}</span>
     </div>
-
-    <div class="meta-divider"></div>
-
-    <div class="meta-fin-group">
-      <div class="meta-fin-group-label">Earnings</div>
-      <div class="meta-fin-items">
-        <div class="meta-fin-item">
-          <span class="fin-label">Basic Pay</span>
-          <span class="fin-value">{{ number_format($totalBasic, 2) }}</span>
-        </div>
-        <div class="meta-fin-item">
-          <span class="fin-label">Allowances</span>
-          <span class="fin-value">{{ number_format($totalAllowances, 2) }}</span>
-        </div>
-        <div class="meta-fin-item">
-          <span class="fin-label">Gross Pay</span>
-          <span class="fin-value" style="color:#198754;">{{ number_format($totalGrossPay, 2) }}</span>
-        </div>
-      </div>
+    <div class="meta-item">
+      <span class="meta-label">Start</span>
+      <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_start)->format('d M Y') }}</span>
     </div>
-
-    <div class="meta-fin-group">
-      <div class="meta-fin-group-label">Deductions</div>
-      <div class="meta-fin-items">
-        <div class="meta-fin-item">
-          <span class="fin-label">Total Ded.</span>
-          <span class="fin-value" style="color:#dc3545;">{{ number_format($totalDeductions, 2) }}</span>
-        </div>
-      </div>
+    <div class="meta-item">
+      <span class="meta-label">End</span>
+      <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->period_end)->format('d M Y') }}</span>
     </div>
-
-    <div class="meta-fin-group">
-      <div class="meta-fin-group-label">Take-Home</div>
-      <div class="meta-fin-items">
-        <div class="meta-fin-item">
-          <span class="fin-label">Net Pay</span>
-          <span class="fin-value" style="color:#4B5EBD;font-size:15px;">{{ number_format($totalNetPay, 2) }}</span>
-        </div>
-      </div>
+    <div class="meta-item">
+      <span class="meta-label">Pay Date</span>
+      <span class="meta-value">{{ \Carbon\Carbon::parse($selectedPeriod->pay_date)->format('d M Y') }}</span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Status</span>
+      <span class="meta-value">
+        <span class="badge-{{ $selectedPeriod->status }}">{{ ucfirst($selectedPeriod->status) }}</span>
+      </span>
+    </div>
+    <div class="meta-item">
+      <span class="meta-label">Employees</span>
+      <span class="meta-value">{{ $payslips->count() }}</span>
     </div>
   </div>
   @endif
 
-  {{-- ── Stats strip ──────────────────────────────────────────────────────── --}}
+  {{-- ── Stats strip — bulk action + all five financial totals ─────────── --}}
   <div class="stats-strip">
     <div class="stats-strip-action">
       <button id="bulkActionBtn" disabled title="Select rows to enable bulk actions">
@@ -640,16 +603,24 @@
       </button>
     </div>
     <div class="stats-strip-item">
-      <span class="s-label">Total Gross Pay</span>
-      <span class="s-value">{{ number_format($totalGrossPay, 2) }}</span>
+      <span class="s-label">Basic Pay</span>
+      <span class="s-value">{{ number_format($totalBasic, 2) }}</span>
+    </div>
+    <div class="stats-strip-item">
+      <span class="s-label">Total Allowances</span>
+      <span class="s-value">{{ number_format($totalAllowances, 2) }}</span>
+    </div>
+    <div class="stats-strip-item">
+      <span class="s-label">Gross Pay</span>
+      <span class="s-value" style="color:#198754;">{{ number_format($totalGrossPay, 2) }}</span>
     </div>
     <div class="stats-strip-item">
       <span class="s-label">Total Deductions</span>
       <span class="s-value" style="color:#dc3545;">{{ number_format($totalDeductions, 2) }}</span>
     </div>
     <div class="stats-strip-item">
-      <span class="s-label">Total Net Pay</span>
-      <span class="s-value" style="color:#198754;">{{ number_format($totalNetPay, 2) }}</span>
+      <span class="s-label">Net Pay</span>
+      <span class="s-value" style="color:#4B5EBD;">{{ number_format($totalNetPay, 2) }}</span>
     </div>
   </div>
 
@@ -806,26 +777,6 @@
 
 
 {{-- ════════════════════════════════════════════════════════════════════════
-     MODAL — STATISTICS
-════════════════════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="statsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-lg">
-    <div class="modal-content">
-      <div class="modal-header mh-blue">
-        <h5 class="modal-title mh-title"><i class="ri-bar-chart-2-line"></i>&nbsp; Payslip Statistics</h5>
-        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body p-4" id="statsModalBody">
-        <div class="text-center py-4">
-          <div class="spinner-border text-primary" role="status"></div>
-          <p class="mt-2 text-muted">Loading…</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
-{{-- ════════════════════════════════════════════════════════════════════════
      MODAL — INFO
 ════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
@@ -873,7 +824,7 @@
 </div>
 
 {{-- ════════════════════════════════════════════════════════════════════════
-     MODAL — VIEW PAYSLIP DETAIL  (full earnings + deductions)
+     MODAL — VIEW PAYSLIP DETAIL
 ════════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="viewSlipModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
@@ -909,7 +860,6 @@
         {{-- Earnings --}}
         <div class="modal-section-title">Earnings</div>
 
-        {{-- Basic Pay --}}
         <div class="row g-2 mb-2">
           <div class="col-12">
             <div class="pf-group" style="background:#f0f4ff;">
@@ -919,7 +869,6 @@
           </div>
         </div>
 
-        {{-- Allowances breakdown --}}
         <div class="allow-breakdown">
           <div class="allow-row">
             <span class="allow-label">Housing Allowance</span>
@@ -963,7 +912,6 @@
           </div>
         </div>
 
-        {{-- Gross Pay --}}
         <div class="row g-2 mb-2">
           <div class="col-12">
             <div class="pf-group" style="background:#e8f5e9;">
@@ -1114,7 +1062,6 @@ $(document).ready(function () {
     toastr.options = { closeButton:true, progressBar:true, showMethod:'slideDown', timeOut:5000 };
 
     var payslipBaseUrl = '{{ route("tenant.admin.hr.payroll.wagebill.payslip", ["tenantName" => request()->route("tenantName")]) }}';
-    var statsUrl       = '{{ route("tenant.admin.hr.payroll.payslips.stats",   ["tenantName" => request()->route("tenantName")]) }}';
     var emailUrl       = '{{ route("tenant.admin.hr.payroll.payslips.email",   ["tenantName" => request()->route("tenantName")]) }}';
     var bulkEmailUrl   = '{{ route("tenant.admin.hr.payroll.payslips.bulkemail",["tenantName" => request()->route("tenantName")]) }}';
     var csrfToken      = '{{ csrf_token() }}';
@@ -1148,30 +1095,6 @@ $(document).ready(function () {
     $('#infoBtn').on('click',         function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
     $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
 
-    // ── Statistics ─────────────────────────────────────────────────────────
-    $('#statsBtn').on('click', function(e) {
-        e.preventDefault();
-        $('#statsModalBody').html('<div class="text-center py-4"><div class="spinner-border text-primary" role="status"></div><p class="mt-2 text-muted">Loading…</p></div>');
-        $('#statsModal').modal('show');
-        $.get(statsUrl, function(data) {
-            if (data.status !== 200) { $('#statsModalBody').html('<p class="text-danger text-center">Failed.</p>'); return; }
-            var html = '<div class="row g-3">';
-            $.each(data.stats, function(i, s) {
-                html += '<div class="col-md-3 col-6"><div class="stats-card ' + s.css + '"><div class="sc-label">' + s.label + '</div><div class="sc-value">' + s.value + '</div></div></div>';
-            });
-            html += '</div>';
-            if (data.period_breakdown && data.period_breakdown.length) {
-                html += '<div class="modal-section-title mt-4" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:.07em;color:#6c757d;border-bottom:1px solid #e9ecef;padding-bottom:6px;">By Period</div>';
-                html += '<div style="overflow-x:auto;"><table class="table table-sm table-striped" style="font-size:12px;margin-top:8px;"><thead><tr><th>Period</th><th class="text-center">Employees</th><th class="text-center">Gross Pay</th><th class="text-center">Net Pay</th><th class="text-center">Status</th></tr></thead><tbody>';
-                $.each(data.period_breakdown, function(i, p) {
-                    html += '<tr><td><strong>' + p.name + '</strong></td><td class="text-center">' + p.count + '</td><td class="text-center">' + parseFloat(p.gross_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</td><td class="text-center"><strong class="text-primary">' + parseFloat(p.net_pay).toLocaleString('en',{minimumFractionDigits:2}) + '</strong></td><td class="text-center"><span class="badge-' + p.status + '">' + p.status.charAt(0).toUpperCase() + p.status.slice(1) + '</span></td></tr>';
-                });
-                html += '</tbody></table></div>';
-            }
-            $('#statsModalBody').html(html);
-        }).fail(function() { $('#statsModalBody').html('<p class="text-danger text-center">Failed to load statistics.</p>'); });
-    });
-
     // ── Number formatter ───────────────────────────────────────────────────
     function fmt(n) {
         return parseFloat(n || 0).toLocaleString('en', { minimumFractionDigits:2, maximumFractionDigits:2 });
@@ -1182,10 +1105,8 @@ $(document).ready(function () {
         e.preventDefault();
         var d = $(this).data();
 
-        // Header
         $('#vSlipTitle').text(d.employeeName + ' — ' + d.period);
 
-        // Employee
         $('#vName').text(d.employeeName);
         $('#vNumber').text(d.employeeNumber || '—');
         $('#vEmail').text(d.employeeEmail   || '—');
@@ -1193,16 +1114,13 @@ $(document).ready(function () {
         $('#vDepartment').text(d.department || '—');
         $('#vBranchCat').text((d.branch || '—') + (d.category ? ' / ' + d.category : ''));
 
-        // Period
         $('#vPeriod').text(d.period);
         $('#vDates').text(d.periodStart + ' – ' + d.periodEnd);
         $('#vPayDate').text(d.payDate);
         $('#vStatus').html('<span class="badge-' + d.periodStatus + '">' + d.periodStatus.charAt(0).toUpperCase() + d.periodStatus.slice(1) + '</span>');
 
-        // Basic Pay
         $('#vBasic').text(fmt(d.basic));
 
-        // Allowances breakdown
         $('#vHousing').text(fmt(d.housing));
         $('#vTransport').text(fmt(d.transport));
         $('#vMedical').text(fmt(d.medical));
@@ -1215,13 +1133,11 @@ $(document).ready(function () {
         $('#vOtherVariable').text(fmt(d.otherVariable));
         $('#vOvertime').text(fmt(d.overtime));
 
-        // Style zero values
         $('#vHousing, #vTransport, #vMedical, #vMeal, #vOtherRecurring, #vActing, #vCommissions, #vOtherVariable, #vOvertime').each(function() {
             var val = parseFloat($(this).text().replace(/,/g,''));
             $(this).toggleClass('allow-zero', val === 0);
         });
 
-        // Allowances total
         var allowTotal = parseFloat(d.housing       || 0)
                        + parseFloat(d.transport     || 0)
                        + parseFloat(d.medical       || 0)
@@ -1233,11 +1149,9 @@ $(document).ready(function () {
                        + parseFloat(d.overtime      || 0);
         $('#vAllowancesTotal').text(fmt(allowTotal));
 
-        // Gross
         $('#vGross').text(fmt(d.gross));
         $('#vGross2').text(fmt(d.gross));
 
-        // Deductions
         $('#vPaye').text(fmt(d.paye));
         $('#vPensionEe').text(fmt(d.pensionEe));
         $('#vPensionEr').text(fmt(d.pensionEr));
@@ -1247,11 +1161,9 @@ $(document).ready(function () {
         $('#vDeductions').text(fmt(d.deductions));
         $('#vNet').text(fmt(d.net));
 
-        // Notes
         if (d.notes) { $('#vNotes').text(d.notes); $('#vNotesRow').show(); }
         else         { $('#vNotesRow').hide(); }
 
-        // Action buttons
         $('#vDownloadBtn').attr('href', payslipBaseUrl + '?entry_id=' + d.id);
         $('#vEmailBtn').off('click').on('click', function(e) {
             e.preventDefault();

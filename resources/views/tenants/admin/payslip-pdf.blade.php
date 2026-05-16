@@ -9,501 +9,414 @@
 
 body {
     font-family: DejaVu Sans, Arial, sans-serif;
-    font-size: 8.5px;
-    color: #1e293b;
-    background: #fff;
-    padding: 20px 24px 0 24px;
+    font-size: 7.5pt;
+    color: #1a1a1a;
+    background: #ffffff;
+    padding: 16pt 24pt 16pt 24pt;
 }
 
-/* ════════════════════════════════════════════════
-   HEADER
-════════════════════════════════════════════════ */
-.hdr { width: 100%; border-collapse: collapse; }
-.hdr-left {
+/* ── HEADER ── */
+.hdr-tbl { width: 100%; border-collapse: collapse; }
+.hdr-tbl td { vertical-align: middle; padding: 0; }
+
+.accent-bar {
+    display: inline-block;
+    width: 3pt; height: 24pt;
     background: #4B5EBD;
-    padding: 11px 16px;
-    width: 58%;
     vertical-align: middle;
+    margin-right: 7pt;
 }
-.hdr-right {
-    background: #3a4d9f;
-    padding: 11px 14px;
-    width: 42%;
-    text-align: right;
-    vertical-align: middle;
+.co-block  { display: inline-block; vertical-align: middle; }
+.co-name   { font-size: 11pt; font-weight: 900; color: #1a1a1a; display: block; letter-spacing: -0.2pt; }
+.co-meta   { font-size: 6pt; color: #666; display: block; margin-top: 2pt; line-height: 1.7; }
+.co-tin    { font-size: 6pt; color: #4B5EBD; font-weight: 700; display: block; margin-top: 1pt; }
+
+.slip-right { text-align: right; }
+.slip-eyebrow {
+    font-size: 5.8pt; font-weight: 800; text-transform: uppercase;
+    letter-spacing: 2pt; color: #4B5EBD;
+    display: inline-block;
+    border-bottom: 1pt solid #4B5EBD;
+    padding-bottom: 2pt; margin-bottom: 3pt;
 }
-.co-name { font-size: 15px; font-weight: 800; color: #fff; display: block; }
-.co-sub  { font-size: 7px; color: rgba(255,255,255,0.72); line-height: 1.8;
-           display: block; margin-top: 3px; }
-.sl-title { font-size: 10px; font-weight: 800; color: #fff;
-            text-transform: uppercase; letter-spacing: 1.8px; display: block; }
-.sl-per  { font-size: 7.5px; color: rgba(255,255,255,0.75); line-height: 1.8;
-           display: block; margin-top: 3px; }
-.sl-date { font-size: 8px; font-weight: 700; color: #c7d2fe;
-           display: block; margin-top: 3px; }
+.slip-period  { font-size: 10pt; font-weight: 900; color: #1a1a1a; display: block; }
+.slip-dates   { font-size: 6pt; color: #555; display: block; margin-top: 1pt; }
+.slip-paydate { font-size: 6pt; font-weight: 700; color: #1a1a1a; display: block; }
+.slip-ref     { font-size: 5.5pt; color: #999; display: block; margin-top: 2pt; font-style: italic; }
 
-/* ════════════════════════════════════════════════
-   EMPLOYEE + META BAND
-════════════════════════════════════════════════ */
-.info { width: 100%; border-collapse: collapse; margin-top: 7px;
-        border: 1px solid #dde3f5; }
-.info td {
-    padding: 5px 9px;
-    vertical-align: top;
-    border-right: 1px solid #dde3f5;
-    border-bottom: 1px solid #dde3f5;
+.hdr-rule { border: none; border-top: 0.5pt solid #1a1a1a; margin: 9pt 0 0 0; }
+
+/* ── EMPLOYEE INFO — 2 columns ── */
+.info-outer { width: 100%; border-collapse: collapse; border: 0.5pt solid #ccc; margin-top: 9pt; }
+.info-sect-hd td {
+    background: #f4f5fc;
+    border-bottom: 1pt solid #4B5EBD;
+    padding: 3.5pt 8pt;
+    font-size: 5.8pt; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1pt; color: #4B5EBD;
 }
-.info td:last-child { border-right: none; }
-.info tr:last-child td { border-bottom: none; }
-.info tr:first-child td:first-child { border-left: 3px solid #4B5EBD; }
-.info tr:last-child  td:first-child { border-left: 3px solid #4B5EBD; }
-.info tr:first-child td { background: #f4f6fb; }
-.info tr:last-child  td { background: #fafbfe; }
+.info-col      { width: 50%; vertical-align: top; padding: 0; }
+.info-col.left { border-right: 0.5pt solid #ccc; }
 
-.il { font-size: 6px; font-weight: 700; text-transform: uppercase;
-      letter-spacing: 0.7px; color: #94a3b8; display: block; margin-bottom: 2px; }
-.iv { font-size: 8.5px; font-weight: 700; color: #1e293b; display: block; }
-.iv-sm { font-size: 7.5px; font-weight: 600; color: #1e293b; display: block; }
-.iv-ref { font-size: 7px; font-weight: 700; color: #4B5EBD; display: block; }
+.kv-tbl { width: 100%; border-collapse: collapse; }
+.kv-tbl tr td { padding: 3pt 8pt; border-bottom: 0.5pt solid #f0f0f0; }
+.kv-tbl tr:last-child td { border-bottom: none; }
+.kv-l {
+    font-size: 5.8pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.4pt; color: #999; width: 38%; white-space: nowrap;
+}
+.kv-v      { font-size: 7.5pt; font-weight: 700; color: #1a1a1a; }
+.kv-v-mono { font-size: 7pt; font-weight: 700; color: #1a1a1a;
+              font-family: 'Courier New', monospace; letter-spacing: 0.3pt; }
 
-.bon  { background: #dcfce7; color: #15803d; border: 1px solid #86efac;
-        padding: 1px 5px; border-radius: 5px; font-size: 6.5px; font-weight: 700; }
-.boff { background: #f1f5f9; color: #94a3b8; border: 1px solid #e2e8f0;
-        padding: 1px 5px; border-radius: 5px; font-size: 6.5px; }
+.pill-y { border: 0.5pt solid #16a34a; color: #14532d; padding: 0.5pt 4pt;
+           border-radius: 2pt; font-size: 5.5pt; font-weight: 800; background: #f0fdf4; }
+.pill-n { border: 0.5pt solid #ccc; color: #999; padding: 0.5pt 4pt;
+           border-radius: 2pt; font-size: 5.5pt; }
 
-/* ════════════════════════════════════════════════
-   THREE-COLUMN BODY
-════════════════════════════════════════════════ */
-.body { width: 100%; border-collapse: collapse; margin-top: 8px;
-        border: 1px solid #dde3f5; }
+/* ── EARNINGS & DEDUCTIONS ── */
+.ed-wrap { margin-top: 9pt; }
+.ed-tbl  { width: 100%; border-collapse: collapse; border: 0.5pt solid #ccc; }
 
-.ch {
+.ed-col-hd {
     background: #4B5EBD; color: #fff;
-    font-size: 7px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.8px;
-    padding: 5px 9px;
-    border-right: 1px solid #5a6ec9;
+    font-size: 6.5pt; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1pt;
+    padding: 5pt 9pt; width: 50%;
+}
+.ed-col-hd.right { border-left: 0.5pt solid #6070c8; }
+
+.ed-tbl tr.ed-row td {
+    padding: 3.5pt 9pt;
+    border-bottom: 0.5pt solid #f0f0f0;
+    font-size: 7.5pt; vertical-align: middle;
+}
+.ed-ll { color: #444; width: 27%; }
+.ed-la { text-align: right; font-weight: 600; color: #1a1a1a; width: 23%; white-space: nowrap; }
+.ed-rl { color: #444; width: 27%; border-left: 0.5pt solid #ccc; padding-left: 9pt; }
+.ed-ra { text-align: right; font-weight: 600; color: #1a1a1a; width: 23%; white-space: nowrap; }
+
+.amt-zero { color: #ccc; }
+
+/* Subtotal row */
+.ed-tbl tr.ed-subtotal td {
+    padding: 4pt 9pt;
+    font-weight: 800; font-size: 7.5pt;
+    border-top: 0.8pt solid #bbb;
+    background: #fafafa;
+}
+.ed-subtotal .ed-ll { color: #4B5EBD; }
+.ed-subtotal .ed-la { color: #4B5EBD; }
+.ed-subtotal .ed-rl { color: #c0392b; border-left: 0.5pt solid #ccc; padding-left: 9pt; }
+.ed-subtotal .ed-ra { color: #c0392b; }
+
+/* ── SUMMARY TABLE — vertical layout ── */
+.summary-wrap { margin-top: 6pt; }
+
+.summary-tbl { width: 100%; border-collapse: collapse; border: 0.5pt solid #ccc; }
+
+.summary-title td {
+    background: #f4f5fc;
+    border-bottom: 1pt solid #4B5EBD;
+    padding: 3.5pt 8pt;
+    font-size: 5.8pt; font-weight: 800;
+    text-transform: uppercase; letter-spacing: 1pt; color: #4B5EBD;
+    colspan: 3;
+}
+
+/* Each summary row: label | spacer | value */
+.summary-tbl tr.s-row td {
+    padding: 3pt 8pt;
+    border-bottom: 0.5pt solid #f0f0f0;
+    font-size: 7.5pt;
     vertical-align: middle;
 }
-.ch:last-child { border-right: none; }
+.summary-tbl tr.s-row:last-child td { border-bottom: none; }
+.summary-tbl tr.s-row.s-net-row td { background: #f0f2fc; border-top: 1pt solid #4B5EBD; }
 
-.dc {
-    width: 33.33%;
-    vertical-align: top;
-    border-right: 1px solid #dde3f5;
-    padding: 0;
-    height: 200px;
+.s-lbl {
+    font-size: 5.8pt; font-weight: 700; text-transform: uppercase;
+    letter-spacing: 0.4pt; color: #999; width: 38%; white-space: nowrap;
 }
-.dc:last-child { border-right: none; }
-
-.lt { width: 100%; border-collapse: collapse; }
-.lt tr { border-bottom: 1px solid #eef0f7; }
-.lt tr:last-child { border-bottom: none; }
-.lt td { padding: 3.5px 9px; font-size: 8px; vertical-align: middle; }
-.lt td.lb { color: #475569; }
-.lt td.av { text-align: right; font-weight: 600; color: #1e293b;
-            white-space: nowrap; font-variant-numeric: tabular-nums; }
-.lt td.az { text-align: right; color: #c8d0e8;
-            font-variant-numeric: tabular-nums; }
-.lt tr.st td {
-    background: #eef0fb; font-weight: 700;
-    border-top: 1.5px solid #c8d0ed;
+.s-val {
+    text-align: right; font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: #1a1a1a; white-space: nowrap; width: 62%;
 }
-.lt tr.st td.av  { color: #4B5EBD; }
-.lt tr.st td.ard { color: #c0392b; font-weight: 700; }
+.s-val.s-ded { color: #c0392b; }
+.s-val.s-net { color: #4B5EBD; font-weight: 800; font-size: 8.5pt; }
 
-.yt { width: 100%; border-collapse: collapse; }
-.yt tr { border-bottom: 1px solid #eef0f7; }
-.yt tr:last-child { border-bottom: none; }
-.yt td { padding: 3.5px 9px; font-size: 8px; vertical-align: middle; }
-.yt td.lb { color: #475569; }
-.yt td.av { text-align: right; font-weight: 600; color: #1e293b;
-            font-variant-numeric: tabular-nums; }
-.yt-hd td {
-    background: #eef0fb; font-size: 6.5px; font-weight: 700;
-    text-transform: uppercase; letter-spacing: 0.6px;
-    color: #4B5EBD; padding: 3px 9px;
-    border-bottom: 1px solid #dde3f5;
+/* Currency note once, in title */
+.s-currency-note {
+    float: right; font-size: 5.5pt; font-weight: 600;
+    color: #aaa; letter-spacing: 0.3pt; font-style: italic;
+    text-transform: none; letter-spacing: 0;
 }
 
-/* ════════════════════════════════════════════════
-   NET PAY BAR
-════════════════════════════════════════════════ */
-.net { width: 100%; border-collapse: collapse; }
-.net td {
-    width: 33.33%;
-    background: #4B5EBD;
-    color: #fff;
-    padding: 8px 11px;
-    border-right: 1px solid #5a6ec9;
-    vertical-align: middle;
+/* ── SIGNATURES ── */
+.sig-wrap { margin-top: 10pt; }
+.sig-tbl  { width: 100%; border-collapse: collapse; }
+.sig-tbl td { vertical-align: bottom; width: 33.33%; padding: 0 18pt 0 0; }
+.sig-tbl td:last-child { padding-right: 0; }
+.sig-line-top { border-top: 0.5pt solid #888; padding-top: 4pt; margin-top: 22pt; }
+.sig-name { font-size: 6.5pt; font-weight: 700; color: #1a1a1a; display: block; }
+.sig-role { font-size: 5.5pt; color: #888; text-transform: uppercase;
+             letter-spacing: 0.4pt; display: block; margin-top: 1pt; }
+
+/* ── NOTES ── */
+.notes-wrap {
+    margin-top: 8pt;
+    border-left: 2pt solid #f59e0b;
+    background: #fffbeb;
+    padding: 3.5pt 7pt;
+    font-size: 6.5pt; color: #78350f;
 }
-.net td:last-child { border-right: none; }
-.nl { font-size: 6px; text-transform: uppercase; letter-spacing: 0.9px;
-      color: rgba(255,255,255,0.6); display: block; margin-bottom: 2px; }
-.nv { font-size: 12px; font-weight: 800; display: block;
-      font-variant-numeric: tabular-nums; color: #fff; }
-.nv-hi  { color: #fff; }
-.nv-ded { color: #fca5a5; }
-.nv-net { color: #bbf7d0; }
-.ns { font-size: 6.5px; color: rgba(255,255,255,0.5);
-      display: block; margin-top: 2px; }
 
-/* ════════════════════════════════════════════════
-   SIGNATURE ROW
-════════════════════════════════════════════════ */
-.sig { width: 100%; border-collapse: collapse; margin-top: 9px; }
-.sig td { vertical-align: bottom; padding: 0 16px 0 0; width: 33.33%; }
-.sig td:last-child { padding-right: 0; }
-.sig-line { border-top: 1px solid #94a3b8; padding-top: 4px;
-            margin-top: 18px; font-size: 7px; color: #64748b; }
-.sig-role { font-size: 6px; text-transform: uppercase; letter-spacing: 0.5px;
-            color: #94a3b8; margin-top: 1px; }
-
-/* ════════════════════════════════════════════════
-   NOTES
-════════════════════════════════════════════════ */
-.nb { background: #fffbeb; border: 1px solid #fde68a; border-radius: 3px;
-      padding: 5px 9px; margin-top: 8px; font-size: 7.5px; color: #78350f; }
-
-/* ════════════════════════════════════════════════
-   FIXED FOOTER
-════════════════════════════════════════════════ */
+/* ── FOOTER ── */
 .pgfoot {
-    position: fixed; bottom: 0; left: 24px; right: 24px;
-    border-top: 1px solid #dde3f5;
-    padding: 5px 0;
-    background: #fff;
+    position: fixed; bottom: 10pt; left: 24pt; right: 24pt;
+    border-top: 0.5pt solid #ccc; padding-top: 4pt;
 }
-.pgfoot table { width: 100%; border-collapse: collapse; }
-.pgfoot td { font-size: 6.5px; color: #94a3b8; vertical-align: middle; }
-.pgfoot td.pr { text-align: right; }
-
-.foot-space { height: 28px; }
+.pgfoot-tbl { width: 100%; border-collapse: collapse; }
+.pgfoot-tbl td { font-size: 5.5pt; color: #999; vertical-align: middle; }
+.pgfoot-tbl td.pr { text-align: right; }
+.foot-space { height: 18pt; }
 </style>
 </head>
 <body>
 
 <?php
-    /* ── Reference hash ──────────────────────────────────────────────────── */
     $refHash = strtoupper(substr(
-        md5($entry->id . $entry->payroll_period_id . $entry->net_pay . $entry->employee_id), 0, 6
+        md5($entry->id . $entry->payroll_period_id . $entry->net_pay . $entry->employee_id), 0, 8
     ));
     $slipRef = 'PSL-' . $entry->payroll_period_id . '-' . $entry->id . '-' . $refHash;
 
-    /* ── All individual allowances — safe fallback to 0 ─────────────────── */
-    $housingAllowance    = (float) ($entry->housing_allowance            ?? 0);
-    $transportAllowance  = (float) ($entry->transport_allowance          ?? 0);
-    $medicalAllowance    = (float) ($entry->medical_allowance            ?? 0);
-    $mealAllowance       = (float) ($entry->meal_allowance               ?? 0);
-    $otherRecurring      = (float) ($entry->other_recurring_allowance    ?? 0);
-    $otherRecurringLabel = $entry->other_recurring_allowance_label       ?? 'Other Recurring';
-    $actingAllowance     = (float) ($entry->acting_allowance             ?? 0);
-    $commissions         = (float) ($entry->commissions                  ?? 0);
-    $otherVariable       = (float) ($entry->other_variable_allowance     ?? 0);
-    $otherVariableLabel  = $entry->other_variable_allowance_label        ?? 'Other Variable';
-    $overtimeAmount      = (float) ($entry->overtime_amount              ?? 0);
+    /* Earnings */
+    $basicSalary        = (float)($entry->basic_salary               ?? 0);
+    $housingAllowance   = (float)($entry->housing_allowance          ?? 0);
+    $transportAllowance = (float)($entry->transport_allowance        ?? 0);
+    $medicalAllowance   = (float)($entry->medical_allowance          ?? 0);
+    $mealAllowance      = (float)($entry->meal_allowance             ?? 0);
+    $otherRecurring     = (float)($entry->other_recurring_allowance  ?? 0);
+    $actingAllowance    = (float)($entry->acting_allowance           ?? 0);
+    $commissions        = (float)($entry->commissions                ?? 0);
+    $otherVariable      = (float)($entry->other_variable_allowance   ?? 0);
+    $overtimeAmount     = (float)($entry->overtime_amount            ?? 0);
+    $grossPay           = (float)($entry->gross_pay                  ?? 0);
 
-    /* Total allowances (everything above basic) */
+    $otherAllowances = $mealAllowance + $otherRecurring + $actingAllowance
+                     + $commissions   + $otherVariable;
     $totalAllowances = $housingAllowance + $transportAllowance + $medicalAllowance
-                     + $mealAllowance    + $otherRecurring     + $actingAllowance
-                     + $commissions      + $otherVariable      + $overtimeAmount;
+                     + $otherAllowances  + $overtimeAmount;
 
-    /* ── YTD — paid periods only, up to and including this period ────────── */
-    $ytdBase = \DB::connection('tenant')
-        ->table('payroll_entries')
-        ->join('payroll_periods', 'payroll_periods.id', '=', 'payroll_entries.payroll_period_id')
-        ->where('payroll_entries.employee_id', $entry->employee_id)
-        ->where('payroll_periods.status', 'paid')
-        ->where('payroll_periods.period_end', '<=', $period->period_end);
+    /* Deductions */
+    $paye            = (float)($entry->paye              ?? 0);
+    $pensionEe       = (float)($entry->pension_employee  ?? 0);
+    $pensionEr       = (float)($entry->pension_employer  ?? 0);
+    $loanDed         = (float)($entry->loan_deduction    ?? 0);
+    $advanceDed      = (float)($entry->advance_deduction ?? 0);
+    $otherDed        = (float)($entry->other_deductions  ?? 0);
+    $totalDeductions = (float)($entry->total_deductions  ?? 0);
+    $netPay          = (float)($entry->net_pay           ?? 0);
+    $onPension       = (bool) ($entry->on_pension        ?? false);
 
-    $ytdGross   = (clone $ytdBase)->sum('payroll_entries.gross_pay');
-    $ytdTax     = (clone $ytdBase)->sum('payroll_entries.paye');
-    $ytdPension = (clone $ytdBase)->sum('payroll_entries.pension_employee');
-    $ytdNet     = (clone $ytdBase)->sum('payroll_entries.net_pay');
+    $otherDedTotal = $advanceDed + $otherDed;
+
+    /* Bank — from users table fields */
+    $bankName     = $entry->bank_name           ?? '';
+    $bankAcctName = $entry->bank_account_name   ?? '';
+    $bankAcctNo   = $entry->bank_account_number ?? '';
+    $bankBranch   = $entry->bank_branch         ?? '';
+    $bankAcctType = $entry->bank_account_type   ?? '';
+
+    function fmtAmt($v) { return number_format((float)$v, 2); }
+    function amtClass($v) { return (float)$v == 0 ? 'amt-zero' : ''; }
 ?>
 
-{{-- ══ HEADER ══ --}}
-<table class="hdr">
+{{-- HEADER --}}
+<table class="hdr-tbl">
   <tr>
-    <td class="hdr-left">
-      <span class="co-name">{{ $company->business_name ?? 'Company Name' }}</span>
-      <span class="co-sub">
-        @if(!empty($company->physical_address)){{ $company->physical_address }}<br>@endif
-        @if(!empty($company->primary_number))Tel: {{ $company->primary_number }}@endif
-        @if(!empty($company->primary_number) && !empty($company->email_address)) &nbsp;&bull;&nbsp; @endif
-        @if(!empty($company->email_address)){{ $company->email_address }}@endif
-        @if(!empty($company->tin_number))<br>TIN: {{ $company->tin_number }}@endif
+    <td style="width:58%;">
+      <span class="accent-bar"></span>
+      <span class="co-block">
+        <span class="co-name">{{ $company->business_name ?? 'Company Name' }}</span>
+        <span class="co-meta">
+          @if(!empty($company->physical_address)){{ $company->physical_address }}<br>@endif
+          @if(!empty($company->primary_number))Tel: {{ $company->primary_number }}@endif
+          @if(!empty($company->email_address)) &bull; {{ $company->email_address }}@endif
+        </span>
+        @if(!empty($company->tin_number))<span class="co-tin">TIN: {{ $company->tin_number }}</span>@endif
       </span>
     </td>
-    <td class="hdr-right">
-      <span class="sl-title">Employee Pay Slip</span>
-      <span class="sl-per">
-        {{ $period->name }}<br>
+    <td class="slip-right" style="width:42%;">
+      <span class="slip-eyebrow">Employee Pay Slip</span>
+      <span class="slip-period">{{ $period->name }}</span>
+      <span class="slip-dates">
         {{ \Carbon\Carbon::parse($period->period_start)->format('d M Y') }}
-        &ndash;
-        {{ \Carbon\Carbon::parse($period->period_end)->format('d M Y') }}
+        &ndash; {{ \Carbon\Carbon::parse($period->period_end)->format('d M Y') }}
       </span>
-      <span class="sl-date">Pay Date: {{ \Carbon\Carbon::parse($period->pay_date)->format('d M Y') }}</span>
+      <span class="slip-paydate">Pay Date: {{ \Carbon\Carbon::parse($period->pay_date)->format('d M Y') }}</span>
+      <span class="slip-ref">Ref: {{ $slipRef }}</span>
     </td>
   </tr>
 </table>
+<hr class="hdr-rule">
 
-{{-- ══ EMPLOYEE + META INFO ══ --}}
-<table class="info">
+{{-- EMPLOYEE INFO — 2 COLUMNS --}}
+<table class="info-outer">
+  <tr class="info-sect-hd"><td colspan="2">Employee &amp; Payment Details</td></tr>
   <tr>
-    <td style="width:24%;">
-      <span class="il">Employee Name</span>
-      <span class="iv">{{ $entry->employee_name }}</span>
+    {{-- LEFT: personal & employment --}}
+    <td class="info-col left">
+      <table class="kv-tbl">
+        <tr><td class="kv-l">Full Name</td><td class="kv-v">{{ $entry->employee_name ?? '—' }}</td></tr>
+        <tr><td class="kv-l">Employee No.</td><td class="kv-v">{{ $entry->employee_number ?? '—' }}</td></tr>
+        <tr><td class="kv-l">Position</td><td class="kv-v">{{ $entry->position ?? '—' }}</td></tr>
+        <tr><td class="kv-l">Department</td><td class="kv-v">{{ $entry->department ?? '—' }}</td></tr>
+      </table>
     </td>
-    <td style="width:16%;">
-      <span class="il">Position</span>
-      <span class="iv">{{ $entry->position ?? '&mdash;' }}</span>
-    </td>
-    <td style="width:16%;">
-      <span class="il">Department</span>
-      <span class="iv">{{ $entry->department ?? '&mdash;' }}</span>
-    </td>
-    <td style="width:15%;">
-      <span class="il">Pay Period</span>
-      <span class="iv">{{ $period->name }}</span>
-    </td>
-    <td style="width:11%;">
-      <span class="il">Pay Date</span>
-      <span class="iv">{{ \Carbon\Carbon::parse($period->pay_date)->format('d M Y') }}</span>
-    </td>
-    <td style="width:9%;">
-      <span class="il">Pension</span>
-      <span class="iv" style="margin-top:2px;">
-        @if($entry->on_pension)
-          <span class="bon">Yes</span>
-        @else
-          <span class="boff">No</span>
+    {{-- RIGHT: bank + pension/paye --}}
+    <td class="info-col">
+      <table class="kv-tbl">
+        <tr><td class="kv-l">Bank</td><td class="kv-v">{{ $bankName ?: '—' }}</td></tr>
+        <tr><td class="kv-l">Account Name</td><td class="kv-v">{{ $bankAcctName ?: '—' }}</td></tr>
+        <tr><td class="kv-l">Account No.</td><td class="kv-v-mono">{{ $bankAcctNo ?: '—' }}</td></tr>
+        @if($bankBranch || $bankAcctType)
+        <tr><td class="kv-l">Branch / Type</td><td class="kv-v">{{ implode(' / ', array_filter([$bankBranch, $bankAcctType])) }}</td></tr>
         @endif
-      </span>
-    </td>
-    <td style="width:9%; border-right:none;">
-      <span class="il">Status</span>
-      <span class="iv">{{ ucfirst($period->status) }}</span>
-    </td>
-  </tr>
-  <tr>
-    <td style="width:24%;">
-      <span class="il">Bank Name</span>
-      <span class="iv-sm">{{ !empty($entry->bank_name) ? $entry->bank_name : '&mdash;' }}</span>
-    </td>
-    <td style="width:16%;">
-      <span class="il">Account Number</span>
-      <span class="iv-sm">{{ !empty($entry->bank_account_number) ? $entry->bank_account_number : '&mdash;' }}</span>
-    </td>
-    <td style="width:16%;">
-      <span class="il">Employee No.</span>
-      <span class="iv-sm">{{ !empty($entry->employee_number) ? $entry->employee_number : '&mdash;' }}</span>
-    </td>
-    <td style="width:15%;" colspan="2">
-      <span class="il">Document Reference</span>
-      <span class="iv-ref">{{ $slipRef }}</span>
-    </td>
-    <td style="width:9%;" colspan="2">
-      <span class="il">Generated</span>
-      <span class="iv-sm">{{ \Carbon\Carbon::now()->format('d M Y') }}</span>
-    </td>
-  </tr>
-</table>
-
-{{-- ══ THREE-COLUMN BODY ══ --}}
-<table class="body">
-  <tr>
-    <td class="ch" style="width:33.33%;">Payments</td>
-    <td class="ch" style="width:33.33%;">Deductions</td>
-    <td class="ch" style="width:33.34%;">Summary</td>
-  </tr>
-  <tr>
-
-    {{-- PAYMENTS --}}
-    <td class="dc">
-      <table class="lt">
         <tr>
-          <td class="lb">Basic Salary</td>
-          <td class="av">{{ number_format((float)($entry->basic_salary ?? 0), 2) }}</td>
+          <td class="kv-l">Pension</td>
+          <td class="kv-v">@if($onPension)<span class="pill-y">Enrolled</span>@else<span class="pill-n">Not Enrolled</span>@endif</td>
         </tr>
         <tr>
-          <td class="lb">Housing Allowance</td>
-          <td class="{{ $housingAllowance == 0 ? 'az' : 'av' }}">{{ number_format($housingAllowance, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Transport Allowance</td>
-          <td class="{{ $transportAllowance == 0 ? 'az' : 'av' }}">{{ number_format($transportAllowance, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Medical Allowance</td>
-          <td class="{{ $medicalAllowance == 0 ? 'az' : 'av' }}">{{ number_format($medicalAllowance, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Meal Allowance</td>
-          <td class="{{ $mealAllowance == 0 ? 'az' : 'av' }}">{{ number_format($mealAllowance, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">{{ $otherRecurringLabel ?: 'Other Recurring' }}</td>
-          <td class="{{ $otherRecurring == 0 ? 'az' : 'av' }}">{{ number_format($otherRecurring, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Acting Allowance</td>
-          <td class="{{ $actingAllowance == 0 ? 'az' : 'av' }}">{{ number_format($actingAllowance, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Commissions</td>
-          <td class="{{ $commissions == 0 ? 'az' : 'av' }}">{{ number_format($commissions, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">{{ $otherVariableLabel ?: 'Other Variable' }}</td>
-          <td class="{{ $otherVariable == 0 ? 'az' : 'av' }}">{{ number_format($otherVariable, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Overtime</td>
-          <td class="{{ $overtimeAmount == 0 ? 'az' : 'av' }}">{{ number_format($overtimeAmount, 2) }}</td>
-        </tr>
-        <tr class="st">
-          <td class="lb">Total Gross Pay</td>
-          <td class="av">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</td>
+          <td class="kv-l">PAYE</td>
+          <td class="kv-v">@if($paye > 0)<span class="pill-y">On PAYE</span>@else<span class="pill-n">Exempt</span>@endif</td>
         </tr>
       </table>
     </td>
-
-    {{-- DEDUCTIONS --}}
-    <td class="dc">
-      <table class="lt">
-        <tr>
-          <td class="lb">PAYE (Income Tax)</td>
-          <td class="{{ ($entry->paye ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->paye ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Pension (Employee)</td>
-          <td class="{{ ($entry->pension_employee ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->pension_employee ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Pension (Employer)</td>
-          <td class="{{ ($entry->pension_employer ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->pension_employer ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Loan Deduction</td>
-          <td class="{{ ($entry->loan_deduction ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->loan_deduction ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Advance Recovery</td>
-          <td class="{{ ($entry->advance_deduction ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->advance_deduction ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Other Deductions</td>
-          <td class="{{ ($entry->other_deductions ?? 0) == 0 ? 'az' : 'av' }}">{{ number_format((float)($entry->other_deductions ?? 0), 2) }}</td>
-        </tr>
-        <tr class="st">
-          <td class="lb">Total Deductions</td>
-          <td class="ard">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</td>
-        </tr>
-      </table>
-    </td>
-
-    {{-- SUMMARY / YTD --}}
-    <td class="dc">
-      <table class="yt">
-        <tr class="yt-hd"><td colspan="2">Year to Date (Paid Periods)</td></tr>
-        <tr>
-          <td class="lb">Gross Pay</td>
-          <td class="av">{{ number_format($ytdGross, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Tax Paid</td>
-          <td class="av">{{ number_format($ytdTax, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Pension Paid</td>
-          <td class="av">{{ number_format($ytdPension, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Net Pay</td>
-          <td class="av">{{ number_format($ytdNet, 2) }}</td>
-        </tr>
-        <tr class="yt-hd"><td colspan="2">This Period</td></tr>
-        <tr>
-          <td class="lb">Basic Pay</td>
-          <td class="av">{{ number_format((float)($entry->basic_salary ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Allowances</td>
-          <td class="av">{{ number_format($totalAllowances, 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Gross Pay</td>
-          <td class="av">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Income Tax (PAYE)</td>
-          <td class="av">{{ number_format((float)($entry->paye ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Pension (Ee)</td>
-          <td class="av">{{ number_format((float)($entry->pension_employee ?? 0), 2) }}</td>
-        </tr>
-        <tr>
-          <td class="lb">Total Deductions</td>
-          <td class="av" style="color:#c0392b;">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</td>
-        </tr>
-      </table>
-    </td>
-
   </tr>
 </table>
 
-{{-- ══ NET PAY BAR ══ --}}
-<table class="net">
-  <tr>
-    <td>
-      <span class="nl">Total Gross Payments</span>
-      <span class="nv nv-hi">{{ number_format((float)($entry->gross_pay ?? 0), 2) }}</span>
-    </td>
-    <td>
-      <span class="nl">Total Deductions</span>
-      <span class="nv nv-ded">{{ number_format((float)($entry->total_deductions ?? 0), 2) }}</span>
-    </td>
-    <td>
-      <span class="nl">Net Pay</span>
-      <span class="nv nv-net">{{ number_format((float)($entry->net_pay ?? 0), 2) }}</span>
-      <span class="ns">{{ $period->name }} &bull; {{ \Carbon\Carbon::parse($period->pay_date)->format('d M Y') }}</span>
-    </td>
-  </tr>
-</table>
+{{-- EARNINGS & DEDUCTIONS --}}
+<div class="ed-wrap">
+  <table class="ed-tbl">
+    <tr>
+      <td class="ed-col-hd" colspan="2">Earnings</td>
+      <td class="ed-col-hd right" colspan="2">Deductions</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Basic Salary</td>
+      <td class="ed-la">{{ fmtAmt($basicSalary) }}</td>
+      <td class="ed-rl">PAYE (Income Tax)</td>
+      <td class="ed-ra {{ amtClass($paye) }}">{{ fmtAmt($paye) }}</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Housing Allowance</td>
+      <td class="ed-la {{ amtClass($housingAllowance) }}">{{ fmtAmt($housingAllowance) }}</td>
+      <td class="ed-rl">Pension — Employee</td>
+      <td class="ed-ra {{ amtClass($pensionEe) }}">{{ fmtAmt($pensionEe) }}</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Transport Allowance</td>
+      <td class="ed-la {{ amtClass($transportAllowance) }}">{{ fmtAmt($transportAllowance) }}</td>
+      <td class="ed-rl">Pension — Employer</td>
+      <td class="ed-ra {{ amtClass($pensionEr) }}">{{ fmtAmt($pensionEr) }}</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Medical Allowance</td>
+      <td class="ed-la {{ amtClass($medicalAllowance) }}">{{ fmtAmt($medicalAllowance) }}</td>
+      <td class="ed-rl">Loan Deduction</td>
+      <td class="ed-ra {{ amtClass($loanDed) }}">{{ fmtAmt($loanDed) }}</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Overtime</td>
+      <td class="ed-la {{ amtClass($overtimeAmount) }}">{{ fmtAmt($overtimeAmount) }}</td>
+      <td class="ed-rl">Other Deductions</td>
+      <td class="ed-ra {{ amtClass($otherDedTotal) }}">{{ fmtAmt($otherDedTotal) }}</td>
+    </tr>
+    <tr class="ed-row">
+      <td class="ed-ll">Other Allowances</td>
+      <td class="ed-la {{ amtClass($otherAllowances) }}">{{ fmtAmt($otherAllowances) }}</td>
+      <td class="ed-rl"></td>
+      <td class="ed-ra"></td>
+    </tr>
+    <tr class="ed-subtotal">
+      <td class="ed-ll">Total Gross Pay</td>
+      <td class="ed-la">{{ fmtAmt($grossPay) }}</td>
+      <td class="ed-rl">Total Deductions</td>
+      <td class="ed-ra">{{ fmtAmt($totalDeductions) }}</td>
+    </tr>
+  </table>
+</div>
 
-{{-- ══ SIGNATURE ROW ══ --}}
-<table class="sig">
-  <tr>
-    <td>
-      <div class="sig-line">{{ $entry->employee_name }}</div>
-      <div class="sig-role">Employee Acknowledgement</div>
-    </td>
-    <td>
-      <div class="sig-line">&nbsp;</div>
-      <div class="sig-role">Authorised By</div>
-    </td>
-    <td>
-      <div class="sig-line">{{ $company->business_name ?? '' }}</div>
-      <div class="sig-role">Employer Stamp</div>
-    </td>
-  </tr>
-</table>
+{{-- SUMMARY TABLE — vertical --}}
+<div class="summary-wrap">
+  <table class="summary-tbl">
+    <tr class="summary-title">
+      <td colspan="2">Summary <span class="s-currency-note">All figures in MWK</span></td>
+    </tr>
+    <tr class="s-row">
+      <td class="s-lbl">Basic Pay</td>
+      <td class="s-val">{{ fmtAmt($basicSalary) }}</td>
+    </tr>
+    <tr class="s-row">
+      <td class="s-lbl">Total Allowances</td>
+      <td class="s-val">{{ fmtAmt($totalAllowances) }}</td>
+    </tr>
+    <tr class="s-row">
+      <td class="s-lbl">Gross Pay</td>
+      <td class="s-val">{{ fmtAmt($grossPay) }}</td>
+    </tr>
+    <tr class="s-row">
+      <td class="s-lbl">Total Deductions</td>
+      <td class="s-val s-ded">{{ fmtAmt($totalDeductions) }}</td>
+    </tr>
+    <tr class="s-row s-net-row">
+      <td class="s-lbl" style="color:#4B5EBD; font-weight:800;">Net Pay</td>
+      <td class="s-val s-net">{{ fmtAmt($netPay) }}</td>
+    </tr>
+  </table>
+</div>
 
+{{-- OPTIONAL NOTES --}}
 @if(!empty($entry->notes))
-<div class="nb"><strong>Note:</strong> {{ $entry->notes }}</div>
+<div class="notes-wrap"><strong>Note:</strong> {{ $entry->notes }}</div>
 @endif
+
+{{-- SIGNATURES --}}
+<div class="sig-wrap">
+  <table class="sig-tbl">
+    <tr>
+      <td>
+        <div class="sig-line-top">
+          <span class="sig-name">{{ $entry->employee_name ?? '' }}</span>
+          <span class="sig-role">Employee Signature</span>
+        </div>
+      </td>
+      <td>
+        <div class="sig-line-top">
+          <span class="sig-name">{{ $company->business_name ?? '' }}</span>
+          <span class="sig-role">Authorised By</span>
+        </div>
+      </td>
+      <td>
+        <div class="sig-line-top">
+          <span class="sig-name">&nbsp;</span>
+          <span class="sig-role">Date</span>
+        </div>
+      </td>
+    </tr>
+  </table>
+</div>
 
 <div class="foot-space"></div>
 
-{{-- ══ FIXED FOOTER ══ --}}
+{{-- FIXED FOOTER --}}
 <div class="pgfoot">
-  <table>
+  <table class="pgfoot-tbl">
     <tr>
       <td>Generated: {{ \Carbon\Carbon::now()->format('d M Y, H:i') }} &nbsp;&bull;&nbsp; Ref: {{ $slipRef }}</td>
-      <td class="pr">This payslip is confidential &mdash; intended solely for the named employee.</td>
+      <td class="pr">This payslip is confidential — intended solely for the named employee.</td>
     </tr>
   </table>
 </div>

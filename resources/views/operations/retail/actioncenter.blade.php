@@ -1,6 +1,6 @@
+
 @extends('operations.retail.dashboard')
 @section('content')
-
 @php
     use Carbon\Carbon;
 
@@ -35,7 +35,7 @@
         ->table('retail_base_products')
         ->where('is_product', 1)
         ->orderBy('name')
-        ->get(['id', 'name', 'unit', 'selling_price', 'cost_price', 'code']);
+        ->get(['id', 'name', 'unit', 'selling_price', 'cost_price', 'code', 'supplier']);
 
     $suppliers = DB::connection('tenant')
         ->table('retail_base_products')
@@ -49,11 +49,24 @@
             ->first(['id', 'name', 'unit', 'selling_price', 'cost_price', 'code']);
     }
 
-    /* ── Category summary ─────────────────────────────────────────────
-     *  Per-branch totals for ALL notes on $date (submitted + pending).
-     *  Also track how many distinct products per branch are still pending
-     *  so we can show a "X unsubmitted" badge in the Amount column.
-     * ────────────────────────────────────────────────────────────────*/
+    /* ── Branch-specific prices for the selected product ─────────────── */
+    $branchPriceMap = [];
+    if ($product) {
+        $branchPrices = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('base_product_id', $product->id)
+            ->whereIn('branch_id', $branches->pluck('id'))
+            ->whereNotNull('selling_price')
+            ->get(['branch_id', 'selling_price']);
+
+        foreach ($branchPrices as $bp) {
+            // Only store if it differs from base price
+            if ((float) $bp->selling_price !== (float) $product->selling_price) {
+                $branchPriceMap[$bp->branch_id] = (float) $bp->selling_price;
+            }
+        }
+    }
+
     $branchSummary      = collect();
     $grandTotalCost     = 0;
     $grandTotalValue    = 0;
@@ -61,7 +74,6 @@
     if ($selectedCategory) {
         $categoryBranchIds = $branches->pluck('id');
 
-        // All notes grouped by branch — total cost and selling value
         $branchSummary = DB::connection('tenant')
             ->table('retail_deliverynotes as rdn')
             ->join('branches as b', 'b.id', '=', 'rdn.branch_id')
@@ -82,20 +94,16 @@
     }
 @endphp
 
-{{-- CSRF meta tag — required for AJAX requests --}}
 @push('head')
 <meta name="csrf-token" content="{{ csrf_token() }}">
 @endpush
 
 <style>
-/* ── Progress bar ─────────────────────────────────────────────────────── */
 #progressBar { height: 3px; display: none; transform: rotate(180deg); }
 
-/* ── Card chrome ──────────────────────────────────────────────────────── */
 .card      { border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-radius: 12px; }
 .card-body { padding: 0 !important; }
 
-/* ── Card header ──────────────────────────────────────────────────────── */
 .card-header {
     padding: 0 !important;
     background: #4B5EBD;
@@ -107,7 +115,6 @@
     padding: 0 14px; height: 48px; gap: 8px;
     flex-wrap: nowrap;
 }
-
 .ch-left {
     display: flex; align-items: center; gap: 8px;
     flex: 1; min-width: 0; overflow: hidden;
@@ -152,7 +159,6 @@
 .ch-date-chip:hover .chip-edit-icon { opacity: 1; }
 .ch-date-chip.no-category { opacity: .6; cursor: default; pointer-events: none; }
 
-/* ── Header icon buttons ──────────────────────────────────────────────── */
 .ch-btn {
     width: 30px; height: 30px; border-radius: 7px;
     background: #fff; border: 1px solid rgba(255,255,255,0.6);
@@ -162,7 +168,6 @@
 }
 .ch-btn:hover { background: #f0f2ff; color: #3a4ca0; box-shadow: 0 2px 6px rgba(0,0,0,0.15); }
 
-/* ── Tabs ─────────────────────────────────────────────────────────────── */
 .tab-header-container { background: #f8f9fa; border-bottom: 1px solid #dee2e6; overflow-x: auto; }
 .nav-pills { flex-wrap: nowrap; }
 .nav-pills .nav-link {
@@ -177,7 +182,6 @@
 }
 .nav-pills .nav-link i { font-size: .95rem; margin-right: .3rem; }
 
-/* ── Search bar row ───────────────────────────────────────────────────── */
 .search-bar-row {
     display: flex; align-items: stretch;
     background: #eef0f8;
@@ -201,10 +205,7 @@
     display: flex; align-items: center;
     background: #fff; border: 1.5px solid #c5caec;
     border-radius: 9px; padding: 0 11px; height: 40px;
-    transition: border-color .15s, box-shadow .15s; gap: 7px;
-}
-.search-input-inner:focus-within {
-    border-color: #4B5EBD; box-shadow: 0 0 0 3px rgba(75,94,189,0.12);
+    gap: 7px;
 }
 .search-icon-left { color: #94a3b8; font-size: 15px; flex-shrink: 0; }
 #productSearch {
@@ -241,7 +242,6 @@
 .pd-item-price { font-size: 11px; font-weight: 600; color: #059669; white-space: nowrap; }
 .pd-empty { padding: 20px; text-align: center; font-size: 12px; color: #94a3b8; font-style: italic; }
 
-/* ── Product pill ─────────────────────────────────────────────────────── */
 .sbr-product-pill {
     display: flex; align-items: center; gap: 8px;
     background: #f1f3f9; border: 1.5px solid #c5caec;
@@ -281,7 +281,6 @@
 }
 .sbr-product-empty i { font-size: 15px; }
 
-/* ── Counter col ──────────────────────────────────────────────────────── */
 .sbr-counter {
     display: flex; align-items: center; gap: 0;
     width: 100%;
@@ -305,13 +304,10 @@
     text-align: center; font-size: 13px; font-weight: 700; color: #1e293b;
     background: #fff; outline: none; padding: 0;
     -moz-appearance: textfield;
-    transition: border-color .15s;
 }
 .sbr-cr-unit-input::-webkit-outer-spin-button,
 .sbr-cr-unit-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.sbr-cr-unit-input:focus { border-color: #4B5EBD; }
 
-/* ── Branch grid ──────────────────────────────────────────────────────── */
 .branch-grid {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
@@ -331,18 +327,29 @@
     border: 1.5px solid #e4e7f5;
     border-radius: 10px;
     overflow: hidden;
-    transition: border-color .2s;
 }
-.branch-card:hover { border-color: #e4e7f5; }
-.branch-card.has-value { border: 1.5px solid #4B5EBD; box-shadow: none; }
 
 .bc-header { background: #f0f2fa; border-bottom: 1.5px solid #dde1f0; }
 .bc-name-row {
     display: flex; align-items: center; gap: 6px;
     padding: 8px 10px 4px;
 }
-.bc-name { font-size: 11px; font-weight: 700; color: #2d3a8c; flex: 1;
-           white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.bc-name {
+    font-size: 11px; font-weight: 700; color: #2d3a8c;
+    flex: 1; min-width: 0;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+
+/* ── Branch-specific price badge ──────────────────────────────────────── */
+.bc-price-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #fef3c7; border: 1px solid #fcd34d;
+    border-radius: 4px; padding: 1px 6px;
+    font-size: 9px; font-weight: 700; color: #92400e;
+    white-space: nowrap; flex-shrink: 0;
+    line-height: 1.6;
+}
+.bc-price-badge i { font-size: 8px; }
 
 .bc-saved-check {
     display: none;
@@ -354,6 +361,13 @@
 .bc-saved-check i { font-size: 8px; color: #fff; }
 .bc-saved-check.show { display: flex; }
 
+@keyframes checkPulse {
+    0%   { transform: scale(1);   opacity: 1; }
+    40%  { transform: scale(1.5); opacity: .7; }
+    100% { transform: scale(1);   opacity: 1; }
+}
+.bc-saved-check.pulse { animation: checkPulse .35s ease; }
+
 .bc-stats-row { display: flex; align-items: center; gap: 0; padding: 0 10px 8px; }
 .bc-stat-piece { display: flex; align-items: baseline; gap: 2px; }
 .bc-stat-piece + .bc-stat-piece::before { content: '·'; color: #c5caec; font-size: 9px; margin: 0 5px; }
@@ -363,28 +377,31 @@
 .bc-stat-val.v-delivered { color: #93a3d4; }
 .bc-stat-val.v-order     { color: #cbd5e1; }
 
+.bc-input-row { background: #fff; }
 .bc-input {
-    flex: 1; width: 100%; text-align: center;
-    font-size: 20px; font-weight: 800;
-    border-top: none;
-    border-left: 1.5px solid #e4e7f5;
-    border-right: 1.5px solid #e4e7f5;
-    border-bottom: 1.5px solid #e4e7f5;
-    border-radius: 0 0 8px 8px;
+    display: block;
+    width: 100%;
+    text-align: center;
+    font-size: 20px;
+    font-weight: normal !important;
+    font-family: inherit !important;
+    border: none;
+    border-top: 1px solid #e4e7f5;
+    border-radius: 0;
     padding: 8px 8px;
     outline: none;
-    color: #1e293b; background: #fff;
+    color: #1e293b;
+    background: #fff;
     font-variant-numeric: tabular-nums;
     -moz-appearance: textfield;
     transition: none;
 }
+input.bc-input,
+input[type="number"].bc-input { font-weight: normal !important; font-family: inherit !important; }
 .bc-input::-webkit-outer-spin-button,
 .bc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bc-input:focus  { background: #fff; border-color: #e4e7f5; }
-.bc-input:hover  { background: #fff; border-color: #e4e7f5; }
 .bc-input::placeholder { color: #e8eaf3; font-size: 16px; font-weight: 400; }
 
-/* ── Placeholders ─────────────────────────────────────────────────────── */
 .no-category-wrap { padding: 60px 16px; text-align: center; }
 .no-category-wrap i { font-size: 48px; color: #dde1f0; display: block; margin-bottom: 14px; }
 .no-category-wrap p { color: #94a3b8; font-size: 13px; }
@@ -392,7 +409,6 @@
 .no-product-placeholder i { font-size: 40px; color: #dde1f0; display: block; margin-bottom: 10px; }
 .no-product-placeholder p { font-size: 12px; margin: 0; }
 
-/* ── Modals ───────────────────────────────────────────────────────────── */
 .mh-blue   { background: linear-gradient(135deg,#4B5EBD,#576CC0); padding: 12px 18px !important; border-bottom: none; border-radius: 8px 8px 0 0; }
 .mh-green  { background: linear-gradient(135deg,#059669,#10b981); padding: 12px 18px !important; border-bottom: none; border-radius: 8px 8px 0 0; }
 .mh-amber  { background: linear-gradient(135deg,#d97706,#f59e0b); padding: 12px 18px !important; border-bottom: none; border-radius: 8px 8px 0 0; }
@@ -415,7 +431,6 @@
 .dmc.active-cus .dmc-val { color: #d97706; }
 .dmc-desc { font-size: 10px; color: #94a3b8; margin-top: 2px; }
 
-/* ── Actions modal (bottom sheet) ────────────────────────────────────── */
 #actionsModal .modal-dialog { margin: auto 0 0; max-width: 100%; }
 #actionsModal .modal-content { border-radius: 16px 16px 0 0; }
 #actionsModal .mh-blue { border-radius: 16px 16px 0 0 !important; }
@@ -434,8 +449,6 @@
 .action-sheet-btn.as-danger:hover { background: #fee2e2; }
 .action-sheet-btn i { font-size: 18px; flex-shrink: 0; }
 
-/* ── Summary modal ────────────────────────────────────────────────────── */
-/* Totals strip beneath header */
 .sum-totals-strip {
     display: flex; align-items: stretch;
     background: #f4f6ff;
@@ -460,7 +473,6 @@
 .sum-strip-seg.accent .sum-strip-val { color: #3b4fa0; }
 .sum-strip-divider { width: 1px; background: #dde1f0; margin: 10px 0; flex-shrink: 0; }
 
-/* Table */
 .sum-table { width: 100%; border-collapse: collapse; font-size: 12px; }
 .sum-th-name {
     font-size: 9px; font-weight: 700; text-transform: uppercase;
@@ -493,7 +505,6 @@
 .sum-cost   { color: #475569; font-weight: 500; }
 .sum-amount { color: #059669; font-weight: 700; }
 
-/* Grand total footer row */
 .sum-tfoot-tr { background: #f0f2fa; border-top: 2px solid #dde1f0; }
 .sum-tfoot-label {
     padding: 10px 16px; font-size: 12px; font-weight: 700; color: #2d3a8c;
@@ -504,72 +515,71 @@
 }
 .sum-tfoot-num.accent { color: #3b4fa0; }
 
-/* Empty state */
 .sum-empty { padding: 48px 20px; text-align: center; }
 .sum-empty i { font-size: 36px; color: #dde1f0; display: block; margin-bottom: 10px; }
 .sum-empty p { font-size: 13px; color: #94a3b8; margin: 0; }
 
-/* ── Summary modal footer info icon + tooltip ─────────────────────────── */
 .sum-footer-info-icon {
-    font-size: 15px;
-    color: #a0aec0;
-    cursor: default;
-    transition: color .15s;
+    font-size: 15px; color: #a0aec0; cursor: default; transition: color .15s;
 }
 .sum-footer-info-wrap:hover .sum-footer-info-icon { color: #4B5EBD; }
-
 .sum-footer-tooltip {
-    display: none;
-    position: absolute;
-    bottom: calc(100% + 8px);
-    right: 0;
-    width: 220px;
-    background: #1e293b;
-    color: #e2e8f0;
-    font-size: 11px;
-    line-height: 1.5;
-    padding: 8px 10px;
-    border-radius: 7px;
-    box-shadow: 0 4px 16px rgba(0,0,0,0.18);
-    z-index: 9999;
-    pointer-events: none;
-    white-space: normal;
+    display: none; position: absolute;
+    bottom: calc(100% + 8px); right: 0;
+    width: 220px; background: #1e293b; color: #e2e8f0;
+    font-size: 11px; line-height: 1.5; padding: 8px 10px;
+    border-radius: 7px; box-shadow: 0 4px 16px rgba(0,0,0,0.18);
+    z-index: 9999; pointer-events: none; white-space: normal;
 }
 .sum-footer-tooltip::after {
-    content: '';
-    position: absolute;
+    content: ''; position: absolute;
     top: 100%; right: 6px;
-    border: 5px solid transparent;
-    border-top-color: #1e293b;
+    border: 5px solid transparent; border-top-color: #1e293b;
 }
 .sum-footer-info-wrap:hover .sum-footer-tooltip { display: block; }
 
-/* ── Summary table (legacy cv-table kept for other modals) ────────────── */
-.cv-table { width: 100%; font-size: 12px; border-collapse: collapse; }
-.cv-table th {
+.ep-section-label {
+    display: block;
     font-size: 9px; font-weight: 700; text-transform: uppercase;
-    letter-spacing: .5px; color: #94a3b8; padding: 6px 10px;
-    background: #f8f9fa; border-bottom: 1px solid #e2e8f0;
-    text-align: left;
+    letter-spacing: .8px; color: #94a3b8;
+    padding-bottom: 6px; margin-bottom: 10px;
+    border-bottom: 1px solid #e9ecef;
 }
-.cv-table th.r { text-align: right; }
-.cv-table td { padding: 7px 10px; border-bottom: 1px solid #f1f5f9; color: #1e293b; }
-.cv-table td.r { text-align: right; font-variant-numeric: tabular-nums; }
-.cv-table tr:last-child td { border-bottom: none; }
-.cv-table tr:hover td { background: #f8f9ff; }
-.cv-table .cv-name  { font-weight: 600; color: #2d3a8c; }
-.cv-table .cv-value { font-weight: 700; color: #059669; }
-.cv-table tfoot td {
-    font-weight: 700; font-size: 12px; color: #1e293b;
-    background: #f0f2fa; border-top: 2px solid #dde1f0;
-    padding: 8px 10px;
+.ep-section-label + * { margin-top: 0; }
+
+#ep-branch-overrides-wrap {
+    margin-top: 14px;
+    padding-top: 0;
 }
-.cv-table tfoot td.r { text-align: right; }
-.cv-empty { text-align: center; padding: 30px 16px; font-size: 12px; color: #94a3b8; font-style: italic; }
-.cv-empty i { font-size: 28px; color: #dde1f0; display: block; margin-bottom: 8px; }
+.ep-branch-override-row {
+    display: flex; align-items: center; gap: 8px;
+    background: #f8f9ff; border: 1px solid #e4e7f5; border-radius: 7px;
+    padding: 6px 10px;
+}
+.ep-branch-override-row .ep-bo-name {
+    flex: 1; font-size: 12px; font-weight: 600; color: #2d3a8c;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.ep-branch-override-row .ep-bo-input {
+    width: 110px; text-align: right;
+    font-size: 12px; font-weight: 700; color: #1d4ed8;
+    -moz-appearance: textfield;
+    transition: none !important;
+}
+.ep-branch-override-row .ep-bo-input::-webkit-outer-spin-button,
+.ep-branch-override-row .ep-bo-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.ep-branch-override-row .ep-bo-input:hover { border-color: #c5caec !important; box-shadow: none !important; }
+
+.ep-branch-overrides-loading,
+.ep-branch-overrides-empty {
+    font-size: 12px; color: #94a3b8; font-style: italic; padding: 6px 2px;
+}
+
+input[type=number] { -moz-appearance: textfield; }
+input[type=number]::-webkit-outer-spin-button,
+input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 </style>
 
-{{-- Hidden form: saves selected product_id then reloads --}}
 <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
       id="selectProductForm" style="display:none;">
     @csrf
@@ -586,10 +596,8 @@
 
 <div class="card">
 
-{{-- ══ Card header ══════════════════════════════════════════════════════ --}}
 <div class="card-header">
     <div class="ch-inner">
-
         <div class="ch-left">
             <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
                   id="headerCategoryForm" style="margin:0;display:contents;">
@@ -624,7 +632,6 @@
             <a href="#" class="ch-btn" id="catSummaryBtn" title="View distribution summary for {{ $displayDate }}">
                 <i class="ri-bar-chart-grouped-line"></i>
             </a>
-            {{-- Settings icon replacing the hamburger --}}
             <a href="#" class="ch-btn" id="actionsBtn" title="Actions">
                 <i class="ri-settings-3-line"></i>
             </a>
@@ -633,26 +640,24 @@
                 <i class="ri-information-line"></i>
             </a>
         </div>
-
     </div>
 </div>
 
-{{-- ══ Tabs ═══════════════════════════════════════════════════════════════ --}}
 <div class="tab-header-container">
     <ul class="nav nav-pills mb-0">
         <li class="nav-item">
             <a href="{{ route('retail.operations.actioncenter') }}" class="nav-link active">
-                <i class="ri-send-plane-line"></i> Action Centre
+                <i class="ri-send-plane-line"></i> Actioncentre
             </a>
         </li>
         <li class="nav-item">
             <a href="{{ route('retail.operations.deliverynotes') }}" class="nav-link">
-                <i class="ri-file-list-3-line"></i> Delivery Notes
+                <i class="ri-file-list-3-line"></i> Deliverynotes
             </a>
         </li>
         <li class="nav-item">
             <a href="{{ route('retail.operations.pricechanges') }}" class="nav-link">
-                <i class="ri-price-tag-3-line"></i> Price Changes
+                <i class="ri-price-tag-3-line"></i> Pricechanges
             </a>
         </li>
     </ul>
@@ -665,7 +670,6 @@
     </div>
 @else
 
-{{-- ══ Search bar row ════════════════════════════════════════════════════ --}}
 <div class="search-bar-row">
 
     <div class="sbr-col">
@@ -712,7 +716,7 @@
             </div>
             <div class="sbr-cr-seg">
                 <span class="sbr-cr-label">Unit of Issue</span>
-                <input type="number" class="sbr-cr-unit-input" id="dividerInput" value="1" placeholder="1">
+                <input type="number" inputmode="decimal" class="sbr-cr-unit-input" id="dividerInput" value="1" placeholder="1">
             </div>
             <div class="sbr-cr-seg">
                 <span class="sbr-cr-label">Qty Distributed</span>
@@ -723,7 +727,6 @@
 
 </div>
 
-{{-- ══ Branch grid ══════════════════════════════════════════════════════ --}}
 <div id="branchGridWrap">
 @if($product)
     <div class="branch-grid" id="branchGrid">
@@ -750,15 +753,27 @@
                     ->where('base_product_id', $product->id)
                     ->where('submitted', false)
                     ->value('quantity');
+
+                // Branch-specific price (only set if different from base)
+                $branchSpecificPrice = $branchPriceMap[$branch->id] ?? null;
             @endphp
-            <div class="branch-card {{ $bPending !== null ? 'has-value' : '' }}"
+            <div class="branch-card"
                  data-branch-id="{{ $branch->id }}"
                  data-product-id="{{ $product->id }}">
 
                 <div class="bc-header">
                     <div class="bc-name-row">
                         <span class="bc-name">{{ $branch->name }}</span>
-                        <span class="bc-saved-check" id="check-{{ $branch->id }}" title="Saved">
+
+                        {{-- Branch-specific price badge — only shown when price differs from base --}}
+                        @if($branchSpecificPrice !== null)
+                        <span class="bc-price-badge" title="Branch-specific selling price (overrides base price of MWK {{ number_format((float)$product->selling_price, 2) }})">
+                            <i class="ri-price-tag-3-line"></i>
+                            MWK {{ number_format($branchSpecificPrice, 2) }}
+                        </span>
+                        @endif
+
+                        <span class="bc-saved-check {{ $bPending !== null ? 'show' : '' }}" id="check-{{ $branch->id }}" title="Saved">
                             <i class="ri-check-line"></i>
                         </span>
                     </div>
@@ -780,13 +795,15 @@
 
                 <div class="bc-input-row" id="ir-{{ $branch->id }}">
                     <input type="number"
+                           inputmode="decimal"
+                           step="0.01"
                            class="bc-input"
                            placeholder=""
-                           value="{{ $bPending !== null ? $bPending : '' }}"
+                           value="{{ $bPending !== null ? rtrim(rtrim(number_format((float)$bPending, 2, '.', ''), '0'), '.') : '' }}"
                            data-branch-id="{{ $branch->id }}"
                            data-product-id="{{ $product->id }}"
                            data-branch-name="{{ $branch->name }}"
-                           data-selling-price="{{ $product->selling_price }}">
+                           data-selling-price="{{ $branchSpecificPrice ?? $product->selling_price }}">
                 </div>
             </div>
         @endforeach
@@ -801,9 +818,9 @@
 @endif
 </div>
 
-@endif {{-- end selectedCategory --}}
+@endif
 
-</div>{{-- .card --}}
+</div>
 </div></div></div>
 
 
@@ -811,23 +828,13 @@
 <div class="modal fade" id="catSummaryModal" tabindex="-1">
     <div class="modal-dialog" style="max-width:520px;">
         <div class="modal-content">
-
-            {{-- Header — title only, close button far right --}}
             <div class="modal-header mh-blue" style="display:flex;align-items:center;justify-content:space-between;">
-                <h5 class="modal-title mh-title">
-                    Distribution Summary
-                </h5>
-                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"
-                        style="margin:0;"></button>
+                <h5 class="modal-title mh-title">Distribution Summary</h5>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" style="margin:0;"></button>
             </div>
-
-            {{-- Body --}}
             <div class="modal-body" style="padding:0;">
-
                 @if($selectedCategory)
                 @if($branchSummary->isNotEmpty())
-
-                {{-- Totals strip — Date | Cost | Amount --}}
                 <div class="sum-totals-strip">
                     <div class="sum-strip-seg">
                         <span class="sum-strip-label">Date</span>
@@ -846,8 +853,6 @@
                         <span class="sum-strip-val">{{ number_format($grandTotalValue, 2) }}</span>
                     </div>
                 </div>
-
-                {{-- Table --}}
                 <div style="padding:0 0 4px;">
                     <table class="sum-table">
                         <thead>
@@ -878,7 +883,6 @@
                         </tfoot>
                     </table>
                 </div>
-
                 @else
                 <div class="sum-empty">
                     <i class="ri-inbox-2-line"></i>
@@ -886,18 +890,10 @@
                 </div>
                 @endif
                 @endif
-
             </div>
-
-            {{-- Footer — category name left, info tooltip icon right --}}
             <div class="modal-footer" style="padding:10px 18px 14px;background:#f8f9ff;border-top:1px solid #e8eaf5;display:flex;align-items:center;">
-                <span style="font-size:10px;color:#94a3b8;flex:1;">
-                    {{ $selectedCategory->category ?? '' }}
-                </span>
-
-                {{-- Info icon with hover tooltip --}}
-                <span style="position:relative;display:inline-flex;align-items:center;margin-right:10px;"
-                      class="sum-footer-info-wrap">
+                <span style="font-size:10px;color:#94a3b8;flex:1;">{{ $selectedCategory->category ?? '' }}</span>
+                <span style="position:relative;display:inline-flex;align-items:center;margin-right:10px;" class="sum-footer-info-wrap">
                     <i class="ri-information-line sum-footer-info-icon"></i>
                     <span class="sum-footer-tooltip">
                         All delivery notes for {{ $selectedCategory->category ?? '' }} on {{ $displayDate }}.
@@ -905,10 +901,10 @@
                     </span>
                 </span>
             </div>
-
         </div>
     </div>
 </div>
+
 
 {{-- ══ ACTIONS BOTTOM SHEET ════════════════════════════════════════════ --}}
 <div class="modal fade" id="actionsModal" tabindex="-1">
@@ -920,7 +916,6 @@
             </div>
             <div class="modal-body" style="padding:14px 16px 20px;">
                 <div style="display:flex;flex-direction:column;gap:8px;">
-
                     <button class="action-sheet-btn" id="asSubmitAllBtn">
                         <i class="ri-send-plane-fill" style="color:#4B5EBD;"></i>
                         <div>
@@ -928,7 +923,6 @@
                             <div style="font-size:11px;color:#94a3b8;margin-top:1px;">All products · {{ $displayDate }}</div>
                         </div>
                     </button>
-
                     <button class="action-sheet-btn" id="asSubmitBtn">
                         <i class="ri-corner-up-right-line" style="color:#059669;"></i>
                         <div>
@@ -936,7 +930,6 @@
                             <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Marks pending notes as submitted</div>
                         </div>
                     </button>
-
                     <button class="action-sheet-btn" id="asCancelBtn">
                         <i class="ri-close-line" style="color:#d97706;"></i>
                         <div>
@@ -944,7 +937,6 @@
                             <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Deletes unsubmitted notes for current product</div>
                         </div>
                     </button>
-
                     <button class="action-sheet-btn" id="asAddProductBtn">
                         <i class="ri-add-circle-line" style="color:#4B5EBD;"></i>
                         <div>
@@ -952,7 +944,6 @@
                             <div style="font-size:11px;color:#94a3b8;margin-top:1px;">Add to the base catalogue</div>
                         </div>
                     </button>
-
                     @if($product)
                     <button class="action-sheet-btn as-danger" id="asDeleteProductBtn">
                         <i class="ri-delete-bin-5-line"></i>
@@ -962,7 +953,6 @@
                         </div>
                     </button>
                     @endif
-
                 </div>
             </div>
         </div>
@@ -1046,11 +1036,11 @@
                 <div class="row g-2 mb-2">
                     <div class="col-4">
                         <label class="form-label fw-semibold" style="font-size:12px;">Selling Price <span class="text-danger">*</span></label>
-                        <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="ap-sell" placeholder="0.00">
+                        <input class="form-control form-control-sm" type="number" inputmode="decimal" min="0" id="ap-sell" placeholder="0.00">
                     </div>
                     <div class="col-4">
                         <label class="form-label fw-semibold" style="font-size:12px;">Cost Price</label>
-                        <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="ap-cost" placeholder="0.00">
+                        <input class="form-control form-control-sm" type="number" inputmode="decimal" min="0" id="ap-cost" placeholder="0.00">
                     </div>
                     <div class="col-4">
                         <label class="form-label fw-semibold" style="font-size:12px;">Unit</label>
@@ -1078,15 +1068,20 @@
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header mh-blue">
-                <h5 class="modal-title mh-title"><i class="ri-edit-box-line"></i> Edit Product — <span id="epModalName" style="font-weight:400;opacity:.85;"></span></h5>
+                <h5 class="modal-title mh-title">
+                    <i class="ri-edit-box-line"></i>
+                    Edit Product — <span id="epModalName" style="font-weight:400;opacity:.85;"></span>
+                </h5>
                 <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" style="padding:18px 20px 10px;">
-                <div class="alert border-0 py-2 px-3 mb-3" style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:0 5px 5px 0;font-size:12px;color:#92400e;">
+            <div class="modal-body" style="padding:16px 20px 10px;">
+                <div class="alert border-0 py-2 px-3 mb-3"
+                     style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:0 5px 5px 0;font-size:12px;color:#92400e;">
                     <i class="ri-alert-line me-1"></i>
                     Changes here update the <strong>base catalogue</strong> price for all branches.
                 </div>
                 <input type="hidden" id="ep-id">
+                <span class="ep-section-label">Base Details</span>
                 <div class="mb-2">
                     <label class="form-label fw-semibold" style="font-size:13px;">Product Name <span class="text-danger">*</span></label>
                     <input class="form-control form-control-sm" type="text" id="ep-name" autocomplete="off">
@@ -1098,16 +1093,23 @@
                 <div class="row g-2 mb-2">
                     <div class="col-6">
                         <label class="form-label fw-semibold" style="font-size:12px;">Selling Price <span class="text-danger">*</span></label>
-                        <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="ep-sell">
+                        <input class="form-control form-control-sm" type="number" inputmode="decimal" id="ep-sell">
                     </div>
                     <div class="col-6">
                         <label class="form-label fw-semibold" style="font-size:12px;">Cost Price</label>
-                        <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="ep-cost">
+                        <input class="form-control form-control-sm" type="number" inputmode="decimal" id="ep-cost">
                     </div>
                 </div>
-                <div class="mb-2">
+                <div class="mb-0">
                     <label class="form-label fw-semibold" style="font-size:12px;">Unit</label>
                     <input class="form-control form-control-sm" type="text" id="ep-unit">
+                </div>
+                <div id="ep-branch-overrides-wrap" style="display:none;">
+                    <span class="ep-section-label">Branch Prices</span>
+                    <div style="background:#eff3ff;border-left:3px solid #4B5EBD;border-radius:0 5px 5px 0;padding:7px 11px;font-size:11px;color:#3b4fa0;margin-bottom:8px;">
+                        Branches with a price differing from the base default above.
+                    </div>
+                    <div id="ep-branch-overrides-list" style="display:flex;flex-direction:column;gap:6px;"></div>
                 </div>
             </div>
             <div class="modal-footer" style="padding:10px 20px 14px;gap:8px;">
@@ -1171,8 +1173,9 @@
                         @foreach([
                             ['Select product',  'Search for a base product in the search bar and click it — the page reloads with the product displayed in the counter bar and branch cards below.'],
                             ['Enter quantity',  'Type a quantity per branch. Saved automatically as a pending delivery note. A green check appears next to the branch name after each save.'],
+                            ['Branch price badge', 'An amber badge next to the branch name shows the branch-specific selling price when it differs from the base product price.'],
                             ['Distribution / Unit of Issue', 'Counter bar shows total units entered. Set unit of issue (e.g. loaves per crate) to see the quantity distributed.'],
-                            ['Summary button',  'Shows the total pending distribution value across all branches and products for the selected category and date. Switch between By Branch and By Product tabs.'],
+                            ['Summary button',  'Shows the total pending distribution value across all branches and products for the selected category and date.'],
                             ['Submit',          'Marks pending delivery notes as submitted and adds quantities to branch stock.'],
                             ['Submit All',      'Submits ALL pending notes for the selected date across all products (via the Actions menu).'],
                             ['Cancel',          'Deletes all pending (unsubmitted) notes for the current product on the selected date.'],
@@ -1314,17 +1317,19 @@ $(document).ready(function () {
                  || $('input[name="_token"]').first().val();
     $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': csrfToken } });
 
-    /* ── Toastr ─────────────────────────────────────────────────────────── */
+    /* ── Toastr ──────────────────────────────────────────────────────── */
     toastr.options = { timeOut: 5000, progressBar: true, positionClass: 'toast-top-end', closeButton: true };
 
-    /* ── Helpers ─────────────────────────────────────────────────────────── */
+    /* ── Helpers ─────────────────────────────────────────────────────── */
     function showProgress() { $('#progressBar').show(); }
     function hideProgress() { $('#progressBar').hide(); }
+
     function fmt(n, d) {
         d = d === undefined ? 2 : d;
         if (n === null || n === undefined || n === '') return '—';
         return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: d, maximumFractionDigits: d });
     }
+
     function handleAjaxError(xhr) {
         var status = xhr.status;
         var json   = null;
@@ -1342,12 +1347,13 @@ $(document).ready(function () {
     var productMap = {};
     @foreach($baseProducts as $bp)
     productMap['{{ $bp->id }}'] = {
-        id:    '{{ $bp->id }}',
-        name:  @json($bp->name),
-        unit:  @json($bp->unit),
-        price: {{ (float)($bp->selling_price ?? 0) }},
-        cost:  {{ (float)($bp->cost_price ?? 0) }},
-        code:  @json($bp->code ?? ''),
+        id:       '{{ $bp->id }}',
+        name:     @json($bp->name),
+        unit:     @json($bp->unit),
+        price:    {{ (float)($bp->selling_price ?? 0) }},
+        cost:     {{ (float)($bp->cost_price ?? 0) }},
+        code:     @json($bp->code ?? ''),
+        supplier: @json($bp->supplier ?? ''),
     };
     @endforeach
 
@@ -1373,7 +1379,6 @@ $(document).ready(function () {
     $('#dividerInput').on('input', recalcDistribution)
                      .on('blur',  function () { var v = parseFloat($(this).val()); if (isNaN(v) || v <= 0) $(this).val(''); recalcDistribution(); });
     recalcDistribution();
-
 
     /* ── Category distribution summary modal ─────────────────────────── */
     $('#catSummaryBtn').on('click', function (e) {
@@ -1429,6 +1434,56 @@ $(document).ready(function () {
     });
 
     /* ── Edit product via product pill ──────────────────────────────── */
+    function renderBranchOverrides(overrides) {
+        var $list = $('#ep-branch-overrides-list');
+        var $wrap = $('#ep-branch-overrides-wrap');
+        $list.empty();
+
+        if (!overrides || !overrides.length) {
+            $wrap.hide();
+            return;
+        }
+
+        overrides.forEach(function (o) {
+            var row = $(
+                '<div class="ep-branch-override-row" data-branch-product-id="' + o.id + '">' +
+                    '<span class="ep-bo-name">' + $('<span>').text(o.branch_name).html() + '</span>' +
+                    '<span style="font-size:11px;color:#94a3b8;">MWK</span>' +
+                    '<input type="number" inputmode="decimal" min="0" ' +
+                           'class="form-control form-control-sm ep-bo-input" ' +
+                           'value="' + o.selling_price + '">' +
+                '</div>'
+            );
+            $list.append(row);
+        });
+
+        $wrap.show();
+    }
+
+    function loadBranchOverrides(baseProductId) {
+        var $wrap = $('#ep-branch-overrides-wrap');
+        var $list = $('#ep-branch-overrides-list');
+        $list.html('<div class="ep-branch-overrides-loading"><i class="ri-loader-4-line"></i> Loading branch prices…</div>');
+        $wrap.show();
+
+        $.ajax({
+            type: 'GET',
+            url: '{{ route("retail.operations.baseproducts.branchoverrides") }}',
+            data: { base_product_id: baseProductId },
+            success: function (data) {
+                if (data.overrides && data.overrides.length) {
+                    renderBranchOverrides(data.overrides);
+                } else {
+                    $wrap.hide();
+                    $list.empty();
+                }
+            },
+            error: function () {
+                $list.html('<div class="ep-branch-overrides-empty"><i class="ri-error-warning-line"></i> Could not load branch prices.</div>');
+            },
+        });
+    }
+
     function openEditModal() {
         if (!activeProductId) return;
         var p = productMap[activeProductId];
@@ -1436,24 +1491,85 @@ $(document).ready(function () {
         $('#ep-id').val(p.id); $('#epModalName').text(p.name);
         $('#ep-name').val(p.name); $('#ep-sell').val(p.price);
         $('#ep-cost').val(p.cost || ''); $('#ep-unit').val(p.unit); $('#ep-code').val(p.code);
+
+        $('#ep-branch-overrides-wrap').hide();
+        $('#ep-branch-overrides-list').empty();
+        loadBranchOverrides(p.id);
+
         $('#editProductModal').modal('show');
     }
     $('#pcr-edit-icon').on('click', function () { openEditModal(); });
 
+    /* ── Save edit product ───────────────────────────────────────────── */
     $('#saveEditProductBtn').on('click', function () {
         var name = $('#ep-name').val().trim();
         var sell = $('#ep-sell').val();
         if (!name) { toastr.warning('Product name is required.'); $('#ep-name').focus(); return; }
         if (!sell || parseFloat(sell) < 0) { toastr.warning('Selling price is required.'); $('#ep-sell').focus(); return; }
-        var self = $(this).prop('disabled', true);
+
+        var p = productMap[$('#ep-id').val()];
+
+        var payload = {
+            id:            $('#ep-id').val(),
+            name:          name,
+            selling_price: sell,
+            cost_price:    $('#ep-cost').val(),
+            unit:          $('#ep-unit').val(),
+            code:          $('#ep-code').val(),
+            supplier:      p ? p.supplier : '',
+        };
+
+        $('#ep-branch-overrides-list .ep-branch-override-row').each(function (i) {
+            var id    = $(this).data('branch-product-id');
+            var price = $(this).find('.ep-bo-input').val();
+            if (id && price !== '' && price !== null) {
+                payload['branch_overrides[' + i + '][id]']            = id;
+                payload['branch_overrides[' + i + '][selling_price]'] = price;
+            }
+        });
+
+        var $btn = $(this).prop('disabled', true);
         showProgress();
         $.ajax({
-            type: 'POST', url: '{{ route("retail.operations.baseproducts.update") }}',
-            data: { id: $('#ep-id').val(), name: name, selling_price: sell, cost_price: $('#ep-cost').val(), unit: $('#ep-unit').val(), code: $('#ep-code').val() },
-            complete: function () { hideProgress(); self.prop('disabled', false); },
+            type:     'POST',
+            url:      '{{ route("retail.operations.baseproducts.update") }}',
+            data:     payload,
+            complete: function () {
+                hideProgress();
+                $btn.prop('disabled', false);
+            },
             success: function (data) {
-                if (data.status === 201) { toastr.success('Product updated.'); $('#editProductModal').modal('hide'); setTimeout(function () { location.reload(); }, 800); }
-                else { toastr.error(data.error || 'Failed to update.'); }
+                if (data.status === 201) {
+                    toastr.success('Product updated successfully.', 'Saved');
+                    $('#editProductModal').modal('hide');
+
+                    var id = $('#ep-id').val();
+                    if (productMap[id]) {
+                        productMap[id].name  = name;
+                        productMap[id].price = parseFloat(sell) || productMap[id].price;
+                        productMap[id].cost  = parseFloat($('#ep-cost').val()) || productMap[id].cost;
+                        productMap[id].unit  = $('#ep-unit').val().trim() || productMap[id].unit;
+                        productMap[id].code  = $('#ep-code').val().trim();
+                    }
+
+                    if (id === activeProductId && productMap[id]) {
+                        var updated = productMap[id];
+                        $('#pcrName').text(updated.name);
+                        $('#pcrUnit').text(updated.unit);
+                        $('#pcrPrice').text('MWK ' + parseFloat(updated.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
+                        if (updated.code) {
+                            $('#pcrCode').text(updated.code).show();
+                        } else {
+                            $('#pcrCode').hide();
+                        }
+                        $('#epModalName').text(updated.name);
+                    }
+
+                    /* Reload so branch-specific price badges reflect any override changes */
+                    setTimeout(function () { location.reload(); }, 600);
+                } else {
+                    toastr.error(data.error || 'Failed to update product.', 'Error');
+                }
             },
             error: handleAjaxError,
         });
@@ -1537,14 +1653,9 @@ $(document).ready(function () {
         var branchId  = $input.data('branch-id');
         var productId = $input.data('product-id');
         var quantity  = $input.val();
-        var $row      = $('#ir-' + branchId);
-        var $card     = $input.closest('.branch-card');
         var $check    = $('#check-' + branchId);
 
         clearTimeout(saveTimer[branchId]);
-        $check.removeClass('show');
-        $row.removeClass('state-saved state-error state-saving');
-        $card.toggleClass('has-value', quantity !== '' && parseFloat(quantity) > 0);
 
         if (quantity === '' || isNaN(parseFloat(quantity))) return;
 
@@ -1553,16 +1664,15 @@ $(document).ready(function () {
                 type: 'POST', url: routes.saveDnote,
                 data: { branch_id: branchId, base_product_id: productId, quantity: quantity, delivery_date: activeDate },
                 success: function (res) {
-                    $row.removeClass('state-saving state-error');
                     if (res.status === 200 || res.status === 201) {
-                        $row.addClass('state-saved'); $card.addClass('has-value'); $check.addClass('show');
-                        setTimeout(function () { $row.removeClass('state-saved'); $check.removeClass('show'); }, 2000);
+                        $check.removeClass('pulse');
+                        void $check[0].offsetWidth;
+                        $check.addClass('show pulse');
                     } else {
-                        $card.removeClass('has-value');
                         toastr.error('Failed to save for ' + $input.data('branch-name') + '.', 'Save Error');
                     }
                 },
-                error: function (xhr) { $row.removeClass('state-saving'); $card.removeClass('has-value'); handleAjaxError(xhr); },
+                error: function (xhr) { handleAjaxError(xhr); },
             });
         }, 600);
     });
@@ -1638,8 +1748,6 @@ $(document).ready(function () {
                 if (data.success) {
                     toastr.success(data.success);
                     $('.bc-input').val('');
-                    $('.branch-card').removeClass('has-value');
-                    $('.bc-input-row').removeClass('state-saving state-saved state-error');
                     $('.bc-saved-check').removeClass('show');
                     recalcDistribution();
                 }
@@ -1691,3 +1799,4 @@ $(document).ready(function () {
 });
 </script>
 @endsection
+

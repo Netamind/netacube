@@ -73,7 +73,7 @@ class Kernel extends HttpKernel
         'wholesale.allowed'  => \App\Http\Middleware\WholesaleAllowed::class,
         'finance.allowed'  => \App\Http\Middleware\FinanceAllowed::class,
 
-
+        'sales.allowed'  => \App\Http\Middleware\SalesAllowed::class,
 
 
 

@@ -799,7 +799,7 @@ public function insertEmployee(Request $request)
     $data = $this->employeeDataFromRequest($request);
  
     // system fields only on insert
-    $data['password']   = Hash::make('default123');
+    $data['password']   = Hash::make('1234');
     $data['active']     = 'Yes';
     $data['entered_on'] = now();
  

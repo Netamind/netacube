@@ -212,6 +212,56 @@ class RetailBranchProductsController extends Controller
             ]);
     }
 
+    /**
+     * Write one row to retail_price_changes for a branch-level selling price change.
+     * No-op if the price did not actually move.
+     *
+     * @param  int         $baseProductId
+     * @param  int         $branchId
+     * @param  float       $oldPrice
+     * @param  float       $newPrice
+     * @param  string      $productName   Snapshot name at time of change.
+     * @param  string|null $productCode   Snapshot code at time of change.
+     * @param  string      $productUnit   Snapshot unit at time of change.
+     * @param  string|null $reason        Optional human-readable note.
+     */
+    private function logPriceChange(
+        int     $baseProductId,
+        int     $branchId,
+        float   $oldPrice,
+        float   $newPrice,
+        string  $productName,
+        ?string $productCode,
+        string  $productUnit,
+        ?string $reason = null
+    ): void {
+        // Skip if the price didn't actually move.
+        if (round($oldPrice, 2) === round($newPrice, 2)) return;
+
+        $branchName = DB::connection('tenant')
+            ->table('branches')
+            ->where('id', $branchId)
+            ->value('name');
+
+        DB::connection('tenant')
+            ->table('retail_price_changes')
+            ->insert([
+                'base_product_id' => $baseProductId,
+                'branch_id'       => $branchId,
+                'changed_by'      => Auth::id(),
+                'product_name'    => $productName,
+                'product_code'    => $productCode,
+                'product_unit'    => $productUnit,
+                'branch_name'     => $branchName,
+                'old_price'       => $oldPrice,
+                'new_price'       => $newPrice,
+                'reason'          => $reason,
+                'change_date'     => now()->toDateString(),
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+    }
+
     // ── Search base products ──────────────────────────────────────────────
 
     public function searchBaseproducts(Request $request)
@@ -362,6 +412,7 @@ class RetailBranchProductsController extends Controller
             'track_stock'          => 'nullable|boolean',
             'allow_negative_stock' => 'nullable|boolean',
             'is_active'            => 'nullable|boolean',
+            'price_change_reason'  => 'nullable|string|max:255',
         ]);
 
         $current = DB::connection('tenant')
@@ -385,6 +436,9 @@ class RetailBranchProductsController extends Controller
 
         $oldQty = (float) $current->stock_quantity;
         $newQty = $request->stock_quantity !== null ? (float) $request->stock_quantity : $oldQty;
+
+        // Snapshot the price as it was BEFORE the update, for the price-change log.
+        $oldSellPrice = (float) ($current->selling_price ?? $base->selling_price ?? 0);
 
         $data = [
             'selling_price'        => $sellPrice,
@@ -416,6 +470,17 @@ class RetailBranchProductsController extends Controller
             reason:        'Manual stock update via branch product edit',
             sellingPrice:  $sellPrice,
             costPrice:     $costPrice,
+        );
+
+        $this->logPriceChange(
+            baseProductId: (int) $current->base_product_id,
+            branchId:      (int) $current->branch_id,
+            oldPrice:      $oldSellPrice,
+            newPrice:      $sellPrice,
+            productName:   $base->name ?? '',
+            productCode:   $base->code ?? null,
+            productUnit:   $base->unit ?? 'Each',
+            reason:        $request->price_change_reason ? trim($request->price_change_reason) : null,
         );
 
         $bp = $this->fetchBranchProduct((int) $request->id);

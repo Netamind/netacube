@@ -157,6 +157,44 @@ class RetailActionCenterController extends Controller
             ]);
     }
 
+    // ── NEW: price change logger (branch scope only) ──────────────────────
+    private function logPriceChange(
+        int     $baseProductId,
+        int     $branchId,
+        float   $oldPrice,
+        float   $newPrice,
+        string  $productName,
+        ?string $productCode,
+        string  $productUnit,
+        ?string $reason = null
+    ): void {
+        // No-op when the price did not actually move.
+        if (round($oldPrice, 2) === round($newPrice, 2)) return;
+
+        $branchName = DB::connection('tenant')
+            ->table('branches')
+            ->where('id', $branchId)
+            ->value('name');
+
+        DB::connection('tenant')
+            ->table('retail_price_changes')
+            ->insert([
+                'base_product_id' => $baseProductId,
+                'branch_id'       => $branchId,
+                'changed_by'      => Auth::id(),
+                'product_name'    => $productName,
+                'product_code'    => $productCode,
+                'product_unit'    => $productUnit,
+                'branch_name'     => $branchName,
+                'old_price'       => $oldPrice,
+                'new_price'       => $newPrice,
+                'reason'          => $reason,
+                'change_date'     => now()->toDateString(),
+                'created_at'      => now(),
+                'updated_at'      => now(),
+            ]);
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     //  VIEWS
     // ══════════════════════════════════════════════════════════════════════
@@ -315,6 +353,13 @@ HTML;
             ->where('base_product_id', $productId)
             ->first();
 
+        // Snapshot the OLD price BEFORE writing — needed for the change log.
+        // Fall back to base product price when no branch row exists yet.
+        $base     = $this->findBaseProduct($productId);
+        $oldPrice = $existing
+            ? (float) ($existing->selling_price ?? $base->selling_price ?? 0)
+            : (float) ($base->selling_price ?? 0);
+
         if ($existing) {
             DB::connection('tenant')
                 ->table('retail_branch_products')
@@ -333,6 +378,22 @@ HTML;
                     'created_at'      => now(),
                     'updated_at'      => now(),
                 ]);
+        }
+
+        // Log only when a concrete new price was provided.
+        // When $sell is null the override is being cleared — branch silently
+        // reverts to the catalogue price; no price-change row is needed.
+        if ($sell !== null) {
+            $this->logPriceChange(
+                baseProductId: $productId,
+                branchId:      $branchId,
+                oldPrice:      $oldPrice,
+                newPrice:      $sell,
+                productName:   $base->name ?? '',
+                productCode:   $base->code ?? null,
+                productUnit:   $base->unit ?? 'Each',
+                reason:        'Branch price override set via Action Centre',
+            );
         }
 
         return response()->json([

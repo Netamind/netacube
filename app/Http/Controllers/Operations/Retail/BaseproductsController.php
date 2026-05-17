@@ -86,24 +86,34 @@ class BaseproductsController extends Controller
 // ─────────────────────────────────────────────────────────────────────────
 //  UPDATE
 // ─────────────────────────────────────────────────────────────────────────
-
 public function updateBaseproduct(Request $request)
 {
     $request->validate([
-        'id'            => 'required|integer|exists:tenant.retail_base_products,id',
-        'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
-        'description'   => 'nullable|string|max:2000',
-        'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
-        'supplier'      => 'required|string|max:255',
-        'unit'          => 'required|string|max:50',
-        'cost_price'    => 'nullable|numeric|min:0',
-        'selling_price' => 'nullable|numeric|min:0',
-        'is_product'    => 'nullable|boolean',
+        'id'                   => 'required|integer|exists:tenant.retail_base_products,id',
+        'name'                 => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
+        'description'          => 'nullable|string|max:2000',
+        'code'                 => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
+        'supplier'             => 'required|string|max:255',
+        'unit'                 => 'required|string|max:50',
+        'cost_price'           => 'nullable|numeric|min:0',
+        'selling_price'        => 'nullable|numeric|min:0',
+        'is_product'           => 'nullable|boolean',
+        'price_change_reason'  => 'nullable|string|max:255',
     ], [
         'name.unique'       => 'A product with this name already exists in the base catalogue.',
         'code.unique'       => 'This code (SKU) is already used by another product.',
         'supplier.required' => 'A supplier is required.',
     ]);
+
+    $userId = auth()->id();
+    $reason = $request->price_change_reason ? trim($request->price_change_reason) : null;
+    $today  = now()->toDateString();
+
+    // Snapshot the existing product so we can detect a base price change after the update runs.
+    $existingProduct = DB::connection('tenant')
+        ->table('retail_base_products')
+        ->where('id', $request->id)
+        ->first();
 
     $data = [
         'name'          => trim($request->name),
@@ -122,6 +132,31 @@ public function updateBaseproduct(Request $request)
         ->where('id', $request->id)
         ->update($data);
 
+    $priceChangeRows = [];
+
+    // ── Log a base catalogue price change, if the selling price actually moved ──
+    if ($existingProduct
+        && $existingProduct->selling_price !== null
+        && $data['selling_price'] !== null
+        && round((float) $existingProduct->selling_price, 2) !== round((float) $data['selling_price'], 2)) {
+
+        $priceChangeRows[] = [
+            'base_product_id' => $request->id,
+            'branch_id'       => null,
+            'changed_by'      => $userId,
+            'product_name'    => $data['name'],
+            'product_code'    => $data['code'],
+            'product_unit'    => $data['unit'],
+            'branch_name'     => null,
+            'old_price'       => $existingProduct->selling_price,
+            'new_price'       => $data['selling_price'],
+            'reason'          => $reason,
+            'change_date'     => $today,
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ];
+    }
+
     // ── Handle branch price overrides ─────────────────────────────────────
     $branchOverrides  = $request->input('branch_overrides', []);
     $overridesUpdated = 0;
@@ -133,6 +168,14 @@ public function updateBaseproduct(Request $request)
 
             if (!$bpId || $price === null) continue;
 
+            // Snapshot the branch row (and its branch name) before overwriting it.
+            $branchProduct = DB::connection('tenant')
+                ->table('retail_branch_products as rbp')
+                ->join('branches as b', 'b.id', '=', 'rbp.branch_id')
+                ->where('rbp.id', $bpId)
+                ->select('rbp.id', 'rbp.branch_id', 'rbp.selling_price as old_price', 'b.name as branch_name')
+                ->first();
+
             $affected = DB::connection('tenant')
                 ->table('retail_branch_products')
                 ->where('id', $bpId)
@@ -141,8 +184,35 @@ public function updateBaseproduct(Request $request)
                     'updated_at'    => now(),
                 ]);
 
-            if ($affected) $overridesUpdated++;
+            if ($affected) {
+                $overridesUpdated++;
+
+                if ($branchProduct
+                    && $branchProduct->old_price !== null
+                    && round((float) $branchProduct->old_price, 2) !== round($price, 2)) {
+
+                    $priceChangeRows[] = [
+                        'base_product_id' => $request->id,
+                        'branch_id'       => $branchProduct->branch_id,
+                        'changed_by'      => $userId,
+                        'product_name'    => $data['name'],
+                        'product_code'    => $data['code'],
+                        'product_unit'    => $data['unit'],
+                        'branch_name'     => $branchProduct->branch_name,
+                        'old_price'       => $branchProduct->old_price,
+                        'new_price'       => $price,
+                        'reason'          => $reason,
+                        'change_date'     => $today,
+                        'created_at'      => now(),
+                        'updated_at'      => now(),
+                    ];
+                }
+            }
         }
+    }
+
+    if (!empty($priceChangeRows)) {
+        DB::connection('tenant')->table('retail_price_changes')->insert($priceChangeRows);
     }
 
     if ($updated !== false) {
@@ -154,6 +224,9 @@ public function updateBaseproduct(Request $request)
         $message = 'Product updated successfully.';
         if ($overridesUpdated > 0) {
             $message .= ' ' . $overridesUpdated . ' branch price' . ($overridesUpdated > 1 ? 's' : '') . ' updated.';
+        }
+        if (!empty($priceChangeRows)) {
+            $message .= ' ' . count($priceChangeRows) . ' price change' . (count($priceChangeRows) > 1 ? 's' : '') . ' logged.';
         }
 
         return response()->json([

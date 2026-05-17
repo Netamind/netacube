@@ -215,9 +215,6 @@
                         <ul class="side-nav-second-level">
                             <li><a href="{{ route('master.tenants') }}">Tenants</a></li>
                              <li><a href="{{ route('master.tenant.invoices') }}">Invoices</a></li>
-                           <!-- <li><a href="{{ route('master.tenant.quotations') }}">Quotations</a></li>
-                            <li><a href="{{ route('master.tenant.deliverynotes') }}">Deliverynotes</a></li>
-                            <li><a href="{{ route('master.tenant.receipts') }}">Receipts</a></li>-->
                             <li><a href="{{ route('master.currency')}}">Currency</a></li>
                             <li><a href="{{ route('master.payment.methods') }}">Payment Methods</a></li>
                             <li><a href="{{ route('master.subscription.plans') }}">Subscription Plans</a></li>

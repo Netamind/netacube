@@ -1,4 +1,3 @@
-
 @extends('operations.retail.dashboard')
 @section('content')
 @php
@@ -60,7 +59,6 @@
             ->get(['branch_id', 'selling_price']);
 
         foreach ($branchPrices as $bp) {
-            // Only store if it differs from base price
             if ((float) $bp->selling_price !== (float) $product->selling_price) {
                 $branchPriceMap[$bp->branch_id] = (float) $bp->selling_price;
             }
@@ -340,7 +338,6 @@
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 
-/* ── Branch-specific price badge ──────────────────────────────────────── */
 .bc-price-badge {
     display: inline-flex; align-items: center; gap: 3px;
     background: #fef3c7; border: 1px solid #fcd34d;
@@ -754,7 +751,6 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
                     ->where('submitted', false)
                     ->value('quantity');
 
-                // Branch-specific price (only set if different from base)
                 $branchSpecificPrice = $branchPriceMap[$branch->id] ?? null;
             @endphp
             <div class="branch-card"
@@ -765,7 +761,6 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
                     <div class="bc-name-row">
                         <span class="bc-name">{{ $branch->name }}</span>
 
-                        {{-- Branch-specific price badge — only shown when price differs from base --}}
                         @if($branchSpecificPrice !== null)
                         <span class="bc-price-badge" title="Branch-specific selling price (overrides base price of MWK {{ number_format((float)$product->selling_price, 2) }})">
                             <i class="ri-price-tag-3-line"></i>
@@ -1324,6 +1319,10 @@ $(document).ready(function () {
     function showProgress() { $('#progressBar').show(); }
     function hideProgress() { $('#progressBar').hide(); }
 
+    function fmtPrice(n) {
+        return parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    }
+
     function fmt(n, d) {
         d = d === undefined ? 2 : d;
         if (n === null || n === undefined || n === '') return '—';
@@ -1445,8 +1444,13 @@ $(document).ready(function () {
         }
 
         overrides.forEach(function (o) {
+            // Store branch_id and branch_name as data attrs so the success
+            // handler can update the matching card badge without a reload.
             var row = $(
-                '<div class="ep-branch-override-row" data-branch-product-id="' + o.id + '">' +
+                '<div class="ep-branch-override-row"' +
+                    ' data-branch-product-id="' + o.id + '"' +
+                    ' data-branch-id="' + o.branch_id + '"' +
+                    ' data-branch-name="' + $('<span>').text(o.branch_name).html() + '">' +
                     '<span class="ep-bo-name">' + $('<span>').text(o.branch_name).html() + '</span>' +
                     '<span style="font-size:11px;color:#94a3b8;">MWK</span>' +
                     '<input type="number" inputmode="decimal" min="0" ' +
@@ -1488,29 +1492,32 @@ $(document).ready(function () {
         if (!activeProductId) return;
         var p = productMap[activeProductId];
         if (!p) return;
-        $('#ep-id').val(p.id); $('#epModalName').text(p.name);
-        $('#ep-name').val(p.name); $('#ep-sell').val(p.price);
-        $('#ep-cost').val(p.cost || ''); $('#ep-unit').val(p.unit); $('#ep-code').val(p.code);
-
+        $('#ep-id').val(p.id);
+        $('#epModalName').text(p.name);
+        $('#ep-name').val(p.name);
+        $('#ep-sell').val(p.price);
+        $('#ep-cost').val(p.cost || '');
+        $('#ep-unit').val(p.unit);
+        $('#ep-code').val(p.code);
         $('#ep-branch-overrides-wrap').hide();
         $('#ep-branch-overrides-list').empty();
         loadBranchOverrides(p.id);
-
         $('#editProductModal').modal('show');
     }
     $('#pcr-edit-icon').on('click', function () { openEditModal(); });
 
-    /* ── Save edit product ───────────────────────────────────────────── */
+    /* ── Save edit product — no page reload ──────────────────────────── */
     $('#saveEditProductBtn').on('click', function () {
         var name = $('#ep-name').val().trim();
         var sell = $('#ep-sell').val();
         if (!name) { toastr.warning('Product name is required.'); $('#ep-name').focus(); return; }
-        if (!sell || parseFloat(sell) < 0) { toastr.warning('Selling price is required.'); $('#ep-sell').focus(); return; }
+        if (sell === '' || parseFloat(sell) < 0) { toastr.warning('Selling price is required.'); $('#ep-sell').focus(); return; }
 
-        var p = productMap[$('#ep-id').val()];
+        var productId = $('#ep-id').val();
+        var p         = productMap[productId];
 
         var payload = {
-            id:            $('#ep-id').val(),
+            id:            productId,
             name:          name,
             selling_price: sell,
             cost_price:    $('#ep-cost').val(),
@@ -1519,17 +1526,29 @@ $(document).ready(function () {
             supplier:      p ? p.supplier : '',
         };
 
+        // Collect branch override rows
         $('#ep-branch-overrides-list .ep-branch-override-row').each(function (i) {
-            var id    = $(this).data('branch-product-id');
+            var bpId  = $(this).data('branch-product-id');
             var price = $(this).find('.ep-bo-input').val();
-            if (id && price !== '' && price !== null) {
-                payload['branch_overrides[' + i + '][id]']            = id;
+            if (bpId && price !== '' && price !== null) {
+                payload['branch_overrides[' + i + '][id]']            = bpId;
                 payload['branch_overrides[' + i + '][selling_price]'] = price;
             }
         });
 
+        // Snapshot override rows BEFORE the AJAX call so we can update
+        // badges in the success handler (modal is hidden by then).
+        var overrideSnapshot = [];
+        $('#ep-branch-overrides-list .ep-branch-override-row').each(function () {
+            overrideSnapshot.push({
+                branchId:  $(this).data('branch-id'),
+                price:     parseFloat($(this).find('.ep-bo-input').val()),
+            });
+        });
+
         var $btn = $(this).prop('disabled', true);
         showProgress();
+
         $.ajax({
             type:     'POST',
             url:      '{{ route("retail.operations.baseproducts.update") }}',
@@ -1539,37 +1558,72 @@ $(document).ready(function () {
                 $btn.prop('disabled', false);
             },
             success: function (data) {
-                if (data.status === 201) {
-                    toastr.success('Product updated successfully.', 'Saved');
-                    $('#editProductModal').modal('hide');
-
-                    var id = $('#ep-id').val();
-                    if (productMap[id]) {
-                        productMap[id].name  = name;
-                        productMap[id].price = parseFloat(sell) || productMap[id].price;
-                        productMap[id].cost  = parseFloat($('#ep-cost').val()) || productMap[id].cost;
-                        productMap[id].unit  = $('#ep-unit').val().trim() || productMap[id].unit;
-                        productMap[id].code  = $('#ep-code').val().trim();
-                    }
-
-                    if (id === activeProductId && productMap[id]) {
-                        var updated = productMap[id];
-                        $('#pcrName').text(updated.name);
-                        $('#pcrUnit').text(updated.unit);
-                        $('#pcrPrice').text('MWK ' + parseFloat(updated.price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }));
-                        if (updated.code) {
-                            $('#pcrCode').text(updated.code).show();
-                        } else {
-                            $('#pcrCode').hide();
-                        }
-                        $('#epModalName').text(updated.name);
-                    }
-
-                    /* Reload so branch-specific price badges reflect any override changes */
-                    setTimeout(function () { location.reload(); }, 600);
-                } else {
+                if (data.status !== 201) {
                     toastr.error(data.error || 'Failed to update product.', 'Error');
+                    return;
                 }
+
+                // ── Close modal first so toastr renders on top ────────
+                $('#editProductModal').modal('hide');
+
+                var newSell = parseFloat(sell);
+                var newCost = parseFloat($('#ep-cost').val()) || 0;
+                var newUnit = $('#ep-unit').val().trim() || (p ? p.unit : 'Each');
+                var newCode = $('#ep-code').val().trim();
+
+                // ── 1. Update productMap in memory ────────────────────
+                if (productMap[productId]) {
+                    productMap[productId].name  = name;
+                    productMap[productId].price = newSell;
+                    productMap[productId].cost  = newCost;
+                    productMap[productId].unit  = newUnit;
+                    productMap[productId].code  = newCode;
+                }
+
+                // ── 2. Update the product pill ────────────────────────
+                if (productId === activeProductId) {
+                    $('#pcrName').text(name);
+                    $('#pcrUnit').text(newUnit);
+                    $('#pcrPrice').text('MWK ' + fmtPrice(newSell));
+                    if (newCode) {
+                        $('#pcrCode').text(newCode).show();
+                    } else {
+                        $('#pcrCode').hide();
+                    }
+                    $('#epModalName').text(name);
+                }
+
+                // ── 3. Update branch card price badges ────────────────
+                overrideSnapshot.forEach(function (ov) {
+                    if (!ov.branchId || isNaN(ov.price)) return;
+
+                    var $card  = $('.branch-card[data-branch-id="' + ov.branchId + '"]');
+                    if (!$card.length) return;
+
+                    var $badge = $card.find('.bc-price-badge');
+
+                    if (Math.abs(ov.price - newSell) > 0.001) {
+                        // Override price still differs from base — show/update badge
+                        var badgeHtml = '<i class="ri-price-tag-3-line"></i> MWK ' + fmtPrice(ov.price);
+                        var badgeTitle = 'Branch-specific selling price (overrides base price of MWK ' + fmtPrice(newSell) + ')';
+
+                        if ($badge.length) {
+                            $badge.attr('title', badgeTitle).html(badgeHtml);
+                        } else {
+                            $card.find('.bc-saved-check').before(
+                                $('<span class="bc-price-badge"></span>')
+                                    .attr('title', badgeTitle)
+                                    .html(badgeHtml)
+                            );
+                        }
+                    } else {
+                        // Override now equals base — remove badge
+                        $badge.remove();
+                    }
+                });
+
+                // ── 4. Notify ─────────────────────────────────────────
+                toastr.success(data.success || 'Product updated successfully.', 'Saved');
             },
             error: handleAjaxError,
         });

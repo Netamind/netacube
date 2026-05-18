@@ -684,27 +684,29 @@ $(function () {
     });
 
     $('#submitSingleDeleteDataBtn').on('click', function (e) {
-        e.preventDefault();
-        const $btn = $(this).prop('disabled', true);
+    e.preventDefault();
+    const $btn = $(this).prop('disabled', true);
 
-        $.ajax({
-            url:    $('#singleDeleteDataForm').attr('action'),
-            method: 'POST',
-            data:   $('#singleDeleteDataForm').serialize() + '&_method=DELETE',
-            beforeSend: () => $('#progressBar').show(),
-            complete:   () => { $('#progressBar').hide(); $btn.prop('disabled', false); },
-            success: res => {
-                if (res.status === 201) {
-                    toastr.success(res.success, 'Deleted');
-                    delModal.hide();
-                    setTimeout(() => location.href = '{{ route("tenant.admin.employees") }}', 800);
-                }
-            },
-            error: xhr => {
-                toastr.error(xhr.responseJSON?.message || 'Delete failed', 'Error');
+    $.ajax({
+        url:    $('#singleDeleteDataForm').attr('action'),
+        method: 'POST',
+        data:   $('#singleDeleteDataForm').serialize(),
+        beforeSend: () => $('#progressBar').show(),
+        complete:   () => { $('#progressBar').hide(); $btn.prop('disabled', false); },
+        success: res => {
+            if (res.status === 201) {
+                toastr.success(res.success, 'Deleted');
+                delModal.hide();
+                setTimeout(() => location.href = '{{ route("tenant.admin.employees") }}', 800);
             }
-        });
+        },
+        error: xhr => {
+            toastr.error(xhr.responseJSON?.message || 'Delete failed', 'Error');
+        }
     });
+});
+
+
 });
 </script>
 @endsection

@@ -4,7 +4,6 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -12,55 +11,46 @@ class RetailAllowed
 {
     public function handle(Request $request, Closure $next): Response
     {
-        $user = Auth::user();
+        $tenantName = $request->route('tenantName') ?? $request->segment(1) ?? session('tenant_code');
 
-        // 1. Check if user is logged in
-        if (!$user) {
-            $notification = [
-                'message'    => 'Your session has expired. Please sign in again to continue.',
+        if (!session('auth_user_email')) {
+            return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
+                'message'    => 'Your session has expired. Please sign in again.',
                 'alert-type' => 'error'
-            ];
-            return redirect()->route('tenant.login.by.url')->with($notification);
+            ]);
         }
 
-        // 2. Verify tenant session belongs to the correct tenant
         $currentTenantCode = $request->route('tenantName') ?? session('tenant_code');
 
         if (!$currentTenantCode || session('tenant_code') !== $currentTenantCode) {
-            Auth::logout();
             session()->flush();
-
-            $notification = [
-                'message'    => 'Session belongs to a different tenant. Please login again.',
+            return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
+                'message'    => 'Session mismatch. Please login again.',
                 'alert-type' => 'error'
-            ];
-            return redirect()->route('tenant.login.by.url')->with($notification);
+            ]);
         }
 
-        // 3. Fetch user's role from tenant database
-        $user = DB::connection('tenant')
-                    ->table('users')
-                    ->where('id', $user->id)
-                    ->select('role')
-                    ->first();
+        $currentUser = DB::connection('tenant')
+                         ->table('users')
+                         ->where('email', session('auth_user_email'))
+                         ->select('id', 'role')
+                         ->first();
 
-        if (!$user) {
-            Auth::logout();
-
-            $notification = [
-                'message'    => 'Session expired. You need to login again.',
+        if (!$currentUser) {
+            session()->flush();
+            return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
+                'message'    => 'Session expired. Please login again.',
                 'alert-type' => 'error'
-            ];
-            return redirect()->route('tenant.login.by.url')->with($notification);
+            ]);
         }
 
-        // 4. Admin — full access, no further checks needed
-        if ($user->role === 'Admin') {
+        // Admin — full access, no further checks needed
+        if ($currentUser->role === 'Admin') {
             return $next($request);
         }
 
-        // 5. Operations — must have Retail sector permission
-        if ($user->role === 'Operations') {
+        // Operations — must have Retail sector permission
+        if ($currentUser->role === 'Operations') {
             $retailSectorId = DB::connection('tenant')
                                 ->table('sectors')
                                 ->where('name', 'Retail')
@@ -68,7 +58,7 @@ class RetailAllowed
 
             $hasAccess = $retailSectorId && DB::connection('tenant')
                             ->table('employee_access')
-                            ->where('employee_id', Auth::id())
+                            ->where('employee_id', $currentUser->id)
                             ->where('sector_id', $retailSectorId)
                             ->exists();
 
@@ -76,20 +66,17 @@ class RetailAllowed
                 return $next($request);
             }
 
-            $notification = [
+            return redirect()->back()->with([
                 'message'    => 'You do not have permission to access the Retail section.',
                 'alert-type' => 'error'
-            ];
-            return redirect()->back()->with($notification);
+            ]);
         }
 
-        // 6. Any other role — deny
-        Auth::logout();
-
-        $notification = [
+        // Any other role — deny
+        session()->flush();
+        return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
             'message'    => 'This area is restricted to authorised staff only.',
             'alert-type' => 'error'
-        ];
-        return redirect()->route('tenant.login.by.url')->with($notification);
+        ]);
     }
 }

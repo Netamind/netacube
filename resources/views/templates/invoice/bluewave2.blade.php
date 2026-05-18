@@ -1,7 +1,7 @@
 {{--
-  Invoice Template : Bluewave3
-  View             : templates/invoice/bluewave3.blade.php
-  Generated        : 2026-04-28 13:22
+  Invoice Template : Bluewave2
+  View             : templates/invoice/bluewave2.blade.php
+  Generated        : 2026-05-17 21:54
 
   Available variables:
     $invoice       → invoice object (see InvoiceTemplateController::dummyInvoiceData)

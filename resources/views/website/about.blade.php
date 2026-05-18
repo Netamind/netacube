@@ -1,180 +1,205 @@
 @extends('website.homepage')
 
-@section('title', 'About Netacube')
+@section('title', 'About Netacube — Built by Netamind Technology')
+@section('meta_description', 'Netacube is developed by Netamind Technology — a business management platform built for retail, wholesale, hospitality, healthcare and service businesses that need to keep working, online or off.')
 
-@section('styles')
-  
+@section('head_extra')
+<style>
+    .page-body { padding-top: var(--nav-h); }
+
+    /* ══ About hero ══ */
+    .about-hero {
+        background: var(--gradient-deep);
+        padding: 80px 0 72px;
+        position: relative;
+        overflow: hidden;
+    }
+    .about-hero-grid {
+        position: absolute; inset: 0;
+        background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 46px 46px; pointer-events: none;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    }
+    .about-hero-inner { position: relative; z-index: 2; max-width: 720px; }
+    .about-hero .eyebrow { color: #aab8ff; }
+    .about-hero .eyebrow::before { background: #aab8ff; }
+    .about-hero h1 { color: #fff; font-size: clamp(2rem, 4.2vw, 2.9rem); font-weight: 800; line-height: 1.16; letter-spacing: -0.025em; margin: 14px 0 16px; }
+    .about-hero p { color: rgba(255,255,255,0.72); font-size: 1.04rem; line-height: 1.75; margin: 0; }
+
+    /* ══ Story block ══ */
+    .about-story-grid { display: grid; grid-template-columns: 1.05fr 0.95fr; gap: 56px; align-items: center; }
+    .about-story-copy p { font-size: 0.96rem; line-height: 1.8; color: var(--ink-soft); margin-bottom: 16px; }
+    .about-story-copy p:last-child { margin-bottom: 0; }
+    .about-story-copy strong { color: var(--ink); }
+    .about-story-visual { background: var(--surface-alt); border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 36px; }
+    .about-stat-row { display: grid; grid-template-columns: 1fr 1fr; gap: 22px; }
+    .about-stat { padding: 18px 0; border-top: 1px solid var(--line); }
+    .about-stat:nth-child(1), .about-stat:nth-child(2) { border-top: none; }
+    .about-stat .num { font-family: 'Plus Jakarta Sans', sans-serif; font-size: 1.7rem; font-weight: 800; color: var(--brand); line-height: 1; margin-bottom: 6px; }
+    .about-stat .label { font-size: 0.8rem; color: var(--muted); line-height: 1.5; }
+
+    /* ══ Mission / vision ══ */
+    .mv-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .mv-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 30px; transition: .2s; }
+    .mv-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: transparent; }
+    .mv-icon { width: 48px; height: 48px; background: var(--brand-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .mv-icon i { font-size: 1.4rem; color: var(--brand); }
+    .mv-card h3 { font-size: 1.1rem; font-weight: 800; color: var(--ink); margin-bottom: 10px; }
+    .mv-card p { font-size: 0.9rem; color: var(--ink-soft); line-height: 1.7; margin: 0; }
+
+    /* ══ Differentiators / values — reuse arch-card + feat-icon language ══ */
+    .about-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .about-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; transition: .2s; }
+    .about-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: transparent; }
+    .about-card .feat-icon { width: 48px; height: 48px; background: var(--brand-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .about-card .feat-icon i { font-size: 1.4rem; color: var(--brand); }
+    .about-card h5 { font-size: 0.97rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+    .about-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.65; margin: 0; }
+
+    @media (max-width: 991px) {
+        .about-story-grid { grid-template-columns: 1fr; gap: 36px; }
+        .mv-grid { grid-template-columns: 1fr; }
+        .about-grid-3 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 767px) {
+        .about-grid-3 { grid-template-columns: 1fr; }
+        .about-hero { padding: 56px 0; }
+    }
+</style>
 @endsection
 
 @section('content')
-    <!-- Hero Section -->
-    <section class="bg-half-260 bg-primary d-table w-100" style="background: url('website/assets/images/software/bg.png') center center;">
-        <div class="bg-overlay"></div>
-        <div class="container">
-            <div class="row align-items-center position-relative mt-5" style="z-index: 1;">
-                <div class="col-lg-7 col-md-12 text-center text-lg-start">
-                    <div class="title-heading mt-4">
-                        <h1 class="heading mb-3 text-white">About Netacube</h1>
-                        <p class="para-desc text-white-50 mx-auto mx-lg-0">
-                            Developed by Netamind Technology — a purpose-built, enterprise-grade business management platform 
-                            designed to meet the real operational needs of retail, wholesale, and service enterprises.
-                        </p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </section>
 
-    <!-- Our Story Section -->
-    <section class="section-uniform bg-white">
-        <div class="container">
-            <div class="row align-items-center">
-                <div class="col-lg-6 order-2 order-lg-1 mt-4 mt-lg-0">
-                    <h4 class="title mb-4">Our Story</h4>
-                    <p class="text-muted">
-                        Netacube was established to address the genuine challenges encountered by modern businesses. 
-                        Founded by <strong>Netamind Technology</strong>, we identified a critical gap: many retail, wholesale, 
-                        and service-based enterprises were hindered by fragmented systems, unreliable connectivity, 
-                        inadequate data protection, and software solutions ill-suited to real-world operational requirements.
-                    </p>
-                    <p class="text-muted">
-                        Beginning as a dedicated team of software developers and business professionals, we created a comprehensive, 
-                        unified platform that integrates inventory management, point-of-sale operations, human resources, payroll, 
-                        document generation, and advanced analytics — all engineered to perform reliably both online and offline.
-                    </p>
-                    <p class="text-muted">
-                        We take pride in developing a solution that actively supports the digital transformation and sustainable 
-                        growth of businesses.
-                    </p>
-                </div>
-                <div class="col-lg-6 order-1 order-lg-2">
-                    <img src="https://img.freepik.com/premium-photo/multi-ethnic-team-young-software-developers-using-computers-modern-office-with-focus-african-american-woman-instructing-colleague-copy-space_236854-29514.jpg" class="img-fluid rounded shadow" alt="Netamind Technology Team">
-                </div>
-            </div>
+<!-- ══ Hero ══════════════════════════════════════════════════════════════ -->
+<section class="about-hero">
+    <div class="about-hero-grid"></div>
+    <div class="container" style="max-width:1200px;">
+        <div class="about-hero-inner">
+            <span class="eyebrow">About Netacube</span>
+            <h1>One platform, built by people who've run the same problems you have</h1>
+            <p>Netacube is developed by Netamind Technology — built for retail, wholesale and service businesses that need their systems to keep working, whether the internet does or not.</p>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Mission & Vision Section -->
-    <section class="section-uniform bg-light">
-        <div class="container">
-            <div class="row justify-content-center text-center">
-                <div class="col-12">
-                    <h4 class="title mb-5">Our Mission & Vision</h4>
-                </div>
+<!-- ══ Our story ══════════════════════════════════════════════════════════ -->
+<section class="section bg-white">
+    <div class="container" style="max-width:1200px;">
+        <div class="about-story-grid">
+            <div class="about-story-copy">
+                <span class="eyebrow">Our story</span>
+                <h2 class="display-section mt-2 mb-3">Why we built Netacube</h2>
+                <p>Netacube was created to address challenges we kept seeing in real businesses. Founded by <strong>Netamind Technology</strong>, we noticed that retail, wholesale and service-based businesses were held back by fragmented systems, unreliable connectivity, weak data protection and software that wasn't designed around how they actually operate day to day.</p>
+                <p>We started as a small team of developers and business people, and built one unified platform that brings inventory, point of sale, staff, payroll, documents and reporting together — engineered to keep working whether you're online or offline.</p>
+                <p>We're proud to build something that genuinely supports the day-to-day running and growth of the businesses that rely on it.</p>
             </div>
-            <div class="row">
-                <div class="col-md-6 mt-4">
-                    <div class="d-flex align-items-start shadow-sm rounded p-4 bg-white hover-lift h-100">
-                        <div class="icon-box me-4">
-                            <i class="uil uil-rocket h2 text-white mb-0"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Our Mission</h5>
-                            <p class="text-muted mb-0">
-                                To deliver a secure, affordable, and highly practical business management solution that empowers 
-                                enterprises to streamline operations, safeguard critical data, and achieve sustainable growth — 
-                                even in environments with limited connectivity.
-                            </p>
-                        </div>
+            <div class="about-story-visual">
+                <div class="about-stat-row">
+                    <div class="about-stat">
+                        <div class="num">8+</div>
+                        <div class="label">Industries supported, from retail to property management</div>
                     </div>
-                </div>
-                <div class="col-md-6 mt-4">
-                    <div class="d-flex align-items-start shadow-sm rounded p-4 bg-white hover-lift h-100">
-                        <div class="icon-box me-4">
-                            <i class="uil uil-eye h2 text-white mb-0"></i>
-                        </div>
-                        <div>
-                            <h5 class="fw-bold">Our Vision</h5>
-                            <p class="text-muted mb-0">
-                                To become the most trusted and widely adopted business management platform, setting the standard 
-                                for innovative, reliable, and practical enterprise technology.
-                            </p>
-                        </div>
+                    <div class="about-stat">
+                        <div class="num">100%</div>
+                        <div class="label">Sales recorded even when the connection drops</div>
+                    </div>
+                    <div class="about-stat">
+                        <div class="num">14</div>
+                        <div class="label">Days free trial, full access, no card required</div>
+                    </div>
+                    <div class="about-stat">
+                        <div class="num">24/7</div>
+                        <div class="label">Support over email and WhatsApp</div>
                     </div>
                 </div>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- What Sets Us Apart Section -->
-    <section class="section-uniform bg-white">
-        <div class="container">
-            <div class="row justify-content-center text-center">
-                <div class="col-12">
-                    <h4 class="title mb-4">What Sets Netacube Apart</h4>
-                    <p class="text-muted para-desc mx-auto mb-5">Key differentiators that make Netacube the preferred choice for businesses</p>
-                </div>
+<!-- ══ Mission & vision ══════════════════════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">What drives us</span>
+            <h2 class="display-section mt-2">Our mission &amp; vision</h2>
+            <div class="section-divider"></div>
+        </div>
+        <div class="mv-grid">
+            <div class="mv-card">
+                <div class="mv-icon"><i class="ri-rocket-2-line"></i></div>
+                <h3>Our mission</h3>
+                <p>To deliver a secure, affordable and genuinely practical business management platform — one that helps businesses streamline operations, protect critical data and grow sustainably, even where connectivity can't be relied on.</p>
             </div>
-            <div class="row">
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-wifi-slash h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>True Offline Capability</h5>
-                        <p class="text-muted">Continue all operations seamlessly during internet outages — with automatic synchronization when connectivity returns.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-shield-check h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>Enterprise-Grade Security</h5>
-                        <p class="text-muted">Built-in role-based access, audit logs, encryption, and daily backups — designed with data protection as a core priority.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-users-alt h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>Practical Design, Professional Standards</h5>
-                        <p class="text-muted">Engineered for real business needs while maintaining international best practices in usability and functionality.</p>
-                    </div>
-                </div>
+            <div class="mv-card">
+                <div class="mv-icon"><i class="ri-eye-line"></i></div>
+                <h3>Our vision</h3>
+                <p>To become the most trusted business management platform in the markets we serve — known for being reliable, practical and built around how businesses actually work, not how software vendors imagine they do.</p>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Values Section -->
-    <section class="section-uniform bg-light">
-        <div class="container">
-            <div class="row justify-content-center text-center">
-                <div class="col-12">
-                    <h4 class="title mb-4">Our Core Values</h4>
-                    <p class="text-muted para-desc mx-auto mb-5">The principles that guide our development, decisions, and commitment to our customers</p>
-                </div>
+<!-- ══ What sets us apart ════════════════════════════════════════════════ -->
+<section class="section bg-white">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">What sets us apart</span>
+            <h2 class="display-section mt-2">Built differently, on purpose</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:560px;">
+                The same priorities that shape every feature we ship, from the smallest till to the full reporting dashboard.
+            </p>
+        </div>
+        <div class="about-grid-3">
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-wifi-off-line"></i></div>
+                <h5>True offline capability</h5>
+                <p>Operations carry on through internet outages, with everything syncing automatically the moment connectivity returns.</p>
             </div>
-            <div class="row">
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-shield-check h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>Security First</h5>
-                        <p class="text-muted">Enterprise-grade protection underpins every aspect of our platform, ensuring the confidentiality, integrity, and availability of your business data.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-users-alt h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>Customer-Centric Excellence</h5>
-                        <p class="text-muted">Your success is our highest priority. We provide dedicated 24/7 support and continuously evolve the platform based on real customer needs and feedback.</p>
-                    </div>
-                </div>
-                <div class="col-md-4 mt-4">
-                    <div class="text-center">
-                        <div class="icon-box mx-auto mb-3">
-                            <i class="uil uil-lightbulb-alt h1 text-primary mb-0"></i>
-                        </div>
-                        <h5>Innovation with Simplicity</h5>
-                        <p class="text-muted">We deliver powerful, forward-thinking features through an intuitive interface that requires minimal training and respects users' time and operational context.</p>
-                    </div>
-                </div>
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-shield-check-line"></i></div>
+                <h5>Enterprise-grade security</h5>
+                <p>Role-based access, audit trails, encryption and daily backups — data protection built in from the ground up, not bolted on.</p>
+            </div>
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-team-line"></i></div>
+                <h5>Practical, professional design</h5>
+                <p>Engineered around real business needs while holding to international standards for usability and reliability.</p>
             </div>
         </div>
-    </section>
+    </div>
+</section>
+
+<!-- ══ Core values ════════════════════════════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">How we work</span>
+            <h2 class="display-section mt-2">Our core values</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:560px;">
+                The principles behind every decision we make, from product roadmap to customer support.
+            </p>
+        </div>
+        <div class="about-grid-3">
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-shield-keyhole-line"></i></div>
+                <h5>Security first</h5>
+                <p>Enterprise-grade protection underpins everything we build, keeping your business data confidential, accurate and available.</p>
+            </div>
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-customer-service-2-line"></i></div>
+                <h5>Customer-centred</h5>
+                <p>Your success comes first. We provide real support over email and WhatsApp, and evolve the platform around genuine customer feedback.</p>
+            </div>
+            <div class="about-card">
+                <div class="feat-icon"><i class="ri-lightbulb-line"></i></div>
+                <h5>Innovation with simplicity</h5>
+                <p>Powerful, forward-thinking features delivered through an interface that needs minimal training and respects your time.</p>
+            </div>
+        </div>
+    </div>
+</section>
+
 @endsection

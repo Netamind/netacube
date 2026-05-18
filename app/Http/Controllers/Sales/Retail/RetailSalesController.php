@@ -30,7 +30,7 @@ class RetailSalesController extends Controller
     public function showProfileView()
     {
          return view('sales.retail.profile');
-    }
+    }                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                                              
 
 
 

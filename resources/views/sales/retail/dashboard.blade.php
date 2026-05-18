@@ -2,7 +2,7 @@
 <html lang="en" data-menu-color="brand">
 <head>
     <meta charset="utf-8" />
-    <title>Netacube - The ultimate business management system</title>
+    <title>Netacube - Sales Dashboard</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
     <meta content="Coderthemes" name="author" />
@@ -91,7 +91,7 @@
 
                 <ul class="topbar-menu d-flex align-items-center gap-3">
 
-                    <!-- Mobile search -->
+                    <!-- Mobile search (collapsed under sm) -->
                     <li class="dropdown d-lg-none">
                         <a class="nav-link dropdown-toggle arrow-none" data-bs-toggle="dropdown" href="#" role="button">
                             <i class="ri-search-line fs-22"></i>
@@ -156,7 +156,7 @@
         <!-- ========== Left Sidebar Start ========== -->
         <div class="leftside-menu">
 
-            <!-- Sidebar brand logo -->
+            <!-- Sidebar brand logo (full & icon-only variants) -->
             <a href="#" class="logo logo-light" style="text-align:left;padding-left:20px;">
                 <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
                 <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
@@ -166,6 +166,7 @@
                 <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
             </a>
 
+            <!-- Toggle buttons for condensed / full sidebar -->
             <div class="button-sm-hover" data-bs-toggle="tooltip" data-bs-placement="right" title="Show Full Sidebar">
                 <i class="ri-checkbox-blank-circle-line align-middle"></i>
             </div>
@@ -182,8 +183,8 @@
                             <i class="ri-user-fill align-middle" style="color:#f2f2f2"></i>
                         </div>
                         <div class="flex-grow-1 ms-2">
-                            <span class="fw-semibold fs-15 d-block"></span>
-                            <span class="fs-13"></span>
+                            <span class="fw-semibold fs-15 d-block">{{ Auth::user()->name }}</span>
+                            <span class="fs-13">{{DB::connection('tenant')->table('branches')->where('id',Auth::user()->branch) ->value('name') }}</span>
                         </div>
                         <div class="ms-auto">
                             <i class="ri-arrow-right-s-fill fs-20" style="color:#f2f2f2"></i>
@@ -194,35 +195,11 @@
                 <!--- Sidemenu -->
                 <ul class="side-nav">
 
-                    {{--
-                    ============================================================
-                    SALES ROLE SIDEBAR
-                    ============================================================
-                    SALES          — Dashboard, New Sale, Sales History,
-                                     Invoices, Daily Summary
-                    INVENTORY      — Stock Levels, Low/Zero Stock, Barcode Lookup,
-                                     Product Search
-                    DELIVERIES     — Receive Delivery, Delivery Notes, History
-                    CUSTOMERS      — Customer List, Accounts, Credit Notes
-                    CASH           — Cash Register, Petty Cash, Float
-                    REPORTS        — My Sales, Branch Summary, Product Performance
-                    SYSTEM         — Settings, Support, Logout
-                    ============================================================
-                    --}}
 
+                    <!-- ==================== GENERAL ==================== -->
+                    <li class="side-nav-title mt-1">General</li>
 
-                    <!-- ==================== SALES ==================== -->
-                    {{--
-                        Core point-of-sale functions:
-                          Dashboard    — today's metrics, quick actions, stock alerts
-                          New Sale     — open a new transaction / POS screen
-                          History      — all transactions recorded by this user / branch
-                          Invoices     — customer-facing invoice list and generation
-                          Daily Summary — end-of-day totals and reconciliation
-                    --}}
-                    <li class="side-nav-title mt-1">Sales</li>
-
-                    <!-- Main sales dashboard — today's overview -->
+                    <!-- Sales overview / KPIs landing page -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
                             <i class="ri-dashboard-3-line"></i>
@@ -230,255 +207,141 @@
                         </a>
                     </li>
 
-                    <!-- Open a new sale / POS transaction -->
+                    <!-- Business calendar: promotions, deliveries, closures -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-shopping-cart-line"></i>
-                            <span>New Sale</span>
+                            <i class="ri-calendar-event-fill"></i>
+                            <span>Events</span>
                         </a>
                     </li>
 
-                    <!-- Full transaction history for this branch -->
-                    <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#sidebarSalesHistory" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-history-line"></i>
-                            <span>Sales History</span>
-                            <span class="menu-arrow"></span>
-                        </a>
-                        <div class="collapse" id="sidebarSalesHistory">
-                            <ul class="side-nav-second-level">
-                                <li><a href="#">Today</a></li>            {{-- Current trading day transactions --}}
-                                <li><a href="#">By Date</a></li>          {{-- Browse historical dates --}}
-                                <li><a href="#">Discrepancies</a></li>    {{-- Flagged voids and mismatches --}}
-                            </ul>
-                        </div>
-                    </li>
 
-                    <!-- Customer-facing invoice list -->
+                    <!-- ==================== POINT OF SALE ==================== -->
+                    <li class="side-nav-title mt-2">Point of Sale</li>
+
+                    <!-- Without receipt — fast, no print step -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-file-text-line"></i>
-                            <span>Invoices</span>
+                            <i class="ri-tablet-line"></i>
+                            <span>Mobile</span>
                         </a>
                     </li>
 
-                    <!-- End-of-day reconciliation and totals -->
+                    <!-- With receipt — formal, prints a receipt for the customer -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-bar-chart-grouped-line"></i>
-                            <span>Daily Summary</span>
+                            <i class="ri-computer-line"></i>
+                            <span>Desktop</span>
                         </a>
                     </li>
 
 
                     <!-- ==================== INVENTORY ==================== -->
-                    {{--
-                        Read-only inventory visibility for sales staff:
-                          Stock Levels  — current quantities for this branch
-                          Low/Zero Stock — items needing urgent attention
-                          Barcode Lookup — scan or type a barcode to find a product
-                          Product Search — search by name, code, or supplier
-                    --}}
                     <li class="side-nav-title mt-2">Inventory</li>
 
-                    <!-- Current stock quantities for this branch -->
+                    <!-- Inventory: real-time stock levels, movement history, shop valuations, audit log -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a data-bs-toggle="collapse" href="#sidebarInventory" aria-expanded="false" class="side-nav-link">
                             <i class="ri-stack-line"></i>
-                            <span>Stock Levels</span>
-                        </a>
-                    </li>
-
-                    <!-- Items at or below reorder point / zero -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-alarm-warning-line"></i>
-                            <span>Low / Zero Stock</span>
-                        </a>
-                    </li>
-
-                    <!-- Scan or type barcode to instantly retrieve product details -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-barcode-line"></i>
-                            <span>Barcode Lookup</span>
-                        </a>
-                    </li>
-
-                    <!-- Search products by name, code, or supplier -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-search-line"></i>
-                            <span>Product Search</span>
-                        </a>
-                    </li>
-
-
-                    <!-- ==================== DELIVERIES ==================== -->
-                    {{--
-                        Goods-in workflow for sales staff:
-                          Receive Delivery — log incoming stock against a delivery note
-                          Delivery Notes   — open / pending notes awaiting confirmation
-                          History          — all past deliveries received at this branch
-                    --}}
-                    <li class="side-nav-title mt-2">Deliveries</li>
-
-                    <!-- Start receiving a new delivery and update stock -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-truck-line"></i>
-                            <span>Receive Delivery</span>
-                        </a>
-                    </li>
-
-                    <!-- List of open delivery notes awaiting action -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-clipboard-line"></i>
-                            <span>Delivery Notes</span>
-                        </a>
-                    </li>
-
-                    <!-- Past delivery records for this branch -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-archive-line"></i>
-                            <span>Delivery History</span>
-                        </a>
-                    </li>
-
-
-                    <!-- ==================== CUSTOMERS ==================== -->
-                    {{--
-                        Customer management for credit and account sales:
-                          Customers    — directory of account customers
-                          Accounts     — credit balances and transaction history per customer
-                          Credit Notes — issued credits and refunds
-                    --}}
-                    <li class="side-nav-title mt-2">Customers</li>
-
-                    <!-- Master customer directory -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-group-line"></i>
-                            <span>Customers</span>
-                        </a>
-                    </li>
-
-                    <!-- Per-customer credit balances and history -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-bank-card-line"></i>
-                            <span>Accounts</span>
-                        </a>
-                    </li>
-
-                    <!-- Credits, voids, and refund records -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-refund-2-line"></i>
-                            <span>Credit Notes</span>
-                        </a>
-                    </li>
-
-
-                    <!-- ==================== CASH ==================== -->
-                    {{--
-                        Cash handling for branch sales staff:
-                          Cash Register — open/close register, record cash movements
-                          Petty Cash    — small ad-hoc disbursements
-                          Float         — opening float and end-of-day count
-                    --}}
-                    <li class="side-nav-title mt-2">Cash</li>
-
-                    <!-- Cash register open/close and cash movement log -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-money-dollar-circle-line"></i>
-                            <span>Cash Register</span>
-                        </a>
-                    </li>
-
-                    <!-- Small cash disbursements log -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-secure-payment-line"></i>
-                            <span>Petty Cash</span>
-                        </a>
-                    </li>
-
-                    <!-- Opening float and end-of-day count reconciliation -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-wallet-line"></i>
-                            <span>Float</span>
-                        </a>
-                    </li>
-
-
-                    <!-- ==================== REPORTS ==================== -->
-                    {{--
-                        Scoped reporting available to sales staff:
-                          My Sales         — personal sales performance for the logged-in user
-                          Branch Summary   — aggregated branch totals (view-only)
-                          Product Performance — top and slow movers at this branch
-                    --}}
-                    <li class="side-nav-title mt-2">Reports</li>
-
-                    <!-- Personal sales performance — transactions made by this user -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-user-star-line"></i>
-                            <span>My Sales</span>
-                        </a>
-                    </li>
-
-                    <!-- Branch-level aggregated sales summary (read-only) -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-store-2-line"></i>
-                            <span>Branch Summary</span>
-                        </a>
-                    </li>
-
-                    <!-- Top and slow-moving products at this branch -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-line-chart-line"></i>
-                            <span>Product Performance</span>
-                        </a>
-                    </li>
-
-
-                    <!-- ==================== SYSTEM ==================== -->
-                    <!-- Session and preference management for the sales user -->
-                    <li class="side-nav-title mt-2">System</li>
-
-                    <!-- Personal account settings and notification preferences -->
-                    <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#sidebarSalesSettings" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-settings-4-line"></i>
-                            <span>Settings</span>
+                            <span>Inventory</span>
                             <span class="menu-arrow"></span>
                         </a>
-                        <div class="collapse" id="sidebarSalesSettings">
+                        <div class="collapse" id="sidebarInventory">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Profile</a></li>          {{-- Name, password, avatar --}}
-                                <li><a href="#">Notifications</a></li>    {{-- Low-stock and delivery alerts --}}
-                                <li><a href="#">Accessibility</a></li>    {{-- Display and a11y preferences --}}
+                                <li><a href="#">Products</a></li>
+                                <li><a href="#">Shopvalues</a></li>
+                                <li><a href="#">Search</a></li>
                             </ul>
                         </div>
                     </li>
 
-                    <!-- Raise a support ticket or access help docs -->
+                    <!-- Delivery notes: incoming stock receipts and branch-level price change history -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarDeliveryNotes" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-truck-line"></i>
+                            <span>Deliverynotes</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarDeliveryNotes">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Deliverynotes</a></li>
+                                <li><a href="#">Pricechanges</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Orders: emergency and regular stock replenishment requests -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarOrders" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-shopping-cart-2-line"></i>
+                            <span>Orders</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarOrders">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Emergency</a></li>
+                                <li><a href="#">Regular</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                    <!-- Operations: stock transfers, expiries, usages, and damages -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarOperations" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-exchange-line"></i>
+                            <span>Operations</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarOperations">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Transfers</a></li>
+                                <li><a href="#">Expiries</a></li>
+                                <li><a href="#">Usages</a></li>
+                                <li><a href="#">Damages</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+
+                    <!-- ==================== SALES ==================== -->
+                    <li class="side-nav-title mt-2">Sales</li>
+
+                    <!-- Sales: yesterday's summary, transaction history, customers, and analytics -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarSales" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-line-chart-line"></i>
+                            <span>Sales</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarSales">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Yesterday</a></li>
+                                <li><a href="#">History</a></li>
+                                <li><a href="#">Analytics</a></li>
+                            </ul>
+                        </div>
+                    </li>
+
+                                        
+                        <li class="side-nav-item">
+                            <a href="#" class="side-nav-link">
+                                <i class="ri-group-line"></i>
+                                <span>Customers</span>
+                            </a>
+                        </li>
+
+
+                    <!-- ==================== SYSTEM ==================== -->
+                    <li class="side-nav-title mt-2">System</li>
+
+                    <!-- Branch/account configuration -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link">
-                            <i class="ri-customer-service-2-line"></i>
-                            <span>Support</span>
+                            <i class="ri-settings-3-line"></i>
+                            <span>Settings</span>
                         </a>
                     </li>
 
-                    <!-- End the authenticated session -->
                     <li class="side-nav-item">
                         <a href="#" class="side-nav-link" onclick="document.getElementById('logout-form').submit();">
                             <i class="ri-logout-box-r-line"></i>
@@ -492,7 +355,7 @@
         </div>
         <!-- ========== Left Sidebar End ========== -->
 
-        @yield('content', View::make('operations.retail.default'))
+        @yield('content', View::make('sales.retail.default'))
 
     </div>
     <!-- END wrapper -->

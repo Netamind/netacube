@@ -219,11 +219,26 @@
 
                     <!-- Main dashboard / home screen -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a href="{{ route('retail.operations.dashboard') }}" class="side-nav-link">
                             <i class="ri-dashboard-3-line"></i>
-                            <span>Dashboard (Retail)</span>
+                            <span>Retail</span>
                         </a>
                     </li>
+
+                    <?php
+                    $role = Auth::user()->role;
+                    ?>
+
+                    @if($role=="Admin")
+                      <li class="side-nav-item">
+                        <a href="{{ route('tenant.admin.dashboard') }}" class="side-nav-link">
+                            <i class="ri-settings-3-line"></i>
+                            <span>Admin</span>
+                        </a>
+                    </li>
+                    @endif
+
+
 
                     <!-- Business calendar: promotions, deliveries, closures -->
                     <li class="side-nav-item">
@@ -232,6 +247,7 @@
                             <span>Events</span>
                         </a>
                     </li>
+
 
                     <!-- Product category hierarchy management -->
                     <li class="side-nav-item">

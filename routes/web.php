@@ -5,6 +5,7 @@ use App\Http\Controllers\Website\WebsiteController;
 use App\Http\Controllers\Master\MasterController;
 use App\Http\Controllers\Master\MasterAuthController;
 use App\Http\Controllers\Master\MasterTenantController;
+use App\Http\Controllers\Master\MasterApproveTenantController;
 use App\Http\Controllers\Master\MasterTenantInvoicesController;
 use App\Http\Controllers\Master\TenantMigrationController;
 use App\Http\Controllers\Master\InvoiceTemplateController;
@@ -32,7 +33,7 @@ use App\Http\Controllers\Sales\Retail\RetailSalesController;
 
 Route::get('/',               [WebsiteController::class, 'showHomePage']);
 Route::get('/get-started',    [WebsiteController::class, 'showGetStartedView']);
-Route::get('/about-netacube', [WebsiteController::class, 'showAboutUsView']);
+Route::get('/about', [WebsiteController::class, 'showAboutUsView']);
 Route::get('/features',       [WebsiteController::class, 'showFeaturesView']);
 Route::get('/pricing',        [WebsiteController::class, 'showPricingView']);
 Route::get('/contact',        [WebsiteController::class, 'showContactView']);
@@ -347,7 +348,8 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 
 Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'sales.allowed']], function () {
 
-    Route::get('/sales/dashboard', [RetailSalesController::class, 'showDashboardView'])->name('retail.sales.dashboard');
+    Route::get('retail/sales/dashboard', [RetailSalesController::class, 'showDashboardView'])->name('retail.sales.dashboard');
+    Route::get('retail/sales/profile', [RetailSalesController::class, 'showProfileView'])->name('retail.sales.profile');
 
 });
 
@@ -437,7 +439,11 @@ Route::group(['prefix' => 'master', 'middleware' => 'master.admin'], function ()
     Route::get('/tenant-details',                       [MasterTenantController::class, 'showTenantDetailsView'])->name('master.tenant.details');
     Route::post('/add-tenant',                          [MasterTenantController::class, 'masterAddTenant'])->name('master.add.tenant');
     Route::post('/update-tenant-details',               [MasterTenantController::class, 'updateTenantDetails'])->name('master.tenant.details.update');
-    Route::post('/master/tenant/approve',               [MasterTenantController::class, 'approveTenant'])->name('master.tenant.approve');
+   
+    Route::post('/master/tenant/approve',               [MasterApproveTenantController::class, 'approveTenant'])->name('master.tenant.approve');
+    Route::get('/master/tenant/approve/status/{id}', [MasterApproveTenantController::class, 'approveStatus'])->name('master.tenant.approve.status');
+    
+    
     Route::post('/master/tenant/delete',                [MasterTenantController::class, 'deleteTenant'])->name('master.tenant.delete');
     Route::post('/master/tenant/hold',                  [MasterTenantController::class, 'toggleTenantHold'])->name('master.tenant.hold');
     Route::post('/master/tenant/payment-dates',         [MasterTenantController::class, 'updatePaymentDates'])->name('master.tenant.payment.dates');

@@ -1,565 +1,243 @@
 <style>
-    /* ══ Hero ══════════════════════════════════════════════════════════════ */
     .hero {
-        background: #0c1128;
-        min-height: calc(100vh - 68px);
-        display: flex;
-        align-items: center;
-        position: relative;
-        overflow: hidden;
-        padding: 80px 0 60px;
+        background: linear-gradient(165deg, #232c52 0%, #2f3a72 55%, var(--brand) 100%);
+        display: flex; align-items: center; position: relative; overflow: hidden; padding: 64px 0;
     }
     .hero-bg-grid {
-        position: absolute;
-        inset: 0;
-        background-image:
-            linear-gradient(rgba(75,94,189,0.07) 1px, transparent 1px),
-            linear-gradient(90deg, rgba(75,94,189,0.07) 1px, transparent 1px);
-        background-size: 48px 48px;
-        pointer-events: none;
-    }
-    .hero-bg-glow {
-        position: absolute;
-        width: 600px;
-        height: 600px;
-        background: radial-gradient(circle, rgba(75,94,189,0.25) 0%, transparent 70%);
-        top: -100px;
-        right: -100px;
-        pointer-events: none;
-    }
-    .hero-bg-glow-2 {
-        position: absolute;
-        width: 400px;
-        height: 400px;
-        background: radial-gradient(circle, rgba(107,125,232,0.15) 0%, transparent 70%);
-        bottom: 0;
-        left: 0;
-        pointer-events: none;
+        position: absolute; inset: 0;
+        background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 46px 46px; pointer-events: none;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
     }
     .hero-content { position: relative; z-index: 2; }
     .hero-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 7px;
-        background: rgba(75,94,189,0.18);
-        border: 1px solid rgba(75,94,189,0.35);
-        color: #93a8f0;
-        font-size: 0.78rem;
-        font-weight: 600;
-        letter-spacing: 0.06em;
-        padding: 6px 14px;
-        border-radius: 20px;
-        margin-bottom: 24px;
-        text-transform: uppercase;
+        display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.22); color: #d7deff; font-size: 0.78rem; font-weight: 700;
+        letter-spacing: 0.04em; padding: 7px 15px; border-radius: 20px; margin-bottom: 22px;
     }
-    .hero-badge i { font-size: 0.9rem; }
-    .hero h1 {
-        font-size: clamp(2.4rem, 5.5vw, 3.6rem);
-        font-weight: 800;
-        line-height: 1.1;
-        letter-spacing: -0.03em;
-        color: #fff;
-        margin-bottom: 20px;
-    }
-    .hero h1 .accent {
-        background: linear-gradient(135deg, #6b7de8 0%, #93a8f0 100%);
-        -webkit-background-clip: text;
-        -webkit-text-fill-color: transparent;
-        background-clip: text;
-    }
-    .hero-lead {
-        font-size: 1.08rem;
-        line-height: 1.72;
-        color: rgba(255,255,255,0.62);
-        max-width: 500px;
-        margin-bottom: 36px;
-    }
-    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; margin-bottom: 48px; }
+    .hero h1 { font-size: clamp(2.2rem, 4.8vw, 3.3rem); font-weight: 800; line-height: 1.13; letter-spacing: -0.03em; color: #fff; margin-bottom: 18px; }
+    .hero h1 .accent { color: #aab8ff; }
+    .hero-lead { font-size: 1.08rem; line-height: 1.75; color: rgba(255,255,255,0.72); max-width: 510px; margin-bottom: 32px; }
+    .hero-actions { display: flex; gap: 12px; flex-wrap: wrap; align-items: center; }
     .btn-hero-primary {
-        background: #4B5EBD;
-        color: #fff;
-        font-weight: 700;
-        font-size: 0.95rem;
-        padding: 14px 30px;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        transition: background 0.2s, transform 0.15s, box-shadow 0.2s;
-        border: none;
-        text-decoration: none;
+        background: #fff; color: var(--brand); font-weight: 700; font-size: 0.95rem; padding: 14px 28px; border-radius: 10px;
+        display: inline-flex; align-items: center; gap: 8px; transition: .2s; border: none;
     }
-    .btn-hero-primary:hover {
-        background: #3a4da0;
-        transform: translateY(-2px);
-        box-shadow: 0 10px 32px rgba(75,94,189,0.40);
-        color: #fff;
-    }
+    .btn-hero-primary:hover { transform: translateY(-2px); box-shadow: 0 12px 30px rgba(0,0,0,.28); color: var(--brand-dark); }
     .btn-hero-ghost {
-        background: rgba(255,255,255,0.08);
-        color: rgba(255,255,255,0.85);
-        font-weight: 600;
-        font-size: 0.95rem;
-        padding: 13px 28px;
-        border-radius: 10px;
-        display: inline-flex;
-        align-items: center;
-        gap: 8px;
-        border: 1px solid rgba(255,255,255,0.15);
-        transition: background 0.2s, color 0.2s;
-        text-decoration: none;
+        background: rgba(255,255,255,0.08); color: rgba(255,255,255,0.92); font-weight: 600; font-size: 0.95rem; padding: 13px 26px;
+        border-radius: 10px; display: inline-flex; align-items: center; gap: 8px; border: 1px solid rgba(255,255,255,0.2); transition: .2s;
     }
-    .btn-hero-ghost:hover {
-        background: rgba(255,255,255,0.14);
-        color: #fff;
-    }
-    .hero-stats { display: flex; gap: 32px; flex-wrap: wrap; }
-    .hero-stat { display: flex; flex-direction: column; }
-    .hero-stat .num { font-size: 1.7rem; font-weight: 800; color: #fff; line-height: 1; }
-    .hero-stat .lbl { font-size: 0.78rem; color: rgba(255,255,255,0.45); margin-top: 4px; font-weight: 500; }
-    .hero-stat-divider { width: 1px; background: rgba(255,255,255,0.1); }
+    .btn-hero-ghost:hover { background: rgba(255,255,255,0.16); color: #fff; }
 
+    /* ── Hero visual ── */
     .hero-visual { position: relative; z-index: 2; }
-    .hero-screen {
-        background: rgba(255,255,255,0.04);
-        border: 1px solid rgba(255,255,255,0.1);
-        border-radius: 18px;
-        overflow: hidden;
-        box-shadow: 0 32px 80px rgba(0,0,0,0.4);
+    .hero-image-frame {
+        background: #fff; border-radius: 16px; overflow: hidden; box-shadow: 0 32px 70px rgba(0,0,0,0.35);
+        border: 1px solid rgba(255,255,255,0.12);
     }
-    .hero-screen-bar {
-        background: rgba(255,255,255,0.06);
-        padding: 10px 16px;
-        display: flex;
-        align-items: center;
-        gap: 6px;
-        border-bottom: 1px solid rgba(255,255,255,0.06);
-    }
-    .hero-screen-dot { width: 8px; height: 8px; border-radius: 50%; }
-    .hero-screen img { width: 100%; display: block; }
+    .hero-image-frame img { width: 100%; height: auto; display: block; }
 
     .hero-float-card {
-        position: absolute;
-        background: rgba(20,26,56,0.92);
-        backdrop-filter: blur(12px);
-        border: 1px solid rgba(75,94,189,0.3);
-        border-radius: 12px;
-        padding: 12px 16px;
-        color: #fff;
-        font-size: 0.8rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 9px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.3);
-        z-index: 3;
-        animation: float 4s ease-in-out infinite;
+        position: absolute; background: #fff; border-radius: 12px; padding: 12px 16px; color: var(--ink);
+        font-size: 0.8rem; font-weight: 700; display: flex; align-items: center; gap: 9px; box-shadow: var(--shadow-lg);
+        z-index: 3; animation: float 4.2s ease-in-out infinite;
     }
-    .hero-float-card i { font-size: 1.2rem; color: #7dd3b8; }
-    .hero-float-card .sub { font-size: 0.68rem; font-weight: 400; color: rgba(255,255,255,0.5); display: block; margin-top: 1px; }
-    @keyframes float {
-        0%, 100% { transform: translateY(0); }
-        50%       { transform: translateY(-8px); }
-    }
+    .hero-float-card i { font-size: 1.25rem; color: var(--brand); }
+    .hero-float-card .sub { font-size: 0.68rem; font-weight: 500; color: var(--muted); display: block; margin-top: 1px; }
+    @keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
 
     /* ══ Trust strip ══ */
-    .trust-strip {
-        background: #f5f6fb;
-        border-top: 1px solid rgba(75,94,189,0.12);
-        border-bottom: 1px solid rgba(75,94,189,0.12);
-        padding: 28px 0;
-    }
-    .trust-strip-inner {
-        max-width: 1200px;
-        margin: 0 auto;
-        padding: 0 24px;
-        display: flex;
-        align-items: center;
-        gap: 24px;
-        justify-content: center;
-        flex-wrap: wrap;
-    }
-    .trust-label {
-        font-size: 0.78rem;
-        font-weight: 700;
-        letter-spacing: 0.1em;
-        text-transform: uppercase;
-        color: #6b7280;
-        white-space: nowrap;
-    }
+    .trust-strip { background: var(--surface-alt); border-bottom: 1px solid var(--line); padding: 26px 0; }
+    .trust-strip-inner { max-width: 1200px; margin: 0 auto; padding: 0 24px; display: flex; align-items: center; gap: 20px; justify-content: center; flex-wrap: wrap; }
+    .trust-label { font-size: 0.76rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); white-space: nowrap; }
     .trust-dots { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
-    .trust-dot {
-        background: #eef0f9;
-        border: 1px solid rgba(75,94,189,0.12);
-        border-radius: 30px;
-        padding: 7px 18px;
-        font-size: 0.82rem;
-        font-weight: 600;
-        color: #4B5EBD;
-        white-space: nowrap;
-    }
+    .trust-dot { background: #fff; border: 1px solid var(--line); border-radius: 30px; padding: 7px 16px; font-size: 0.81rem; font-weight: 600; color: var(--brand); white-space: nowrap; }
 
-    /* ══ Section utility ══ */
-    .hd-section      { padding: 88px 0; }
-    .hd-section-sm   { padding: 60px 0; }
-    .hd-bg-alt       { background: #f5f6fb; }
-    .hd-bg-white     { background: #fff; }
-    .hd-eyebrow {
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.14em;
-        text-transform: uppercase;
-        color: #4B5EBD;
+    /* ══ Sectors ══ */
+    .sector-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .sector-card {
+        background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 24px;
+        transition: .2s; cursor: default; position: relative; overflow: hidden;
     }
-    .hd-display-section {
-        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
-        font-weight: 700;
-        line-height: 1.2;
-        letter-spacing: -0.02em;
-        color: #0f1623;
+    .sector-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: var(--gradient); opacity: 0; transition: .2s; }
+    .sector-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); border-color: transparent; }
+    .sector-card:hover::before { opacity: 1; }
+    .sector-icon { width: 46px; height: 46px; background: var(--brand-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 14px; }
+    .sector-icon i { font-size: 1.3rem; color: var(--brand); }
+    .sector-card h5 { font-size: 0.97rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+    .sector-card p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+    /* ══ Story blocks ══ */
+    .story-block { display: flex; align-items: center; gap: 56px; }
+    .story-block:nth-child(even) { flex-direction: row-reverse; }
+    .story-copy { flex: 1; }
+    .story-copy .num-tag {
+        display: inline-flex; align-items: center; justify-content: center; width: 38px; height: 38px;
+        border-radius: 10px; background: var(--gradient); color: #fff; font-weight: 800; font-size: 0.95rem; margin-bottom: 16px;
     }
-    .hd-lead {
-        font-size: 1.05rem;
-        line-height: 1.7;
-        color: #6b7280;
+    .story-copy h3 { font-size: 1.5rem; font-weight: 800; margin-bottom: 12px; letter-spacing: -0.01em; }
+    .story-copy p { font-size: 0.96rem; line-height: 1.75; color: var(--ink-soft); }
+    .story-copy ul { margin: 18px 0 0; padding: 0; list-style: none; }
+    .story-copy ul li { display: flex; align-items: flex-start; gap: 10px; font-size: 0.88rem; color: var(--ink-soft); margin-bottom: 10px; }
+    .story-copy ul li i { color: var(--brand); font-size: 1.05rem; margin-top: 1px; flex-shrink: 0; }
+    .story-visual { flex: 0 0 420px; }
+    .story-image-frame { background: #fff; border-radius: var(--radius-lg); overflow: hidden; box-shadow: var(--shadow-lg); }
+    .story-image-frame img { width: 100%; height: auto; display: block; }
+
+    /* ══ Interface showcase ══ */
+    .showcase-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 22px; }
+    .showcase-card {
+        background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); overflow: hidden;
+        cursor: pointer; transition: .25s ease; box-shadow: var(--shadow); position: relative;
     }
-    .hd-divider {
-        width: 40px;
-        height: 3px;
-        background: #4B5EBD;
-        border-radius: 2px;
-        margin: 12px auto 0;
+    .showcase-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+    .showcase-thumb { position: relative; overflow: hidden; aspect-ratio: 16 / 10.5; background: var(--surface-alt); }
+    .showcase-thumb img { width: 100%; height: 100%; object-fit: cover; object-position: top; transition: transform .35s ease; }
+    .showcase-card:hover .showcase-thumb img { transform: scale(1.045); }
+    .showcase-thumb::after {
+        content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, rgba(28,35,66,0) 55%, rgba(28,35,66,0.55) 100%);
+        opacity: 0; transition: .25s;
+    }
+    .showcase-card:hover .showcase-thumb::after { opacity: 1; }
+    .showcase-expand {
+        position: absolute; top: 14px; right: 14px; width: 36px; height: 36px; border-radius: 9px;
+        background: rgba(255,255,255,0.92); display: flex; align-items: center; justify-content: center;
+        opacity: 0; transform: translateY(-4px); transition: .2s; box-shadow: var(--shadow);
+    }
+    .showcase-card:hover .showcase-expand { opacity: 1; transform: translateY(0); }
+    .showcase-expand i { color: var(--brand); font-size: 1.05rem; }
+    .showcase-body { padding: 18px 20px 20px; }
+    .showcase-body h5 { font-size: 0.93rem; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+    .showcase-body p { font-size: 0.82rem; color: var(--muted); line-height: 1.6; margin: 0; }
+
+    /* ── Lightbox overlay ── */
+    .lightbox-overlay {
+        position: fixed; inset: 0; background: rgba(20,24,46,0.92); backdrop-filter: blur(4px);
+        display: flex; align-items: center; justify-content: center; padding: 40px 20px; z-index: 2000;
+        opacity: 0; visibility: hidden; transition: opacity .2s ease;
+    }
+    .lightbox-overlay.open { opacity: 1; visibility: visible; }
+    .lightbox-inner { position: relative; max-width: 1100px; width: 100%; }
+    .lightbox-inner img { width: 100%; height: auto; max-height: 82vh; object-fit: contain; border-radius: 12px; box-shadow: 0 30px 80px rgba(0,0,0,.45); display: block; margin: 0 auto; }
+    .lightbox-caption { text-align: center; color: rgba(255,255,255,0.85); font-size: 0.88rem; font-weight: 600; margin-top: 16px; }
+    .lightbox-close {
+        position: absolute; top: -46px; right: 0; width: 38px; height: 38px; border-radius: 9px;
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.22); color: #fff;
+        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s; font-size: 1.2rem;
+    }
+    .lightbox-close:hover { background: rgba(255,255,255,0.2); }
+
+    /* ── Lightbox prev / next arrows ── */
+    .lightbox-nav {
+        position: absolute; top: 50%; transform: translateY(-50%);
+        width: 48px; height: 48px; border-radius: 50%;
+        background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.22); color: #fff;
+        display: flex; align-items: center; justify-content: center; cursor: pointer; transition: .2s;
+        font-size: 1.7rem; z-index: 10; flex-shrink: 0;
+    }
+    .lightbox-nav:hover { background: rgba(255,255,255,0.22); }
+    .lightbox-prev { left: -68px; }
+    .lightbox-next { right: -68px; }
+
+    /* ── Counter pill at the bottom of the lightbox ── */
+    .lightbox-counter {
+        text-align: center; margin-top: 10px;
+        font-size: 0.76rem; font-weight: 600; color: rgba(255,255,255,0.45);
+        letter-spacing: 0.08em;
     }
 
     /* ══ Features ══ */
-    .hd-features-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-    }
-    .hd-feature-card {
-        background: #fff;
-        border: 1px solid rgba(75,94,189,0.12);
-        border-radius: 18px;
-        padding: 28px;
-        transition: box-shadow 0.2s, transform 0.2s, border-color 0.2s;
-    }
-    .hd-feature-card:hover {
-        box-shadow: 0 8px 32px rgba(75,94,189,0.12);
-        transform: translateY(-3px);
-        border-color: rgba(75,94,189,0.25);
-    }
-    .hd-feature-icon {
-        width: 48px;
-        height: 48px;
-        background: #eef0f9;
-        border-radius: 12px;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin-bottom: 16px;
-    }
-    .hd-feature-icon i { font-size: 1.4rem; color: #4B5EBD; }
-    .hd-feature-card h5 { font-size: 0.95rem; font-weight: 700; color: #0f1623; margin-bottom: 8px; }
-    .hd-feature-card p  { font-size: 0.85rem; color: #6b7280; line-height: 1.65; margin: 0; }
+    .feat-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .feat-card { background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 28px; transition: .2s; }
+    .feat-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: transparent; }
+    .feat-icon { width: 48px; height: 48px; background: var(--brand-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin-bottom: 16px; }
+    .feat-icon i { font-size: 1.4rem; color: var(--brand); }
+    .feat-card h5 { font-size: 0.95rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+    .feat-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.65; margin: 0; }
 
-    /* ══ Why grid ══ */
-    .hd-why-grid {
-        display: grid;
-        grid-template-columns: repeat(4, 1fr);
-        gap: 18px;
-    }
-    .hd-why-card {
-        background: #fff;
-        border: 1px solid rgba(75,94,189,0.12);
-        border-radius: 12px;
-        padding: 24px 20px;
-        text-align: center;
-        transition: box-shadow 0.2s, transform 0.2s;
-    }
-    .hd-why-card:hover {
-        box-shadow: 0 6px 24px rgba(75,94,189,0.1);
-        transform: translateY(-3px);
-    }
-    .hd-why-icon {
-        width: 52px;
-        height: 52px;
-        background: #eef0f9;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        margin: 0 auto 14px;
-    }
-    .hd-why-icon i { font-size: 1.4rem; color: #4B5EBD; }
-    .hd-why-card h5 { font-size: 0.88rem; font-weight: 700; color: #0f1623; margin-bottom: 6px; }
-    .hd-why-card p  { font-size: 0.8rem; color: #6b7280; line-height: 1.6; margin: 0; }
+    /* ══ Architecture strip ══ */
+    .arch-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; }
+    .arch-card { text-align: center; padding: 26px 20px; background: #fff; border: 1px solid var(--line); border-radius: var(--radius); transition: .2s; }
+    .arch-card:hover { box-shadow: var(--shadow); transform: translateY(-3px); }
+    .arch-icon { width: 52px; height: 52px; background: var(--brand-light); border-radius: 50%; display: flex; align-items: center; justify-content: center; margin: 0 auto 14px; }
+    .arch-icon i { font-size: 1.4rem; color: var(--brand); }
+    .arch-card h5 { font-size: 0.88rem; font-weight: 800; color: var(--ink); margin-bottom: 6px; }
+    .arch-card p { font-size: 0.8rem; color: var(--muted); line-height: 1.6; margin: 0; }
 
-    /* ══ Gallery ══ */
-    .hd-gallery-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 20px;
-    }
-    .hd-gallery-item {
-        border-radius: 12px;
-        overflow: hidden;
-        border: 1px solid rgba(75,94,189,0.12);
-        transition: box-shadow 0.2s, transform 0.2s;
-    }
-    .hd-gallery-item:hover {
-        box-shadow: 0 12px 40px rgba(75,94,189,0.14);
-        transform: translateY(-4px);
-    }
-    .hd-gallery-item img { width: 100%; height: 200px; object-fit: cover; display: block; }
-    .hd-gallery-cap {
-        background: #fff;
-        padding: 12px 16px;
-        font-size: 0.83rem;
-        font-weight: 600;
-        color: #0f1623;
-        border-top: 1px solid rgba(75,94,189,0.12);
-    }
+    /* ══ Pricing teaser ══ */
+    .pricing-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 24px; max-width: 880px; margin: 0 auto; }
+    .pricing-card { background: #fff; border: 1.5px solid var(--line); border-radius: var(--radius-lg); padding: 34px 26px; text-align: center; position: relative; transition: .2s; }
+    .pricing-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-4px); }
+    .pricing-card.featured { border-color: var(--brand); border-width: 2px; box-shadow: 0 6px 26px rgba(75,94,189,.18); }
+    .pricing-badge { position: absolute; top: -13px; left: 50%; transform: translateX(-50%); background: var(--gradient); color: #fff; font-size: 0.68rem; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase; padding: 4px 16px; border-radius: 20px; white-space: nowrap; }
+    .pricing-period { font-size: 0.77rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.1em; color: var(--muted); margin-bottom: 18px; }
+    .pricing-price { font-size: 2.6rem; font-weight: 800; color: var(--brand); line-height: 1; margin-bottom: 4px; }
+    .pricing-price sup { font-size: 1.1rem; vertical-align: top; margin-top: 8px; margin-right: 2px; }
+    .pricing-sub { font-size: 0.79rem; color: var(--muted); margin-bottom: 26px; }
+    .btn-pricing { display: block; width: 100%; padding: 12px; border-radius: 9px; font-size: 0.89rem; font-weight: 700; text-align: center; transition: .2s; }
+    .btn-pricing-primary { background: var(--gradient); color: #fff; }
+    .btn-pricing-primary:hover { box-shadow: 0 8px 22px rgba(75,94,189,.32); transform: translateY(-1px); color: #fff; }
+    .btn-pricing-outline { background: transparent; color: var(--brand); border: 1.5px solid var(--brand); }
+    .btn-pricing-outline:hover { background: var(--brand-light); }
 
-    /* ══ Pricing ══ */
-    .hd-pricing-grid {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-        max-width: 860px;
-        margin: 0 auto;
+    @media (max-width: 1200px) {
+        .lightbox-prev { left: -56px; }
+        .lightbox-next { right: -56px; }
     }
-    .hd-pricing-card {
-        background: #fff;
-        border: 1.5px solid rgba(75,94,189,0.12);
-        border-radius: 18px;
-        padding: 36px 28px;
-        text-align: center;
-        position: relative;
-        transition: box-shadow 0.2s, transform 0.2s;
-    }
-    .hd-pricing-card:hover {
-        box-shadow: 0 8px 32px rgba(75,94,189,0.12);
-        transform: translateY(-4px);
-    }
-    .hd-pricing-card.featured {
-        border-color: #4B5EBD;
-        border-width: 2px;
-        box-shadow: 0 4px 24px rgba(75,94,189,0.16);
-    }
-    .hd-pricing-badge {
-        position: absolute;
-        top: -13px;
-        left: 50%;
-        transform: translateX(-50%);
-        background: #4B5EBD;
-        color: #fff;
-        font-size: 0.7rem;
-        font-weight: 700;
-        letter-spacing: 0.08em;
-        text-transform: uppercase;
-        padding: 4px 16px;
-        border-radius: 20px;
-        white-space: nowrap;
-    }
-    .hd-pricing-period {
-        font-size: 0.78rem;
-        font-weight: 700;
-        text-transform: uppercase;
-        letter-spacing: 0.1em;
-        color: #6b7280;
-        margin-bottom: 20px;
-    }
-    .hd-pricing-price {
-        font-size: 2.8rem;
-        font-weight: 800;
-        color: #4B5EBD;
-        line-height: 1;
-        margin-bottom: 4px;
-    }
-    .hd-pricing-price sup { font-size: 1.2rem; vertical-align: top; margin-top: 8px; margin-right: 2px; }
-    .hd-pricing-sub { font-size: 0.8rem; color: #6b7280; margin-bottom: 20px; }
-    .hd-pricing-desc { font-size: 0.85rem; color: #6b7280; line-height: 1.6; margin-bottom: 28px; min-height: 56px; }
-    .hd-btn-pricing {
-        display: block;
-        width: 100%;
-        padding: 12px;
-        border-radius: 9px;
-        font-size: 0.9rem;
-        font-weight: 700;
-        text-align: center;
-        transition: all 0.2s;
-        text-decoration: none;
-    }
-    .hd-btn-pricing-primary { background: #4B5EBD; color: #fff; }
-    .hd-btn-pricing-primary:hover { background: #3a4da0; color: #fff; transform: translateY(-1px); box-shadow: 0 6px 20px rgba(75,94,189,0.3); }
-    .hd-btn-pricing-outline { background: transparent; color: #4B5EBD; border: 1.5px solid #4B5EBD; }
-    .hd-btn-pricing-outline:hover { background: #eef0f9; }
-    .hd-pricing-note { font-size: 0.78rem; color: #6b7280; margin-top: 16px; }
-    .hd-pricing-note strong { color: #0f1623; }
-
-    /* ══ Steps ══ */
-    .hd-steps-grid {
-        display: grid;
-        grid-template-columns: repeat(2, 1fr);
-        gap: 20px;
-        max-width: 900px;
-        margin: 0 auto;
-    }
-    .hd-step-card {
-        background: #fff;
-        border: 1px solid rgba(75,94,189,0.12);
-        border-radius: 18px;
-        padding: 28px 28px 28px 24px;
-        display: flex;
-        align-items: flex-start;
-        gap: 20px;
-        transition: box-shadow 0.2s, transform 0.2s;
-    }
-    .hd-step-card:hover { box-shadow: 0 8px 28px rgba(75,94,189,0.10); transform: translateY(-2px); }
-    .hd-step-card.full { grid-column: 1 / -1; max-width: 440px; margin: 0 auto; }
-    .hd-step-num {
-        width: 48px;
-        height: 48px;
-        background: #4B5EBD;
-        color: #fff;
-        border-radius: 50%;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        font-size: 1.1rem;
-        font-weight: 800;
-        flex-shrink: 0;
-    }
-    .hd-step-body i { font-size: 1.6rem; color: #4B5EBD; display: block; margin-bottom: 8px; }
-    .hd-step-body h5 { font-size: 0.95rem; font-weight: 700; color: #0f1623; margin-bottom: 8px; }
-    .hd-step-body p  { font-size: 0.85rem; color: #6b7280; line-height: 1.65; margin: 0 0 12px; }
-    .hd-step-link {
-        font-size: 0.83rem;
-        font-weight: 700;
-        color: #4B5EBD;
-        display: inline-flex;
-        align-items: center;
-        gap: 4px;
-        text-decoration: none;
-    }
-    .hd-step-link:hover { color: #3a4da0; }
-
-    /* ══ Contact strip ══ */
-    .hd-contact-strip {
-        display: grid;
-        grid-template-columns: repeat(3, 1fr);
-        gap: 24px;
-        max-width: 760px;
-        margin: 0 auto;
-    }
-    .hd-contact-card {
-        text-align: center;
-        padding: 28px 20px;
-        background: #fff;
-        border: 1px solid rgba(75,94,189,0.12);
-        border-radius: 12px;
-    }
-    .hd-contact-card i { font-size: 2rem; color: #4B5EBD; margin-bottom: 10px; display: block; }
-    .hd-contact-card h6 { font-size: 0.85rem; font-weight: 700; color: #0f1623; margin-bottom: 6px; }
-    .hd-contact-card span { font-size: 0.83rem; color: #6b7280; }
-
-    /* ══ Responsive ══ */
     @media (max-width: 1100px) {
-        .hd-features-grid { grid-template-columns: repeat(2, 1fr); }
-        .hd-why-grid { grid-template-columns: repeat(3, 1fr); }
+        .sector-grid { grid-template-columns: repeat(2, 1fr); }
+        .feat-grid { grid-template-columns: repeat(2, 1fr); }
+        .arch-grid { grid-template-columns: repeat(2, 1fr); }
+        .showcase-grid { grid-template-columns: repeat(2, 1fr); }
     }
     @media (max-width: 991px) {
-        .hero { min-height: auto; padding: 60px 0 40px; }
-        .hd-gallery-grid { grid-template-columns: repeat(2, 1fr); }
-        .hd-pricing-grid { grid-template-columns: 1fr; max-width: 380px; }
+        .hero { padding: 48px 0; }
         .hero-float-card { display: none; }
-        .hd-section { padding: 64px 0; }
+        .story-block, .story-block:nth-child(even) { flex-direction: column; gap: 32px; }
+        .story-visual { flex: 1; width: 100%; }
+        .pricing-grid { grid-template-columns: 1fr; max-width: 380px; }
+        /* On smaller screens, nav arrows sit inside the image rather than outside */
+        .lightbox-prev { left: 8px; }
+        .lightbox-next { right: 8px; }
+        .lightbox-nav { background: rgba(20,24,46,0.65); width: 42px; height: 42px; font-size: 1.4rem; }
     }
     @media (max-width: 767px) {
-        .hd-features-grid { grid-template-columns: 1fr; }
-        .hd-why-grid { grid-template-columns: repeat(2, 1fr); }
-        .hd-gallery-grid { grid-template-columns: 1fr; }
-        .hd-steps-grid { grid-template-columns: 1fr; }
-        .hd-step-card.full { max-width: 100%; }
-        .hd-contact-strip { grid-template-columns: 1fr; }
-        .hero h1 { font-size: 2.1rem; }
-        .hero-stats { gap: 20px; }
-    }
-    @media (max-width: 480px) {
-        .hd-why-grid { grid-template-columns: 1fr; }
-        .hero-actions { flex-direction: column; align-items: flex-start; }
+        .sector-grid, .feat-grid, .arch-grid, .showcase-grid { grid-template-columns: 1fr; }
+        .hero { padding: 40px 0; }
+        .hero h1 { font-size: 2rem; }
     }
 </style>
 
 <!-- ══ Hero ══════════════════════════════════════════════════════════════ -->
 <section class="hero">
     <div class="hero-bg-grid"></div>
-    <div class="hero-bg-glow"></div>
-    <div class="hero-bg-glow-2"></div>
     <div class="container" style="max-width:1200px;">
         <div class="row align-items-center hero-content">
             <div class="col-lg-6">
-                <div class="hero-badge">
-                    <i class="ri-shield-check-line"></i>
-                    Trusted by businesses in Malawi
-                </div>
-                <h1>
-                    One platform.<br>
-                    <span class="accent">Every part</span><br>
-                    of your business.
-                </h1>
+                <div class="hero-badge"><i class="ri-stack-line me-1"></i> All-in-one business platform</div>
+                {{-- "Platform" is now the last word, sitting on the accented second line --}}
+                <h1>Run Your Entire Business<br>On One <span class="accent">Platform.</span></h1>
                 <p class="hero-lead">
-                    Inventory, sales, HR, payroll, invoicing and analytics — fully integrated, secure and built for retail, wholesale, hospitality and service businesses.
+                    Netacube unifies sales, inventory, branches, staff and payroll in a single secure platform, giving you a real-time, accurate view of your business from anywhere. Built for owners who want clarity and control without juggling separate systems.
                 </p>
                 <div class="hero-actions">
-                    <a href="/get-started" class="btn-hero-primary">
-                        <i class="ri-rocket-line"></i> Start free trial
-                    </a>
-                    <a href="/features" class="btn-hero-ghost">
-                        <i class="ri-play-circle-line"></i> Explore features
-                    </a>
-                </div>
-                <div class="hero-stats">
-                    <div class="hero-stat">
-                        <span class="num">14</span>
-                        <span class="lbl">Days free trial</span>
-                    </div>
-                    <div class="hero-stat-divider"></div>
-                    <div class="hero-stat">
-                        <span class="num">15+</span>
-                        <span class="lbl">Business modules</span>
-                    </div>
-                    <div class="hero-stat-divider"></div>
-                    <div class="hero-stat">
-                        <span class="num">24/7</span>
-                        <span class="lbl">Support included</span>
-                    </div>
+                    <a href="/get-started" class="btn-hero-primary"><i class="ri-rocket-line"></i> Start free trial</a>
+                    <a href="/features" class="btn-hero-ghost"><i class="ri-play-circle-line"></i> Explore features</a>
                 </div>
             </div>
-            <div class="col-lg-6 hero-visual mt-4 mt-lg-0">
+            <div class="col-lg-6 hero-visual mt-5 mt-lg-0">
                 <div style="position:relative;">
-                    <div class="hero-screen">
-                        <div class="hero-screen-bar">
-                            <div class="hero-screen-dot" style="background:#ff5f57;"></div>
-                            <div class="hero-screen-dot" style="background:#febc2e;"></div>
-                            <div class="hero-screen-dot" style="background:#28c840;"></div>
-                        </div>
-                        <img src="{{ asset('website/images/s8.png') }}" alt="Netacube dashboard">
+                    <div class="hero-image-frame">
+                        <img src="{{ asset('website/images/s7.png') }}" alt="Netacube business dashboard overview showing sales, revenue and branch status">
                     </div>
-                    <div class="hero-float-card" style="bottom:40px; left:-32px; animation-delay:0s;">
-                        <i class="ri-bar-chart-2-line"></i>
-                        <div>
-                            <span>Sales up 24%</span>
-                            <span class="sub">This month vs last</span>
-                        </div>
+                    <div class="hero-float-card" style="bottom:-22px; left:-26px;">
+                        <i class="ri-wifi-off-line"></i>
+                        <div><span>Sale recorded offline</span><span class="sub">Syncs the moment you're back online</span></div>
                     </div>
-                    <div class="hero-float-card" style="top:30px; right:-28px; animation-delay:2s;">
-                        <i class="ri-shield-check-line" style="color:#7dd3b8;"></i>
-                        <div>
-                            <span>Fully encrypted</span>
-                            <span class="sub">Enterprise-grade security</span>
-                        </div>
+                    <div class="hero-float-card" style="top:-18px; right:-22px;">
+                        <i class="ri-shield-check-line"></i>
+                        <div><span>Private &amp; secure</span><span class="sub">Your business, your data, kept safe</span></div>
                     </div>
                 </div>
             </div>
@@ -570,270 +248,285 @@
 <!-- ══ Trust strip ══════════════════════════════════════════════════════ -->
 <div class="trust-strip">
     <div class="trust-strip-inner">
-        <span class="trust-label">Serving businesses across</span>
+        <span class="trust-label">Built for</span>
         <div class="trust-dots">
-            <span class="trust-dot">Retail &amp; Supermarkets</span>
-            <span class="trust-dot">Restaurants</span>
-            <span class="trust-dot">Wholesale</span>
-            <span class="trust-dot">Hotels &amp; Hospitality</span>
-            <span class="trust-dot">Service Businesses</span>
+            <span class="trust-dot">Retail &amp; Wholesale</span>
+            <span class="trust-dot">Hospitality</span>
+            <span class="trust-dot">Healthcare</span>
+            <span class="trust-dot">Finance</span>
+            <span class="trust-dot">Consultancy</span>
+            <span class="trust-dot">IT Services</span>
+            <span class="trust-dot">Properties</span>
         </div>
     </div>
 </div>
 
-<!-- ══ Key Features ═════════════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-white">
+<!-- ══ Sectors ══════════════════════════════════════════════════════════ -->
+<section class="section bg-white">
     <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">What's inside</span>
-            <h2 class="hd-display-section mt-2">Everything your business needs</h2>
-            <div class="hd-divider"></div>
-            <p class="hd-lead mt-3 mx-auto" style="max-width:520px;">
-                Core modules designed to streamline operations and give you real-time visibility across your business.
+        <div class="text-center center mb-5">
+            <span class="eyebrow">Built around your sector</span>
+            <h2 class="display-section mt-2">One platform, tailored to how your industry actually runs</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:580px;">
+                From retail stock control to property lease tracking, every Netacube module adapts to the way your business actually operates, not the other way around.
             </p>
         </div>
-        <div class="hd-features-grid">
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-team-line"></i></div>
-                <h5>Employee management</h5>
-                <p>Attendance tracking, payroll, leave management and performance reviews.</p>
+        <div class="sector-grid">
+            @php
+                $sectors = [
+                    ['name' => 'Retail',      'icon' => 'ri-shopping-bag-3-line',  'desc' => 'Real-time inventory, sales by product and location, loyalty programmes and stock control across every till.'],
+                    ['name' => 'Wholesale',   'icon' => 'ri-truck-line',           'desc' => 'Bulk orders, tiered pricing, customer credit limits and warehouse stock across multiple locations.'],
+                    ['name' => 'Finance',     'icon' => 'ri-bank-line',            'desc' => 'Client portfolios, loans, fee structures, compliance documents and transaction history.'],
+                    ['name' => 'Consultancy', 'icon' => 'ri-presentation-line',    'desc' => 'Client engagements, billable hours, proposals, consultant allocation and per-project profitability.'],
+                    ['name' => 'IT',          'icon' => 'ri-terminal-box-line',    'desc' => 'Support tickets, SLAs, asset and licence inventory, maintenance contracts and uptime reporting.'],
+                    ['name' => 'Healthcare',  'icon' => 'ri-stethoscope-line',     'desc' => 'Appointments, prescriptions, medicine and supply inventory, billing and insurance claims.'],
+                    ['name' => 'Hospitality', 'icon' => 'ri-hotel-bed-line',       'desc' => 'Room and table bookings, point of sale, staff shifts, housekeeping and occupancy analytics.'],
+                    ['name' => 'Properties',  'icon' => 'ri-home-4-line',          'desc' => 'Properties, units, tenants, lease agreements, rent payments and maintenance requests.'],
+                ];
+            @endphp
+            @foreach($sectors as $sector)
+                <div class="sector-card">
+                    <div class="sector-icon"><i class="{{ $sector['icon'] }}"></i></div>
+                    <h5>{{ $sector['name'] }}</h5>
+                    <p>{{ $sector['desc'] }}</p>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+<!-- ══ Multi-branch + offline sync story ══════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">How it works</span>
+            <h2 class="display-section mt-2">Built for businesses with more than one front door</h2>
+            <div class="section-divider"></div>
+        </div>
+
+        <div class="story-block mb-5 pb-3">
+            <div class="story-copy">
+                <span class="num-tag">1</span>
+                <h3>Every branch, one business</h3>
+                <p>Add as many branches as your business needs. Each one records its own sales, stock and staff, while owners get a single combined view of performance across every location.</p>
+                <ul>
+                    <li><i class="ri-checkbox-circle-fill"></i> Branch-level sales, stock and cash tracking</li>
+                    <li><i class="ri-checkbox-circle-fill"></i> Inter-branch stock transfers</li>
+                    <li><i class="ri-checkbox-circle-fill"></i> One combined, business-wide report</li>
+                </ul>
             </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-archive-drawer-line"></i></div>
-                <h5>Inventory control</h5>
-                <p>Real-time stock levels, low-stock alerts, multi-location and batch tracking.</p>
+            <div class="story-visual">
+                <div class="story-image-frame">
+                    <img src="{{ asset('website/images/s2.png') }}" alt="Netacube multi-branch sales report">
+                </div>
             </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-price-tag-3-line"></i></div>
-                <h5>Pricing &amp; promotions</h5>
-                <p>Flexible price levels, automated discounts and loyalty programmes.</p>
+        </div>
+
+        <div class="story-block">
+            <div class="story-copy">
+                <span class="num-tag">2</span>
+                <h3>Offline sales, zero data loss</h3>
+                <p>When the internet drops at the till, Netacube doesn't stop. Sales, stock deductions and receipts keep recording on the device, then sync automatically the moment connectivity returns.</p>
+                <ul>
+                    <li><i class="ri-checkbox-circle-fill"></i> Point of sale keeps working with no connection</li>
+                    <li><i class="ri-checkbox-circle-fill"></i> Automatic background sync on reconnection</li>
+                    <li><i class="ri-checkbox-circle-fill"></i> No duplicate or lost transactions</li>
+                </ul>
             </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-wifi-off-line"></i></div>
-                <h5>Offline capability</h5>
-                <p>Full operations continue without internet with automatic sync on reconnection.</p>
-            </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-shopping-cart-2-line"></i></div>
-                <h5>Point of sale</h5>
-                <p>Fast checkout with barcode scanning and multiple payment methods.</p>
-            </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-file-text-line"></i></div>
-                <h5>Document generation</h5>
-                <p>Branded invoices, quotations and delivery notes with full customisation.</p>
-            </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-bar-chart-grouped-line"></i></div>
-                <h5>Analytics &amp; reports</h5>
-                <p>Dashboards and reports for sales, profitability, inventory and performance.</p>
-            </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-shield-check-line"></i></div>
-                <h5>Security</h5>
-                <p>Role-based access, audit logs, data encryption and daily backups.</p>
-            </div>
-            <div class="hd-feature-card">
-                <div class="hd-feature-icon"><i class="ri-building-2-line"></i></div>
-                <h5>Multi-branch support</h5>
-                <p>Centralised control, inter-branch transfers and consolidated reporting.</p>
+            <div class="story-visual">
+                <div class="story-image-frame">
+                    <img src="{{ asset('website/images/s8.png') }}" alt="Netacube point of sale screen, which keeps working offline">
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- ══ Why Choose Netacube ══════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-alt">
+<!-- ══ Interface showcase — lightbox gallery ══════════════════════════════ -->
+<section class="section bg-white">
     <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">Why Netacube</span>
-            <h2 class="hd-display-section mt-2">Built for businesses that mean business</h2>
-            <div class="hd-divider"></div>
-        </div>
-        <div class="hd-why-grid">
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-shield-check-line"></i></div><h5>Enterprise security</h5><p>End-to-end encryption, RBAC, audit logs and daily backups.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-layout-line"></i></div><h5>Intuitive interface</h5><p>Clean design and logical workflows with minimal training required.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-store-3-line"></i></div><h5>Industry-specific</h5><p>Retail, wholesale, restaurants, hotels and service businesses.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-calendar-event-line"></i></div><h5>Events management</h5><p>Booking, scheduling, deposits, reminders and event tracking.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-clipboard-line"></i></div><h5>Stocktaking</h5><p>Flexible stock counts with variance reporting and adjustment.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-shopping-cart-line"></i></div><h5>Fast sales interface</h5><p>Simplified checkout with fewer steps and quicker processing.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-building-line"></i></div><h5>Unlimited branches</h5><p>Any number of branches with transfers and consolidated reports.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-refresh-line"></i></div><h5>Offline ready</h5><p>Continue operations without internet, auto-sync on reconnection.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-briefcase-4-line"></i></div><h5>Multiple businesses</h5><p>Manage several businesses with separate configs from one login.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-tag-3-line"></i></div><h5>Flexible pricing</h5><p>Customer-specific pricing, promotions and discount rules.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-user-heart-line"></i></div><h5>Customer management</h5><p>Profiles, purchase history, credit limits and loyalty tracking.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-truck-line"></i></div><h5>Purchases &amp; suppliers</h5><p>Purchase orders, receiving, supplier management and payables.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-file-check-line"></i></div><h5>Document management</h5><p>Invoices, quotations, delivery notes and more with your branding.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-wallet-3-line"></i></div><h5>Expense management</h5><p>Record, categorise and track expenses with approval workflows.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-line-chart-line"></i></div><h5>Financial reports</h5><p>P&amp;L, balance sheet, cash flow and custom statements.</p></div>
-            <div class="hd-why-card"><div class="hd-why-icon"><i class="ri-money-dollar-circle-line"></i></div><h5>Payroll processing</h5><p>Automated salary, deductions, taxes and payslip generation.</p></div>
-        </div>
-    </div>
-</section>
-
-<!-- ══ Gallery ══════════════════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-white">
-    <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">System gallery</span>
-            <h2 class="hd-display-section mt-2">See it in action</h2>
-            <div class="hd-divider"></div>
-            <p class="hd-lead mt-3">Screenshots from key modules and interfaces</p>
-        </div>
-        <div class="hd-gallery-grid">
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s8.png') }}" alt="Point of sale interface" loading="lazy">
-                <div class="hd-gallery-cap">Point of sale interface</div>
-            </div>
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s6.png') }}" alt="Inventory management" loading="lazy">
-                <div class="hd-gallery-cap">Inventory management</div>
-            </div>
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s4.png') }}" alt="HR dashboard" loading="lazy">
-                <div class="hd-gallery-cap">HR dashboard</div>
-            </div>
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s3.png') }}" alt="Invoice generation" loading="lazy">
-                <div class="hd-gallery-cap">Invoice generation</div>
-            </div>
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s7.png') }}" alt="Admin dashboard" loading="lazy">
-                <div class="hd-gallery-cap">Admin dashboard</div>
-            </div>
-            <div class="hd-gallery-item">
-                <img src="{{ asset('website/images/s5.png') }}" alt="Analytics overview" loading="lazy">
-                <div class="hd-gallery-cap">Analytics overview</div>
-            </div>
-        </div>
-    </div>
-</section>
-
-<!-- ══ Pricing ══════════════════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-alt">
-    <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">Simple pricing</span>
-            <h2 class="hd-display-section mt-2">Choose your plan</h2>
-            <div class="hd-divider"></div>
-            <p class="hd-lead mt-3 mx-auto" style="max-width:540px;">
-                Every plan gives full, unrestricted access to the entire Netacube system. The only difference is your payment period.
+        <div class="text-center center mb-5">
+            <span class="eyebrow">See it in action</span>
+            <h2 class="display-section mt-2">A closer look at the screens your team uses every day</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:560px;">
+                Real screens from the live platform. Select any preview to view it in full size.
             </p>
         </div>
-        <div class="hd-pricing-grid">
-            <div class="hd-pricing-card">
-                <div class="hd-pricing-period">6 months</div>
-                <div class="hd-pricing-price"><sup>$</sup>120</div>
-                <div class="hd-pricing-sub">USD total · $20/month</div>
-                <p class="hd-pricing-desc">Best for businesses wanting a shorter commitment before going long-term.</p>
-                <a href="/get-started" class="hd-btn-pricing hd-btn-pricing-outline">Get started</a>
-                <div class="hd-pricing-note"><strong>Full access</strong> to all modules</div>
+
+        @php
+            $showcase = [
+                ['img' => 's7.png', 'title' => 'Dashboard &amp; analytics', 'desc' => 'Sales, revenue and branch performance at a glance, updated in real time.'],
+                ['img' => 's2.png', 'title' => 'Multi-branch reporting',     'desc' => 'One combined view of every branch, with the ability to drill into each location.'],
+                ['img' => 's8.png', 'title' => 'Point of sale',              'desc' => 'A fast, focused checkout screen that keeps working even without internet.'],
+            ];
+        @endphp
+
+        <div class="showcase-grid">
+            @foreach($showcase as $i => $shot)
+                <div class="showcase-card" onclick="openLightbox({{ $i }})">
+                    <div class="showcase-thumb">
+                        <img src="{{ asset('website/images/'.$shot['img']) }}" alt="{{ strip_tags($shot['title']) }} screenshot">
+                        <div class="showcase-expand"><i class="ri-zoom-in-line"></i></div>
+                    </div>
+                    <div class="showcase-body">
+                        <h5>{!! $shot['title'] !!}</h5>
+                        <p>{{ $shot['desc'] }}</p>
+                    </div>
+                </div>
+            @endforeach
+        </div>
+    </div>
+</section>
+
+<!-- ══ Lightbox overlay ══════════════════════════════════════════════════ -->
+<div class="lightbox-overlay" id="lightboxOverlay" onclick="if(event.target===this) closeLightbox();">
+    <div class="lightbox-inner">
+        {{-- Close --}}
+        <button type="button" class="lightbox-close" onclick="closeLightbox()" aria-label="Close preview">
+            <i class="ri-close-line"></i>
+        </button>
+        {{-- Previous --}}
+        <button type="button" class="lightbox-nav lightbox-prev" id="lbPrev" onclick="shiftLightbox(-1)" aria-label="Previous image">
+            <i class="ri-arrow-left-s-line"></i>
+        </button>
+        {{-- Next --}}
+        <button type="button" class="lightbox-nav lightbox-next" id="lbNext" onclick="shiftLightbox(1)" aria-label="Next image">
+            <i class="ri-arrow-right-s-line"></i>
+        </button>
+
+        <img id="lightboxImg" src="" alt="">
+        <div class="lightbox-caption" id="lightboxCaption"></div>
+        <div class="lightbox-counter" id="lightboxCounter"></div>
+    </div>
+</div>
+
+<!-- ══ Key features ══════════════════════════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">What's inside</span>
+            <h2 class="display-section mt-2">Everything your business runs on, working together</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:560px;">
+                The same modules running in your dashboard today — inventory, sales, people and money — connected in one system instead of scattered across many.
+            </p>
+        </div>
+        <div class="feat-grid">
+            <div class="feat-card"><div class="feat-icon"><i class="ri-shopping-cart-2-line"></i></div><h5>Point of sale</h5><p>Fast, branch-aware checkout that keeps working offline and syncs automatically.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-archive-drawer-line"></i></div><h5>Inventory control</h5><p>Real-time stock per branch, low-stock alerts and inter-branch transfers.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-team-line"></i></div><h5>Employees &amp; payroll</h5><p>Staff profiles, roles, branches, salaries and payslip generation.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-file-text-line"></i></div><h5>Invoices &amp; documents</h5><p>Branded invoices and statements generated from your own company profile.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-money-dollar-circle-line"></i></div><h5>Multi-currency</h5><p>Configure the currencies your business trades in.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-bar-chart-grouped-line"></i></div><h5>Reports &amp; analytics</h5><p>Branch and business-wide dashboards for sales, revenue and overdue accounts.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-folder-2-line"></i></div><h5>Company profile &amp; files</h5><p>Centralised business details, licences and documents used across the system.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-shield-check-line"></i></div><h5>Role-based security</h5><p>Granular permissions so staff see only what their role allows.</p></div>
+            <div class="feat-card"><div class="feat-icon"><i class="ri-building-4-line"></i></div><h5>Your own private account</h5><p>Your records are kept separate and secure, never shared with another business.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ══ Why Netacube ══════════════════════════════════════════════════════ -->
+<section class="section bg-white">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">Why businesses choose us</span>
+            <h2 class="display-section mt-2">Built to be reliable, simple and safe to depend on</h2>
+            <div class="section-divider"></div>
+        </div>
+        <div class="arch-grid">
+            <div class="arch-card"><div class="arch-icon"><i class="ri-shield-keyhole-line"></i></div><h5>Private &amp; secure</h5><p>Your business records are kept private and are never mixed with another business.</p></div>
+            <div class="arch-card"><div class="arch-icon"><i class="ri-wifi-off-line"></i></div><h5>Always working</h5><p>Sales continue uninterrupted even without internet, and sync once you're back online.</p></div>
+            <div class="arch-card"><div class="arch-icon"><i class="ri-refresh-line"></i></div><h5>Always improving</h5><p>New features and updates roll out regularly, at no extra effort on your part.</p></div>
+            <div class="arch-card"><div class="arch-icon"><i class="ri-customer-service-2-line"></i></div><h5>Real support</h5><p>Friendly help over email and WhatsApp whenever you need it, not just a help centre.</p></div>
+        </div>
+    </div>
+</section>
+
+<!-- ══ Pricing teaser ══════════════════════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">Simple pricing</span>
+            <h2 class="display-section mt-2">One price, full access</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:540px;">
+                Every plan unlocks the entire system — every sector, every branch, every module. The only difference is your billing period.
+            </p>
+        </div>
+        <div class="pricing-grid">
+            <div class="pricing-card">
+                <div class="pricing-period">6 months</div>
+                <div class="pricing-price"><sup>$</sup>120</div>
+                <div class="pricing-sub">$20 / month</div>
+                <a href="/get-started" class="btn-pricing btn-pricing-outline">Get started</a>
             </div>
-            <div class="hd-pricing-card featured">
-                <div class="hd-pricing-badge">Most popular</div>
-                <div class="hd-pricing-period">1 year</div>
-                <div class="hd-pricing-price"><sup>$</sup>220</div>
-                <div class="hd-pricing-sub">USD total · $18.33/month</div>
-                <p class="hd-pricing-desc">The balanced choice — good value for growing businesses with a one-year horizon.</p>
-                <a href="/get-started" class="hd-btn-pricing hd-btn-pricing-primary">Get started</a>
-                <div class="hd-pricing-note"><strong>Full access</strong> · 14-day free trial</div>
+            <div class="pricing-card featured">
+                <div class="pricing-badge">Most popular</div>
+                <div class="pricing-period">1 year</div>
+                <div class="pricing-price"><sup>$</sup>220</div>
+                <div class="pricing-sub">$18.33 / month</div>
+                <a href="/get-started" class="btn-pricing btn-pricing-primary">Get started</a>
             </div>
-            <div class="hd-pricing-card">
-                <div class="hd-pricing-period">2 years</div>
-                <div class="hd-pricing-price"><sup>$</sup>400</div>
-                <div class="hd-pricing-sub">USD total · $16.67/month</div>
-                <p class="hd-pricing-desc">The best long-term value with the lowest cost per month for committed businesses.</p>
-                <a href="/get-started" class="hd-btn-pricing hd-btn-pricing-outline">Get started</a>
-                <div class="hd-pricing-note"><strong>Full access</strong> · Best value</div>
+            <div class="pricing-card">
+                <div class="pricing-period">2 years</div>
+                <div class="pricing-price"><sup>$</sup>400</div>
+                <div class="pricing-sub">$16.67 / month</div>
+                <a href="/get-started" class="btn-pricing btn-pricing-outline">Get started</a>
             </div>
         </div>
-        <p class="text-center mt-4" style="font-size:0.85rem; color:#6b7280;">
-            All plans include 24/7 support, data backups and all future feature updates. No hidden fees.
+        <p class="text-center mt-4" style="font-size:0.85rem; color:var(--muted);">
+            All plans include a 14-day free trial, 24/7 support and unlimited branches. No hidden fees.
         </p>
     </div>
 </section>
 
-<!-- ══ Onboarding Steps ══════════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-white">
-    <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">Getting started</span>
-            <h2 class="hd-display-section mt-2">Up and running in minutes</h2>
-            <div class="hd-divider"></div>
-            <p class="hd-lead mt-3">Fast, secure onboarding with immediate full access to all features</p>
-        </div>
-        <div class="hd-steps-grid">
-            <div class="hd-step-card">
-                <div class="hd-step-num">1</div>
-                <div class="hd-step-body">
-                    <i class="ri-file-add-line"></i>
-                    <h5>Register your business</h5>
-                    <p>Complete our secure registration form with your business details and choose your preferred plan.</p>
-                    <a href="/get-started" class="hd-step-link">Start registration <i class="ri-arrow-right-line"></i></a>
-                </div>
-            </div>
-            <div class="hd-step-card">
-                <div class="hd-step-num">2</div>
-                <div class="hd-step-body">
-                    <i class="ri-mail-line"></i>
-                    <h5>Receive login &amp; invoice</h5>
-                    <p>Your account credentials and a professional invoice are sent instantly to your email. Invoice is due within 14 days.</p>
-                </div>
-            </div>
-            <div class="hd-step-card">
-                <div class="hd-step-num">3</div>
-                <div class="hd-step-body">
-                    <i class="ri-dashboard-line"></i>
-                    <h5>Access the full dashboard</h5>
-                    <p>Log in immediately and explore all features with no restrictions or waiting period.</p>
-                    <a href="/login" class="hd-step-link">Login now <i class="ri-arrow-right-line"></i></a>
-                </div>
-            </div>
-            <div class="hd-step-card">
-                <div class="hd-step-num">4</div>
-                <div class="hd-step-body">
-                    <i class="ri-money-dollar-circle-line"></i>
-                    <h5>Complete payment</h5>
-                    <p>Settle your invoice within 14 days to ensure uninterrupted access and service continuity.</p>
-                </div>
-            </div>
-            <div class="hd-step-card full">
-                <div class="hd-step-num">5</div>
-                <div class="hd-step-body">
-                    <i class="ri-customer-service-2-line"></i>
-                    <h5>Ongoing dedicated support</h5>
-                    <p>Our team is available 24/7 via email and WhatsApp for any assistance you need.</p>
-                    <a href="/contact" class="hd-step-link">Contact support <i class="ri-arrow-right-line"></i></a>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
+<script>
+    /* ── Lightbox items — populated from the same $showcase array above ── */
+    var lbItems = [
+        @foreach($showcase as $shot)
+        { src: '{{ asset('website/images/'.$shot['img']) }}', caption: '{!! addslashes($shot['title']) !!}' },
+        @endforeach
+    ];
+    var lbIndex = 0;
 
-<!-- ══ Contact strip ════════════════════════════════════════════════════ -->
-<section class="hd-section hd-bg-alt">
-    <div class="container" style="max-width:1200px;">
-        <div class="text-center mb-5">
-            <span class="hd-eyebrow">Get in touch</span>
-            <h2 class="hd-display-section mt-2">We're here to help</h2>
-            <div class="hd-divider"></div>
-        </div>
-        <div class="hd-contact-strip">
-            <div class="hd-contact-card">
-                <i class="ri-mail-line"></i>
-                <h6>Email</h6>
-                <span><a href="mailto:info@netamind.com" style="color:#4B5EBD;">info@netamind.com</a></span>
-            </div>
-            <div class="hd-contact-card">
-                <i class="ri-whatsapp-line"></i>
-                <h6>WhatsApp</h6>
-                <span>+265 888 377 462</span>
-            </div>
-            <div class="hd-contact-card">
-                <i class="ri-map-pin-line"></i>
-                <h6>Location</h6>
-                <span>Lilongwe, Malawi</span>
-            </div>
-        </div>
-    </div>
-</section>
+    function openLightbox(idx) {
+        lbIndex = idx;
+        renderLightbox();
+        document.getElementById('lightboxOverlay').classList.add('open');
+        document.body.style.overflow = 'hidden';
+    }
+
+    function closeLightbox() {
+        document.getElementById('lightboxOverlay').classList.remove('open');
+        document.body.style.overflow = '';
+    }
+
+    function shiftLightbox(dir) {
+        lbIndex = (lbIndex + dir + lbItems.length) % lbItems.length;
+        renderLightbox();
+    }
+
+    function renderLightbox() {
+        var item = lbItems[lbIndex];
+        var img  = document.getElementById('lightboxImg');
+        img.src  = item.src;
+        img.alt  = item.caption;
+        document.getElementById('lightboxCaption').innerHTML = item.caption;
+        document.getElementById('lightboxCounter').textContent = (lbIndex + 1) + ' / ' + lbItems.length;
+
+        /* Hide nav arrows when there is only one image */
+        var showNav = lbItems.length > 1;
+        document.getElementById('lbPrev').style.display = showNav ? 'flex' : 'none';
+        document.getElementById('lbNext').style.display = showNav ? 'flex' : 'none';
+    }
+
+    document.addEventListener('keydown', function(e) {
+        if (!document.getElementById('lightboxOverlay').classList.contains('open')) return;
+        if (e.key === 'Escape')     closeLightbox();
+        if (e.key === 'ArrowLeft')  shiftLightbox(-1);
+        if (e.key === 'ArrowRight') shiftLightbox(1);
+    });
+</script>
+

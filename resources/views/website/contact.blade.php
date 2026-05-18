@@ -1,203 +1,180 @@
 @extends('website.homepage')
 
-@section('title', 'Contact Netacube - Get in Touch')
+@section('title', 'Contact Netacube — Get in Touch')
+@section('meta_description', 'Get in touch with the Netacube team for demos, pricing, onboarding or support. Reach us by email, WhatsApp, or send a message directly.')
 
-@section('styles')
-  
+@section('head_extra')
+<style>
+    .page-hero {
+        background: var(--gradient-deep);
+        padding: 84px 0 76px;
+        position: relative;
+        overflow: hidden;
+    }
+    .page-hero::before {
+        content: '';
+        position: absolute; inset: 0;
+        background-image: linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px);
+        background-size: 46px 46px;
+        mask-image: radial-gradient(ellipse at center, black 30%, transparent 75%);
+    }
+    .page-hero-inner { position: relative; z-index: 2; max-width: 680px; }
+    .page-hero .hero-badge {
+        display: inline-flex; align-items: center; gap: 7px; background: rgba(255,255,255,0.1);
+        border: 1px solid rgba(255,255,255,0.22); color: #d7deff; font-size: 0.78rem; font-weight: 700;
+        letter-spacing: 0.04em; padding: 7px 15px; border-radius: 20px; margin-bottom: 20px;
+    }
+    .page-hero h1 { font-size: clamp(2rem, 4.2vw, 2.85rem); font-weight: 800; line-height: 1.15; letter-spacing: -0.025em; color: #fff; margin-bottom: 16px; }
+    .page-hero p { font-size: 1.02rem; line-height: 1.75; color: rgba(255,255,255,0.72); margin: 0; }
+
+    /* ══ Contact channel cards ══ */
+    .contact-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; }
+    .contact-card {
+        background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); padding: 30px 26px;
+        text-align: center; transition: .2s;
+    }
+    .contact-card:hover { box-shadow: var(--shadow-lg); transform: translateY(-3px); border-color: transparent; }
+    .contact-card .feat-icon { width: 50px; height: 50px; background: var(--brand-light); border-radius: 12px; display: flex; align-items: center; justify-content: center; margin: 0 auto 16px; }
+    .contact-card .feat-icon i { font-size: 1.45rem; color: var(--brand); }
+    .contact-card h5 { font-size: 0.96rem; font-weight: 800; color: var(--ink); margin-bottom: 8px; }
+    .contact-card p { font-size: 0.85rem; color: var(--muted); line-height: 1.65; margin-bottom: 18px; }
+    .contact-card .btn-ghost-nc { font-size: 0.85rem; padding: 10px 20px; }
+
+    /* ══ Contact form ══ */
+    .contact-form-card {
+        background: #fff; border: 1px solid var(--line); border-radius: var(--radius-lg); box-shadow: var(--shadow-lg);
+        padding: 40px; max-width: 760px; margin: 0 auto;
+    }
+    .cform-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+    .cform-group { margin-bottom: 18px; }
+    .cform-group label { display: block; font-size: 0.82rem; font-weight: 700; color: var(--ink); margin-bottom: 7px; }
+    .cform-group input,
+    .cform-group textarea {
+        width: 100%; padding: 12px 14px; border: 1.5px solid var(--line); border-radius: 10px;
+        font-size: 0.9rem; color: var(--ink); background: #fff; transition: .2s; outline: none;
+        font-family: 'Inter', sans-serif;
+    }
+    .cform-group input { height: 46px; }
+    .cform-group textarea { resize: vertical; min-height: 130px; }
+    .cform-group input:focus, .cform-group textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px rgba(75,94,189,0.12); }
+
+    .secure-note { display: flex; align-items: center; justify-content: center; gap: 7px; font-size: 0.83rem; color: var(--muted); margin-top: 18px; }
+    .secure-note i { color: var(--brand); }
+
+    @media (max-width: 1100px) { .contact-grid { grid-template-columns: repeat(2, 1fr); } }
+    @media (max-width: 767px) {
+        .contact-grid { grid-template-columns: 1fr; }
+        .cform-row { grid-template-columns: 1fr; }
+        .contact-form-card { padding: 26px 22px; }
+        .page-hero { padding: 56px 0 48px; }
+    }
+</style>
 @endsection
 
 @section('content')
 
-    <!-- Hero Section - Contact focused -->
-    <section class="bg-half-260 bg-primary d-table w-100" style="background: url('website/assets/images/software/bg.png') center center;">
-        <div class="bg-overlay"></div>
-        <div class="container">
-            <div class="row align-items-center position-relative mt-5" style="z-index: 1;">
-                <div class="col-lg-8 col-md-12 text-center text-lg-start">
-                    <div class="title-heading mt-4">
-                        <h1 class="heading mb-3 text-white">Get in Touch</h1>
-                        <p class="para-desc text-white-50 mx-auto mx-lg-0">
-                            We're here to help! Whether you need a demo, have questions about features, need support, 
-                            or want to discuss how Netacube can transform your business — our team is ready to assist you 24/7.
-                        </p>
-                    </div>
-                </div>
+<!-- ══ Hero ══════════════════════════════════════════════════════════════ -->
+<section class="page-hero">
+    <div class="container" style="max-width:1200px;">
+        <div class="page-hero-inner">
+            <div class="hero-badge"><i class="ri-customer-service-2-line me-1"></i> We're here to help</div>
+            <h1>Get in touch</h1>
+            <p>
+                Whether you need a demo, have questions about features, need support, or want to discuss how
+                Netacube can fit your business — our team is ready to help.
+            </p>
+        </div>
+    </div>
+</section>
+
+<!-- ══ Contact channels ══════════════════════════════════════════════════ -->
+<section class="section bg-white">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">Reach us</span>
+            <h2 class="display-section mt-2">Pick the channel that suits you</h2>
+            <div class="section-divider"></div>
+        </div>
+
+        <div class="contact-grid">
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-mail-line"></i></div>
+                <h5>Email us</h5>
+                <p>The fastest written response, during business hours.</p>
+                <a href="mailto:info@netamind.com" class="btn-ghost-nc">info@netamind.com</a>
+            </div>
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-whatsapp-line"></i></div>
+                <h5>WhatsApp / call</h5>
+                <p>Quick answers and real-time support — our preferred method.</p>
+                <a href="https://wa.me/265992522601" target="_blank" rel="noopener" class="btn-ghost-nc">+265992522601</a>
+            </div>
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-map-pin-line"></i></div>
+                <h5>Our location</h5>
+                <p>Mzuzu, Malawi —  Best oil filling station Room No 11.</p>
+                <a href="https://wa.me/265992522601" target="_blank" rel="noopener" class="btn-ghost-nc">Schedule a visit</a>
+            </div>
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-time-line"></i></div>
+                <h5>Response time</h5>
+                <p>Usually within 1–4 hours during business hours, with 24/7 availability via WhatsApp for urgent matters.</p>
+            </div>
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-headphone-line"></i></div>
+                <h5>What we help with</h5>
+                <p>Demos, feature questions, pricing, onboarding, technical support, data migration and custom requests.</p>
+            </div>
+            <div class="contact-card">
+                <div class="feat-icon"><i class="ri-calendar-line"></i></div>
+                <h5>Business hours</h5>
+                <p>Mon–Fri: 8am–5pm CAT &middot; Sat: 9am–1pm CAT &middot; Sun: emergency support via WhatsApp only.</p>
             </div>
         </div>
-    </section>
+    </div>
+</section>
 
-    <!-- Contact Information Cards Grid -->
-    <section class="section-uniform bg-white">
-        <div class="container">
-            <div class="row justify-content-center text-center">
-                <div class="col-12">
-                    <h4 class="title mb-5">Reach Us Through Your Preferred Channel</h4>
-                </div>
-            </div>
-
-            <div class="row g-4">
-                <!-- Email -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-envelope-check h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">Email Us</h5>
-                        <p class="text-muted mb-3">
-                            Get the fastest written response during business hours
-                        </p>
-                        <a href="mailto:info@netamind.com" class="btn btn-outline-primary btn-sm">
-                            info@netamind.com
-                        </a>
-                    </div>
-                </div>
-
-                <!-- WhatsApp / Phone -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-whatsapp h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">WhatsApp / Call</h5>
-                        <p class="text-muted mb-3">
-                            Quick answers & real-time support (preferred method)
-                        </p>
-                        <a href="https://wa.me/+265888377462" target="_blank" class="btn btn-outline-primary btn-sm">
-                            +265 888 377 462
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Location -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-map-marker-alt h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">Our Location</h5>
-                        <p class="text-muted mb-3">
-                            Lilongwe, Malawi<br>
-                            (Office visits by appointment only)
-                        </p>
-                        <a href="https://wa.me/+265888377462" class="btn btn-outline-primary btn-sm">
-                            Schedule Visit
-                        </a>
-                    </div>
-                </div>
-
-                <!-- Response Time -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-clock h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">Response Time</h5>
-                        <p class="text-muted mb-0">
-                            Usually within 1–4 hours during business hours<br>
-                            24/7 availability via WhatsApp for urgent matters
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Support Scope -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-headset h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">What We Help With</h5>
-                        <p class="text-muted mb-0">
-                            Demos • Feature questions • Pricing • Onboarding • Technical support • Data migration • Custom requests
-                        </p>
-                    </div>
-                </div>
-
-                <!-- Business Hours -->
-                <div class="col-lg-4 col-md-6">
-                    <div class="features feature-primary text-center hover-lift shadow-sm rounded p-4 h-100 bg-light">
-                        <div class="image position-relative d-inline-block mb-3">
-                            <i class="uil uil-calendar-alt h2 text-primary"></i>
-                        </div>
-                        <h5 class="fw-bold mb-3">Business Hours</h5>
-                        <p class="text-muted mb-0">
-                            Monday – Friday: 8:00 AM – 5:00 PM CAT<br>
-                            Saturday: 9:00 AM – 1:00 PM CAT<br>
-                            Sunday: Emergency support only via WhatsApp
-                        </p>
-                    </div>
-                </div>
-            </div>
+<!-- ══ Contact form ══════════════════════════════════════════════════════ -->
+<section class="section bg-alt">
+    <div class="container" style="max-width:1200px;">
+        <div class="text-center center mb-5">
+            <span class="eyebrow">Prefer to write?</span>
+            <h2 class="display-section mt-2">Send us a message</h2>
+            <div class="section-divider"></div>
+            <p class="lead-text mt-3 mx-auto" style="max-width:560px;">
+                Interested in a demo, have questions about implementation, or want to talk through your specific
+                business requirements? We'd love to hear from you.
+            </p>
         </div>
-    </section>
 
-    <!-- Contact Form + Final Message Section -->
-    <section class="section-uniform bg-light">
-        <div class="container">
-            <div class="row justify-content-center">
-                <div class="col-lg-10 text-center">
-                    <h4 class="title mb-4">Prefer to Write? Send Us a Message</h4>
-                    <p class="text-muted para-desc mx-auto mb-5" style="max-width: 780px;">
-                        Whether you're interested in a demo, have questions about implementation, need help with pricing, 
-                        or want to discuss your specific business requirements — we're excited to hear from you!
-                    </p>
-                </div>
-            </div>
-
-            <div class="row justify-content-center">
-                <div class="col-lg-8">
-                    <div class="card border-0 shadow rounded p-4 p-lg-5 bg-white">
-                        <form method="POST" action="/contact" class="contact-form">
-                            @csrf
-
-                            <div class="row">
-                                <div class="col-md-6">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">Your Name</label>
-                                        <input name="name" type="text" class="form-control" placeholder="Enter your full name" required>
-                                    </div>
-                                </div>
-
-                                <div class="col-md-6">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">Email Address</label>
-                                        <input name="email" type="email" class="form-control" placeholder="your@email.com" required>
-                                    </div>
-                                </div>
-
-                                <div class="col-12">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">Subject</label>
-                                        <input name="subject" type="text" class="form-control" placeholder="e.g. Demo Request, Support Question, Pricing Inquiry" required>
-                                    </div>
-                                </div>
-
-                                <div class="col-12">
-                                    <div class="mb-4">
-                                        <label class="form-label fw-bold">Your Message</label>
-                                        <textarea name="message" rows="6" class="form-control" placeholder="Tell us how we can help you..." required></textarea>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div class="text-center mt-3">
-                                <button type="submit" class="btn btn-primary btn-lg px-5">
-                                    Send Message
-                                </button>
-                            </div>
-                        </form>
+        <div class="contact-form-card">
+            <form method="POST" action="/contact" class="contact-form">
+                @csrf
+                <div class="cform-row">
+                    <div class="cform-group">
+                        <label for="name">Your name</label>
+                        <input name="name" id="name" type="text" placeholder="Enter your full name" required>
+                    </div>
+                    <div class="cform-group">
+                        <label for="email">Email address</label>
+                        <input name="email" id="email" type="email" placeholder="your@email.com" required>
                     </div>
                 </div>
-            </div>
-
-            <div class="row justify-content-center mt-5">
-                <div class="col-lg-8 text-center">
-                    <p class="text-muted">
-                        <i class="uil uil-lock me-1"></i> 
-                        Your information is secure and will only be used to respond to your inquiry.
-                    </p>
+                <div class="cform-group">
+                    <label for="subject">Subject</label>
+                    <input name="subject" id="subject" type="text" placeholder="e.g. Demo request, support question, pricing inquiry" required>
                 </div>
-            </div>
+                <div class="cform-group">
+                    <label for="message">Your message</label>
+                    <textarea name="message" id="message" rows="6" placeholder="Tell us how we can help you..." required></textarea>
+                </div>
+                <button type="submit" class="btn-primary-nc" style="width:100%; justify-content:center;">
+                    <i class="ri-send-plane-line"></i> Send message
+                </button>
+            </form>
+            <div class="secure-note"><i class="ri-lock-line"></i> Your information is secure and only used to respond to your inquiry.</div>
         </div>
-    </section>
+    </div>
+</section>
 
 @endsection

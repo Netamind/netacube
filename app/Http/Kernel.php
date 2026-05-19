@@ -74,7 +74,7 @@ class Kernel extends HttpKernel
         'finance.allowed'  => \App\Http\Middleware\FinanceAllowed::class,
 
         'sales.allowed'  => \App\Http\Middleware\SalesAllowed::class,
-
+        'hydrate.auth'   => \App\Http\Middleware\HydrateAuthFromSession::class,
 
 
 

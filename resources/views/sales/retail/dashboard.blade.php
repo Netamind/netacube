@@ -58,12 +58,12 @@
 
                     <div class="logo-topbar">
                         <a href="#" class="logo-light">
-                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                            <span class="logo-lg"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
                         </a>
                         <a href="#" class="logo-dark">
-                            <span class="logo-lg"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                            <span class="logo-lg"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
                         </a>
                     </div>
 
@@ -135,7 +135,7 @@
                             </span>
                         </a>
                         <div class="dropdown-menu dropdown-menu-end dropdown-menu-animated profile-dropdown">
-                            <a href="#" class="dropdown-item">
+                            <a href="{{ route('retail.sales.profile') }}" class="dropdown-item">
                                 <i class="ri-account-circle-fill align-middle me-1"></i>
                                 <span>Profile</span>
                             </a>
@@ -143,7 +143,7 @@
                                 <i class="ri-logout-box-r-fill align-middle me-1"></i>
                                 <span>Sign Out</span>
                             </a>
-                            <form id="logout-form" action="#" method="POST" class="d-none">
+                             <form id="logout-form" action="{{ route('tenant.logout') }}" method="POST" class="d-none">
                                 @csrf
                             </form>
                         </div>
@@ -158,12 +158,12 @@
 
             <!-- Sidebar brand logo (full & icon-only variants) -->
             <a href="#" class="logo logo-light" style="text-align:left;padding-left:20px;">
-                <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                <span class="logo-lg"><img src="{{ asset('tenants/images/sales.png') }}" alt="" style="height:50px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
             </a>
             <a href="#" class="logo logo-dark" style="text-align:left;">
-                <span class="logo-lg"><img src="{{ asset('tenants/operations/images/operations.png') }}" alt="" style="height:50px"></span>
-                <span class="logo-sm"><img src="{{ asset('tenants/operations/images/icon.png') }}" alt=""></span>
+                <span class="logo-lg"><img src="{{ asset('tenants/images/sales.png') }}" alt="" style="height:50px"></span>
+                <span class="logo-sm"><img src="{{ asset('tenants/images/icon.png') }}" alt=""></span>
             </a>
 
             <!-- Toggle buttons for condensed / full sidebar -->
@@ -178,7 +178,7 @@
 
                 <!-- Authenticated user identity block -->
                 <div class="leftbar-user p-3 text-white">
-                    <a href="#" class="d-flex align-items-center text-reset">
+                    <a href="{{ route('retail.sales.profile') }}" class="d-flex align-items-center text-reset">
                         <div class="flex-shrink-0">
                             <i class="ri-user-fill align-middle" style="color:#f2f2f2"></i>
                         </div>
@@ -198,18 +198,16 @@
 
                     <!-- ==================== GENERAL ==================== -->
                     <li class="side-nav-title mt-1">General</li>
-
-                    <!-- Sales overview / KPIs landing page -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a href="{{ route('retail.sales.dashboard') }}" class="side-nav-link">
                             <i class="ri-dashboard-3-line"></i>
-                            <span>Dashboard</span>
+                            <span>Retail</span>
                         </a>
                     </li>
 
                     <!-- Business calendar: promotions, deliveries, closures -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a href="{{ route('retail.sales.events')}}" class="side-nav-link">
                             <i class="ri-calendar-event-fill"></i>
                             <span>Events</span>
                         </a>
@@ -248,9 +246,8 @@
                         </a>
                         <div class="collapse" id="sidebarInventory">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Products</a></li>
-                                <li><a href="#">Shopvalues</a></li>
-                                <li><a href="#">Search</a></li>
+                                <li><a href="{{ route('retail.sales.products') }}">Products</a></li>
+                                <li><a href="{{ route('retail.sales.products.search.view') }}">Search</a></li>
                             </ul>
                         </div>
                     </li>

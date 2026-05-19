@@ -1,4 +1,4 @@
-@extends('tenants.admin.dashboard')
+@extends('sales.retail.dashboard')
 @section('content')
 <style>
 .dt-buttons .btn {
@@ -267,16 +267,14 @@ $(document).ready(function () {
 
     toastr.options = { closeButton: true, progressBar: true, showMethod: 'slideDown', timeOut: 5000 };
 
-    // ── Route base URLs ─────────────────────────────────────────────────────
-    // These resolve to e.g. /admin/event-update/0
+    // ── Route base URLs (tenantName already baked in by Laravel) ─────────────
+    // These resolve to e.g. /mycompany/sales/retail/event-update/0
     // We replace the trailing /0 with the real ID at call time.
-    // Admin routes have no {tenantName} segment, unlike the sales routes —
-    // so only "id" is passed here.
-    var urlUpdate = '{{ route("tenant.admin.update.event", ["id" => "__ID__"]) }}';
-    var urlDelete = '{{ route("tenant.admin.delete.event", ["id" => "__ID__"]) }}';
-    var urlCreate = '{{ route("tenant.admin.add.event") }}';
-    var urlFetch  = '{{ route("tenant.admin.fetch.events") }}';
-    var urlTable  = '{{ route("tenant.admin.events.table") }}';
+    var urlUpdate = '{{ route("retail.sales.update.event", ["tenantName" => session("tenant_code"), "id" => "__ID__"]) }}';
+    var urlDelete = '{{ route("retail.sales.delete.event", ["tenantName" => session("tenant_code"), "id" => "__ID__"]) }}';
+    var urlCreate = '{{ route("retail.sales.add.event",    ["tenantName" => session("tenant_code")]) }}';
+    var urlFetch  = '{{ route("retail.sales.fetch.events", ["tenantName" => session("tenant_code")]) }}';
+    var urlTable  = '{{ route("retail.sales.events.table", ["tenantName" => session("tenant_code")]) }}';
 
     function makeUpdateUrl(id) { return urlUpdate.replace('__ID__', id); }
     function makeDeleteUrl(id) { return urlDelete.replace('__ID__', id); }
@@ -605,3 +603,8 @@ $(document).ready(function () {
 });
 </script>
 @endsection
+
+
+
+
+

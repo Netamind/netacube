@@ -11,6 +11,7 @@ use Illuminate\Support\Facades\File;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
@@ -110,7 +111,8 @@ class TenantCommonController extends Controller
      * then redirect based on role. We do not use Auth::loginUsingId()
      * because Laravel Auth reads from the central DB. Our users only
      * exist in tenant databases, so we own the session ourselves and
-     * AppServiceProvider rebuilds Auth::user() from it on every request.
+     * the HydrateAuthFromSession middleware rebuilds Auth::user() from
+     * it at the start of every subsequent request.
      */
     private function startSessionAndRedirect($user, string $tenantCode)
     {
@@ -193,9 +195,236 @@ class TenantCommonController extends Controller
 
     public function tenantLogout()
     {
+        Auth::logout();
         session()->flush();
         session()->invalidate();
         session()->regenerateToken();
         return redirect()->route('tenant.login.by.url');
+    }
+
+
+    /*
+    |==========================================================================
+      PASSWORD RESET (brought over from TenantAuthController, fixed to use
+      the tenant connection throughout — both the validators and the writes)
+    |==========================================================================
+    */
+
+    public function forgotPasswordView()
+    {
+        return view('auth.forgot-password'); // tenant version
+    }
+
+    public function resetPasswordView()
+    {
+        return view('auth.reset-password');
+    }
+
+    public function sendPasswordResetLink(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'email' => 'required|email|exists:tenant.users,email',
+        ], [
+            'email.required' => 'Email is required.',
+            'email.email'    => 'Email must be valid.',
+            'email.exists'   => 'Email not found in our records.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error'  => 'Validation failed',
+                'status' => 422,
+                'errors' => $validator->errors()->all()
+            ]);
+        }
+
+        $token = Str::random(64);
+
+        DB::connection('tenant')->table('password_resets')->insert([
+            'email'  => $request->email,
+            'token'  => $token,
+            'date'   => Carbon::now(),
+            'status' => 1
+        ]);
+
+        try {
+            Mail::send('tenant.password-reset-link', ['token' => $token], function ($message) use ($request) {
+                $message->to($request->email);
+                $message->subject('Password Reset - Your Tenant Account');
+            });
+
+            return response()->json([
+                'success' => 'Password reset link sent successfully! Check your email (including spam).',
+                'status'  => 201
+            ]);
+        } catch (\Exception $e) {
+            DB::connection('tenant')
+                ->table('password_resets')
+                ->where('email', $request->email)
+                ->where('token', $token)
+                ->delete();
+
+            return response()->json([
+                'error'   => 'Failed to send reset link. Try again later.',
+                'message' => $e->getMessage(),
+                'status'  => 400
+            ]);
+        }
+    }
+
+    public function submitPasswordReset(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'password'              => 'required|min:4|confirmed',
+            'password_confirmation' => 'required',
+            'token'                 => 'required',
+        ], [
+            'password.required'              => 'Password is required.',
+            'password.min'                   => 'Password must be at least 4 characters',
+            'password_confirmation.required' => 'Password confirmation is required.',
+            'password.confirmed'             => 'Passwords do not match.',
+        ]);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $tokenData = DB::connection('tenant')
+            ->table('password_resets')
+            ->where('token', $request->token)
+            ->first();
+
+        if (!$tokenData) {
+            return response()->json([
+                'error'  => 'Invalid or expired token.',
+                'status' => 400
+            ]);
+        }
+
+        if ($tokenData->status != 1) {
+            return response()->json(['error' => 'Link already used', 'status' => 400]);
+        }
+
+        $tokenDate   = date('Y-m-d', strtotime($tokenData->date));
+        $currentDate = date('Y-m-d');
+
+        if ($tokenDate !== $currentDate) {
+            return response()->json(['error' => 'Link has expired', 'status' => 400]);
+        }
+
+        DB::connection('tenant')
+            ->table('users')
+            ->where('email', $tokenData->email)
+            ->update(['password' => Hash::make($request->password)]);
+
+        DB::connection('tenant')
+            ->table('password_resets')
+            ->where('token', $request->token)
+            ->delete();
+
+        return response()->json([
+            'success' => 'Password reset successfully!',
+            'status'  => 201
+        ]);
+    }
+
+
+    /*
+    |==========================================================================
+      PROFILE  (brought over from TenantAuthController)
+
+      Fixed to:
+      - validate against tenant.users, not the central users table
+      - use the logged-in user's id via Auth::id() instead of trusting a
+        posted `id` field (the original let any caller pass ?id=anything
+        and edit someone else's record / change someone else's password)
+    |==========================================================================
+    */
+
+    public function updateProfileInfo(Request $request)
+    {
+        $userId = Auth::id();
+
+        $validator = Validator::make($request->all(), [
+            'name'  => 'required|max:255',
+            'email' => 'required|email|max:255|unique:tenant.users,email,' . $userId,
+            'phone' => 'required|max:255|unique:tenant.users,phone,' . $userId,
+            // add your other fields as needed...
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json([
+                'error'  => $validator->errors()->all(),
+                'status' => 422
+            ]);
+        }
+
+        $data = [
+            'name'  => $request->name,
+            'email' => $request->email,
+            'phone' => $request->phone,
+            // ... your other fields
+        ];
+
+        $updated = DB::connection('tenant')
+            ->table('users')
+            ->where('id', $userId)
+            ->update($data);
+
+        if ($updated) {
+            // keep the session in sync with what we just saved — this is the
+            // source HydrateAuthFromSession reads from on the next request
+            session([
+                'auth_user_name'  => $data['name'],
+                'auth_user_email' => $data['email'],
+                'auth_user_phone' => $data['phone'],
+            ]);
+        }
+
+        return $updated
+            ? response()->json(['success' => 'Profile updated successfully.', 'status' => 201])
+            : response()->json(['error' => 'No changes or user not found.', 'status' => 404]);
+    }
+
+    public function profileChangePassword(Request $request)
+    {
+        $messages = [
+            'currentpassword.required' => 'Current password is required.',
+            'newpassword.required'     => 'New password is required.',
+            'newpassword.min'          => 'New password must be at least 4 characters',
+            'comfirmpassword.required' => 'Confirming new password is mandatory.',
+            'comfirmpassword.same'     => 'New password and confirm password do not match.',
+        ];
+
+        $validator = Validator::make($request->all(), [
+            'currentpassword' => 'required',
+            'newpassword'     => 'required|min:4',
+            'comfirmpassword' => 'required|same:newpassword',
+        ], $messages);
+
+        if ($validator->fails()) {
+            return back()->withErrors($validator)->withInput();
+        }
+
+        $userId = Auth::id();
+
+        $hashedPassword = DB::connection('tenant')
+            ->table('users')
+            ->where('id', $userId)
+            ->value('password');
+
+        if (!Hash::check($request->currentpassword, $hashedPassword)) {
+            return response()->json([
+                'error'  => 'The current password you entered is incorrect.',
+                'status' => 422
+            ]);
+        }
+
+        DB::connection('tenant')
+            ->table('users')
+            ->where('id', $userId)
+            ->update(['password' => Hash::make($request->newpassword)]);
+
+        return response()->json(['success' => 'Password changed successfully', 'status' => 201]);
     }
 }

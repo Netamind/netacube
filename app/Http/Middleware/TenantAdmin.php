@@ -4,6 +4,7 @@ namespace App\Http\Middleware;
 
 use Closure;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\DB;
 use Symfony\Component\HttpFoundation\Response;
 
@@ -13,7 +14,7 @@ class TenantAdmin
     {
         $tenantName = $request->route('tenantName') ?? $request->segment(1) ?? session('tenant_code');
 
-        if (!session('auth_user_email')) {
+        if (!Auth::check()) {
             return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
                 'message'    => 'Your session has expired. Please sign in again.',
                 'alert-type' => 'error'
@@ -23,6 +24,7 @@ class TenantAdmin
         $currentTenantCode = $request->route('tenantName') ?? session('tenant_code');
 
         if (!$currentTenantCode || session('tenant_code') !== $currentTenantCode) {
+            Auth::logout();
             session()->flush();
             return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
                 'message'    => 'Session mismatch. Please login again.',
@@ -32,10 +34,11 @@ class TenantAdmin
 
         $currentRole = DB::connection('tenant')
                          ->table('users')
-                         ->where('email', session('auth_user_email'))
+                         ->where('id', Auth::id())
                          ->value('role');
 
         if ($currentRole === null) {
+            Auth::logout();
             session()->flush();
             return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
                 'message'    => 'Session expired. Please login again.',
@@ -44,6 +47,7 @@ class TenantAdmin
         }
 
         if ($currentRole !== 'Admin' && $currentRole !== 'Operations') {
+            Auth::logout();
             session()->flush();
             return redirect()->route('tenant.login.by.url', ['tenantName' => $tenantName])->with([
                 'message'    => 'This area is restricted to administrators only.',

@@ -143,7 +143,7 @@
                                 <i class="ri-logout-box-r-fill align-middle me-1"></i>
                                 <span>Sign Out</span>
                             </a>
-                            <form id="logout-form" action="#" method="POST" class="d-none">
+                            <form id="logout-form" action="{{ route('tenant.logout') }}" method="POST" class="d-none">
                                 @csrf
                             </form>
                         </div>
@@ -184,7 +184,7 @@
                         </div>
                         <div class="flex-grow-1 ms-2">
                             <span class="fw-semibold fs-15 d-block">{{ Auth::user()->name }}</span>
-                            <span class="fs-13">{{ Auth::user()->branch }}</span>
+                            <span class="fs-13">{{DB::connection('tenant')->table('branches')->where('id',Auth::user()->branch) ->value('name') }}</span>
                         </div>
                         <div class="ms-auto">
                             <i class="ri-arrow-right-s-fill fs-20" style="color:#f2f2f2"></i>

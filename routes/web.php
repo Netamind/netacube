@@ -1,5 +1,4 @@
 <?php
-
 use Illuminate\Support\Facades\Route;
 use App\Http\Controllers\Website\WebsiteController;
 use App\Http\Controllers\Master\MasterController;
@@ -9,7 +8,6 @@ use App\Http\Controllers\Master\MasterApproveTenantController;
 use App\Http\Controllers\Master\MasterTenantInvoicesController;
 use App\Http\Controllers\Master\TenantMigrationController;
 use App\Http\Controllers\Master\InvoiceTemplateController;
-use App\Http\Controllers\Tenant\TenantAuthController;
 use App\Http\Controllers\Tenant\TenantAdminController;
 use App\Http\Controllers\Tenant\TenantCommonController;
 use App\Http\Controllers\Operations\Retail\RetailOperationsController;
@@ -73,19 +71,19 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['tenancy']], function
 // TENANT ADMIN
 // ══════════════════════════════════════════════════════════════════════════════
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.admin']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hydrate.auth', 'tenant.admin']], function () {
 
     // Dashboard & Profile
     Route::get('/admin',                          [TenantAdminController::class, 'showTenantAdminDashboard'])->name('tenant.admin.dashboard');
     Route::get('/admin/profile',                  [TenantAdminController::class, 'showProfileView'])->name('tenant.admin.profile');
-    Route::post('/admin/update-profile-info',     [TenantAuthController::class,  'updateProfileInfo'])->name('tenant.admin.update.profile.info');
-    Route::post('/admin/profile-change-password', [TenantAuthController::class,  'profileChangePassword'])->name('tenant.admin.profile.change.password');
+    Route::post('/admin/update-profile-info',     [TenantCommonController::class,  'updateProfileInfo'])->name('tenant.admin.update.profile.info');
+    Route::post('/admin/profile-change-password', [TenantCommonController::class,  'profileChangePassword'])->name('tenant.admin.profile.change.password');
 
     // Password Reset
-    Route::get('/admin/forgot-password',             [TenantAuthController::class, 'forgotPasswordView'])->name('tenant.admin.forgot.password');
-    Route::post('/admin/send-password-reset-link',   [TenantAuthController::class, 'sendPasswordResetLink'])->name('tenant.admin.password.reset.link');
-    Route::get('/admin/reset-password-view',         [TenantAuthController::class, 'resetPasswordView'])->name('tenant.admin.reset.password.view');
-    Route::post('/admin/submit-password-reset',      [TenantAuthController::class, 'submitPasswordReset'])->name('tenant.admin.submit.password.reset');
+    Route::get('/admin/forgot-password',             [TenantCommonController::class, 'forgotPasswordView'])->name('tenant.admin.forgot.password');
+    Route::post('/admin/send-password-reset-link',   [TenantCommonController::class, 'sendPasswordResetLink'])->name('tenant.admin.password.reset.link');
+    Route::get('/admin/reset-password-view',         [TenantCommonController::class, 'resetPasswordView'])->name('tenant.admin.reset.password.view');
+    Route::post('/admin/submit-password-reset',      [TenantCommonController::class, 'submitPasswordReset'])->name('tenant.admin.submit.password.reset');
 
     // Employees
     Route::get('/admin/employees',                   [TenantAdminController::class, 'showEmployeesView'])->name('tenant.admin.employees');
@@ -230,7 +228,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 // RETAIL OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.operations', 'retail.allowed']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hydrate.auth', 'tenant.operations', 'retail.allowed']], function () {
 
     // Dashboard & Supporting Views
     Route::get('/operations/retail',           [RetailOperationsController::class, 'showDashboardView'])->name('retail.operations.dashboard');
@@ -320,7 +318,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 // WHOLESALE OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.operations', 'wholesale.allowed']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hydrate.auth', 'tenant.operations', 'wholesale.allowed']], function () {
 
     Route::get('/operations/wholesale', [WholesaleOperationsController::class, 'showDashboardView'])->name('wholesale.operations.dashboard');
 
@@ -333,7 +331,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 // FINANCE OPERATIONS
 // ══════════════════════════════════════════════════════════════════════════════
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'tenant.operations', 'finance.allowed']], function () {
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hydrate.auth', 'tenant.operations', 'finance.allowed']], function () {
 
     Route::get('/operations/financial-services', [FinanceOperationsController::class, 'showDashboardView'])->name('finance.operations.dashboard');
 
@@ -345,11 +343,30 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'te
 // ══════════════════════════════════════════════════════════════════════════════
 // SALES
 // ══════════════════════════════════════════════════════════════════════════════
+Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hydrate.auth', 'sales.allowed']], function () {
 
-Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'sales.allowed']], function () {
+    Route::get('sales/retail/dashboard', [RetailSalesController::class, 'showDashboardView'])->name('retail.sales.dashboard');
+    Route::get('sales/retail/profile', [RetailSalesController::class, 'showProfileView'])->name('retail.sales.profile');
+    Route::post('/sales/retail/update-profile-info',     [TenantCommonController::class,  'updateProfileInfo'])->name('tenant.sales.retail.update.profile.info');
+    Route::post('/sales/retail/profile-change-password', [TenantCommonController::class,  'profileChangePassword'])->name('tenant.sales.retail.profile.change.password');
 
-    Route::get('retail/sales/dashboard', [RetailSalesController::class, 'showDashboardView'])->name('retail.sales.dashboard');
-    Route::get('retail/sales/profile', [RetailSalesController::class, 'showProfileView'])->name('retail.sales.profile');
+
+    
+    // Read only 
+    Route::get('sales/retail/products',                [RetailSalesController::class, 'showProductsView'])->name('retail.sales.products');
+    Route::get('sales/retail/deliverynotes',                [RetailSalesController::class, 'showDeliverynotesView'])->name('retail.sales.deliverynotes');
+    Route::get('sales/retail/products/search/view',                [RetailSalesController::class, 'showProductSearchView'])->name('retail.sales.products.search.view');
+    Route::get('sales/retail/products/search',                [RetailSalesController::class, 'searchProduct'])->name('retail.sales.products.search');
+      
+    // Events
+    Route::get('sales/retail/events',                [RetailSalesController::class, 'showEventsView'])->name('retail.sales.events');
+    Route::get('sales/retail/events-data',           [RetailSalesController::class, 'fetchEvents'])->name('retail.sales.fetch.events');
+    Route::get('sales/retail/events-table',          [RetailSalesController::class, 'showEventsTable'])->name('retail.sales.events.table');
+    Route::post('sales/retail/event-create',         [RetailSalesController::class, 'storeEvent'])->name('retail.sales.add.event');
+    Route::post('sales/retail/event-create-table',   [RetailSalesController::class, 'addEventForTableView'])->name('retail.sales.add.event.table');
+    Route::post('sales/retail/event-update/{id}',    [RetailSalesController::class, 'updateEvent'])->name('retail.sales.update.event');
+    Route::post('sales/retail/event-delete/{id}',    [RetailSalesController::class, 'deleteEvent'])->name('retail.sales.delete.event');
+    Route::post('sales/retail/events-bulk-delete',   [RetailSalesController::class, 'bulkDeleteEvents'])->name('retail.sales.bulk.delete.events');
 
 });
 

@@ -1,4 +1,4 @@
-@extends('tenants.admin.dashboard')
+@extends('sales.retail.dashboard')
 @section('content')
 <style>
 .dt-buttons .btn {
@@ -109,8 +109,8 @@
 <i class="ri-calendar-event-line"></i> Event Management
 </h4>
 <div class="d-flex align-items-center">
-    <a href="{{ route('tenant.admin.events') }}" class="btn btn-light text-primary fs-16 mx-1" title="Back to Calendar"><i class="ri-arrow-go-back-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="deleteSelectedBtn" title="Selected Actions"><i class="ri-checkbox-circle-line"></i><span class="badge" id="selectedCount">0</span></a>
+    <a href="{{ route('retail.sales.events') }}" class="btn btn-light text-primary fs-16 mx-1" title="Back to Calendar"><i class="ri-arrow-go-back-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn" title="Add new event"><i class="ri-add-circle-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download options"><i class="ri-download-line"></i></a>
@@ -438,19 +438,6 @@
             allowHtml: true
         };
 
-        // ── Route base URLs ─────────────────────────────────────────────────────
-        // These resolve to e.g. /admin/event-update/0
-        // We replace the trailing /0 with the real ID at call time.
-        // Admin routes have no {tenantName} segment, unlike the sales routes —
-        // so only "id" is passed here.
-        var urlUpdate = '{{ route("tenant.admin.update.event", ["id" => "__ID__"]) }}';
-        var urlDelete = '{{ route("tenant.admin.delete.event", ["id" => "__ID__"]) }}';
-        var urlAdd    = '{{ route("tenant.admin.add.event.table") }}';
-        var urlBulk   = '{{ route("tenant.admin.bulk.delete.events") }}';
-
-        function makeUpdateUrl(id) { return urlUpdate.replace('__ID__', id); }
-        function makeDeleteUrl(id) { return urlDelete.replace('__ID__', id); }
-
         // ── Shared AJAX error handler ─────────────────────────────────────────
         function handleAjaxError(xhr, status) {
             if (status === 'timeout') {
@@ -461,8 +448,6 @@
                 var errors = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : [];
                 var msg = errors.length ? errors.join('<br>') : 'Validation failed.';
                 toastr.error(msg, 'Validation Error');
-            } else if (xhr.status === 401) {
-                toastr.error('Session expired. Please log in again.', 'Unauthorised');
             } else if (xhr.status === 404) {
                 toastr.error((xhr.responseJSON && xhr.responseJSON.error) || 'Record not found.', 'Not Found');
             } else if (xhr.status === 500) {
@@ -571,7 +556,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: urlAdd,
+                    url: '{{ route("retail.sales.add.event.table") }}',
                     data: formData,
                     timeout: 60000,
                     beforeSend: function () { $('#progressBar').show(); },
@@ -623,12 +608,13 @@
                 self.prop('disabled', true);
                 var row     = $('#singleDeleteRow').val();
                 var eventId = $('#singleDeleteId').val();
+                var url     = '{{ route("retail.sales.delete.event", ":id") }}'.replace(':id', eventId);
 
                 $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
 
                 $.ajax({
                     type: 'POST',
-                    url: makeDeleteUrl(eventId),
+                    url: url,
                     data: { _token: '{{ csrf_token() }}' },
                     timeout: 60000,
                     beforeSend: function () { $('#progressBar').show(); },
@@ -697,7 +683,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: makeUpdateUrl(eventId),
+                    url: '{{ route("retail.sales.update.event", ":id") }}'.replace(':id', eventId),
                     data: formData,
                     timeout: 60000,
                     beforeSend: function () { $('#progressBar').show(); },
@@ -767,7 +753,7 @@
 
                 $.ajax({
                     type: 'POST',
-                    url: urlBulk,
+                    url: '{{ route("retail.sales.bulk.delete.events") }}',
                     data: { ids: ids, _token: '{{ csrf_token() }}' },
                     timeout: 60000,
                     beforeSend: function () { $('#progressBar').show(); },

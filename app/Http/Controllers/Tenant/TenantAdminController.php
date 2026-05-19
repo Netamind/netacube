@@ -1,5 +1,4 @@
 <?php
-
 namespace App\Http\Controllers\Tenant;
 
 use Illuminate\Http\Request;
@@ -79,9 +78,25 @@ public function showEmployeeDetailsView(Request $request)
         return view('tenants.admin.events');
     }
 
+
+
     public function showEventsTable(Request $request)
     {
-        return view('tenants.admin.events-table');
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return redirect()->route('tenant.admin.dashboard')
+                ->with('notification', [
+                    'message'    => 'Your session has expired. Please log in again.',
+                    'alert-type' => 'error',
+                ]);
+        }
+
+        $events = DB::connection('tenant')->table('events')
+            ->where('user_id', $authUser->id)
+            ->orderBy('start_date', 'asc')
+            ->get();
+
+        return view('tenants.admin.events-table', compact('events'));
     }
 
 
@@ -289,7 +304,7 @@ public function updateName(Request $request)
     $data = ['name' => $request->name];
 
     $validator = $request->validate([
-        'id'   => 'required|integer|exists:company_files,id',
+        'id'   => 'required|integer|exists:tenant.company_files,id',
         'name' => 'required|string|max:255',
     ]);
 
@@ -320,7 +335,7 @@ public function updateName(Request $request)
 public function deleteFile(Request $request)
 {
     $validator = $request->validate([
-        'id' => 'required|integer|exists:company_files,id',
+        'id' => 'required|integer|exists:tenant.company_files,id',
     ]);
 
     $file = DB::connection('tenant')->table('company_files')->find($request->id);
@@ -355,7 +370,7 @@ public function bulkDeleteFiles(Request $request)
 {
     $validator = $request->validate([
         'ids'   => 'required|array',
-        'ids.*' => 'required|integer|exists:company_files,id',
+        'ids.*' => 'required|integer|exists:tenant.company_files,id',
     ]);
 
     if ($validator) {
@@ -393,7 +408,7 @@ public function bulkDeleteFiles(Request $request)
 public function downloadFile(Request $request)
 {
     $validator = $request->validate([
-        'id' => 'required|integer|exists:company_files,id',
+        'id' => 'required|integer|exists:tenant.company_files,id',
     ]);
 
     $file = DB::connection('tenant')->table('company_files')->find($request->id);
@@ -420,14 +435,15 @@ public function downloadFile(Request $request)
     return response()->download($path, $downloadName);
 }
 
-
-    public function fetchEvents(Request $request)
+   public function fetchEvents(Request $request)
     {
-        $query = DB::connection('tenant')->table('events');
-
-        if ($request->has('user_id')) {
-            $query->where('user_id', Auth::user()->id);
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
         }
+
+        $query = DB::connection('tenant')->table('events')
+            ->where('user_id', $authUser->id);
 
         if ($request->has('upcoming')) {
             $query->where('start_date', '>=', now()->toDateString());
@@ -459,9 +475,13 @@ public function downloadFile(Request $request)
             'events' => $events
         ]);
     }
-
     public function storeEvent(Request $request)
     {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
+        }
+
         $startTime = $request->all_day ? null : ($request->start_time ?? null);
         $endTime = $request->all_day ? null : ($request->end_time ?? null);
 
@@ -477,7 +497,7 @@ public function downloadFile(Request $request)
             'start_time' => $startTime,
             'end_time' => $endTime,
             'all_day' => $request->all_day ?? false,
-            'user_id' => Auth::user()->id,
+            'user_id' => $authUser->id,
         ];
 
         $validator = $request->validate([
@@ -520,90 +540,102 @@ public function downloadFile(Request $request)
         } else {
             return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
+    }public function updateEvent(Request $request, $tenantName, $id)
+{
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
     }
 
-    public function updateEvent(Request $request, $id)
-    {
-        $startTime = $request->all_day ? null : ($request->start_time ?? null);
-        $endTime = $request->all_day ? null : ($request->end_time ?? null);
+    $startTime = $request->all_day ? null : ($request->start_time ?? null);
+    $endTime = $request->all_day ? null : ($request->end_time ?? null);
 
-        if (!$request->all_day && $startTime && $endTime && strtotime($endTime) < strtotime($startTime)) {
-            $endTime = $startTime;
-        }
+    if (!$request->all_day && $startTime && $endTime && strtotime($endTime) < strtotime($startTime)) {
+        $endTime = $startTime;
+    }
 
-        $data = [
-            'description' => trim($request->description),
-            'bg_color' => $request->bg_color,
-            'start_date' => $request->start_date,
-            'end_date' => $request->end_date ?: $request->start_date,
-            'start_time' => $startTime,
-            'end_time' => $endTime,
-            'all_day' => $request->all_day ?? false,
-        ];
+    $data = [
+        'description' => trim($request->description),
+        'bg_color' => $request->bg_color,
+        'start_date' => $request->start_date,
+        'end_date' => $request->end_date ?: $request->start_date,
+        'start_time' => $startTime,
+        'end_time' => $endTime,
+        'all_day' => $request->all_day ?? false,
+    ];
 
-        $validator = $request->validate([
-            'description' => 'required|string|max:255',
-            'bg_color' => 'required|in:bg-danger,bg-success,bg-primary,bg-info,bg-dark,bg-warning',
-            'start_date' => 'required|date',
-            'end_date' => 'required|date|after_or_equal:start_date',
-            'all_day' => 'boolean',
-        ]);
+    $validator = $request->validate([
+        'description' => 'required|string|max:255',
+        'bg_color' => 'required|in:bg-danger,bg-success,bg-primary,bg-info,bg-dark,bg-warning',
+        'start_date' => 'required|date',
+        'end_date' => 'required|date|after_or_equal:start_date',
+        'all_day' => 'boolean',
+    ]);
 
-        if ($validator) {
-            $updated = DB::connection('tenant')->table('events')->where('id', $id)->where('user_id', Auth::user()->id)->update($data);
-            if ($updated) {
-                $event = DB::connection('tenant')->table('events')->where('id', $id)->first();
-                $start = $event->start_date . ($event->all_day ? '' : 'T' . $event->start_time);
-                $end = $event->all_day
-                    ? Carbon::parse($event->end_date)->addDay()->format('Y-m-d')
-                    : ($event->end_date . 'T' . $event->end_time);
+    if ($validator) {
+        $updated = DB::connection('tenant')->table('events')->where('id', $id)->where('user_id', $authUser->id)->update($data);
+        if ($updated) {
+            $event = DB::connection('tenant')->table('events')->where('id', $id)->first();
+            $start = $event->start_date . ($event->all_day ? '' : 'T' . $event->start_time);
+            $end = $event->all_day
+                ? Carbon::parse($event->end_date)->addDay()->format('Y-m-d')
+                : ($event->end_date . 'T' . $event->end_time);
 
-                return response()->json([
-                    'success' => 'Event updated successfully.',
-                    'status' => 201,
-                    'event' => [
-                        'id' => $event->id,
-                        'title' => $event->description,
-                        'start' => $start,
-                        'end' => $end,
-                        'allDay' => (bool) $event->all_day,
-                        'classNames' => [$event->bg_color],
-                        'extendedProps' => [
-                            'start_time' => $event->start_time,
-                            'end_time' => $event->end_time,
-                            'bg_color' => $event->bg_color
-                        ]
+            return response()->json([
+                'success' => 'Event updated successfully.',
+                'status' => 201,
+                'event' => [
+                    'id' => $event->id,
+                    'title' => $event->description,
+                    'start' => $start,
+                    'end' => $end,
+                    'allDay' => (bool) $event->all_day,
+                    'classNames' => [$event->bg_color],
+                    'extendedProps' => [
+                        'start_time' => $event->start_time,
+                        'end_time' => $event->end_time,
+                        'bg_color' => $event->bg_color
                     ]
-                ]);
-            } else {
-                return response()->json(['error' => 'Event not found or no changes made.', 'status' => 409]);
-            }
+                ]
+            ]);
         } else {
-            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+            return response()->json(['error' => 'Event not found or no changes made.', 'status' => 409]);
         }
+    } else {
+        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+    }
+}
+public function deleteEvent(Request $request, $tenantName, $id)
+{
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
     }
 
-    public function deleteEvent($id)
-    {
-        $deleted = DB::connection('tenant')->table('events')->where('id', $id)->where('user_id', Auth::user()->id)->delete();
-        if ($deleted) {
-            return response()->json(['success' => 'Event deleted successfully.', 'status' => 201]);
-        } else {
-            return response()->json(['error' => 'Event not found or permission denied.', 'status' => 404]);
-        }
+    $deleted = DB::connection('tenant')->table('events')->where('id', $id)->where('user_id', $authUser->id)->delete();
+    if ($deleted) {
+        return response()->json(['success' => 'Event deleted successfully.', 'status' => 201]);
+    } else {
+        return response()->json(['error' => 'Event not found or permission denied.', 'status' => 404]);
     }
+}
 
-    public function bulkDeleteEvents(Request $request)
+public function bulkDeleteEvents(Request $request)
     {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
+        }
+
         $validator = $request->validate([
             'ids' => 'required|array',
-            'ids.*' => 'required|integer|exists:events,id',
+            'ids.*' => 'required|integer|exists:tenant.events,id',
         ]);
 
         if ($validator) {
             $deleted = DB::connection('tenant')->table('events')
                 ->whereIn('id', $request->ids)
-                ->where('user_id', Auth::id())
+                ->where('user_id', $authUser->id)
                 ->delete();
 
             if ($deleted > 0) {
@@ -618,6 +650,11 @@ public function downloadFile(Request $request)
 
     public function addEventForTableView(Request $request)
     {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
+        }
+
         $startTime = $request->all_day ? null : ($request->start_time ?? null);
         $endTime = $request->all_day ? null : ($request->end_time ?? null);
 
@@ -633,7 +670,7 @@ public function downloadFile(Request $request)
             'start_time' => $startTime,
             'end_time' => $endTime,
             'all_day' => $request->all_day ?? false,
-            'user_id' => Auth::user()->id,
+            'user_id' => $authUser->id,
         ];
 
         $validator = $request->validate([
@@ -1540,6 +1577,15 @@ public function deleteEmployee(Request $request)
 
     public function updateUserFilters(Request $request)
     {
+        $authUser = Auth::user();
+        if (!$authUser) {
+            $notification = array(
+                'message'    => 'Your session has expired. Please log in again.',
+                'alert-type' => 'error'
+            );
+            return Redirect()->back()->with($notification);
+        }
+
         $validator = Validator::make(
             $request->all(),
             [
@@ -1564,7 +1610,7 @@ public function deleteEmployee(Request $request)
 
         try {
             $success = DB::connection('tenant')->table('user_filters')->updateOrInsert(
-                ['user_id' => Auth::id()],
+                ['user_id' => $authUser->id],
                 $data
             );
 
@@ -1862,6 +1908,11 @@ public function showPayrollPeriodsView()
 // ── STORE (create new period) ─────────────────────────────────────────────
 public function storePayrollPeriod(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
+    }
+
     $request->validate([
         'name'         => 'required|string|max:100|unique:tenant.payroll_periods,name',
         'period_start' => 'required|date',
@@ -1876,7 +1927,7 @@ public function storePayrollPeriod(Request $request)
         'period_end'   => $request->period_end,
         'pay_date'     => $request->pay_date,
         'status'       => 'draft',
-        'created_by'   => Auth::user()->name,
+        'created_by'   => $authUser->name,
         'notes'        => $request->notes,
         'created_at'   => now(),
         'updated_at'   => now(),
@@ -2106,7 +2157,7 @@ public function generatePayrollEntries(Request $request)
             'pension_employer'                => $pensionEmployer,
             'paye'                            => $paye,
             'loan_deduction'                  => $loanDeduction,
-            'advance_deduction'               => $advanceDeduction,
+            'advance_deduction'                => $advanceDeduction,
             'other_deductions'                => 0,
             'total_deductions'                => $totalDeductions,
             'net_pay'                         => $netPay,
@@ -2345,6 +2396,11 @@ private function calculatePAYE(float $taxableIncome): float
 // ── APPROVE ───────────────────────────────────────────────────────────────
 public function approvePayrollPeriod(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['error' => 'Your session has expired. Please log in again.', 'status' => 401]);
+    }
+
     $request->validate([
         'id' => 'required|integer|exists:tenant.payroll_periods,id',
     ]);
@@ -2357,7 +2413,7 @@ public function approvePayrollPeriod(Request $request)
 
     DB::connection('tenant')->table('payroll_periods')->where('id', $request->id)->update([
         'status'      => 'approved',
-        'approved_by' => Auth::user()->name,
+        'approved_by' => $authUser->name,
         'approved_at' => now(),
         'updated_at'  => now(),
     ]);
@@ -2701,6 +2757,11 @@ public function getPayslipStats(Request $request)
 // ============================================================
 public function emailPayslip(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['status' => 401, 'error' => 'Your session has expired. Please log in again.']);
+    }
+
     $request->validate([
         'entry_id' => 'required|integer|exists:tenant.payroll_entries,id',
     ]);
@@ -2775,7 +2836,7 @@ public function emailPayslip(Request $request)
         'period'      => $period,
         'company'     => $company,
         'note'        => $request->note ?? null,
-        'sender_name' => Auth::user()->name ?? 'HR',
+        'sender_name' => $authUser->name ?? 'HR',
     ];
 
     // ── Send mail — inner try/catch mirrors masterSendInvoiceFromTenantDetails
@@ -2802,7 +2863,7 @@ public function emailPayslip(Request $request)
             'send_type'         => 'single',
             'status'            => 'failed',
             'note'              => $request->note ?? null,
-            'sent_by'           => Auth::user()->name ?? null,
+            'sent_by'           => $authUser->name ?? null,
             'error_message'     => $mailException->getMessage(),
             'created_at'        => now(),
             'updated_at'        => now(),
@@ -2823,7 +2884,7 @@ public function emailPayslip(Request $request)
         'send_type'         => 'single',
         'status'            => 'sent',
         'note'              => $request->note ?? null,
-        'sent_by'           => Auth::user()->name ?? null,
+        'sent_by'           => $authUser->name ?? null,
         'error_message'     => null,
         'created_at'        => now(),
         'updated_at'        => now(),
@@ -2843,6 +2904,11 @@ public function emailPayslip(Request $request)
 // ============================================================
 public function bulkEmailPayslips(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['status' => 401, 'error' => 'Your session has expired. Please log in again.']);
+    }
+
     $request->validate([
         'entry_ids'   => 'required|array|min:1',
         'entry_ids.*' => 'integer|exists:tenant.payroll_entries,id',
@@ -2851,7 +2917,7 @@ public function bulkEmailPayslips(Request $request)
     $tenantDb   = DB::connection('tenant');
     $company    = $tenantDb->table('company_info')->where('id', 1)->first();
     $note       = $request->note ?? null;
-    $senderName = Auth::user()->name ?? 'HR';
+    $senderName = $authUser->name ?? 'HR';
     $sent       = 0;
     $skipped    = 0;
     $failed     = 0;
@@ -3419,6 +3485,11 @@ public function showOfferLettersView()
 // ── STORE ─────────────────────────────────────────────────────────────────
 public function storeOfferLetter(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['status' => 401, 'error' => 'Your session has expired. Please log in again.']);
+    }
+
     $request->validate([
         'employee_id'        => 'required|integer|exists:tenant.users,id',
         'letter_type'        => 'required|in:Offer,Confirmation,Promotion,Termination',
@@ -3441,7 +3512,7 @@ public function storeOfferLetter(Request $request)
         'offered_department' => trim($request->offered_department),
         'offered_salary'     => $request->offered_salary,
         'custom_message'     => trim($request->custom_message),
-        'generated_by'       => Auth::user()->name ?? 'System',
+        'generated_by'       => $authUser->name ?? 'System',
         'notes'              => $request->notes,
         'created_at'         => now(),
         'updated_at'         => now(),
@@ -3814,6 +3885,11 @@ public function showAllowancesView()
 // ── STORE ─────────────────────────────────────────────────────────────────
 public function storeAllowance(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['status' => 401, 'error' => 'Your session has expired. Please log in again.']);
+    }
+
     $request->validate([
         'employee_id'                     => 'required|integer|exists:tenant.users,id',
         'housing_allowance'               => 'nullable|numeric|min:0',
@@ -3863,7 +3939,7 @@ public function storeAllowance(Request $request)
     ]);
 
     // ── Write initial history snapshot ────────────────────────────────────
-    $this->writeAllowanceHistory($id, 'Initial setup', Auth::user()->name ?? 'System');
+    $this->writeAllowanceHistory($id, 'Initial setup', $authUser->name ?? 'System');
 
     $allowance = DB::connection('tenant')->table('employee_allowances')->where('id', $id)->first();
 
@@ -3877,6 +3953,11 @@ public function storeAllowance(Request $request)
 // ── UPDATE ────────────────────────────────────────────────────────────────
 public function updateAllowance(Request $request)
 {
+    $authUser = Auth::user();
+    if (!$authUser) {
+        return response()->json(['status' => 401, 'error' => 'Your session has expired. Please log in again.']);
+    }
+
     $request->validate([
         'id'                              => 'required|integer|exists:tenant.employee_allowances,id',
         'housing_allowance'               => 'nullable|numeric|min:0',
@@ -3915,7 +3996,7 @@ public function updateAllowance(Request $request)
     $this->writeAllowanceHistory(
         $request->id,
         $request->change_reason ?? 'Manual update',
-        Auth::user()->name ?? 'System'
+        $authUser->name ?? 'System'
     );
 
     $allowance = DB::connection('tenant')->table('employee_allowances')->where('id', $request->id)->first();

@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\Config;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\File;
+use Illuminate\Support\Facades\Log;
 use App\Models\Tenant;
 use Illuminate\Support\Facades\Schema;
 use Illuminate\Database\Schema\Blueprint;
@@ -28,6 +29,44 @@ public function showTenantMigrationActionsView($tenantId)
 public function showGlobalMigrations()
 {
     return view('master.global-migrations');
+}
+
+/**
+ * Point the 'tenant' connection at the given tenant's database, using the
+ * tenant's own DB credentials in production (shared hosting / cPanel DB
+ * users are scoped to their own database and the app's default 'mysql'
+ * user often cannot see or access other tenants' databases). Returns
+ * true if a real connection to the tenant database succeeds.
+ */
+private function connectAsTenant(Tenant $tenant, string $database): bool
+{
+    $isLocal = app()->environment('local');
+
+    try {
+        if ($isLocal) {
+            config(['database.connections.tenant.database' => $database]);
+        } else {
+            if (empty($tenant->db_user)) {
+                Log::warning("Tenant {$tenant->id} has no db_user configured for production connection");
+                return false;
+            }
+
+            config([
+                'database.connections.tenant.host'     => env('TENANT_DB_HOST', config('database.connections.mysql.host')),
+                'database.connections.tenant.database' => $database,
+                'database.connections.tenant.username' => $tenant->db_user,
+                'database.connections.tenant.password' => 'binto2020',
+            ]);
+        }
+
+        DB::purge('tenant');
+        DB::connection('tenant')->getPdo();
+
+        return true;
+    } catch (\Exception $e) {
+        Log::warning("Failed to connect as tenant {$tenant->id} ({$database}): " . $e->getMessage());
+        return false;
+    }
 }
 
 public function executePendingMigrations($tenantId)
@@ -58,20 +97,12 @@ public function executePendingMigrations($tenantId)
         ]);
     }
 
-    $exists = DB::selectOne(
-        'SELECT 1 FROM information_schema.schemata WHERE schema_name = ?',
-        [$database]
-    );
-
-    if (!$exists) {
+    if (!$this->connectAsTenant($tenant, $database)) {
         return response()->json([
-            'error'  => 'Tenant database does not exist',
+            'error'  => 'Tenant database does not exist or could not be reached',
             'status' => 409
         ]);
     }
-
-    config(['database.connections.tenant.database' => $database]);
-    DB::purge('tenant');
 
     $exitCode = Artisan::call('migrate', [
         '--database' => 'tenant',
@@ -85,6 +116,8 @@ public function executePendingMigrations($tenantId)
             'status'  => 201
         ]);
     }
+
+    Log::warning("Migration failed for tenant {$tenant->id} ({$database}) - exit code: {$exitCode} - output: " . Artisan::output());
 
     return response()->json([
         'error'  => 'Migration failed (non-zero exit code)',
@@ -120,20 +153,12 @@ public function executePendingMigrations($tenantId)
         ]);
     }
 
-    $exists = DB::selectOne(
-        'SELECT 1 FROM information_schema.schemata WHERE schema_name = ?',
-        [$database]
-    );
-
-    if (!$exists) {
+    if (!$this->connectAsTenant($tenant, $database)) {
         return response()->json([
-            'error'  => 'Tenant database does not exist',
+            'error'  => 'Tenant database does not exist or could not be reached',
             'status' => 409
         ]);
     }
-
-    config(['database.connections.tenant.database' => $database]);
-    DB::purge('tenant');
 
     $exitCode = Artisan::call('migrate:fresh', [
         '--database' => 'tenant',
@@ -147,6 +172,8 @@ public function executePendingMigrations($tenantId)
             'status'  => 201
         ]);
     }
+
+    Log::warning("Fresh migration failed for tenant {$tenant->id} ({$database}) - exit code: {$exitCode} - output: " . Artisan::output());
 
     return response()->json([
         'error'  => 'Fresh migration failed',
@@ -190,16 +217,7 @@ public function runPendingForAll(Request $request)
                 continue;
             }
 
-            config(['database.connections.tenant.database' => $database]);
-            DB::purge('tenant');
-            DB::connection('tenant')->reconnect();
-
-            $exists = DB::selectOne(
-                'SELECT 1 FROM information_schema.schemata WHERE schema_name = ? LIMIT 1',
-                [$database]
-            );
-
-            if (!$exists) {
+            if (!$this->connectAsTenant($tenant, $database)) {
                 $skipped++;
                 continue;
             }
@@ -222,11 +240,14 @@ public function runPendingForAll(Request $request)
         }
     });
 
-    $message = match (true) {
-        $failed > 0   => "Completed with {$failed} failure(s), {$skipped} skipped, {$processed} successful",
-        $skipped > 0  => "Completed – {$skipped} tenants skipped (missing/invalid database), {$processed} successful",
-        default       => "Migrations executed successfully for all {$processed} tenants"
-    };
+    if ($failed > 0) {
+        $message = "Completed with {$failed} failure(s), {$skipped} skipped, {$processed} successful";
+    } elseif ($skipped > 0) {
+        $message = "Completed - {$skipped} tenants skipped (missing/invalid database), {$processed} successful";
+    } else {
+        $message = "Migrations executed successfully for all {$processed} tenants";
+    }
+
 
     return response()->json([
         'success'   => $failed === 0,
@@ -239,4 +260,3 @@ public function runPendingForAll(Request $request)
     ]);
 }
 }
-

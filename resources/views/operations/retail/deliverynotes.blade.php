@@ -187,22 +187,23 @@
 .dn-row-check { width: 16px; height: 16px; cursor: pointer; accent-color: #4B5EBD; }
 
 /* ── Error pill ───────────────────────────────────────────────────────── */
+/* ▼ CHANGED: both has-errors and no-errors are now clickable pills.
+   no-errors is muted/grey but still opens the modal (shows "No discrepancies found"). */
 .dn-err-count {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 28px; height: 22px; border-radius: 5px;
     font-size: 12px; font-weight: 700;
     font-variant-numeric: tabular-nums; padding: 0 7px;
-    border: 1px solid;
+    border: 1px solid; cursor: pointer; transition: background .15s, color .15s, border-color .15s;
 }
 .dn-err-count.has-errors {
     background: #fee2e2; color: #b91c1c; border-color: #fecaca;
-    cursor: pointer; transition: background .15s;
 }
 .dn-err-count.has-errors:hover { background: #fecaca; }
 .dn-err-count.no-errors {
-    background: #f1f5f9; color: #cbd5e1; border-color: #e2e8f0;
-    cursor: default;
+    background: #f1f5f9; color: #94a3b8; border-color: #e2e8f0;
 }
+.dn-err-count.no-errors:hover { background: #e2e8f0; color: #64748b; }
 
 /* ── Selected button ──────────────────────────────────────────────────── */
 .dn-sel-btn {
@@ -548,7 +549,6 @@
                 <th style="text-align:center">Actions</th>
             </tr>
         </thead>
-        {{-- ▼ CHANGED: empty tbody — DataTable handles "no data" state natively --}}
         <tbody id="dnTableBody"></tbody>
     </table>
 </div>
@@ -688,13 +688,13 @@
     <div class="modal-dialog" style="max-width:420px;">
         <div class="modal-content">
             <div class="modal-header mh-blue">
-                <h5 class="modal-title mh-title"><i class="ri-corner-up-right-line"></i> Submit Pending Notes</h5>
+                <h5 class="modal-title mh-title"><i class="ri-send-plane-2-line"></i> Submit Pending Notes</h5>
                 <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:20px 22px;">
                 <div style="display:flex;align-items:flex-start;gap:14px;">
                     <div style="width:42px;height:42px;border-radius:50%;background:#eff3ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="ri-corner-up-right-line" style="font-size:20px;color:#4B5EBD;"></i>
+                        <i class="ri-send-plane-2-line" style="font-size:20px;color:#4B5EBD;"></i>
                     </div>
                     <div>
                         <p style="font-size:13px;font-weight:600;color:#1e293b;margin:0 0 6px;">Submit pending delivery notes?</p>
@@ -711,7 +711,7 @@
             <div class="modal-footer" style="padding:10px 20px 14px;gap:8px;">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" id="submitBranchConfirmBtn">
-                    <i class="ri-corner-up-right-line"></i> Yes, Submit
+                    <i class="ri-send-plane-2-line"></i> Yes, Submit
                 </button>
             </div>
         </div>
@@ -737,7 +737,7 @@
                 </div>
 
                 <button class="bulk-action-btn bab-submit" id="bulkSubmitBtn">
-                    <i class="ri-corner-up-right-line" style="color:#4B5EBD;"></i>
+                    <i class="ri-send-plane-2-line" style="color:#4B5EBD;"></i>
                     <div>
                         <div class="bab-title">Submit pending notes</div>
                         <div class="bab-desc">Marks all unsubmitted notes as submitted · updates branch stock</div>
@@ -867,7 +867,7 @@
                         @foreach([
                             ['Table view',      'Shows a per-branch summary of all delivery notes for the selected date and category.'],
                             ['Checkboxes',      'Select one or more branch rows to perform bulk operations via the Selected button in the summary strip.'],
-                            ['Errors column',   'Shows the number of discrepancies detected for that branch. Click the badge to review, approve, or reject each discrepancy.'],
+                            ['Errors column',   'Shows the number of discrepancies detected for that branch. Click the badge (even at 0) to review, approve, or reject each discrepancy.'],
                             ['Submit Pending',  'Marks unsubmitted notes for that branch as submitted and updates branch stock.'],
                             ['Unsubmit',        'Reverses a submitted note — sets it back to pending and decrements stock.'],
                             ['Delete',          'Permanently removes all delivery notes for the selected branches on the selected date.'],
@@ -908,16 +908,11 @@ $(document).ready(function () {
     var pendingBulkAction = null;
     var dtTable           = null;
 
-    /* ── Dummy errors data ────────────────────────────────────────────── */
-    var dummyErrors = {
-        '1': [
-            { id: 'ERR-001', product: 'Bread Loaf 700g',  unit: 'Loaf',   price: 1200.00, qty: 150, diff: '+30', status: 'Pending' },
-            { id: 'ERR-002', product: 'Milk 500ml',        unit: 'Bottle', price: 850.00,  qty: 48,  diff: '-4',  status: 'Pending' },
-        ],
-        '2': [
-            { id: 'ERR-003', product: 'Yoghurt 250g',      unit: 'Cup',    price: 650.00,  qty: 60,  diff: '+5',  status: 'Pending' },
-        ],
-    };
+    /* ── Errors data ──────────────────────────────────────────────────────
+       ▼ CHANGED: emptied out — errors will be wired up to a real endpoint
+       later. Every branch now shows "0" and the badge stays fully
+       clickable; the modal will simply render its empty state. ── */
+    var dummyErrors = {};
 
     /* ── Helpers ─────────────────────────────────────────────────────── */
     function showProgress() { $('#progressBar').show(); }
@@ -936,7 +931,7 @@ $(document).ready(function () {
         toastr.error((json && (json.message || json.error)) || 'Unexpected error (HTTP ' + xhr.status + ').', 'Error');
     }
 
-    /* ── ▼ CHANGED: initialise DataTable once on page load with empty tbody ── */
+    /* ── Initialise DataTable once on page load with empty tbody ────────── */
     @if($selectedCategory)
     dtTable = $('#dnTable').DataTable({
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>Brt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
@@ -960,7 +955,6 @@ $(document).ready(function () {
         language: {
             search: '',
             searchPlaceholder: 'Search branches…',
-            /* ▼ CHANGED: clean "no data" messages — no spinner, no loading text */
             emptyTable:  'No delivery notes found for this date.',
             zeroRecords: 'No branches match your search.',
         },
@@ -1042,21 +1036,24 @@ $(document).ready(function () {
                 var pdfBase     = '{{ route("retail.operations.deliverynotes.branch.export-pdf") }}';
                 var detailsBase = '{{ route("retail.operations.deliverynotes.branch.details") }}';
 
-                /* ── ▼ CHANGED: clear DataTable rows, then add new ones, then redraw ── */
                 dtTable.clear();
 
                 if (rows.length) {
                     rows.forEach(function (r) {
                         var branchErrors = dummyErrors[String(r.branch_id)] || [];
-                        var errCount     = branchErrors.length;
+                        var errCount     = branchErrors.length; // always 0 until errors are implemented
 
-                        var errBadge = errCount > 0
-                            ? '<span class="dn-err-count has-errors dn-err-pill" data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" title="Click to review discrepancies">' + errCount + '</span>'
-                            : '<span class="dn-err-count no-errors">0</span>';
+                        /* ▼ CHANGED: errBadge is ALWAYS a clickable dn-err-pill,
+                           regardless of count. Styling differs (grey vs red)
+                           but both open the discrepancies modal. */
+                        var errBadge = '<span class="dn-err-count dn-err-pill ' + (errCount > 0 ? 'has-errors' : 'no-errors') + '" '
+                            + 'data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" '
+                            + 'title="Click to review discrepancies">' + errCount + '</span>';
 
+                        /* ▼ CHANGED: better "submit" icon — paper-plane instead of the back-arrow look */
                         var submitBtn = r.has_pending_notes
-                            ? '<a href="#" class="dn-action-btn btn-submit dn-submit-btn" data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" title="Submit pending notes"><i class="ri-corner-up-right-line"></i></a>'
-                            : '<span class="dn-action-btn btn-disabled" title="No pending notes"><i class="ri-corner-up-right-line"></i></span>';
+                            ? '<a href="#" class="dn-action-btn btn-submit dn-submit-btn" data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" title="Submit pending notes"><i class="ri-send-plane-2-line"></i></a>'
+                            : '<span class="dn-action-btn btn-disabled" title="No pending notes"><i class="ri-send-plane-2-line"></i></span>';
 
                         var pdfUrl     = pdfBase     + '?branch_id=' + r.branch_id + '&date=' + activeDate;
                         var detailsUrl = detailsBase + '?branch_id=' + r.branch_id + '&date=' + activeDate;
@@ -1085,8 +1082,6 @@ $(document).ready(function () {
                     });
                 }
 
-                /* ▼ CHANGED: single draw call after all rows are added
-                   DataTable shows "No delivery notes found for this date." automatically when rows = 0 */
                 dtTable.draw();
                 updateSelectionUI();
             },
@@ -1188,13 +1183,13 @@ $(document).ready(function () {
         var configs = {
             submit: {
                 headerClass: 'mh-blue',
-                iconClass: 'ri-corner-up-right-line', iconColor: '#4B5EBD', wrapBg: '#eff3ff',
-                title:   '<i class="ri-corner-up-right-line"></i> Submit Pending Notes',
+                iconClass: 'ri-send-plane-2-line', iconColor: '#4B5EBD', wrapBg: '#eff3ff',
+                title:   '<i class="ri-send-plane-2-line"></i> Submit Pending Notes',
                 heading: 'Submit pending notes for ' + count + ' branch' + (count > 1 ? 'es' : '') + '?',
                 body:    'All unsubmitted delivery notes for <strong>' + names.join(', ') + '</strong> on <strong>' + activeDate + '</strong> will be marked submitted and branch stock updated.',
                 noteStyle: 'background:#eff3ff;color:#3b4fa0;border-color:#4B5EBD;',
                 noteText:  '<i class="ri-information-line me-1"></i> Stock will be incremented. This cannot be undone.',
-                btnClass: 'btn-primary', btnText: '<i class="ri-corner-up-right-line me-1"></i> Yes, Submit',
+                btnClass: 'btn-primary', btnText: '<i class="ri-send-plane-2-line me-1"></i> Yes, Submit',
             },
             unsubmit: {
                 headerClass: 'mh-amber',

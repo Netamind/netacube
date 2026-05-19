@@ -36,7 +36,7 @@ class MasterApproveTenantController extends Controller
         }
     }
 
-    public function approveTenant(Request $request, CpanelService $cpanel = null)
+    public function approveTenant(Request $request, CpanelService $cpanel)
     {
         $tenantId = $request->id;
         $clientUrl = $request->client_url;

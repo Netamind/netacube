@@ -1,7 +1,5 @@
 <?php
-
 namespace App\Http\Controllers\Operations\Retail;
-
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
@@ -10,7 +8,7 @@ use DB;
 use Dompdf\Dompdf;
 use Dompdf\Options;
 
-class RetailDeliveryNotesController extends Controller
+class RetailDeliverynotesController extends Controller
 {
     
 
@@ -18,10 +16,6 @@ class RetailDeliveryNotesController extends Controller
     {
         return view('operations.retail.deliverynotes');
     }
-
-    // ══════════════════════════════════════════════════════════════════════
-    //  FETCH BRANCH DELIVERY NOTE SUMMARY BY DATE  (AJAX)
-    // ══════════════════════════════════════════════════════════════════════
 
     public function fetchBranchDeliveryNoteSummaryByDate(Request $request)
     {
@@ -1571,7 +1565,6 @@ public function bulkDeleteDeliverynoteLinesFromDetailsView(Request $request)
 
     $noteIds  = array_map('intval', $request->note_ids);
     $branchId = (int) $request->branch_id;
-
     $deleted = DB::connection('tenant')
         ->table('retail_deliverynotes')
         ->whereIn('id',      $noteIds)

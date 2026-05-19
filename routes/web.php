@@ -21,6 +21,7 @@ use App\Http\Controllers\Operations\Retail\SupplierController;
 use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Sales\Retail\RetailSalesController;
+use App\Http\Controllers\Sales\Retail\RetailPointOfSaleController;
 
 
 
@@ -355,9 +356,18 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     // Read only 
     Route::get('sales/retail/products',                [RetailSalesController::class, 'showProductsView'])->name('retail.sales.products');
     Route::get('sales/retail/deliverynotes',                [RetailSalesController::class, 'showDeliverynotesView'])->name('retail.sales.deliverynotes');
-    Route::get('sales/retail/products/search/view',                [RetailSalesController::class, 'showProductSearchView'])->name('retail.sales.products.search.view');
-    Route::get('sales/retail/products/search',                [RetailSalesController::class, 'searchProduct'])->name('retail.sales.products.search');
-      
+    Route::get('sales/retail/products/search/',                [RetailSalesController::class, 'showProductSearchView'])->name('retail.sales.products.search');
+    
+    
+    // POS 
+    Route::get('sales/retail/pos/mobile',                [RetailPointOfSaleController::class, 'showMobilePosView'])->name('retail.pos.mobile');
+    Route::get('sales/retail/pos/desktop',                [RetailPointOfSaleController::class, 'showDesktopPosView'])->name('retail.pos.desktop');
+
+
+
+
+
+
     // Events
     Route::get('sales/retail/events',                [RetailSalesController::class, 'showEventsView'])->name('retail.sales.events');
     Route::get('sales/retail/events-data',           [RetailSalesController::class, 'fetchEvents'])->name('retail.sales.fetch.events');

@@ -1,50 +1,67 @@
 <?php
-declare(strict_types=1);
 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
-class CreateTenantsTable extends Migration
+return new class extends Migration
 {
-    /**
-     * Run the migrations.
-     *
-     * @return void
-     */
     public function up(): void
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
+
+            // Contact / identity
             $table->string('full_name');
             $table->string('email')->unique();
-            $table->string('phone_number')->unique();
-            $table->string('business_name');
-            $table->string('client_url')->unique();
-            $table->string('status')->default('Pending');
-            $table->timestamp('approved_at')->nullable();
-            $table->string('data')->nullable(); 
-            $table->string('put_on_hold')->nullable()->default('No');
+            $table->string('phone_number');
             $table->string('physical_address')->nullable();
             $table->string('postal_address')->nullable();
-            $table->integer('approved_by')->nullable();
-            $table->string('subscription_plan')->nullable();
-            $table->integer('payment_amount')->nullable();
+
+            // Business
+            $table->string('business_name');
+
+            // Tenant provisioning
+            $table->string('client_url')->unique()->nullable();
+            $table->string('data')->nullable(); // tenant database name
+            $table->string('db_user')->nullable(); // cPanel/db username, production only
+
+            // Approval workflow
+            $table->enum('status', ['Pending', 'Approved', 'Rejected'])->default('Pending');
+            $table->unsignedBigInteger('approved_by')->nullable();
+            $table->date('approved_at')->nullable();
+
+            // Hold / suspension
+            $table->enum('put_on_hold', ['Yes', 'No'])->default('No');
+
+            // Subscription & billing
+            $table->unsignedBigInteger('subscription_plan')->nullable();
             $table->string('payment_method')->nullable();
-            $table->date('next_payment_date')->nullable();
             $table->date('last_payment_date')->nullable();
-            $table->timestamp('created_at')->nullable();
-            $table->timestamp('updated_at')->nullable();
+            $table->date('next_payment_date')->nullable();
+
+            // Migration / table provisioning tracking
+            $table->unsignedInteger('number_of_tables')->default(0);
+            $table->enum('migration_status', ['not_started', 'running', 'completed', 'failed'])
+                  ->default('not_started');
+            $table->timestamp('migrated_at')->nullable();
+            $table->text('migration_error')->nullable();
+            $table->unsignedInteger('migration_attempts')->default(0);
+
+            $table->timestamps();
+
+            // Foreign keys
+            $table->foreign('approved_by')->references('id')->on('users')->nullOnDelete();
+            $table->foreign('subscription_plan')->references('id')->on('subscription_plans')->nullOnDelete();
         });
     }
 
-    /**
-     * Reverse the migrations.
-     *
-     * @return void
-     */
     public function down(): void
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Schema::dropIfExists('tenants');
     }
-}
+};

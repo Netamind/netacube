@@ -219,7 +219,7 @@
 
                     <!-- Without receipt — fast, no print step -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a  href="{{ route('retail.pos.mobile') }}" class="side-nav-link">
                             <i class="ri-tablet-line"></i>
                             <span>Mobile</span>
                         </a>
@@ -227,7 +227,7 @@
 
                     <!-- With receipt — formal, prints a receipt for the customer -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a  href="{{ route('retail.pos.desktop') }}" class="side-nav-link">
                             <i class="ri-computer-line"></i>
                             <span>Desktop</span>
                         </a>
@@ -247,7 +247,7 @@
                         <div class="collapse" id="sidebarInventory">
                             <ul class="side-nav-second-level">
                                 <li><a href="{{ route('retail.sales.products') }}">Products</a></li>
-                                <li><a href="{{ route('retail.sales.products.search.view') }}">Search</a></li>
+                                <li><a href="{{ route('retail.sales.products.search') }}">Search</a></li>
                             </ul>
                         </div>
                     </li>

@@ -250,12 +250,12 @@
 
 
                     <!-- Product category hierarchy management -->
-                    <li class="side-nav-item">
+                  <!--  <li class="side-nav-item">
                         <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
                             <i class="ri-list-check-3"></i>
                             <span>Categories</span>
                         </a>
-                    </li>
+                    </li>-->
 
                     <!-- Branch / store location registry -->
                     <li class="side-nav-item">
@@ -277,7 +277,7 @@
                     <li class="side-nav-item">
                         <a href="{{ route('retail.operations.baseproducts') }}" class="side-nav-link">
                             <i class="ri-box-3-line"></i>
-                            <span>Baseproducts</span>
+                            <span>Products</span>
                         </a>
                     </li>
 

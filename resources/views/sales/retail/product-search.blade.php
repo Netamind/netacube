@@ -10,6 +10,9 @@
     $categoryName = null;
 
     $categoryBranches = collect();
+    $availabilityData = collect(); // payload sent to the front end, built once per page load
+    $lastSyncedAt     = now(); // moment this payload was generated — shown to the user as "last sync"
+
     if ($categoryId) {
         $categoryName = optional(
             DB::connection('tenant')->table('categories')->where('id', $categoryId)->first()
@@ -20,6 +23,49 @@
             ->where('category', $categoryId)
             ->orderBy('name')
             ->get();
+
+        $branchIds = $categoryBranches->pluck('id');
+
+        // ── Pull every product in this category's branches once, with all
+        //    branch-level stock rows nested in, so the front end never needs
+        //    to call the server again — searching/filtering happens entirely
+        //    in JS against this single payload. ─────────────────────────────
+        $baseProducts = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('is_product', 1)
+            ->orderBy('name')
+            ->get();
+
+        $branchRowsByProduct = DB::connection('tenant')
+            ->table('retail_branch_products as rbp')
+            ->join('branches as br', 'br.id', '=', 'rbp.branch_id')
+            ->whereIn('rbp.branch_id', $branchIds)
+            ->select(
+                'rbp.base_product_id', 'rbp.branch_id', 'br.name as branch_name',
+                'rbp.stock_quantity', 'rbp.reorder_point',
+                'rbp.selling_price', 'rbp.is_active'
+            )
+            ->orderBy('br.name')
+            ->get()
+            ->groupBy('base_product_id');
+
+        $availabilityData = $baseProducts
+            ->filter(function ($bp) use ($branchRowsByProduct) {
+                // Only keep products actually stocked at at least one branch
+                // in this category — keeps the payload relevant and small.
+                return $branchRowsByProduct->has($bp->id);
+            })
+            ->map(function ($bp) use ($branchRowsByProduct) {
+                return [
+                    'id'       => $bp->id,
+                    'name'     => $bp->name,
+                    'code'     => $bp->code,
+                    'unit'     => $bp->unit,
+                    'supplier' => $bp->supplier,
+                    'branches' => $branchRowsByProduct->get($bp->id, collect())->values(),
+                ];
+            })
+            ->values();
     }
 @endphp
 
@@ -61,7 +107,7 @@
   width: 100%;
   font-size: 15px;
   line-height: 1.4;
-  padding: 0.75em 1em 0.75em 2.6em;   /* proportional to font-size, ~44px tall at 15px */
+  padding: 0.75em 2.6em 0.75em 2.6em;   /* right padding mirrors left, to clear the addon button */
   border-radius: 8px;
   border: 1.5px solid #dde1f0;
   background: #fff; color: #1e293b;
@@ -76,6 +122,23 @@
   position: absolute; left: 0.9em; top: 50%; transform: translateY(-50%);
   color: #9ca3af; font-size: 1.2em; pointer-events: none;
 }
+/* ── Clear (✕) addon button, sits inside the input on the right ────────── */
+.avail-search-wrap .clear-btn {
+  position: absolute; right: 0.6em; top: 50%; transform: translateY(-50%);
+  width: 26px; height: 26px; border-radius: 6px; border: none; background: transparent;
+  color: #9ca3af; font-size: 1.15em; display: none;
+  align-items: center; justify-content: center; cursor: pointer;
+  transition: background-color .15s, color .15s;
+}
+.avail-search-wrap .clear-btn.show { display: flex; }
+.avail-search-wrap .clear-btn:hover { background: #f1f3fa; color: #4B5EBD; }
+
+/* ── "Last synced" chip ──────────────────────────────────────────────────── */
+.avail-sync-chip {
+  display: inline-flex; align-items: center; gap: 0.4em;
+  font-size: 12px; color: #94a3b8; white-space: nowrap;
+}
+.avail-sync-chip i { font-size: 1.05em; color: #b6bdcc; }
 .avail-search-row { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; }
 .avail-search-meta { display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
 .avail-meta-chip {
@@ -89,7 +152,40 @@
 .avail-search-panel {
   background: #f4f5f9; border: 1px solid #eceefa; border-radius: 10px;
   padding: 16px; margin-top: 14px;
+  position: relative; /* anchors the suggestion dropdown below the input */
 }
+
+/* ── Suggestion dropdown (live, as the user types) ──────────────────────── */
+.avail-suggest-box {
+  position: absolute;
+  z-index: 50;
+  top: calc(100% - 8px);
+  right: 16px;
+  width: min(640px, calc(100% - 32px));
+  background: #fff;
+  border: 1.5px solid #dde1f0;
+  border-radius: 8px;
+  box-shadow: 0 8px 24px rgba(16,24,40,0.10);
+  max-height: 320px;
+  overflow-y: auto;
+  display: none;
+}
+.avail-suggest-box.show { display: block; }
+.avail-suggest-item {
+  padding: 10px 14px;
+  cursor: pointer;
+  border-bottom: 1px solid #f5f6f9;
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+}
+.avail-suggest-item:last-child { border-bottom: none; }
+.avail-suggest-item:hover, .avail-suggest-item.active { background: #f5f7ff; }
+.avail-suggest-name { font-size: 13.5px; font-weight: 600; color: #1e293b; }
+.avail-suggest-sub  { font-size: 11px; color: #94a3b8; margin-top: 1px; }
+.avail-suggest-badge {
+  font-size: 10.5px; font-weight: 600; color: #4B5EBD; background: #eef2ff;
+  padding: 2px 8px; border-radius: 20px; white-space: nowrap; flex-shrink: 0;
+}
+.avail-suggest-empty { padding: 16px; text-align: center; color: #94a3b8; font-size: 12.5px; }
 
 /* ── Result cards ────────────────────────────────────────────────────────── */
 #resultsWrap { margin-top: 20px; }
@@ -117,9 +213,10 @@
 .avail-table tr:last-child td { border-bottom: none; }
 .avail-table tr.is-my-branch td { background: #f5f7ff; }
 .branch-name-cell { font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 6px; }
-.you-pill {
-  font-size: 9.5px; font-weight: 700; color: #fff; background: #4B5EBD;
-  padding: 1px 7px; border-radius: 10px; letter-spacing: .3px;
+.branch-name-pill {
+  display: inline-flex; align-items: center;
+  font-size: 11.5px; font-weight: 700; color: #fff; background: #4B5EBD;
+  padding: 3px 11px; border-radius: 20px; letter-spacing: .2px;
 }
 .no-stock-row td { color: #cbd5e1; font-style: italic; }
 
@@ -166,10 +263,17 @@
             <span class="avail-meta-chip">
               <i class="ri-git-branch-line"></i> {{ $categoryBranches->count() }} branch(es)
             </span>
+            <span class="avail-sync-chip" id="lastSyncChip" title="Data was loaded from the server at this time; re-open or reload the page to refresh it.">
+              <i class="ri-refresh-line"></i> Last synced: <span id="lastSyncTime">{{ $lastSyncedAt->format('H:i:s') }}</span>
+            </span>
           </div>
           <div class="avail-search-wrap">
             <i class="ri-search-line search-icon"></i>
             <input type="text" id="availSearchInput" placeholder="Search product name or code…" autocomplete="off" />
+            <button type="button" class="clear-btn" id="availClearBtn" title="Clear search">
+              <i class="ri-close-line"></i>
+            </button>
+            <div id="availSuggestBox" class="avail-suggest-box"></div>
           </div>
         </div>
       </div>
@@ -177,7 +281,7 @@
       <div id="resultsWrap">
         <div class="search-empty">
           <i class="ri-search-eye-line"></i>
-          Start typing to search for a product.
+          Start typing, then click a product to view its branch availability.
         </div>
       </div>
 
@@ -209,7 +313,7 @@
         <tbody>
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569;width:140px;border-bottom:1px solid #f1f5f9">Category Scope</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9">Only branches sharing the same category as your branch are shown.</td></tr>
           <tr><td style="padding:8px 12px;font-weight:700;color:#475569;border-bottom:1px solid #f1f5f9">Stock Qty</td><td style="padding:8px 12px;border-bottom:1px solid #f1f5f9"><span style="color:#dc2626;font-weight:600">Red = zero</span>, <span style="color:#d97706;font-weight:600">amber = at/below reorder point</span>, <span style="color:#16a34a;font-weight:600">green = healthy</span>.</td></tr>
-          <tr><td style="padding:8px 12px;font-weight:700;color:#475569">Your Branch</td><td style="padding:8px 12px">Highlighted row and labelled with a "YOUR BRANCH" pill for quick reference.</td></tr>
+          <tr><td style="padding:8px 12px;font-weight:700;color:#475569">Your Branch</td><td style="padding:8px 12px">Your own branch's name is shown as a highlighted pill for quick reference.</td></tr>
         </tbody>
       </table>
     </div>
@@ -230,7 +334,24 @@ $(document).ready(function () {
     @if($myBranch && $categoryId)
 
     var myBranchId = {{ $myBranchId }};
-    var searchTimer = null;
+
+    // ── Entire dataset for this category, fetched once on page load.
+    //    All searching/filtering below happens against this in-memory
+    //    array — no further requests to the server. ─────────────────────
+    var allProducts = @json($availabilityData);
+
+    var suggestBox  = $('#availSuggestBox');
+    var searchInput = $('#availSearchInput');
+    var clearBtn    = $('#availClearBtn');
+    var activeIndex = -1; // currently keyboard-highlighted suggestion
+
+    function showEmptyState() {
+        $('#resultsWrap').html(`
+            <div class="search-empty">
+                <i class="ri-search-eye-line"></i>
+                Start typing, then click a product to view its branch availability.
+            </div>`);
+    }
 
     function fmtNum(val, dec) {
         dec = dec === undefined ? 2 : dec;
@@ -244,121 +365,168 @@ $(document).ready(function () {
         return sq <= 0 ? 'stock-zero' : (sq <= rp ? 'stock-low' : 'stock-ok');
     }
 
-    function renderResults(products) {
-        var wrap = $('#resultsWrap');
+    function escapeHtml(str) {
+        return String(str == null ? '' : str)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    }
 
-        if (!products || !products.length) {
-            wrap.html(`
-                <div class="search-empty">
-                    <i class="ri-inbox-line"></i>
-                    No products matched "<strong>${$('#availSearchInput').val().trim()}</strong>".<br>
-                    <span style="font-size:11.5px;color:#b6bdcc;">Try a different name or product code.</span>
-                </div>`);
+    // ── Client-side filter: matches name or code, case-insensitive ──────
+    function filterProducts(q) {
+        q = q.toLowerCase();
+        return allProducts.filter(function (p) {
+            var name = (p.name || '').toLowerCase();
+            var code = (p.code || '').toLowerCase();
+            return name.indexOf(q) !== -1 || code.indexOf(q) !== -1;
+        }).slice(0, 30); // cap suggestion list length
+    }
+
+    // ── Render the dropdown list of matching products as the user types ──
+    function renderSuggestions(products, q) {
+        activeIndex = -1;
+
+        if (!products.length) {
+            suggestBox.html(`<div class="avail-suggest-empty">No products matched "<strong>${escapeHtml(q)}</strong>".</div>`).addClass('show');
             return;
         }
 
         var html = '';
-        products.forEach(function (p) {
-            var branchRows = '';
-
-            if (!p.branches || !p.branches.length) {
-                branchRows = `<tr class="no-stock-row"><td colspan="4">Not stocked at any branch in this category.</td></tr>`;
-            } else {
-                p.branches.forEach(function (b) {
-                    var isMine = parseInt(b.branch_id) === myBranchId;
-                    branchRows += `
-                        <tr class="${isMine ? 'is-my-branch' : ''}">
-                            <td class="branch-name-cell">
-                                ${b.branch_name}
-                                ${isMine ? '<span class="you-pill">YOUR BRANCH</span>' : ''}
-                            </td>
-                            <td><span class="${stockClass(b.stock_quantity, b.reorder_point)}">${fmtNum(b.stock_quantity, 0)}</span></td>
-                            <td><span class="price-cell">${fmtNum(b.selling_price)}</span></td>
-                            <td>${b.is_active == 1
-                                ? '<span class="badge bg-success" style="font-size:10.5px;">Active</span>'
-                                : '<span class="badge bg-secondary" style="font-size:10.5px;">Inactive</span>'}</td>
-                        </tr>`;
-                });
-            }
-
+        products.forEach(function (p, idx) {
             html += `
-            <div class="result-card">
-                <div class="result-card-header">
+                <div class="avail-suggest-item" data-index="${idx}">
                     <div>
-                        <div class="result-card-title">${p.name}</div>
-                        <div class="result-card-sub">${[p.code ? 'Code: ' + p.code : '', p.unit, p.supplier].filter(Boolean).join(' · ')}</div>
+                        <div class="avail-suggest-name">${escapeHtml(p.name)}</div>
+                        <div class="avail-suggest-sub">${escapeHtml([p.code ? 'Code: ' + p.code : '', p.unit].filter(Boolean).join(' · '))}</div>
                     </div>
-                    <span class="result-card-badge">${p.branches ? p.branches.length : 0} branch(es) stocking</span>
-                </div>
-                <table class="avail-table">
-                    <thead>
-                        <tr>
-                            <th>Branch</th>
-                            <th>Stock</th>
-                            <th>Sell Price</th>
-                            <th>Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>${branchRows}</tbody>
-                </table>
-            </div>`;
+                    <span class="avail-suggest-badge">${p.branches ? p.branches.length : 0} branch(es)</span>
+                </div>`;
         });
+
+        suggestBox.html(html).addClass('show').data('current', products);
+    }
+
+    function hideSuggestions() {
+        suggestBox.removeClass('show').empty();
+        activeIndex = -1;
+    }
+
+    // ── Render the full branch-availability card for ONE selected product ──
+    function renderProductResult(p) {
+        var wrap = $('#resultsWrap');
+        var branchRows = '';
+
+        if (!p.branches || !p.branches.length) {
+            branchRows = `<tr class="no-stock-row"><td colspan="4">Not stocked at any branch in this category.</td></tr>`;
+        } else {
+            p.branches.forEach(function (b) {
+                var isMine = parseInt(b.branch_id) === myBranchId;
+                branchRows += `
+                    <tr class="${isMine ? 'is-my-branch' : ''}">
+                        <td class="branch-name-cell">
+                            ${isMine ? '<span class="branch-name-pill">' + escapeHtml(b.branch_name) + '</span>' : escapeHtml(b.branch_name)}
+                        </td>
+                        <td><span class="${stockClass(b.stock_quantity, b.reorder_point)}">${fmtNum(b.stock_quantity, 0)}</span></td>
+                        <td><span class="price-cell">${fmtNum(b.selling_price)}</span></td>
+                        <td>${b.is_active == 1
+                            ? '<span class="badge bg-success" style="font-size:10.5px;">Active</span>'
+                            : '<span class="badge bg-secondary" style="font-size:10.5px;">Inactive</span>'}</td>
+                    </tr>`;
+            });
+        }
+
+        var html = `
+        <div class="result-card">
+            <div class="result-card-header">
+                <div>
+                    <div class="result-card-title">${escapeHtml(p.name)}</div>
+                    <div class="result-card-sub">${escapeHtml([p.code ? 'Code: ' + p.code : '', p.unit, p.supplier].filter(Boolean).join(' · '))}</div>
+                </div>
+                <span class="result-card-badge">${p.branches ? p.branches.length : 0} branch(es) stocking</span>
+            </div>
+            <table class="avail-table">
+                <thead>
+                    <tr>
+                        <th>Branch</th>
+                        <th>Stock</th>
+                        <th>Sell Price</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>${branchRows}</tbody>
+            </table>
+        </div>`;
 
         wrap.html(html);
     }
 
-    function doSearch(q) {
-        if (!q) {
-            $('#resultsWrap').html(`
-                <div class="search-empty">
-                    <i class="ri-search-eye-line"></i>
-                    Start typing to search for a product.
-                </div>`);
-            return;
-        }
-
-        $('#resultsWrap').html(`
-            <div class="search-loading">
-                <i class="ri-loader-4-line"></i>
-                Searching…
-            </div>`);
-
-        $.ajax({
-            type: 'GET',
-            url:  '{{ route("retail.sales.products.search") }}',
-            data: { q: q },
-            timeout: 20000,
-            success: function (data) {
-                renderResults(data.products || []);
-            },
-            error: function () {
-                $('#resultsWrap').html(`
-                    <div class="search-empty">
-                        <i class="ri-error-warning-line" style="color:#fca5a5;"></i>
-                        Couldn't complete the search due to a connection or server error.<br>
-                        <span style="font-size:11.5px;color:#b6bdcc;">Please try again in a moment.</span>
-                    </div>`);
-            }
-        });
-    }
-
-    $('#availSearchInput').on('input', function () {
+    // ── Typing: show live suggestions only, no result card yet ──────────
+    searchInput.on('input', function () {
         var q = $(this).val().trim();
-        clearTimeout(searchTimer);
+
+        clearBtn.toggleClass('show', q.length > 0);
 
         if (q.length === 0) {
-            doSearch('');
+            hideSuggestions();
+            showEmptyState();
             return;
         }
+
         if (q.length < 2) {
-            $('#resultsWrap').html(`
-                <div class="search-empty">
-                    <i class="ri-search-eye-line"></i>
-                    Keep typing — at least 2 characters needed to search.
-                </div>`);
+            hideSuggestions();
             return;
         }
-        searchTimer = setTimeout(function () { doSearch(q); }, 350);
+
+        renderSuggestions(filterProducts(q), q);
+    });
+
+    // ── Clear (✕) button: wipe input, suggestions, and result card ──────
+    clearBtn.on('click', function () {
+        searchInput.val('').trigger('focus');
+        clearBtn.removeClass('show');
+        hideSuggestions();
+        showEmptyState();
+    });
+
+    // ── Click a suggestion → show its result card, close the dropdown ───
+    suggestBox.on('click', '.avail-suggest-item', function () {
+        var idx = $(this).data('index');
+        var products = suggestBox.data('current') || [];
+        var chosen = products[idx];
+        if (!chosen) return;
+
+        renderProductResult(chosen);
+        hideSuggestions();
+        searchInput.val(chosen.name);
+        clearBtn.addClass('show');
+    });
+
+    // ── Keyboard navigation through the dropdown (optional convenience) ──
+    searchInput.on('keydown', function (e) {
+        var items = suggestBox.find('.avail-suggest-item');
+        if (!items.length || !suggestBox.hasClass('show')) return;
+
+        if (e.key === 'ArrowDown') {
+            e.preventDefault();
+            activeIndex = Math.min(activeIndex + 1, items.length - 1);
+            items.removeClass('active').eq(activeIndex).addClass('active');
+        } else if (e.key === 'ArrowUp') {
+            e.preventDefault();
+            activeIndex = Math.max(activeIndex - 1, 0);
+            items.removeClass('active').eq(activeIndex).addClass('active');
+        } else if (e.key === 'Enter') {
+            e.preventDefault();
+            if (activeIndex >= 0) {
+                items.eq(activeIndex).trigger('click');
+            }
+        } else if (e.key === 'Escape') {
+            hideSuggestions();
+        }
+    });
+
+    // ── Click outside the search box/dropdown closes the suggestion list ──
+    $(document).on('click', function (e) {
+        if (!$(e.target).closest('.avail-search-wrap').length) {
+            hideSuggestions();
+        }
     });
 
     @endif

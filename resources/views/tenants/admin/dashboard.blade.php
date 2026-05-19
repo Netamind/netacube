@@ -238,7 +238,7 @@
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
+                   <!-- <li class="side-nav-item">
                         <a href="{{ route('wholesale.operations.dashboard') }}" class="side-nav-link">
                             <i class="ri-truck-fill"></i>
                             <span> Wholesale </span>
@@ -250,7 +250,7 @@
                             <i class="ri-money-dollar-circle-fill"></i>
                             <span> Finance </span>
                         </a>
-                    </li>
+                    </li>-->
 
                     <!--<li class="side-nav-item">
                         <a href="#" class="side-nav-link">

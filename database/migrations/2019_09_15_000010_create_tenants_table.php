@@ -3,11 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
+use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
 
@@ -36,11 +39,12 @@ return new class extends Migration
 
             // Subscription & billing
             $table->unsignedBigInteger('subscription_plan')->nullable();
+            $table->integer('payment_amount')->nullable();
             $table->string('payment_method')->nullable();
             $table->date('last_payment_date')->nullable();
             $table->date('next_payment_date')->nullable();
 
-            // Migration / table provisioning tracking (new)
+            // Migration / table provisioning tracking
             $table->unsignedInteger('number_of_tables')->default(0);
             $table->enum('migration_status', ['not_started', 'running', 'completed', 'failed'])
                   ->default('not_started');
@@ -50,7 +54,7 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Foreign keys (adjust/remove if not applicable in your setup)
+            // Foreign keys
             $table->foreign('approved_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('subscription_plan')->references('id')->on('subscription_plans')->nullOnDelete();
         });
@@ -58,6 +62,7 @@ return new class extends Migration
 
     public function down(): void
     {
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Schema::dropIfExists('tenants');
     }
 };

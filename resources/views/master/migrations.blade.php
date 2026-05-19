@@ -85,7 +85,7 @@
                     <?php 
                         use Illuminate\Support\Facades\DB;
                         $tenantsRaw = DB::table('tenants')
-                            ->select('id', 'business_name', 'full_name', 'data')
+                            ->select('id', 'business_name', 'full_name', 'data', 'db_user')
                             ->orderBy('id')
                             ->get();
                         $maintableTitle = "Tenant Migration Manager";
@@ -119,33 +119,40 @@
                                     $totalMigrations = count(\File::files($migrationPath));
                                 }
 
+                                // NOTE: We no longer check existence via DB::connection()->select("SHOW DATABASES...")
+                                // because on shared hosting (cPanel/iFastNet) the app's default DB user often
+                                // cannot see databases owned by other DB users via SHOW DATABASES, even though
+                                // they genuinely exist. Instead we attempt a real connection AS the tenant,
+                                // using the same db_user/password the approve flow created it with.
+                                // This mirrors the fix applied in InitializeTenancyByPath middleware.
+                                $isLocal = app()->environment('local');
                                 $dbExists = false;
-                                try {
-                                    $quoted = DB::connection()->getPdo()->quote($intendedDbName);
-                                    $result = DB::connection()->select("SHOW DATABASES LIKE $quoted");
-                                    $dbExists = !empty($result);
-                                } catch (\Exception $e) {
-                                    $dbExists = false;
-                                }
 
-                                if ($dbExists) {
+                                try {
+                                    if ($isLocal) {
+                                        config(['database.connections.tenant.database' => $intendedDbName]);
+                                    } else {
+                                        config([
+                                            'database.connections.tenant.host'     => env('TENANT_DB_HOST', config('database.connections.mysql.host')),
+                                            'database.connections.tenant.database' => $intendedDbName,
+                                            'database.connections.tenant.username' => $tenant->db_user,
+                                            'database.connections.tenant.password' => 'binto2020',
+                                        ]);
+                                    }
+                                    DB::purge('tenant');
+                                    DB::connection('tenant')->getPdo(); // real connection attempt = real existence check
+
+                                    $dbExists = true;
                                     $dbNameToShow = $intendedDbName;
 
-                                    try {
-                                        config(['database.connections.tenant.database' => $intendedDbName]);
-                                        DB::purge('tenant');
-                                        DB::connection('tenant')->getPdo();
-
-                                        if (DB::connection('tenant')->getSchemaBuilder()->hasTable('migrations')) {
-                                            $migrated = DB::connection('tenant')->table('migrations')->count();
-                                        }
-                                        $pending = $totalMigrations - $migrated;
-                                    } catch (\Exception $e) {
-                                        $migrated = 0;
-                                        $pending  = $totalMigrations;
+                                    if (DB::connection('tenant')->getSchemaBuilder()->hasTable('migrations')) {
+                                        $migrated = DB::connection('tenant')->table('migrations')->count();
                                     }
-                                } else {
-                                    $pending = $totalMigrations;
+                                    $pending = $totalMigrations - $migrated;
+                                } catch (\Exception $e) {
+                                    $dbExists = false;
+                                    $migrated = 0;
+                                    $pending  = $totalMigrations;
                                 }
 
                                 DB::purge('tenant');

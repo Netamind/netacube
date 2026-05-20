@@ -351,8 +351,8 @@
                         </a>
                         <div class="collapse" id="sidebarStocktaking">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Partial</a></li>  
-                                <li><a href="#">Fullcount</a></li>             
+                                <li><a href="#">Partialstocktaking</a></li>  
+                                <li><a   href="{{ route('retail.operations.fullstocktaking') }}">Fullstocktaking</a></li>             
                             </ul>
                         </div>
                     </li>

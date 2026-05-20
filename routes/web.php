@@ -22,6 +22,8 @@ use App\Http\Controllers\Operations\Wholesale\WholesaleOperationsController;
 use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Sales\Retail\RetailSalesController;
 use App\Http\Controllers\Sales\Retail\RetailPointOfSaleController;
+use App\Http\Controllers\Operations\Retail\RetailFullstocktakingController;
+ 
 
 
 
@@ -310,6 +312,24 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     Route::post('retail/operations/delivery-notes/bulk/unsubmit-selected',[RetailDeliveryNotesController::class, 'bulkUnsubmitSelectedDeliveryNotes'])->name('retail.operations.deliverynotes.bulk.unsubmit-selected');
     Route::post('retail/operations/delivery-notes/bulk/delete-selected',  [RetailDeliveryNotesController::class, 'bulkDeleteSelectedDeliveryNotes'])->name('retail.operations.deliverynotes.bulk.delete-selected');
 
+Route::get('/operations/retail/fullstocktaking', [RetailFullstocktakingController::class, 'showCountingView'])->name('retail.operations.fullstocktaking');
+Route::get('/operations/retail/fullstocktaking/merged-data', [RetailFullstocktakingController::class, 'showMergedDataView'])->name('retail.operations.fullstocktaking.merged-data');
+Route::get('/operations/retail/fullstocktaking/missing-products', [RetailFullstocktakingController::class, 'showMissingProductsView'])->name('retail.operations.fullstocktaking.missing-products');
+Route::get('/operations/retail/fullstocktaking/actions-and-info', [RetailFullstocktakingController::class, 'showActionsAndInfoView'])->name('retail.operations.fullstocktaking.actions-and-info');
+Route::get('/operations/retail/fullstocktaking/history', [RetailFullstocktakingController::class, 'showHistoryView'])->name('retail.operations.fullstocktaking.history');
+Route::get('/operations/retail/fullstocktaking/history/details', [RetailFullstocktakingController::class, 'showHistoryDetailsView'])->name('retail.operations.fullstocktaking.history.details');
+
+Route::post('/operations/retail/fullstocktaking/merge', [RetailFullstocktakingController::class, 'mergeCounts'])->name('retail.operations.fullstocktaking.merge');
+Route::post('/operations/retail/fullstocktaking/merged-data/update', [RetailFullstocktakingController::class, 'updateMergedRow'])->name('retail.operations.fullstocktaking.merged-data.update');
+Route::post('/operations/retail/fullstocktaking/merged-data/delete', [RetailFullstocktakingController::class, 'deleteMergedRow'])->name('retail.operations.fullstocktaking.merged-data.delete');
+Route::post('/operations/retail/fullstocktaking/merged-data/sync', [RetailFullstocktakingController::class, 'syncMergedData'])->name('retail.operations.fullstocktaking.merged-data.sync');
+Route::post('/operations/retail/fullstocktaking/missing-products/sync', [RetailFullstocktakingController::class, 'syncMissingProducts'])->name('retail.operations.fullstocktaking.missing-products.sync');
+Route::post('/operations/retail/fullstocktaking/rectify', [RetailFullstocktakingController::class, 'submitRectification'])->name('retail.operations.fullstocktaking.rectify');
+
+Route::post('/operations/retail/fullstocktaking/report/full', [RetailFullstocktakingController::class, 'downloadFullReport'])->name('retail.operations.fullstocktaking.report.full');
+Route::post('/operations/retail/fullstocktaking/report/delivery', [RetailFullstocktakingController::class, 'downloadDeliveryNote'])->name('retail.operations.fullstocktaking.report.delivery');
+Route::post('/operations/retail/fullstocktaking/report/merged-data', [RetailFullstocktakingController::class, 'downloadMergedDataReport'])->name('retail.operations.fullstocktaking.report.merged-data');
+Route::post('/operations/retail/fullstocktaking/report/missing-products', [RetailFullstocktakingController::class, 'downloadMissingProductsReport'])->name('retail.operations.fullstocktaking.report.missing-products');
 });
 
 
@@ -364,7 +384,13 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     Route::get('sales/retail/pos/desktop',                [RetailPointOfSaleController::class, 'showDesktopPosView'])->name('retail.pos.desktop');
 
 
+        Route::post('sales/retail/upload-sales',         [RetailPointOfSaleController::class, 'uploadSales'])->name('retail.pos.upload.sales');
 
+        Route::post('sales/retail/insert-interval-sale', [RetailPointOfSaleController::class, 'insertIntervalSale'])->name('retail.pos.insert.interval.sale');
+        Route::post('sales/retail/edit-interval-sale',   [RetailPointOfSaleController::class, 'editIntervalSale'])->name('retail.pos.edit.interval.sale');
+        Route::post('sales/retail/delete-interval-sale', [RetailPointOfSaleController::class, 'deleteIntervalSale'])->name('retail.pos.delete.interval.sale');
+        
+    Route::post('/sales/retail/payment-summary', [RetailPointOfSaleController::class, 'getPaymentSummary'])->name('sales.retail.payment-summary');
 
 
 

@@ -261,6 +261,22 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     Route::post('operations/retail/branchproducts/bulkstatus', [RetailBranchProductsController::class, 'bulkStatusBranchproducts'])->name('retail.operations.branchproducts.bulkstatus');
     Route::post('operations/retail/branchproducts/bulktax',    [RetailBranchProductsController::class, 'bulkTaxBranchproducts'])->name('retail.operations.branchproducts.bulktax');
 
+
+Route::post('operations/retail/branchproducts/bulk/use-base-prices', [RetailBranchProductsController::class, 'bulkUseBasePrices'])->name('retail.operations.branchproducts.bulk.usebaseprices');
+
+Route::post('operations/retail/branchproducts/bulk/set-branch-prices', [RetailBranchProductsController::class, 'bulkSetBranchPrices'])->name('retail.operations.branchproducts.bulk.setbranchprices');
+
+
+
+    // CSV import (new)
+    Route::post('operations/retail/branchproducts/csv/upload',     [RetailBranchProductsController::class, 'uploadBranchproductsCsv'])->name('retail.operations.branchproducts.csv.upload');
+    Route::post('operations/retail/branchproducts/csv/import-row', [RetailBranchProductsController::class, 'importBranchproductRow'])->name('retail.operations.branchproducts.csv.import-row');
+
+    // Suppliers dropdown helper (new)
+    Route::get('operations/retail/suppliers/dropdown', [RetailBranchProductsController::class, 'listSuppliersForDropdown'])->name('retail.operations.suppliers.dropdown');
+
+
+
     // Shop Values
     Route::get('/retail/shopvalues',              [RetailBranchProductsController::class, 'showShopvaluesOverview'])->name('retail.operations.shopvalues.overview');
     Route::get('/retail/shopvalues/movement',     [RetailBranchProductsController::class, 'showShopvaluesMovement'])->name('retail.operations.shopvalues.movement');
@@ -330,6 +346,15 @@ Route::post('/operations/retail/fullstocktaking/report/full', [RetailFullstockta
 Route::post('/operations/retail/fullstocktaking/report/delivery', [RetailFullstocktakingController::class, 'downloadDeliveryNote'])->name('retail.operations.fullstocktaking.report.delivery');
 Route::post('/operations/retail/fullstocktaking/report/merged-data', [RetailFullstocktakingController::class, 'downloadMergedDataReport'])->name('retail.operations.fullstocktaking.report.merged-data');
 Route::post('/operations/retail/fullstocktaking/report/missing-products', [RetailFullstocktakingController::class, 'downloadMissingProductsReport'])->name('retail.operations.fullstocktaking.report.missing-products');
+
+
+
+
+Route::post('/operations/retail/fullstocktaking/seed-session', [RetailFullstocktakingController::class, 'seedSession'])->name('retail.operations.fullstocktaking.seed-session');
+Route::post('/operations/retail/fullstocktaking/device-sync', [RetailFullstocktakingController::class, 'reportDeviceSync'])->name('retail.operations.fullstocktaking.device-sync');
+Route::get('/operations/retail/fullstocktaking/sync-status', [RetailFullstocktakingController::class, 'getSyncStatus'])->name('retail.operations.fullstocktaking.sync-status');
+ 
+
 });
 
 

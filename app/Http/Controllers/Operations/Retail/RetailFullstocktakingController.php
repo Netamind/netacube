@@ -1,85 +1,23 @@
 <?php
-
 namespace App\Http\Controllers\Operations\Retail;
-
 use App\Http\Controllers\Controller;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Validator;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 
-/**
- * RetailFullstocktakingController
- * ════════════════════════════════════════════════════════════════════════
- *
- * VIEW METHODS RETURN BARE VIEWS — NO DATA.
- * ──────────────────────────────────────────
- *   Every show...View() method below is a one-liner: `return view(...)`.
- *   All data (branch selection, date resolution, products, stats, the
- *   "is this date rectified?" check, etc.) is fetched INSIDE each Blade
- *   file via @php blocks — exactly the pattern used by the Action Centre
- *   view (operations.retail.actioncenter). This keeps the controller thin
- *   and keeps each view self-contained / independently refreshable.
- *
- *   Action endpoints (merge, update, delete, sync, rectify, report) are
- *   NOT views — they return JSON or a PDF stream — so they keep their
- *   normal server-side logic below, unchanged in spirit from before.
- *
- * SELECTION STRATEGY (no dedicated selection table):
- * ──────────────────────────────────────────────────
- *   Branch  → user_filters.branch_id
- *   Date    → user_filters.fst_custom_date (NULL = today)
- *   Both resolved independently inside each view's @php block.
- *
- * SALES-NETTING (no timestamp comparison) — UNCHANGED:
- * ───────────────────────────────────────────────────────
- *   At merge time we record MAX(retail_system_sales.id) for this
- *   branch+product as `sales_id_at_count`. At rectification:
- *
- *     sales_since     = SUM(quantity) WHERE id > sales_id_at_count
- *     expected_final  = MAX(0, expected_at_count - sales_since)
- *
- *   This is immune to clock skew and backdated sales entries, and it is
- *   what allows selling to continue uninterrupted while counting and
- *   merging happen on other devices. This protection is automatic and
- *   requires no manual step — it always runs as part of rectification,
- *   and is also re-run automatically on any post-rectify Merged Data
- *   sync (see applyMergedRowEdit()).
- *
- * POST-RECTIFICATION EDITS (Merged Data offline sync):
- * ───────────────────────────────────────────────────────
- *   The Merged Data tab now queues edits offline and syncs them in a
- *   batch (syncMergedData), mirroring the Missing Products pattern.
- *   A queued edit is applied EVEN IF the date has already been
- *   rectified — per product decision, rectification does not lock out
- *   corrections. When that happens we:
- *     1. Update expected_at_count / found on the row.
- *     2. If the row was already rectified, RECOMPUTE expected_final
- *        using the same sales-netting formula (so it stays consistent
- *        with rows rectified normally).
- *     3. Recompute and overwrite the retail_fullstocktaking_summary
- *        row for that date+branch, so History never shows stale totals
- *        after a post-rectify correction.
- *
- * PDF REPORTS (Barryvdh\DomPDF) — NEW:
- * ───────────────────────────────────────────────────────
- *   Three dedicated PDF templates, each fed by its own controller
- *   method, all reusing the shared buildBranchAndDate() / data-pull
- *   helpers below so the figures always match what's on screen:
- *     - downloadFullReport()            → full counted-line breakdown
- *     - downloadDeliveryNote()          → simplified delivery-note view
- *     - downloadMergedDataReport()      → Merged Data tab, as a PDF
- *     - downloadMissingProductsReport() → Missing Products tab, as a PDF
- */
 class RetailFullstocktakingController extends Controller
 {
     private const QTY_EPSILON = 0.0001;
+    private const RECTIFY_IN_PROGRESS_GRACE_SECONDS = 20;
 
     /* ════════════════════════════════════════════════════════════════════
-       VIEWS — bare, no data. Each Blade file fetches its own data.
+       VIEWS
        ════════════════════════════════════════════════════════════════════ */
 
     public function showCountingView()
@@ -113,28 +51,77 @@ class RetailFullstocktakingController extends Controller
     }
 
     /* ════════════════════════════════════════════════════════════════════
-       TAB 1 — COUNTING — merge offline counted lines
+       SESSION SNAPSHOT
        ════════════════════════════════════════════════════════════════════ */
 
-    /**
-     * Merge offline counted lines.
-     *
-     * SALES SNAPSHOT:
-     * For the first merge of a product we record:
-     *   sales_id_at_count = MAX(id) FROM retail_system_sales
-     *                       WHERE branch = branch_id
-     *                         AND productid = base_product_id
-     *
-     * NULL means no sales row existed yet for this product at this branch,
-     * which means at rectify time we sum ALL sales (id > 0 is always true,
-     * but we handle NULL specially to mean "sum everything").
-     *
-     * Selling keeps working uninterrupted: this endpoint never touches
-     * retail_branch_products.stock_quantity, so POS sales are unaffected
-     * by merges happening concurrently on other devices.
-     */
+    private function ensureSessionSnapshotSeeded(int $branchId, string $date): void
+    {
+        $alreadySeeded = DB::connection('tenant')->table('retail_fullstocktaking_session_snapshot')
+            ->where('branch_id', $branchId)->where('date', $date)->exists();
+
+        if ($alreadySeeded) {
+            return;
+        }
+
+        $products = DB::connection('tenant')->table('retail_branch_products')
+            ->where('branch_id', $branchId)
+            ->get(['id', 'base_product_id', 'stock_quantity']);
+
+        if ($products->isEmpty()) {
+            return;
+        }
+
+        $now  = now();
+
+        $rows = $products->map(function ($p) use ($branchId, $date, $now) {
+            $maxSalesId = DB::connection('tenant')->table('retail_system_sales')
+                ->where('branch', (string) $branchId)
+                ->where('branch_product_id', $p->id)
+                ->max('id');
+
+            return [
+                'date'                       => $date,
+                'branch_id'                  => $branchId,
+                'base_product_id'            => $p->base_product_id,
+                'expected_at_session_start'  => $p->stock_quantity,
+                'sales_id_at_session_start'  => $maxSalesId,
+                'created_at'                 => $now,
+                'updated_at'                 => $now,
+            ];
+        })->toArray();
+
+        foreach (array_chunk($rows, 200) as $chunk) {
+            DB::connection('tenant')->table('retail_fullstocktaking_session_snapshot')->insertOrIgnore($chunk);
+        }
+    }
+
+    public function seedSession(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+            'date'      => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
+        }
+
+        $this->ensureSessionSnapshotSeeded((int) $request->branch_id, $request->date);
+
+        return response()->json(['status' => 200, 'message' => 'Session snapshot ready.']);
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       TAB 1 — COUNTING
+       ════════════════════════════════════════════════════════════════════ */
+
     public function mergeCounts(Request $request)
     {
+        if (is_string($request->input('lines'))) {
+            $decoded = json_decode($request->input('lines'), true);
+            $request->merge(['lines' => is_array($decoded) ? $decoded : []]);
+        }
+
         $validator = Validator::make($request->all(), [
             'password'                => 'required|string',
             'branch_id'               => 'required|integer|exists:tenant.branches,id',
@@ -142,14 +129,17 @@ class RetailFullstocktakingController extends Controller
             'lines'                   => 'required|array|min:1',
             'lines.*.base_product_id' => 'required|integer',
             'lines.*.quantity'        => 'required|numeric|gt:0',
+            'lines.*.client_uuid'     => 'nullable|string|max:60',
             'device_id'               => 'nullable|string|max:120',
+            'device_label'            => 'nullable|string|max:120',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => 422, 'message' => 'Validation failed.', 'errors' => $validator->errors()], 422);
         }
 
-        if (! Hash::check($request->password, Auth::user()->password)) {
+        $tenantUser = DB::connection('tenant')->table('users')->where('id', Auth::id())->first();
+        if (! $tenantUser || ! Hash::check($request->password, $tenantUser->password)) {
             return response()->json(['status' => 401, 'message' => 'The password you entered is incorrect.'], 401);
         }
 
@@ -161,84 +151,116 @@ class RetailFullstocktakingController extends Controller
             return response()->json(['status' => 409, 'message' => 'This date has already been rectified for this branch.'], 409);
         }
 
+        $this->ensureSessionSnapshotSeeded($branchId, $date);
+
         $now      = now();
         $deviceId = $request->device_id ?: 'unknown-device';
         $merged   = 0;
 
-        try {
-            DB::connection('tenant')->transaction(function () use ($request, $branchId, $date, $now, $deviceId, &$merged) {
-                foreach ($request->lines as $line) {
-                    $productId = (int) $line['base_product_id'];
-                    $qty       = (float) $line['quantity'];
+        foreach ($request->lines as $line) {
+            $productId   = (int) $line['base_product_id'];
+            $qty         = (float) $line['quantity'];
+            $clientUuid  = $line['client_uuid'] ?? ('srv_' . Str::uuid()->toString());
 
-                    $branchProduct = DB::connection('tenant')->table('retail_branch_products')
-                        ->where('branch_id', $branchId)
-                        ->where('base_product_id', $productId)
-                        ->first();
+            $branchProduct = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $branchId)
+                ->where('base_product_id', $productId)
+                ->first();
 
-                    if (! $branchProduct) {
-                        continue;
-                    }
+            if (! $branchProduct) {
+                continue;
+            }
 
-                    $baseProduct = DB::connection('tenant')->table('retail_base_products')
-                        ->where('id', $productId)->first();
-
-                    $existing = DB::connection('tenant')->table('retail_fullstocktaking')
-                        ->where('date', $date)
-                        ->where('branch_id', $branchId)
-                        ->where('base_product_id', $productId)
-                        ->first();
-
-                    if ($existing) {
-                        // Subsequent merge: accumulate found only.
-                        // sales_id_at_count stays from the first merge —
-                        // that is the correct snapshot moment.
-                        $sourceDevices = json_decode($existing->source_device_ids ?? '[]', true) ?: [];
-                        if (! in_array($deviceId, $sourceDevices, true)) {
-                            $sourceDevices[] = $deviceId;
-                        }
-
-                        DB::connection('tenant')->table('retail_fullstocktaking')
-                            ->where('id', $existing->id)
-                            ->update([
-                                'found'              => $existing->found + $qty,
-                                'merge_count'         => $existing->merge_count + 1,
-                                'source_device_ids'   => json_encode($sourceDevices),
-                                'counted_by_user_id'  => Auth::id(),
-                                'updated_at'          => $now,
-                            ]);
-                    } else {
-                        // First merge of this product: snapshot stock + sales sequence.
-                        $salesIdAtCount = DB::connection('tenant')->table('retail_system_sales')
-                            ->where('branch', (string) $branchId)
-                            ->where('productid', $productId)
-                            ->max('id'); // NULL if no sales yet — handled at rectify time
-
-                        DB::connection('tenant')->table('retail_fullstocktaking')->insert([
-                            'date'               => $date,
-                            'branch_id'          => $branchId,
-                            'base_product_id'    => $productId,
-                            'product_name'       => $baseProduct->name ?? ($line['product_name'] ?? 'Unknown'),
-                            'unit'               => $baseProduct->unit ?? ($line['unit'] ?? 'Each'),
-                            'price'              => $branchProduct->selling_price ?? $baseProduct->selling_price ?? 0,
-                            'rate'               => 1.00,
-                            'expected_at_count'  => $branchProduct->stock_quantity,
-                            'sales_id_at_count'  => $salesIdAtCount, // integer sequence snapshot
-                            'found'              => $qty,
-                            'merge_count'        => 1,
-                            'source_device_ids'  => json_encode([$deviceId]),
-                            'status'             => 'counted',
-                            'counted_by_user_id' => Auth::id(),
-                            'created_at'         => $now,
-                            'updated_at'         => $now,
-                        ]);
-                    }
-
-                    $merged++;
+            try {
+                DB::connection('tenant')->table('retail_fullstocktaking_count_lines')->insert([
+                    'date'                  => $date,
+                    'branch_id'             => $branchId,
+                    'base_product_id'       => $productId,
+                    'device_id'             => $deviceId,
+                    'device_label'          => $request->device_label,
+                    'submitted_by_user_id'  => Auth::id(),
+                    'quantity'              => $qty,
+                    'replaces_line_id'      => null,
+                    'client_uuid'           => $clientUuid,
+                    'created_at'            => $now,
+                    'updated_at'            => $now,
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ((int) $e->getCode() === 23000) {
+                    continue;
                 }
-            });
-        } catch (\Exception $e) {
-            return response()->json(['status' => 500, 'message' => 'Merge failed: ' . $e->getMessage()], 500);
+                throw $e;
+            }
+
+            $existing = DB::connection('tenant')->table('retail_fullstocktaking')
+                ->where('date', $date)->where('branch_id', $branchId)
+                ->where('base_product_id', $productId)->first();
+
+            if (! $existing) {
+                $baseProduct = DB::connection('tenant')->table('retail_base_products')
+                    ->where('id', $productId)->first();
+
+                $snapshot = DB::connection('tenant')->table('retail_fullstocktaking_session_snapshot')
+                    ->where('date', $date)->where('branch_id', $branchId)
+                    ->where('base_product_id', $productId)->first();
+
+                $expectedAtCount = $snapshot->expected_at_session_start ?? $branchProduct->stock_quantity;
+                $salesIdAtCount  = $snapshot->sales_id_at_session_start ?? null;
+
+                if (! $snapshot) {
+                    Log::warning('Stocktaking: no session snapshot found for product, falling back to live stock', [
+                        'branch_id' => $branchId, 'date' => $date, 'base_product_id' => $productId,
+                    ]);
+                }
+
+                DB::connection('tenant')->table('retail_fullstocktaking')->insert([
+                    'date'               => $date,
+                    'branch_id'          => $branchId,
+                    'base_product_id'    => $productId,
+                    'product_name'       => $baseProduct->name ?? ($line['product_name'] ?? 'Unknown'),
+                    'unit'               => $baseProduct->unit ?? ($line['unit'] ?? 'Each'),
+                    'price'              => $branchProduct->selling_price ?? $baseProduct->selling_price ?? 0,
+                    'rate'               => 1.00,
+                    'expected_at_count'  => $expectedAtCount,
+                    'sales_id_at_count'  => $salesIdAtCount,
+                    'found'              => 0,
+                    'merge_count'        => 0,
+                    'source_device_ids'  => json_encode([]),
+                    'status'             => 'counted',
+                    'counted_by_user_id' => Auth::id(),
+                    'created_at'         => $now,
+                    'updated_at'         => $now,
+                ]);
+
+                $existing = DB::connection('tenant')->table('retail_fullstocktaking')
+                    ->where('date', $date)->where('branch_id', $branchId)
+                    ->where('base_product_id', $productId)->first();
+            }
+
+            $totalFound = DB::connection('tenant')->table('retail_fullstocktaking_count_lines')
+                ->where('date', $date)->where('branch_id', $branchId)
+                ->where('base_product_id', $productId)->sum('quantity');
+
+            $lineCount = DB::connection('tenant')->table('retail_fullstocktaking_count_lines')
+                ->where('date', $date)->where('branch_id', $branchId)
+                ->where('base_product_id', $productId)->count();
+
+            $sourceDevices = json_decode($existing->source_device_ids ?? '[]', true) ?: [];
+            if (! in_array($deviceId, $sourceDevices, true)) {
+                $sourceDevices[] = $deviceId;
+            }
+
+            DB::connection('tenant')->table('retail_fullstocktaking')
+                ->where('id', $existing->id)
+                ->update([
+                    'found'              => max(0, $totalFound),
+                    'merge_count'        => $lineCount,
+                    'source_device_ids'  => json_encode($sourceDevices),
+                    'counted_by_user_id' => Auth::id(),
+                    'updated_at'         => $now,
+                ]);
+
+            $merged++;
         }
 
         return response()->json(['status' => 200, 'message' => "Merged {$merged} product line(s) successfully.", 'merged' => $merged]);
@@ -246,9 +268,6 @@ class RetailFullstocktakingController extends Controller
 
     /* ════════════════════════════════════════════════════════════════════
        TAB 2 — MERGED DATA
-       Single-row edit/delete kept for compatibility, PLUS the new
-       offline-batch sync endpoint (syncMergedData) used by the rebuilt
-       offline-first UI.
        ════════════════════════════════════════════════════════════════════ */
 
     public function updateMergedRow(Request $request)
@@ -291,20 +310,12 @@ class RetailFullstocktakingController extends Controller
         }
 
         DB::connection('tenant')->table('retail_fullstocktaking')->where('id', $request->id)->delete();
+
         $this->recomputeSummaryIfRectified($row->branch_id, $row->date);
 
-        return response()->json(['status' => 201, 'success' => 'Row deleted. It will reappear under Missing Products next time that tab refreshes.']);
+        return response()->json(['status' => 201, 'success' => 'Row deleted.']);
     }
 
-    /**
-     * Offline-batch sync for the Merged Data tab — same op shape as
-     * syncMissingProducts (client_uuid, type, id, fields), separate route.
-     *
-     * Edits and deletes are applied REGARDLESS of rectification status.
-     * If a row is already rectified, an update recomputes expected_final
-     * via the same sales-netting formula used at rectification, and the
-     * branch+date summary row is recomputed so History stays consistent.
-     */
     public function syncMergedData(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -324,11 +335,9 @@ class RetailFullstocktakingController extends Controller
         $touchedBranchDates = [];
 
         foreach ($request->ops as $op) {
-            $row = DB::connection('tenant')->table('retail_fullstocktaking')
-                ->where('id', $op['id'])->first();
+            $row = DB::connection('tenant')->table('retail_fullstocktaking')->where('id', $op['id'])->first();
 
             if (! $row) { $failed[] = $op['client_uuid']; continue; }
-
             if ($row->last_synced_client_uuid === $op['client_uuid']) { $skipped[] = $op['client_uuid']; continue; }
 
             if ($op['type'] === 'delete') {
@@ -338,7 +347,6 @@ class RetailFullstocktakingController extends Controller
                 continue;
             }
 
-            // update — applied even if $row->status === 'rectified'
             $this->applyMergedRowEdit($row, (float) $op['expected'], (float) $op['found'], $op['client_uuid']);
             $touchedBranchDates[$row->branch_id . '|' . $row->date] = [$row->branch_id, $row->date];
             $applied[] = $op['client_uuid'];
@@ -357,20 +365,56 @@ class RetailFullstocktakingController extends Controller
         ]);
     }
 
-    /**
-     * Apply an expected/found edit to a single retail_fullstocktaking row.
-     * If the row is already rectified, recompute expected_final using the
-     * same sales-netting formula as submitRectification(), so a
-     * post-rectify correction stays mathematically consistent — sales
-     * made after the count continue to be accounted for automatically,
-     * even on a correction made after rectification.
-     */
-    private function applyMergedRowEdit($row, float $expected, float $found, ?string $clientUuid = null): void
+    private function applyMergedRowEdit($row, float $newExpected, float $newFound, ?string $clientUuid = null): void
     {
+        $now   = now();
+        $delta = $newFound - (float) $row->found;
+
+        if (abs($delta) > self::QTY_EPSILON) {
+            $uuid = $clientUuid ?? ('correction_' . Str::uuid()->toString());
+
+            try {
+                DB::connection('tenant')->table('retail_fullstocktaking_count_lines')->insert([
+                    'date'                 => $row->date,
+                    'branch_id'            => $row->branch_id,
+                    'base_product_id'      => $row->base_product_id,
+                    'device_id'            => 'merged-data-correction',
+                    'device_label'         => 'Manual correction (Merged Data)',
+                    'submitted_by_user_id' => Auth::id(),
+                    'quantity'             => $delta,
+                    'replaces_line_id'     => null,
+                    'client_uuid'          => $uuid,
+                    'created_at'           => $now,
+                    'updated_at'           => $now,
+                ]);
+            } catch (\Illuminate\Database\QueryException $e) {
+                if ((int) $e->getCode() !== 23000) {
+                    throw $e;
+                }
+            }
+        }
+
+        $trueFound = max(0, DB::connection('tenant')->table('retail_fullstocktaking_count_lines')
+            ->where('date', $row->date)->where('branch_id', $row->branch_id)
+            ->where('base_product_id', $row->base_product_id)->sum('quantity'));
+
+        $expectedChanged = abs($newExpected - (float) $row->expected_at_count) > self::QTY_EPSILON;
+
+        if ($expectedChanged) {
+            DB::connection('tenant')->table('retail_fullstocktaking_session_snapshot')
+                ->where('date', $row->date)
+                ->where('branch_id', $row->branch_id)
+                ->where('base_product_id', $row->base_product_id)
+                ->update([
+                    'expected_at_session_start' => $newExpected,
+                    'updated_at'                => $now,
+                ]);
+        }
+
         $update = [
-            'expected_at_count' => $expected,
-            'found'             => $found,
-            'updated_at'        => now(),
+            'expected_at_count' => $newExpected,
+            'found'             => $trueFound,
+            'updated_at'        => $now,
         ];
 
         if ($clientUuid !== null) {
@@ -378,37 +422,38 @@ class RetailFullstocktakingController extends Controller
         }
 
         if ($row->status === 'rectified') {
-            $salesSinceCount = DB::connection('tenant')
-                ->table('retail_system_sales')
-                ->where('branch', (string) $row->branch_id)
-                ->where('productid', $row->base_product_id)
-                ->where('id', '>', $row->sales_id_at_count ?? 0)
-                ->sum('quantity');
+            $branchProductId = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $row->branch_id)
+                ->where('base_product_id', $row->base_product_id)
+                ->value('id');
 
-            $update['expected_final'] = max(0, $expected - $salesSinceCount);
+            $salesSinceCount = $branchProductId
+                ? DB::connection('tenant')->table('retail_system_sales')
+                    ->where('branch', (string) $row->branch_id)
+                    ->where('branch_product_id', $branchProductId)
+                    ->where('id', '>', $row->sales_id_at_count ?? 0)
+                    ->sum('quantity')
+                : 0;
 
-            // Found now wins again as the corrected physical count.
+            $update['expected_final'] = max(0, $newExpected - $salesSinceCount);
+            $trueCurrentStock = max(0, $trueFound - $salesSinceCount);
+
             DB::connection('tenant')->table('retail_branch_products')
                 ->where('branch_id', $row->branch_id)
                 ->where('base_product_id', $row->base_product_id)
-                ->update(['stock_quantity' => $found, 'updated_at' => now()]);
+                ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
         }
 
         DB::connection('tenant')->table('retail_fullstocktaking')->where('id', $row->id)->update($update);
     }
 
-    /**
-     * Recompute retail_fullstocktaking_summary for a date+branch if (and
-     * only if) a summary row already exists for it — i.e. it was already
-     * rectified. Keeps History totals honest after a post-rectify sync.
-     */
     private function recomputeSummaryIfRectified(int $branchId, string $date): void
     {
         $summary = DB::connection('tenant')->table('retail_fullstocktaking_summary')
             ->where('branch_id', $branchId)->where('date', $date)->first();
 
-        if (! $summary) {
-            return; // not rectified yet — nothing to keep in sync
+        if (! $summary || $summary->status !== 'completed') {
+            return;
         }
 
         $countedRows = DB::connection('tenant')->table('retail_fullstocktaking')
@@ -419,7 +464,6 @@ class RetailFullstocktakingController extends Controller
 
         foreach ($countedRows as $row) {
             $expectedFinal = $row->expected_final ?? $row->expected_at_count;
-
             $expectedTotal += $expectedFinal * $row->price;
             $foundTotal    += $row->found * $row->price;
 
@@ -486,7 +530,6 @@ class RetailFullstocktakingController extends Controller
                 ->where('id', $op['id'])->first();
 
             if (! $row) { $failed[] = $op['client_uuid']; continue; }
-
             if ($row->client_uuid === $op['client_uuid']) { $skipped[] = $op['client_uuid']; continue; }
 
             if ($op['type'] === 'delete') {
@@ -518,157 +561,332 @@ class RetailFullstocktakingController extends Controller
     }
 
     /* ════════════════════════════════════════════════════════════════════
-       TAB 4 — ACTIONS AND INFO — RECTIFICATION
-       ─────────────────────────────────────────────────────────────────────
-       For each counted row:
-         sales_since     = SUM(quantity) WHERE id > sales_id_at_count
-                           (NULL sales_id_at_count → sum ALL sales)
-         expected_final  = MAX(0, expected_at_count - sales_since)
-       Then physical count (found) replaces live stock.
-
-       Rectification LOCKS EVERYTHING for this branch+date: counting,
-       merging, and missing-product seeding/entry all stop immediately
-       once a retail_fullstocktaking_summary row exists (the existence
-       check at the top of submitRectification() and mergeCounts() is
-       what enforces this). The only way to change figures afterward is
-       the explicit post-rectify Merged Data sync path, which re-runs
-       the sales-netting formula automatically.
+       DEVICE SYNC HEARTBEAT
        ════════════════════════════════════════════════════════════════════ */
 
-    public function submitRectification(Request $request)
+    public function reportDeviceSync(Request $request)
     {
         $validator = Validator::make($request->all(), [
-            'branch_id' => 'required|integer|exists:tenant.branches,id',
-            'date'      => 'required|date',
-            'password'  => 'required|string',
+            'branch_id'          => 'required|integer|exists:tenant.branches,id',
+            'date'               => 'required|date',
+            'device_id'          => 'required|string|max:120',
+            'device_label'       => 'nullable|string|max:120',
+            'device_type'        => 'required|in:stocktaking,pos',
+            'pending_ops_count'  => 'required|integer|min:0',
         ]);
 
         if ($validator->fails()) {
             return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
         }
 
-        if (! Hash::check($request->password, Auth::user()->password)) {
-            return response()->json(['status' => 401, 'error' => 'The password you entered is incorrect.'], 401);
+        DB::connection('tenant')->table('retail_fullstocktaking_sync_devices')->updateOrInsert(
+            [
+                'date'        => $request->date,
+                'branch_id'   => (int) $request->branch_id,
+                'device_id'   => $request->device_id,
+                'device_type' => $request->device_type,
+            ],
+            [
+                'device_label'      => $request->device_label,
+                'pending_ops_count' => (int) $request->pending_ops_count,
+                'last_synced_at'    => now(),
+                'updated_at'        => now(),
+                'created_at'        => now(),
+            ]
+        );
+
+        return response()->json(['status' => 200, 'message' => 'Sync status recorded.']);
+    }
+
+    public function getSyncStatus(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+            'date'      => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
         }
 
-        $branchId = (int) $request->branch_id;
-        $date     = $request->date;
+        $devices = DB::connection('tenant')->table('retail_fullstocktaking_sync_devices')
+            ->where('branch_id', $request->branch_id)->where('date', $request->date)
+            ->orderBy('device_type')->orderBy('device_label')->get();
 
-        if (DB::connection('tenant')->table('retail_fullstocktaking_summary')
-                ->where('branch_id', $branchId)->where('date', $date)->exists()) {
-            return response()->json(['status' => 409, 'error' => 'This date has already been rectified for this branch.'], 409);
-        }
+        $devicesWithPending = $devices->filter(fn ($d) => $d->pending_ops_count > 0)->count();
 
-        $rectificationMoment = now();
-
-        try {
-            $summary = DB::connection('tenant')->transaction(function () use ($branchId, $date, $rectificationMoment) {
-
-                $countedRows = DB::connection('tenant')->table('retail_fullstocktaking')
-                    ->where('branch_id', $branchId)->where('date', $date)->get();
-
-                $productsNoAnomaly = $productsOverage = $productsShortage = 0;
-                $expectedTotal = $foundTotal = $overageTotal = $shortageTotal = 0;
-
-                foreach ($countedRows as $row) {
-                    // ── Integer-sequence-based sales netting ──────────────
-                    // If sales_id_at_count is NULL no sales existed when
-                    // this product was counted → treat all sales as post-count.
-                    // This is what lets selling continue uninterrupted on
-                    // the floor while stocktaking is in progress: sales made
-                    // after a product's count are detected by id, not time,
-                    // and are ALWAYS subtracted here automatically — there is
-                    // no separate manual step required to "take care of" them.
-                    $salesSinceCount = DB::connection('tenant')
-                        ->table('retail_system_sales')
-                        ->where('branch', (string) $branchId)
-                        ->where('productid', $row->base_product_id)
-                        ->where('id', '>', $row->sales_id_at_count ?? 0)
-                        ->sum('quantity');
-
-                    $expectedFinal = max(0, $row->expected_at_count - $salesSinceCount);
-
-                    DB::connection('tenant')->table('retail_fullstocktaking')
-                        ->where('id', $row->id)
-                        ->update([
-                            'expected_final'       => $expectedFinal,
-                            'status'               => 'rectified',
-                            'rectified_by_user_id' => Auth::id(),
-                            'rectified_at'         => $rectificationMoment,
-                            'updated_at'           => $rectificationMoment,
-                        ]);
-
-                    $expectedTotal += $expectedFinal * $row->price;
-                    $foundTotal    += $row->found * $row->price;
-
-                    if (abs($row->found - $expectedFinal) < self::QTY_EPSILON) {
-                        $productsNoAnomaly++;
-                    } elseif ($row->found > $expectedFinal) {
-                        $productsOverage++;
-                        $overageTotal += ($row->found - $expectedFinal) * $row->price;
-                    } else {
-                        $productsShortage++;
-                        $shortageTotal += ($expectedFinal - $row->found) * $row->price;
-                    }
-
-                    // Physical count wins — update live stock.
-                    DB::connection('tenant')->table('retail_branch_products')
-                        ->where('branch_id', $branchId)
-                        ->where('base_product_id', $row->base_product_id)
-                        ->update(['stock_quantity' => $row->found, 'updated_at' => $rectificationMoment]);
-                }
-
-                $missingRows  = DB::connection('tenant')->table('retail_fullstocktaking_missing_products')
-                    ->where('branch_id', $branchId)->where('date', $date)->get();
-                $missingCount = $missingRows->count();
-                $missingValue = $missingRows->sum(fn ($m) => $m->quantity * $m->price);
-
-                $differenceValue     = $foundTotal - $expectedTotal;
-                $fullDifferenceValue = $differenceValue - $missingValue;
-
-                $summaryId = DB::connection('tenant')->table('retail_fullstocktaking_summary')->insertGetId([
-                    'date'                  => $date,
-                    'branch_id'             => $branchId,
-                    'products_counted'      => $countedRows->count(),
-                    'products_no_anomaly'   => $productsNoAnomaly,
-                    'products_overage'      => $productsOverage,
-                    'products_shortage'     => $productsShortage,
-                    'expected_value'        => $expectedTotal,
-                    'found_value'           => $foundTotal,
-                    'overage_value'         => $overageTotal,
-                    'shortage_value'        => $shortageTotal,
-                    'difference_value'      => $differenceValue,
-                    'missing_count'         => $missingCount,
-                    'missing_value'         => $missingValue,
-                    'full_difference_value' => $fullDifferenceValue,
-                    'rectified_by_user_id'  => Auth::id(),
-                    'device_details'        => request()->header('User-Agent'),
-                    'created_at'            => $rectificationMoment,
-                    'updated_at'            => $rectificationMoment,
-                ]);
-
-                return DB::connection('tenant')->table('retail_fullstocktaking_summary')->find($summaryId);
-            });
-        } catch (\Exception $e) {
-            return response()->json(['status' => 500, 'error' => 'Rectification failed: ' . $e->getMessage()], 500);
-        }
-
-        return response()->json(['status' => 201, 'success' => 'Full stocktaking rectification completed successfully.', 'summary' => $summary]);
+        return response()->json([
+            'status'          => 200,
+            'devices'         => $devices,
+            'can_rectify'     => $devicesWithPending === 0,
+            'pending_devices' => $devicesWithPending,
+        ]);
     }
 
     /* ════════════════════════════════════════════════════════════════════
-       PDF REPORTS — Barryvdh\DomPDF
-       ─────────────────────────────────────────────────────────────────────
-       Each method validates branch_id + date, pulls exactly the data its
-       Blade PDF template needs, and streams the PDF inline (opens in a
-       new tab via target="_blank" on the calling form).
+       TAB 4 — RECTIFICATION
        ════════════════════════════════════════════════════════════════════ */
 
-    /**
-     * Full Report — every counted line, expected/found/diff, plus the
-     * missing-products section, plus the live (or rectified) summary
-     * stats. Mirrors what's shown in Actions & Info.
-     */
+    public function submitRectification(Request $request)
+    {
+        $tag = '[FST-Rectify]'; // prefix every log line so they're easy to grep
+
+        Log::info("{$tag} ── Request received ──────────────────────────────");
+        Log::info("{$tag} User ID  : " . Auth::id());
+        Log::info("{$tag} IP       : " . $request->ip());
+        Log::info("{$tag} Method   : " . $request->method());
+        Log::info("{$tag} URL      : " . $request->fullUrl());
+        Log::info("{$tag} Accept   : " . $request->header('Accept'));
+        Log::info("{$tag} Input    : " . json_encode($request->except('password')));
+
+        // ── STEP 0: VALIDATION ────────────────────────────────────────────
+        $validator = Validator::make($request->all(), [
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+            'date'      => 'required|date',
+            'password'  => 'required|string',
+            'force'     => 'nullable|boolean',
+        ]);
+
+        if ($validator->fails()) {
+            Log::warning("{$tag} Validation failed", ['errors' => $validator->errors()->toArray()]);
+            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
+        }
+
+        Log::info("{$tag} Validation passed");
+
+        // ── STEP 1: PASSWORD CHECK ────────────────────────────────────────
+        $tenantUser = DB::connection('tenant')->table('users')->where('id', Auth::id())->first();
+
+        if (! $tenantUser) {
+            Log::error("{$tag} Tenant user record not found for Auth ID: " . Auth::id());
+            return response()->json(['status' => 401, 'error' => 'User record not found.'], 401);
+        }
+
+        if (! Hash::check($request->password, $tenantUser->password)) {
+            Log::warning("{$tag} Password mismatch for user ID: " . Auth::id());
+            return response()->json(['status' => 401, 'error' => 'The password you entered is incorrect.'], 401);
+        }
+
+        Log::info("{$tag} Password verified");
+
+        $branchId = (int) $request->branch_id;
+        $date     = $request->date;
+        $force    = (bool) $request->boolean('force');
+        $now      = now();
+
+        Log::info("{$tag} branch_id={$branchId} date={$date} force=" . ($force ? 'true' : 'false'));
+
+        // ── STEP 2: SYNC GATE ─────────────────────────────────────────────
+        if (! $force) {
+            $pendingDevices = DB::connection('tenant')->table('retail_fullstocktaking_sync_devices')
+                ->where('branch_id', $branchId)
+                ->where('date', $date)
+                ->where('pending_ops_count', '>', 0)
+                ->get(['device_id', 'device_label', 'device_type', 'pending_ops_count']);
+
+            if ($pendingDevices->isNotEmpty()) {
+                Log::warning("{$tag} Sync gate blocked — pending devices", ['devices' => $pendingDevices->toArray()]);
+                return response()->json([
+                    'status'          => 423,
+                    'error'           => 'Some devices still have unsynced offline data.',
+                    'pending_devices' => $pendingDevices,
+                ], 423);
+            }
+
+            Log::info("{$tag} Sync gate passed — no pending devices");
+        } else {
+            Log::warning("{$tag} Sync gate BYPASSED via force=true");
+        }
+
+        // ── STEP 3: CLAIM THE LOCK ────────────────────────────────────────
+        Log::info("{$tag} Attempting to insert summary lock row");
+
+        try {
+            $summaryId = DB::connection('tenant')->table('retail_fullstocktaking_summary')->insertGetId([
+                'date'                 => $date,
+                'branch_id'            => $branchId,
+                'status'               => 'pending',
+                'started_at'           => $now,
+                'rectified_by_user_id' => Auth::id(),
+                'device_details'       => $request->header('User-Agent'),
+                'created_at'           => $now,
+                'updated_at'           => $now,
+            ]);
+
+            Log::info("{$tag} Lock row inserted — summary ID: {$summaryId}");
+
+        } catch (\Illuminate\Database\QueryException $e) {
+            Log::warning("{$tag} Summary INSERT exception — code={$e->getCode()} msg={$e->getMessage()}");
+
+            if ((int) $e->getCode() !== 23000) {
+                Log::error("{$tag} Non-duplicate-key DB error during lock claim", [
+                    'code'    => $e->getCode(),
+                    'message' => $e->getMessage(),
+                ]);
+                return response()->json(['status' => 500, 'error' => 'Could not start rectification: ' . $e->getMessage()], 500);
+            }
+
+            // Duplicate key — another request already inserted this row
+            $existing = DB::connection('tenant')->table('retail_fullstocktaking_summary')
+                ->where('branch_id', $branchId)->where('date', $date)->first();
+
+            Log::info("{$tag} Existing summary row found", [
+                'id'         => $existing->id,
+                'status'     => $existing->status,
+                'started_at' => $existing->started_at,
+            ]);
+
+            if ($existing->status === 'completed') {
+                Log::info("{$tag} Already completed — returning 409");
+                return response()->json([
+                    'status'  => 409,
+                    'error'   => 'This date has already been rectified for this branch.',
+                    'summary' => $existing,
+                ], 409);
+            }
+
+            $secondsAgo = Carbon::parse($existing->started_at)->diffInSeconds($now);
+            Log::info("{$tag} Pending row is {$secondsAgo}s old (grace=" . self::RECTIFY_IN_PROGRESS_GRACE_SECONDS . "s)");
+
+            if ($secondsAgo < self::RECTIFY_IN_PROGRESS_GRACE_SECONDS) {
+                Log::warning("{$tag} Another rectification is in progress — returning 423");
+                return response()->json(['status' => 423, 'error' => 'Rectification is already in progress. Please wait a moment and try again.'], 423);
+            }
+
+            // Stale pending row — resume
+            $summaryId = $existing->id;
+            Log::info("{$tag} Resuming stale pending run — summary ID: {$summaryId}");
+        }
+
+        // ── STEP 4: WRITE EACH PRODUCT ROW ───────────────────────────────
+        $countedRows = DB::connection('tenant')->table('retail_fullstocktaking')
+            ->where('branch_id', $branchId)->where('date', $date)->get();
+
+        Log::info("{$tag} Products to process: " . $countedRows->count());
+
+        $stockUpdateFailures = [];
+
+        foreach ($countedRows as $row) {
+            $trueFound = max(0, DB::connection('tenant')->table('retail_fullstocktaking_count_lines')
+                ->where('date', $date)->where('branch_id', $branchId)
+                ->where('base_product_id', $row->base_product_id)->sum('quantity'));
+
+            $branchProductId = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $branchId)
+                ->where('base_product_id', $row->base_product_id)
+                ->value('id');
+
+            $salesSinceCount = $branchProductId
+                ? DB::connection('tenant')->table('retail_system_sales')
+                    ->where('branch', (string) $branchId)
+                    ->where('branch_product_id', $branchProductId)
+                    ->where('id', '>', $row->sales_id_at_count ?? 0)
+                    ->sum('quantity')
+                : 0;
+
+            $expectedFinal    = max(0, $row->expected_at_count - $salesSinceCount);
+            $trueCurrentStock = max(0, $trueFound - $salesSinceCount);
+
+            DB::connection('tenant')->table('retail_fullstocktaking')
+                ->where('id', $row->id)
+                ->update([
+                    'found'                => $trueFound,
+                    'expected_final'       => $expectedFinal,
+                    'status'               => 'rectified',
+                    'rectified_by_user_id' => Auth::id(),
+                    'rectified_at'         => $now,
+                    'updated_at'           => $now,
+                ]);
+
+            $affected = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $branchId)
+                ->where('base_product_id', $row->base_product_id)
+                ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
+
+            if ($affected === 0) {
+                $stockUpdateFailures[] = $row->base_product_id;
+                Log::warning("{$tag} Stock update affected 0 rows for base_product_id={$row->base_product_id}");
+            }
+        }
+
+        Log::info("{$tag} Product rows processed. Stock update failures: " . count($stockUpdateFailures));
+
+        // ── STEP 5: COMPUTE SUMMARY TOTALS ───────────────────────────────
+        $finalRows = DB::connection('tenant')->table('retail_fullstocktaking')
+            ->where('branch_id', $branchId)->where('date', $date)->get();
+
+        $productsNoAnomaly = $productsOverage = $productsShortage = 0;
+        $expectedTotal = $foundTotal = $overageTotal = $shortageTotal = 0;
+
+        foreach ($finalRows as $row) {
+            $expectedFinal = $row->expected_final ?? $row->expected_at_count;
+            $expectedTotal += $expectedFinal * $row->price;
+            $foundTotal    += $row->found * $row->price;
+
+            if (abs($row->found - $expectedFinal) < self::QTY_EPSILON) {
+                $productsNoAnomaly++;
+            } elseif ($row->found > $expectedFinal) {
+                $productsOverage++;
+                $overageTotal += ($row->found - $expectedFinal) * $row->price;
+            } else {
+                $productsShortage++;
+                $shortageTotal += ($expectedFinal - $row->found) * $row->price;
+            }
+        }
+
+        $missingRows  = DB::connection('tenant')->table('retail_fullstocktaking_missing_products')
+            ->where('branch_id', $branchId)->where('date', $date)->get();
+        $missingCount = $missingRows->count();
+        $missingValue = $missingRows->sum(fn ($m) => $m->quantity * $m->price);
+
+        $differenceValue     = $foundTotal - $expectedTotal;
+        $fullDifferenceValue = $differenceValue - $missingValue;
+
+        Log::info("{$tag} Summary totals computed", [
+            'products_counted' => $finalRows->count(),
+            'expected_total'   => $expectedTotal,
+            'found_total'      => $foundTotal,
+            'difference'       => $differenceValue,
+            'missing_count'    => $missingCount,
+        ]);
+
+        // ── STEP 6: FLIP STATUS TO COMPLETED ─────────────────────────────
+        Log::info("{$tag} Flipping summary row {$summaryId} to completed");
+
+        DB::connection('tenant')->table('retail_fullstocktaking_summary')
+            ->where('id', $summaryId)
+            ->update([
+                'status'                => 'completed',
+                'products_counted'      => $finalRows->count(),
+                'products_no_anomaly'   => $productsNoAnomaly,
+                'products_overage'      => $productsOverage,
+                'products_shortage'     => $productsShortage,
+                'expected_value'        => $expectedTotal,
+                'found_value'           => $foundTotal,
+                'overage_value'         => $overageTotal,
+                'shortage_value'        => $shortageTotal,
+                'difference_value'      => $differenceValue,
+                'missing_count'         => $missingCount,
+                'missing_value'         => $missingValue,
+                'full_difference_value' => $fullDifferenceValue,
+                'updated_at'            => now(),
+            ]);
+
+        $summaryRow = DB::connection('tenant')->table('retail_fullstocktaking_summary')->find($summaryId);
+
+        Log::info("{$tag} ── Rectification COMPLETE — returning 201 ─────────");
+
+        return response()->json([
+            'status'  => 201,
+            'success' => 'Full stocktaking rectified successfully.',
+            'summary' => $summaryRow,
+        ], 201);
+    }
+
+    /* ════════════════════════════════════════════════════════════════════
+       PDF REPORTS
+       ════════════════════════════════════════════════════════════════════ */
+
     public function downloadFullReport(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -691,7 +909,7 @@ class RetailFullstocktakingController extends Controller
         $missingRows = DB::connection('tenant')->table('retail_fullstocktaking_missing_products')
             ->where('branch_id', $branchId)->where('date', $date)->orderBy('product_name')->get();
 
-        $pdf = Pdf::loadView('operations.retail.pdf.fullstocktaking-full-report', [
+        $pdf = Pdf::loadView('operations.retail.fullstocktaking-full-report', [
             'summary'     => $summary,
             'countedRows' => $countedRows,
             'missingRows' => $missingRows,
@@ -703,10 +921,6 @@ class RetailFullstocktakingController extends Controller
         return $pdf->stream($branchName . ' Full Stocktaking Report ' . $date . '.pdf');
     }
 
-    /**
-     * Stock Delivery Note — simplified product / unit / price / qty list,
-     * suitable for use as a receiving note when restocking a branch.
-     */
     public function downloadDeliveryNote(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -729,7 +943,7 @@ class RetailFullstocktakingController extends Controller
 
         $totalValue = $countedRows->sum(fn ($r) => $r->found * $r->price);
 
-        $pdf = Pdf::loadView('operations.retail.pdf.fullstocktaking-delivery-note', [
+        $pdf = Pdf::loadView('operations.retail.fullstocktaking-delivery-report', [
             'countedRows' => $countedRows,
             'totalValue'  => $totalValue,
             'branchName'  => $branchName,
@@ -740,10 +954,6 @@ class RetailFullstocktakingController extends Controller
         return $pdf->stream($branchName . ' Stock Delivery Note ' . $date . '.pdf');
     }
 
-    /**
-     * Merged Data PDF — the full Merged Data tab (product, unit, price,
-     * expected, found, difference, merge count), exactly as on screen.
-     */
     public function downloadMergedDataReport(Request $request)
     {
         $validator = Validator::make($request->all(), [
@@ -778,10 +988,6 @@ class RetailFullstocktakingController extends Controller
         return $pdf->stream($branchName . ' Merged Data ' . $date . '.pdf');
     }
 
-    /**
-     * Missing Products PDF — every product never counted for this
-     * branch+date, with its current quantity and value.
-     */
     public function downloadMissingProductsReport(Request $request)
     {
         $validator = Validator::make($request->all(), [

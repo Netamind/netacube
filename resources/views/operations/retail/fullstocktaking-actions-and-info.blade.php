@@ -28,11 +28,11 @@
         ->where('date', $date)
         ->exists();
 
-    /* ── Live stats ──────────────────────────────────────────────────── */
     $totalCount = $zeroCount = $positiveCount = $negativeCount = 0;
     $zeroPercentage = $positivePercentage = $negativePercentage = 0;
     $expectedValue = $foundValue = $positiveValue = $negativeValue = 0;
     $differenceValue = $missingCount = $missingValue = $missingPercentage = $fullDifference = 0;
+    $salesAfterCounting = collect();
 
     if ($branchId) {
         $counted = DB::connection('tenant')->table('retail_fullstocktaking')
@@ -55,38 +55,25 @@
 
         if (! $alreadySeeded) {
             $countedIds = $counted->pluck('base_product_id');
-
             $missingToSeed = DB::connection('tenant')
                 ->table('retail_branch_products as rbp')
                 ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
                 ->where('rbp.branch_id', $branchId)
                 ->whereNotIn('rbp.base_product_id', $countedIds)
-                ->select(
-                    'rbp.base_product_id', 'bp.name as product_name', 'bp.unit',
+                ->select('rbp.base_product_id','bp.name as product_name','bp.unit',
                     DB::raw('COALESCE(rbp.selling_price, bp.selling_price) as price'),
-                    'rbp.stock_quantity as quantity',
-                    'rbp.batch_number', 'rbp.expiry_date'
-                )
+                    'rbp.stock_quantity as quantity','rbp.batch_number','rbp.expiry_date')
                 ->get();
 
             if ($missingToSeed->isNotEmpty()) {
-                $now  = now();
+                $now = now();
                 $rows = $missingToSeed->map(fn ($m) => [
-                    'date'            => $date,
-                    'branch_id'       => $branchId,
-                    'base_product_id' => $m->base_product_id,
-                    'product_name'    => $m->product_name,
-                    'unit'            => $m->unit,
-                    'price'           => $m->price ?? 0,
-                    'quantity'        => $m->quantity ?? 0,
-                    'rate'            => 1.00,
-                    'batch_number'    => $m->batch_number,
-                    'expiry_date'     => $m->expiry_date,
-                    'product_status'  => 'Active',
-                    'created_at'      => $now,
-                    'updated_at'      => $now,
+                    'date' => $date,'branch_id' => $branchId,'base_product_id' => $m->base_product_id,
+                    'product_name' => $m->product_name,'unit' => $m->unit,'price' => $m->price ?? 0,
+                    'quantity' => $m->quantity ?? 0,'rate' => 1.00,'batch_number' => $m->batch_number,
+                    'expiry_date' => $m->expiry_date,'product_status' => 'Active',
+                    'created_at' => $now,'updated_at' => $now,
                 ])->toArray();
-
                 foreach (array_chunk($rows, 200) as $chunk) {
                     DB::connection('tenant')->table('retail_fullstocktaking_missing_products')->insertOrIgnore($chunk);
                 }
@@ -100,7 +87,6 @@
 
         $totalAll       = max($totalCount + $missingCount, 1);
         $totalCountSafe = max($totalCount, 1);
-
         $zeroPercentage     = round(($zeroCount / $totalCountSafe) * 100, 2);
         $positivePercentage = round(($positiveCount / $totalCountSafe) * 100, 2);
         $negativePercentage = round(($negativeCount / $totalCountSafe) * 100, 2);
@@ -108,27 +94,44 @@
 
         $differenceValue = $foundValue - $expectedValue;
         $fullDifference  = $differenceValue - $missingValue;
+
+        foreach ($counted as $row) {
+            $branchProductId = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $branchId)->where('base_product_id', $row->base_product_id)->value('id');
+
+            $qtySold = $branchProductId
+                ? DB::connection('tenant')->table('retail_system_sales')
+                    ->where('branch', (string) $branchId)
+                    ->where('branch_product_id', $branchProductId)
+                    ->where('id', '>', $row->sales_id_at_count ?? 0)
+                    ->sum('quantity')
+                : 0;
+
+            if ($qtySold > 0.0001) {
+                $salesAfterCounting->push([
+                    'product' => $row->product_name,'unit' => $row->unit,
+                    'qty_sold' => $qtySold,'expected_before' => $row->expected_at_count,
+                    'expected_after' => max(0, $row->expected_at_count - $qtySold),
+                ]);
+            }
+        }
+        $salesAfterCounting = $salesAfterCounting->sortByDesc('qty_sold')->values();
     }
+
+    // Resolve the rectify URL once in PHP so Blade renders the exact
+    // string — no runtime route() call in JS that could differ by tenant.
+    $rectifyUrl   = route('retail.operations.fullstocktaking.rectify');
+    $syncStatusUrl = route('retail.operations.fullstocktaking.sync-status');
 @endphp
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
 
 <style>
-/* ── Shared chrome ────────────────────────────────────────────────────── */
 .card-header { padding: 0.5rem 1.5rem !important; background: linear-gradient(to right, #4B5EBD, #576CC0); color: #fff; border-top-left-radius: 10px; border-top-right-radius: 10px; }
 .card-body { padding: 0 !important; }
 .card { border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; }
 .card-header h4 { color: #fff; font-weight: 600; margin-bottom: 0; display: flex; align-items: center; }
-
-.card-header .btn-light {
-    height: 28px;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    font-size: 16px;
-}
+.card-header .btn-light { height: 28px; padding: 0 10px; display: flex; align-items: center; justify-content: center; line-height: 1; font-size: 16px; }
 .card-header .btn-light:hover { background-color: #f8f9fa; transition: background-color 0.2s; }
 
 .tab-header-container { background: #cccccc; border-bottom: 1px solid #b3b3b3; }
@@ -137,86 +140,23 @@
 .nav-pills .nav-link.active { background: transparent !important; color: #4B5EBD !important; border-bottom: none; font-weight: 600; }
 .nav-pills .nav-link i { font-size: 1rem; margin-right: .3rem; }
 
-.fst-action-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #9098a8;
-    padding: 8px 14px;
-    border-bottom: 1px solid #7a8090;
-    gap: 10px;
-    flex-wrap: wrap;
-}
+.fst-action-bar { display: flex; align-items: center; justify-content: space-between; background: #9098a8; padding: 8px 14px; border-bottom: 1px solid #7a8090; gap: 10px; flex-wrap: wrap; }
 .fst-left { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; flex-wrap: wrap; }
 .fst-right { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
-
-#fstBranchSelect {
-    border: 1.5px solid rgba(255,255,255,0.35);
-    background: #9098a8;
-    border-radius: 7px;
-    padding: 5px 10px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #dde0e8;
-    max-width: 220px;
-    height: 32px;
-}
-
-.fst-date-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255,255,255,0.12);
-    border: 1.5px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #dde0e8;
-    white-space: nowrap;
-    height: 32px;
-}
+#fstBranchSelect { border: 1.5px solid rgba(255,255,255,0.35); background: #9098a8; border-radius: 7px; padding: 5px 10px; font-size: 12.5px; font-weight: 600; color: #dde0e8; max-width: 220px; height: 32px; }
+.fst-date-chip { display: inline-flex; align-items: center; gap: 5px; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3); border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600; color: #dde0e8; white-space: nowrap; height: 32px; }
 .fst-date-chip .mode-badge { font-size: 9px; padding: 1px 5px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; color: #dde0e8; margin-left: 4px; }
 .rectified-tag { font-size: 9px; font-weight: 700; background: #d1fae5; color: #065f46; border-radius: 5px; padding: 1px 6px; margin-left: 4px; }
-
-.fst-icon-btn {
-    width: 32px;
-    height: 32px;
-    border-radius: 7px;
-    background: rgba(255,255,255,0.12);
-    border: 1.5px solid rgba(255,255,255,0.3);
-    color: #dde0e8;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    font-size: 15px;
-    text-decoration: none;
-}
+.fst-icon-btn { width: 32px; height: 32px; border-radius: 7px; background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3); color: #dde0e8; display: flex; align-items: center; justify-content: center; cursor: pointer; font-size: 15px; text-decoration: none; }
 .fst-icon-btn:hover { background: rgba(255,255,255,0.22); }
 
-/* ── Two-column content layout ───────────────────────────────────────── */
-.ai-content-row {
-    display: flex;
-    gap: 22px;
-    align-items: stretch;
-    min-height: 320px;
-    padding: 4px 0;
-}
-.ai-left-col {
-    flex: 1 1 60%;
-    padding: 18px 22px 18px 18px;
-    border-right: 1px solid #e8eaf2;
-}
-.ai-right-col {
-    flex: 0 0 38%;
-    padding: 18px 18px 18px 4px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-}
+.ai-content-row { display: flex; gap: 22px; align-items: stretch; min-height: 320px; padding: 4px 0; }
+.ai-left-col { flex: 1 1 60%; padding: 18px 22px 18px 18px; border-right: 1px solid #e8eaf2; }
+.ai-right-col { flex: 0 0 38%; padding: 18px 18px 18px 4px; display: flex; flex-direction: column; gap: 16px; }
 
-/* ── Stats table ─────────────────────────────────────────────────────── */
+.ai-affected-line { display: flex; justify-content: flex-end; margin-bottom: 10px; }
+.ai-affected-line a { font-size: 11px; font-weight: 700; color: #4B5EBD; text-decoration: underline; display: inline-flex; align-items: center; gap: 4px; }
+
 .stats-table { width: 100%; font-size: 13px; border-collapse: collapse; }
 .stats-table th { color: #94a3b8; font-size: 10px; text-transform: uppercase; letter-spacing: .5px; font-weight: 700; padding: 8px 10px; border-bottom: 2px solid #e2e8f0; text-align: left; }
 .stats-table th.c, .stats-table td.c { text-align: center; }
@@ -224,109 +164,53 @@
 .stats-table tr.total-row td { font-weight: 800; background: #f4f6ff; border-top: 2px solid #c5caec; }
 .stats-icon { color: #4B5EBD; margin-right: 6px; }
 
-/* ── Sales-netting protection badge ──────────────────────────────────── */
-.ai-protection-banner {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-    background: #ecfdf5;
-    border: 1.5px solid #a7f3d0;
-    border-radius: 9px;
-    padding: 12px 14px;
-    margin-bottom: 18px;
-}
-.ai-protection-banner .ai-pb-icon {
-    width: 30px; height: 30px; border-radius: 50%;
-    background: #16a34a; color: #fff;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 16px; flex-shrink: 0;
-}
-.ai-protection-banner .ai-pb-title {
-    font-size: 12.5px; font-weight: 700; color: #065f46; margin-bottom: 3px;
-    display: flex; align-items: center; gap: 6px;
-}
-.ai-protection-banner .ai-pb-body { font-size: 11.5px; color: #0f5132; line-height: 1.5; }
-.ai-protection-banner .ai-pb-badge {
-    display: inline-flex; align-items: center; gap: 3px;
-    font-size: 9px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px;
-    background: #16a34a; color: #fff; border-radius: 10px; padding: 2px 7px; margin-left: 6px;
-    vertical-align: middle;
-}
-
-/* ── Right column: download card ─────────────────────────────────────── */
-.ai-card {
-    background: #f8f9fc;
-    border: 1px solid #e4e7f5;
-    border-radius: 10px;
-    padding: 16px;
-}
-.ai-card-title {
-    font-size: 11px;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: .6px;
-    color: #94a3b8;
-    margin-bottom: 12px;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-}
-.ai-dl-btn {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 12px;
-    border-radius: 8px;
-    border: 1px solid #d8ddf0;
-    background: #fff;
-    cursor: pointer;
-    text-decoration: none;
-    margin-bottom: 10px;
-    transition: border-color 0.15s, background 0.15s;
-}
-.ai-dl-btn:last-child { margin-bottom: 0; }
+.ai-card { background: #f8f9fc; border: 1px solid #e4e7f5; border-radius: 10px; padding: 16px; }
+.ai-card-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .6px; color: #94a3b8; margin-bottom: 12px; display: flex; align-items: center; gap: 6px; }
+.ai-dl-btn { display: flex; align-items: center; gap: 10px; padding: 10px 12px; border-radius: 8px; border: 1px solid #d8ddf0; background: #fff; cursor: pointer; text-decoration: none; transition: border-color 0.15s, background 0.15s; width: 100%; text-align: left; }
 .ai-dl-btn:hover { border-color: #4B5EBD; background: #eff3ff; }
 .ai-dl-btn i { font-size: 20px; color: #4B5EBD; flex-shrink: 0; }
-.ai-dl-btn .dl-text { flex: 1; }
 .ai-dl-btn .dl-label { font-size: 12.5px; font-weight: 600; color: #1e293b; display: block; line-height: 1.2; }
 .ai-dl-btn .dl-sub   { font-size: 11px; color: #64748b; display: block; margin-top: 2px; }
+.ai-card form + form { margin-top: 10px; }
 
-/* ── Right column: rectification card ───────────────────────────────── */
-.ai-rect-card {
-    background: #fef2f2;
-    border: 1.5px solid #fca5a5;
-    border-radius: 10px;
-    padding: 16px;
-    margin-top: 4px;
+.ai-sync-card { background: #fffbeb; border: 1.5px solid #fcd34d; border-radius: 10px; padding: 16px; }
+.ai-sync-card.all-clear { background: #f0fdf4; border-color: #86efac; }
+.ai-sync-title { font-size: 12px; font-weight: 700; display: flex; align-items: center; gap: 6px; margin-bottom: 10px; color: #92400e; }
+.ai-sync-card.all-clear .ai-sync-title { color: #166534; }
+
+.device-list { list-style: none; padding: 0; margin: 0 0 12px; }
+.device-list li { display: flex; align-items: center; justify-content: space-between; padding: 5px 0; border-bottom: 1px solid rgba(0,0,0,0.06); font-size: 12px; }
+.device-list li:last-child { border-bottom: none; }
+.device-pill { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 8px; }
+.device-pill.synced   { background: #dcfce7; color: #166534; }
+.device-pill.pending  { background: #fee2e2; color: #991b1b; }
+.device-pill.stk      { background: #dbeafe; color: #1e40af; }
+.device-pill.pos      { background: #ede9fe; color: #5b21b6; }
+
+#syncCheckBtn {
+    width: 100%; padding: 7px 14px; border-radius: 7px; font-size: 12.5px; font-weight: 600;
+    background: rgba(0,0,0,0.06); border: 1.5px solid rgba(0,0,0,0.12); color: #374151;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 6px;
+    transition: background 0.15s;
 }
-.ai-rect-card.locked {
-    background: #f3f4f6;
-    border-color: #d1d5db;
-}
-.ai-rect-title {
-    font-size: 12px;
-    font-weight: 700;
-    color: #b91c1c;
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    margin-bottom: 8px;
-}
+#syncCheckBtn:hover { background: rgba(0,0,0,0.1); }
+#syncCheckBtn.checking { opacity: .6; pointer-events: none; }
+
+.ai-rect-card { background: #fef2f2; border: 1.5px solid #fca5a5; border-radius: 10px; padding: 16px; }
+.ai-rect-card.locked { background: #f3f4f6; border-color: #d1d5db; }
+.ai-rect-card.sync-blocked { background: #fef9ec; border-color: #fcd34d; }
+.ai-rect-title { font-size: 12px; font-weight: 700; color: #b91c1c; display: flex; align-items: center; gap: 6px; margin-bottom: 8px; }
 .ai-rect-card.locked .ai-rect-title { color: #374151; }
-.ai-rect-body {
-    font-size: 12px;
-    color: #7f1d1d;
-    line-height: 1.55;
-    margin-bottom: 12px;
-}
+.ai-rect-card.sync-blocked .ai-rect-title { color: #92400e; }
+.ai-rect-body { font-size: 12px; color: #7f1d1d; line-height: 1.55; margin-bottom: 12px; }
 .ai-rect-card.locked .ai-rect-body { color: #4b5563; margin-bottom: 0; }
+.ai-rect-card.sync-blocked .ai-rect-body { color: #78350f; }
 
-/* ── Modal headers ──────────────────────────────────────────────────── */
 .mh-blue   { background: linear-gradient(135deg,#4B5EBD,#576CC0); padding: 12px 18px !important; border-bottom: none; }
 .mh-danger { background: linear-gradient(135deg,#dc2626,#ef4444); padding: 12px 18px !important; border-bottom: none; }
 .mh-title  { color: #fff; font-size: 14px; font-weight: 600; display: flex; align-items: center; gap: 6px; }
-.mh-close  { filter: brightness(0) invert(1); opacity: .8; } .mh-close:hover { opacity: 1; }
-.info-list li { margin-bottom: 8px; }
+.mh-close  { filter: brightness(0) invert(1); opacity: .8; }
+.mh-close:hover { opacity: 1; }
 
 @media (max-width: 768px) {
     .ai-content-row { flex-direction: column; gap: 0; }
@@ -369,6 +253,11 @@
             </div>
             @if($isRectified)<span class="rectified-tag"><i class="ri-lock-line"></i> Rectified</span>@endif
         </div>
+        @if($branchId && !$isRectified)
+        <div class="fst-right">
+            <a href="#" class="fst-icon-btn" id="fstInfoBtn2" title="About this section"><i class="ri-information-line"></i></a>
+        </div>
+        @endif
     </div>
 
     <div class="tab-header-container">
@@ -382,32 +271,27 @@
 
     <div class="card-body">
         @if(!$branchId)
-            <div style="padding:40px;text-align:center;color:#94a3b8;"><i class="ri-store-2-line" style="font-size:40px;display:block;margin-bottom:10px;"></i>Select a branch above.</div>
+            <div style="padding:40px;text-align:center;color:#94a3b8;">
+                <i class="ri-store-2-line" style="font-size:40px;display:block;margin-bottom:10px;"></i>Select a branch above.
+            </div>
         @else
         <div class="ai-content-row">
 
-            {{-- ── LEFT: Stats ─────────────────────────────────────────── --}}
             <div class="ai-left-col">
-
-                <div class="ai-protection-banner">
-                    <div class="ai-pb-icon"><i class="ri-shield-check-line"></i></div>
-                    <div>
-                        <div class="ai-pb-title">
-                            Sales made after counting are automatically handled
-                            <span class="ai-pb-badge"><i class="ri-checkbox-circle-fill"></i> Active</span>
-                        </div>
-                        <div class="ai-pb-body">
-                            Every product is timestamped with a sales-sequence marker the moment it's counted. At rectification, any sale that happened <strong>after</strong> that point is automatically subtracted from the expected figure — so staff can keep selling on the floor while stocktaking is in progress, and the final numbers above already account for it. No manual adjustment is needed.
-                        </div>
-                    </div>
+                @if($salesAfterCounting->isNotEmpty())
+                <div class="ai-affected-line">
+                    <a href="#" onclick="event.preventDefault();$('#salesAfterModal').modal('show');">
+                        <i class="ri-shopping-cart-2-line"></i>
+                        View {{ $salesAfterCounting->count() }} affected product{{ $salesAfterCounting->count() === 1 ? '' : 's' }}
+                    </a>
                 </div>
+                @endif
 
                 <table class="stats-table">
                     <thead>
                         <tr>
                             <th><i class="ri-information-line stats-icon"></i>Description</th>
-                            <th class="c">Value</th>
-                            <th class="c">%</th>
+                            <th class="c">Value</th><th class="c">%</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -427,33 +311,26 @@
                 </table>
             </div>
 
-            {{-- ── RIGHT: Downloads + Rectification ───────────────────── --}}
             <div class="ai-right-col">
 
                 <div class="ai-card">
                     <div class="ai-card-title"><i class="ri-download-2-line"></i> Download Report</div>
-                    <form action="{{ route('retail.operations.fullstocktaking.report.full') }}" method="POST" target="_blank">
+                    <form action="{{ route('retail.operations.fullstocktaking.report.full') }}" method="POST" >
                         @csrf
                         <input type="hidden" name="branch_id" value="{{ $branchId }}">
                         <input type="hidden" name="date" value="{{ $date }}">
-                        <button type="submit" class="ai-dl-btn w-100">
+                        <button type="submit" class="ai-dl-btn">
                             <i class="ri-file-chart-line"></i>
-                            <span class="dl-text">
-                                <span class="dl-label">Full Report</span>
-                                <span class="dl-sub">All data — counts, expected, differences, missing</span>
-                            </span>
+                            <span><span class="dl-label">Full Report</span><span class="dl-sub">All data — counts, expected, differences, missing</span></span>
                         </button>
                     </form>
-                    <form action="{{ route('retail.operations.fullstocktaking.report.delivery') }}" method="POST" target="_blank">
+                    <form action="{{ route('retail.operations.fullstocktaking.report.delivery') }}" method="POST" >
                         @csrf
                         <input type="hidden" name="branch_id" value="{{ $branchId }}">
                         <input type="hidden" name="date" value="{{ $date }}">
-                        <button type="submit" class="ai-dl-btn w-100">
+                        <button type="submit" class="ai-dl-btn">
                             <i class="ri-file-list-3-line"></i>
-                            <span class="dl-text">
-                                <span class="dl-label">Stock Delivery Note</span>
-                                <span class="dl-sub">Product · Unit · Price · Qty — suitable as a delivery note</span>
-                            </span>
+                            <span><span class="dl-label">Stock Delivery Note</span><span class="dl-sub">Product · Unit · Price · Qty</span></span>
                         </button>
                     </form>
                 </div>
@@ -464,10 +341,33 @@
                     <div class="ai-rect-body">This date has already been rectified for {{ $branchName }}. Figures above and in History reflect the final, sales-netted result. Corrections can still be made via the Merged Data tab's offline sync.</div>
                 </div>
                 @else
-                <div class="ai-rect-card">
+                <div class="ai-sync-card" id="syncGateCard">
+                    <div class="ai-sync-title"><i class="ri-wifi-line"></i> Device Sync Status</div>
+                    <div id="syncDevicePanel">
+                        <p style="font-size:12px;color:#92400e;margin-bottom:10px;">
+                            Check that all counting and POS devices for <strong>{{ $branchName }}</strong> have fully synced before rectifying.
+                        </p>
+                        <ul class="device-list" id="deviceList">
+                            <li style="color:#94a3b8;font-size:12px;font-style:italic;">
+                                <span>Click below to check sync status</span>
+                            </li>
+                        </ul>
+                        <button id="syncCheckBtn" onclick="checkSyncStatus()">
+                            <i class="ri-refresh-line"></i> Check Sync Status
+                        </button>
+                    </div>
+                </div>
+
+                <div class="ai-rect-card sync-blocked" id="rectifyCard">
                     <div class="ai-rect-title"><i class="ri-alert-line"></i> Rectification</div>
-                    <div class="ai-rect-body">Replaces live stock quantities at <strong>{{ $branchName }}</strong> with counted figures (already adjusted for sales made after each count), and writes a permanent history record. <strong>Rectifying locks everything for this branch and date</strong> — counting, merging, and missing-product entry all close immediately. <strong>This action is irreversible.</strong></div>
-                    <a href="#" class="btn btn-danger btn-sm w-100" id="rectifyOpenBtn"><i class="ri-arrow-right-line me-1"></i> Proceed with Rectification</a>
+                    <div class="ai-rect-body">
+                        Replaces live stock quantities at <strong>{{ $branchName }}</strong> with counted figures (already adjusted for sales made after each count), and writes a permanent history record.
+                        <strong>Rectifying locks everything for this branch and date</strong> — counting, merging, and missing-product entry all close immediately.
+                        <strong>This action is irreversible.</strong>
+                    </div>
+                    <a href="#" class="btn btn-danger btn-sm w-100" id="rectifyOpenBtn" style="pointer-events:none;opacity:.45;">
+                        <i class="ri-lock-line me-1"></i> Check Device Sync First
+                    </a>
                 </div>
                 @endif
 
@@ -477,6 +377,36 @@
     </div>
 </div>
 </div></div></div>
+
+{{-- ══ SALES-AFTER-COUNTING MODAL ══════════════════════════════════════ --}}
+<div class="modal fade" id="salesAfterModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header mh-blue">
+                <h5 class="modal-title mh-title"><i class="ri-shopping-cart-2-line"></i> Sales Recorded After Counting</h5>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px;">
+                <p style="font-size:12.5px;color:#64748b;margin-bottom:14px;">
+                    These products were sold <strong>after</strong> they were counted today. Rectification will automatically subtract the quantity sold from the expected figure for each — this is a preview of that adjustment.
+                </p>
+                <table class="stats-table">
+                    <thead><tr><th>Product</th><th class="c">Qty Sold After Count</th><th class="c">Expected (before)</th><th class="c">Expected (after)</th></tr></thead>
+                    <tbody>
+                        @foreach($salesAfterCounting as $s)
+                        <tr>
+                            <td>{{ $s['product'] }} <span style="color:#94a3b8;font-size:11px;">({{ $s['unit'] }})</span></td>
+                            <td class="c">{{ number_format($s['qty_sold'], 2) }}</td>
+                            <td class="c">{{ number_format($s['expected_before'], 2) }}</td>
+                            <td class="c" style="font-weight:700;color:#4B5EBD;">{{ number_format($s['expected_after'], 2) }}</td>
+                        </tr>
+                        @endforeach
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
 
 {{-- ══ RECTIFICATION CONFIRM MODAL ════════════════════════════════════ --}}
 <div class="modal fade" id="rectifyModal" data-bs-backdrop="static" tabindex="-1">
@@ -489,15 +419,44 @@
             <div class="modal-body" style="padding:18px 20px;">
                 <div class="alert alert-danger border-0 py-2 px-3 mb-3" style="font-size:12px;border-radius:6px;">
                     <i class="ri-error-warning-line me-1"></i>
-                    <strong>This action is permanent and cannot be undone.</strong> Live stock at <strong>{{ $branchName }}</strong> will be overwritten with the counted figures for <strong>{{ $displayDate }}</strong>, and counting/merging/missing-products entry for this branch and date will lock immediately.
+                    <strong>This action is permanent and cannot be undone.</strong> Live stock at <strong>{{ $branchName }}</strong> will be overwritten with counted figures for <strong>{{ $displayDate }}</strong>.
                 </div>
-                <p style="font-size:13px;color:#475569;margin-bottom:14px;">Sales that occurred after each product was counted have already been netted out automatically using sale sequence numbers (not timestamps), so the figures you see are final and account for floor sales made during counting, regardless of clock differences across POS devices. A permanent history record will be written.</p>
+                <p style="font-size:13px;color:#475569;margin-bottom:14px;">Any sales made after a product was counted have already been deducted automatically.</p>
+                <div class="alert alert-success border-0 py-2 px-3 mb-3" id="syncConfirmBanner" style="font-size:12px;border-radius:6px;display:none;">
+                    <i class="ri-shield-check-line me-1"></i> All devices are synced — safe to proceed.
+                </div>
                 <label class="form-label fw-semibold" style="font-size:12px;">Enter your password to confirm</label>
                 <input type="password" class="form-control" id="rectifyPassword" placeholder="Password" autocomplete="off">
+                <div id="rectifyError" style="display:none;margin-top:10px;" class="alert alert-danger border-0 py-2 px-3" style="font-size:12px;border-radius:6px;"></div>
             </div>
             <div class="modal-footer" style="padding:10px 18px 14px;">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger btn-sm" id="rectifySubmitBtn"><i class="ri-check-line"></i> Rectify Now</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ══ PENDING DEVICES MODAL ═══════════════════════════════════════════ --}}
+<div class="modal fade" id="pendingDevicesModal" tabindex="-1">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header" style="background:linear-gradient(135deg,#d97706,#f59e0b);padding:12px 18px !important;border-bottom:none;">
+                <h5 class="modal-title mh-title"><i class="ri-wifi-off-line"></i> Devices Still Pending</h5>
+                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px;font-size:13px;">
+                <p>The following devices still have unsynced work for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong>.</p>
+                <ul id="pendingDevicesList" style="font-size:12.5px;padding-left:18px;"></ul>
+                <div class="alert alert-warning border-0 mt-3 py-2 px-3" style="font-size:11.5px;border-radius:6px;">
+                    <i class="ri-alert-line me-1"></i> POS devices: the operator needs to sync any offline sales before rectification can proceed.
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:10px 18px 14px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">OK, I'll wait</button>
+                <button type="button" class="btn btn-warning btn-sm" onclick="$('#pendingDevicesModal').modal('hide');checkSyncStatus();">
+                    <i class="ri-refresh-line me-1"></i> Re-check
+                </button>
             </div>
         </div>
     </div>
@@ -513,15 +472,15 @@
             </div>
             <div class="modal-body" style="padding:18px 20px;font-size:13px;line-height:1.6;">
                 <ul class="mb-3" style="padding-left:18px;">
-                    <li style="margin-bottom:8px;"><strong>Sales made after a product is counted are handled automatically.</strong> Each product is stamped with a sales-sequence marker at the moment it's counted; at rectification, sales that happened after that marker are subtracted from the expected figure. Selling continues uninterrupted on the floor during stocktaking.</li>
-                    <li style="margin-bottom:8px;">The stats table shows a <strong>live preview</strong> using the expected stock snapshotted at count time. Final figures — already netted for post-count sales — are written when you run rectification.</li>
-                    <li style="margin-bottom:8px;">Once rectified, the figures above reflect the sales-netted result and stay current with any offline edits synced via Merged Data.</li>
-                    <li style="margin-bottom:8px;"><strong>Full Report</strong> includes all counted lines, expected values, differences, and missing products.</li>
-                    <li style="margin-bottom:8px;"><strong>Stock Delivery Note</strong> is a simplified product/unit/price/qty list, useful as a receiving note when restocking a branch.</li>
-                    <li style="margin-bottom:8px;">Rectification is <strong>irreversible and locks everything</strong> for this branch and date — counting, merging, and missing-product entry all close immediately.</li>
+                    <li style="margin-bottom:8px;"><strong>Sales made after counting are handled automatically.</strong></li>
+                    <li style="margin-bottom:8px;">The stats table shows a <strong>live preview</strong> using the expected stock snapshotted at count time.</li>
+                    <li style="margin-bottom:8px;"><strong>Sync gate:</strong> The Rectify button only unlocks once all devices show zero pending operations.</li>
+                    <li style="margin-bottom:8px;"><strong>POS devices</strong> report their offline queue when the POS operator syncs.</li>
+                    <li style="margin-bottom:8px;">Rectification is <strong>irreversible and locks everything</strong> for this branch and date.</li>
+                    <li style="margin-bottom:8px;">Even after rectifying, corrections via Merged Data's offline sync are still applied.</li>
                 </ul>
                 <div class="alert alert-warning border-0" style="font-size:12px;border-radius:6px;">
-                    <i class="ri-alert-line me-1"></i> Even after rectifying, corrections via Merged Data's offline sync are still applied — they automatically re-run the sales-netting math so figures stay consistent.
+                    <i class="ri-alert-line me-1"></i> If a device never shows up in the sync panel, it has never reported in — use "Check Sync Status" periodically.
                 </div>
             </div>
         </div>
@@ -531,34 +490,220 @@
 @endsection
 @section('scripts')
 <script>
-document.getElementById('rectifyOpenBtn')?.addEventListener('click', function (e) {
-    e.preventDefault();
-    document.getElementById('rectifyPassword').value = '';
-    $('#rectifyModal').modal('show');
-});
+'use strict';
 
-document.getElementById('rectifySubmitBtn')?.addEventListener('click', function () {
-    var password = document.getElementById('rectifyPassword').value;
-    if (!password) { toastr.warning('Please enter your password.'); return; }
-    var btn = this; btn.disabled = true;
-    fetch('{{ route("retail.operations.fullstocktaking.rectify") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': document.querySelector('meta[name="csrf-token"]').content },
-        body: new URLSearchParams({ branch_id: '{{ $branchId }}', date: '{{ $date }}', password }),
+// URLs resolved by PHP/Blade — no runtime route() calls in JS
+var AI_RECTIFY_URL    = '{{ $rectifyUrl }}';
+var AI_SYNC_URL       = '{{ $syncStatusUrl }}';
+var AI_BRANCH_ID      = '{{ $branchId }}';
+var AI_DATE           = '{{ $date }}';
+var syncAllClear      = false;
+
+function aiCsrf() {
+    return document.querySelector('meta[name="csrf-token"]').getAttribute('content');
+}
+
+// ── SYNC STATUS CHECK ─────────────────────────────────────────────────
+function checkSyncStatus() {
+    if (!AI_BRANCH_ID) return;
+
+    var btn = document.getElementById('syncCheckBtn');
+    if (btn) { btn.classList.add('checking'); btn.innerHTML = '<i class="ri-loader-4-line"></i> Checking...'; }
+
+    fetch(AI_SYNC_URL + '?branch_id=' + AI_BRANCH_ID + '&date=' + AI_DATE, {
+        headers: { 'Accept': 'application/json', 'X-CSRF-TOKEN': aiCsrf() }
     })
-    .then(r => r.json().then(d => ({ status: r.status, d })))
-    .then(({ status, d }) => {
-        btn.disabled = false;
-        if (status === 201) { toastr.success(d.success, 'Rectified'); $('#rectifyModal').modal('hide'); setTimeout(() => location.reload(), 1200); }
-        else if (status === 401) { toastr.error(d.error, 'Incorrect Password'); }
-        else if (status === 409) { toastr.error(d.error, 'Already Done'); }
-        else { toastr.error(d.error || 'Rectification failed.', 'Error'); }
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+        if (btn) { btn.classList.remove('checking'); btn.innerHTML = '<i class="ri-refresh-line"></i> Re-check Sync Status'; }
+
+        renderDeviceList(data.devices || []);
+
+        if (data.can_rectify) {
+            syncAllClear = true;
+            var card = document.getElementById('syncGateCard');
+            if (card) { card.classList.add('all-clear'); card.querySelector('.ai-sync-title').innerHTML = '<i class="ri-shield-check-line"></i> All Devices Synced'; }
+            var rectCard = document.getElementById('rectifyCard');
+            if (rectCard) { rectCard.classList.remove('sync-blocked'); }
+            var rectBtn = document.getElementById('rectifyOpenBtn');
+            if (rectBtn) { rectBtn.style.pointerEvents = ''; rectBtn.style.opacity = ''; rectBtn.innerHTML = '<i class="ri-arrow-right-line me-1"></i> Proceed with Rectification'; }
+        } else {
+            syncAllClear = false;
+            var pendingList = document.getElementById('pendingDevicesList');
+            if (pendingList) {
+                var pending = (data.devices || []).filter(function(d) { return d.pending_ops_count > 0; });
+                pendingList.innerHTML = pending.map(function(d) {
+                    return '<li><strong>' + (d.device_label || d.device_id) + '</strong> (' + d.device_type + ') — ' + d.pending_ops_count + ' pending op(s)</li>';
+                }).join('');
+            }
+            $('#pendingDevicesModal').modal('show');
+        }
     })
-    .catch(() => { btn.disabled = false; toastr.error('Could not reach the server.', 'Network Error'); });
-});
+    .catch(function() {
+        if (btn) { btn.classList.remove('checking'); btn.innerHTML = '<i class="ri-refresh-line"></i> Check Sync Status'; }
+        toastr.error('Could not reach the server. Please retry.', 'Network Error');
+    });
+}
 
-document.getElementById('fstInfoBtn')?.addEventListener('click', function (e) { e.preventDefault(); $('#fstInfoModal').modal('show'); });
+function renderDeviceList(devices) {
+    var list = document.getElementById('deviceList');
+    if (!list) return;
+    if (!devices.length) {
+        list.innerHTML = '<li style="color:#94a3b8;font-size:12px;font-style:italic;"><span>No devices have reported in yet.</span></li>';
+        return;
+    }
+    list.innerHTML = devices.map(function(d) {
+        var synced = d.pending_ops_count === 0;
+        return '<li>' +
+            '<span><span class="device-pill ' + (d.device_type === 'pos' ? 'pos' : 'stk') + '">' + d.device_type.toUpperCase() + '</span>' +
+            '<span style="margin-left:6px;font-weight:600;">' + (d.device_label || d.device_id) + '</span></span>' +
+            '<span class="device-pill ' + (synced ? 'synced' : 'pending') + '">' + (synced ? 'Synced' : d.pending_ops_count + ' pending') + '</span>' +
+        '</li>';
+    }).join('');
+}
 
+// ── OPEN RECTIFY MODAL ────────────────────────────────────────────────
+var rectifyOpenBtn = document.getElementById('rectifyOpenBtn');
+if (rectifyOpenBtn) {
+    rectifyOpenBtn.addEventListener('click', function(e) {
+        e.preventDefault();
+        if (!syncAllClear) {
+            toastr.warning('Check sync status first.', 'Sync Required');
+            return;
+        }
+        document.getElementById('rectifyPassword').value = '';
+        document.getElementById('rectifyError').style.display = 'none';
+        var banner = document.getElementById('syncConfirmBanner');
+        if (banner) banner.style.display = '';
+        $('#rectifyModal').modal('show');
+    });
+}
+
+// ── SUBMIT RECTIFICATION ──────────────────────────────────────────────
+var rectifySubmitBtn = document.getElementById('rectifySubmitBtn');
+if (rectifySubmitBtn) {
+    rectifySubmitBtn.addEventListener('click', function() {
+        var btn         = this;
+        var errorBox    = document.getElementById('rectifyError');
+        var password    = document.getElementById('rectifyPassword').value.trim();
+
+        if (!password) {
+            errorBox.textContent = 'Please enter your password.';
+            errorBox.style.display = 'block';
+            return;
+        }
+
+        errorBox.style.display = 'none';
+        btn.disabled = true;
+        var originalHtml = btn.innerHTML;
+        btn.innerHTML = '<i class="ri-loader-4-line"></i> Rectifying...';
+
+        // ── THE KEY FIX: use XMLHttpRequest so we can see the raw
+        //   responseText before trying to parse it as JSON. fetch() with
+        //   r.json() can silently swallow parse errors in some browsers/
+        //   frameworks if the response body is not pure JSON (e.g. a
+        //   Laravel debug page, a redirect body, or a middleware that
+        //   injects HTML). XHR gives us both the status and the raw text
+        //   unconditionally, so we can log and decide what to do.
+        var xhr = new XMLHttpRequest();
+        xhr.open('POST', AI_RECTIFY_URL, true);
+        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
+        xhr.setRequestHeader('X-CSRF-TOKEN', aiCsrf());
+        xhr.setRequestHeader('Accept', 'application/json');
+        xhr.timeout = 120000; // 2 minutes — rectification can be slow
+
+        xhr.onload = function() {
+            var status = xhr.status;
+            var raw    = xhr.responseText;
+
+            // Always log — visible in DevTools Console regardless of what
+            // toastr does, and regardless of any framework interference.
+            console.log('[Rectify] HTTP ' + status);
+            console.log('[Rectify] raw response:', raw);
+
+            var d = {};
+            try { d = JSON.parse(raw); } catch(e) {
+                console.warn('[Rectify] Response is not JSON. Raw:', raw);
+            }
+
+            if (status === 201) {
+                // ── SUCCESS ───────────────────────────────────────────
+                $('#rectifyModal').modal('hide');
+                toastr.success('Stocktaking rectified successfully. Page will reload.', 'Rectified!', { timeOut: 2500 });
+                setTimeout(function() { window.location.reload(); }, 2000);
+                // leave btn disabled — page is reloading
+                return;
+            }
+
+            // All failure paths re-enable the button
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+
+            if (status === 401) {
+                errorBox.textContent = d.error || 'The password you entered is incorrect.';
+                errorBox.style.display = 'block';
+
+            } else if (status === 409) {
+                // Already rectified — the goal is achieved, reload
+                $('#rectifyModal').modal('hide');
+                toastr.info('This date has already been rectified.', 'Already Done');
+                setTimeout(function() { window.location.reload(); }, 1800);
+
+            } else if (status === 423) {
+                $('#rectifyModal').modal('hide');
+                toastr.warning('A device reported pending work after the sync check. Re-check sync and try again.', 'Sync Changed');
+                syncAllClear = false;
+                var rb = document.getElementById('rectifyOpenBtn');
+                if (rb) { rb.style.pointerEvents = 'none'; rb.style.opacity = '.45'; rb.innerHTML = '<i class="ri-lock-line me-1"></i> Check Device Sync First'; }
+                var gc = document.getElementById('syncGateCard');
+                if (gc) { gc.classList.remove('all-clear'); gc.querySelector('.ai-sync-title').innerHTML = '<i class="ri-wifi-line"></i> Device Sync Status'; }
+
+            } else if (status === 422) {
+                var msg422 = 'Validation error.';
+                if (d.errors) { msg422 = Object.values(d.errors).map(function(e){ return Array.isArray(e) ? e[0] : e; }).join(' '); }
+                errorBox.textContent = msg422;
+                errorBox.style.display = 'block';
+
+            } else if (status === 0) {
+                // xhr.status === 0 means the request never completed
+                // (network error, CORS block, or the page navigated away).
+                toastr.error('Request did not complete. Check your network and try again.', 'Network Error');
+
+            } else {
+                // 500 or anything else — surface what the server actually said
+                var msg = (d && (d.error || d.message)) || ('Unexpected server response (HTTP ' + status + '). Check server logs.');
+                errorBox.textContent = msg;
+                errorBox.style.display = 'block';
+                console.error('[Rectify] Unhandled status ' + status + ':', d);
+            }
+        };
+
+        xhr.onerror = function() {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            console.error('[Rectify] XHR network error');
+            toastr.error('Network error — could not reach the server.', 'Network Error');
+        };
+
+        xhr.ontimeout = function() {
+            btn.disabled = false;
+            btn.innerHTML = originalHtml;
+            console.warn('[Rectify] Request timed out after 2 minutes');
+            toastr.warning('The request timed out. Rectification may or may not have completed — please reload the page to check before retrying.', 'Timeout');
+        };
+
+        var params = new URLSearchParams({ branch_id: AI_BRANCH_ID, date: AI_DATE, password: password });
+        xhr.send(params.toString());
+    });
+}
+
+// ── INFO MODAL ────────────────────────────────────────────────────────
+var fstInfoBtn = document.getElementById('fstInfoBtn');
+if (fstInfoBtn) fstInfoBtn.addEventListener('click', function(e) { e.preventDefault(); $('#fstInfoModal').modal('show'); });
+var fstInfoBtn2 = document.getElementById('fstInfoBtn2');
+if (fstInfoBtn2) fstInfoBtn2.addEventListener('click', function(e) { e.preventDefault(); $('#fstInfoModal').modal('show'); });
+
+// ── SESSION FLASH ─────────────────────────────────────────────────────
 @if(Session::has('message'))
 toastr['{{ Session::get("alert-type","info") }}']('{{ Session::get("message") }}');
 @endif

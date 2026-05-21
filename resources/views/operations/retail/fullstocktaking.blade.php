@@ -54,6 +54,63 @@
             ->where('branch_id', $branchId)
             ->where('date', $date)
             ->pluck('found', 'base_product_id');
+
+        // ── Seed missing products list the first time this view loads
+        //    for this branch+date. $now is defined here in its own scope,
+        //    used only inside this block — no closure involved, so no
+        //    "Undefined variable" risk. The $now that caused the controller
+        //    bug was inside a map() closure that didn't declare it in use().
+        $alreadySeeded = DB::connection('tenant')
+            ->table('retail_fullstocktaking_missing_products')
+            ->where('branch_id', $branchId)
+            ->where('date', $date)
+            ->exists();
+
+        if (! $alreadySeeded) {
+            $countedIds    = $alreadyCounted->keys();
+            $missingToSeed = DB::connection('tenant')
+                ->table('retail_branch_products as rbp')
+                ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
+                ->where('rbp.branch_id', $branchId)
+                ->whereNotIn('rbp.base_product_id', $countedIds)
+                ->select(
+                    'rbp.base_product_id',
+                    'bp.name as product_name',
+                    'bp.unit',
+                    DB::raw('COALESCE(rbp.selling_price, bp.selling_price) as price'),
+                    'rbp.stock_quantity as quantity',
+                    'rbp.batch_number',
+                    'rbp.expiry_date'
+                )
+                ->get();
+
+            if ($missingToSeed->isNotEmpty()) {
+                // $now is defined here — inside this if-block where it is used.
+                // It is NOT shared with any closure, so there is no scope issue.
+                $now  = now();
+                $rows = $missingToSeed->map(fn ($m) => [
+                    'date'           => $date,
+                    'branch_id'      => $branchId,
+                    'base_product_id'=> $m->base_product_id,
+                    'product_name'   => $m->product_name,
+                    'unit'           => $m->unit,
+                    'price'          => $m->price ?? 0,
+                    'quantity'       => $m->quantity ?? 0,
+                    'rate'           => 1.00,
+                    'batch_number'   => $m->batch_number,
+                    'expiry_date'    => $m->expiry_date,
+                    'product_status' => 'Active',
+                    'created_at'     => $now,
+                    'updated_at'     => $now,
+                ])->toArray();
+
+                foreach (array_chunk($rows, 200) as $chunk) {
+                    DB::connection('tenant')
+                        ->table('retail_fullstocktaking_missing_products')
+                        ->insertOrIgnore($chunk);
+                }
+            }
+        }
     }
 @endphp
 
@@ -72,107 +129,57 @@
 .card       { border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; overflow: hidden; display: flex; flex-direction: column; }
 .card-header h4 { color: #fff; font-weight: 600; margin-bottom: 0; display: flex; align-items: center; gap: 6px; }
 
-/* ── Header action buttons — same style, both identical ─────────────── */
 .card-header .btn-light {
-    height: 28px;
-    padding: 0 10px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    line-height: 1;
-    font-size: 16px;
+    height: 28px; padding: 0 10px;
+    display: flex; align-items: center; justify-content: center;
+    line-height: 1; font-size: 16px;
 }
 .card-header .btn-light:hover { background-color: #f8f9fa; transition: background-color 0.2s; }
 
-/* ── Action bar — same gradient as search row and cart bar ───────────── */
+/* ── Action bar ─────────────────────────────────────────────────────── */
 .fst-action-bar {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    background: #9098a8;
-    padding: 8px 14px;
-    border-bottom: 1px solid #7a8090;
-    gap: 10px;
-    flex-wrap: wrap;
+    display: flex; align-items: center; justify-content: space-between;
+    background: #9098a8; padding: 8px 14px;
+    border-bottom: 1px solid #7a8090; gap: 10px; flex-wrap: wrap;
 }
 .fst-left  { display: flex; align-items: center; gap: 8px; flex: 1; min-width: 0; }
 .fst-right { display: flex; align-items: center; gap: 6px; flex-shrink: 0; }
 
 #fstBranchSelect {
-    border: 1.5px solid rgba(255,255,255,0.35);
-    background: #9098a8;
-    border-radius: 7px;
-    padding: 5px 10px;
-    font-size: 12.5px;
-    font-weight: 600;
-    color: #dde0e8;
-    max-width: 220px;
-    height: 32px;
+    border: 1.5px solid rgba(255,255,255,0.35); background: #9098a8;
+    border-radius: 7px; padding: 5px 10px; font-size: 12.5px;
+    font-weight: 600; color: #dde0e8; max-width: 220px; height: 32px;
 }
 
 .fst-date-chip {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255,255,255,0.12);
-    border: 1.5px solid rgba(255,255,255,0.3);
-    border-radius: 20px;
-    padding: 5px 12px;
-    font-size: 12px;
-    font-weight: 600;
-    color: #dde0e8;
-    cursor: pointer;
-    white-space: nowrap;
-    user-select: none;
-    height: 32px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 20px; padding: 5px 12px; font-size: 12px; font-weight: 600;
+    color: #dde0e8; cursor: pointer; white-space: nowrap; user-select: none; height: 32px;
 }
 .fst-date-chip.custom-mode { background: rgba(252,211,77,0.2); border-color: #fcd34d; color: #fef3c7; }
 .fst-date-chip .mode-badge { font-size: 9px; padding: 1px 5px; border-radius: 8px; background: rgba(255,255,255,0.2); font-weight: 700; color: #dde0e8; }
 .fst-date-chip.custom-mode .mode-badge { background: rgba(252,211,77,0.35); color: #fef3c7; }
 .fst-edit-pencil { font-size: 10px; opacity: .8; }
 
-/* ── Refresh button — same look as action bar elements ───────────────── */
 .fst-refresh-btn {
-    height: 32px;
-    padding: 0 12px;
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    background: rgba(255,255,255,0.12);
-    border: 1.5px solid rgba(255,255,255,0.3);
-    border-radius: 7px;
-    color: #dde0e8;
-    font-size: 12.5px;
-    font-weight: 600;
-    cursor: pointer;
+    height: 32px; padding: 0 12px;
+    display: inline-flex; align-items: center; gap: 5px;
+    background: rgba(255,255,255,0.12); border: 1.5px solid rgba(255,255,255,0.3);
+    border-radius: 7px; color: #dde0e8; font-size: 12.5px; font-weight: 600; cursor: pointer;
 }
 .fst-refresh-btn:hover { background: rgba(255,255,255,0.22); }
 
 .rectified-tag {
-    font-size: 9px;
-    font-weight: 700;
-    background: #d1fae5;
-    color: #065f46;
-    border-radius: 5px;
-    padding: 2px 7px;
-    display: inline-flex;
-    align-items: center;
-    gap: 3px;
+    font-size: 9px; font-weight: 700; background: #d1fae5; color: #065f46;
+    border-radius: 5px; padding: 2px 7px; display: inline-flex; align-items: center; gap: 3px;
 }
 
-/* ── Tabs — active = blue text only, no underline, no bg ─────────────── */
-.tab-header-container {
-    background: #cccccc;
-    border-bottom: 1px solid #b3b3b3;
-}
+/* ── Tabs ─────────────────────────────────────────────────────────────── */
+.tab-header-container { background: #cccccc; border-bottom: 1px solid #b3b3b3; }
 .nav-pills .nav-link {
-    border-radius: 0 !important;
-    padding: .65rem 1rem;
-    font-weight: 500;
-    color: #495057;
-    border-bottom: none;
-    transition: all .2s;
-    font-size: 12.5px;
+    border-radius: 0 !important; padding: .65rem 1rem;
+    font-weight: 500; color: #495057; border-bottom: none; transition: all .2s; font-size: 12.5px;
 }
 .nav-pills .nav-link:hover  { background: #b8b8b8; color: #4B5EBD; }
 .nav-pills .nav-link.active { background: transparent !important; color: #4B5EBD !important; border-bottom: none; font-weight: 600; }
@@ -222,14 +229,9 @@
 
 /* ── Locked state ────────────────────────────────────────────────────── */
 .fst-locked-wrap {
-    display: flex;
-    align-items: flex-start;
-    gap: 14px;
-    padding: 28px 24px;
-    background: #f8f9fa;
-    margin: 18px;
-    border-radius: 10px;
-    border: 1px solid #dee2e6;
+    display: flex; align-items: flex-start; gap: 14px;
+    padding: 28px 24px; background: #f8f9fa; margin: 18px;
+    border-radius: 10px; border: 1px solid #dee2e6;
 }
 .fst-locked-wrap i { font-size: 32px; color: #16a34a; flex-shrink: 0; margin-top: 2px; }
 .fst-locked-wrap .lock-title { font-weight: 700; font-size: 15px; color: #1e293b; margin-bottom: 4px; }
@@ -300,7 +302,7 @@
     <div class="tab-header-container">
         <ul class="nav nav-pills nav-justified mb-0">
             <li class="nav-item"><a href="{{ route('retail.operations.fullstocktaking') }}" class="nav-link active"><i class="ri-scales-3-line"></i> Stocktaking</a></li>
-            <li class="nav-item"><a href="{{ route('retail.operations.fullstocktaking.merged-data') }}" class="nav-link"><i class="ri-git-merge-line"></i> Merged Data</a></li>
+            <li class="nav-item"><a href="{{ route('retail.operations.fullstocktaking.merged-data') }}" class="nav-link"><i class="ri-stack-line"></i> Merged Data</a></li>
             <li class="nav-item"><a href="{{ route('retail.operations.fullstocktaking.missing-products') }}" class="nav-link"><i class="ri-error-warning-line"></i> Missing Products</a></li>
             <li class="nav-item"><a href="{{ route('retail.operations.fullstocktaking.actions-and-info') }}" class="nav-link"><i class="ri-flashlight-line"></i> Actions &amp; Info</a></li>
         </ul>
@@ -338,8 +340,11 @@
                 </div>
                 <div id="fst-product-display"></div>
                 <script type="application/json" id="fst-products-json">{!! json_encode($products->map(fn($p) => [
-                    'id' => $p->id, 'name' => $p->product, 'unit' => $p->unit,
-                    'price' => $p->selling_price, 'stock' => (float) $p->stock_quantity,
+                    'id'      => $p->id,
+                    'name'    => $p->product,
+                    'unit'    => $p->unit,
+                    'price'   => $p->selling_price,
+                    'stock'   => (float) $p->stock_quantity,
                     'already' => $alreadyCounted[$p->id] ?? null,
                 ])) !!}</script>
             </div>
@@ -438,8 +443,8 @@
                     <li><strong>Merge</strong> — password-confirmed, safe to run from multiple devices. Counts are additive; each product's stock is snapshotted at first merge time for accurate rectification later.</li>
                     <li><strong>Sales keep working</strong> — you don't need to stop selling. The system records the last sale processed before each product was counted. At rectification, only sales that entered the system <em>after</em> that marker are netted out.</li>
                     <li><strong>Missing Products</strong> — products never counted appear there; edit offline and sync.</li>
-                    <li><strong>Merged Data</strong> — review counted lines; edits and deletes there are queued offline and synced in a batch.</li>
-                    <li><strong>Actions &amp; Info</strong> — review the summary statistics, then run rectification once all devices have merged.</li>
+                    <li><strong>Merged Data</strong> — review counted lines; edits and deletes there are queued offline and synced in a batch. Editing expected (e.g. for proven damaged stock) also updates the session snapshot so late-arriving merges from other devices use the corrected figure.</li>
+                    <li><strong>Actions &amp; Info</strong> — review the summary statistics, confirm all devices are synced, then run rectification.</li>
                 </ul>
                 <div class="alert alert-warning border-0" style="font-size:12px;">
                     <i class="ri-alert-line me-1"></i> Rectifying locks new counting for that date+branch, but corrections via Merged Data's offline sync are still applied — they automatically re-run the sales-netting math so figures stay consistent.
@@ -458,28 +463,74 @@ const FST_BRANCH_ID = '{{ $branchId }}';
 const FST_DATE      = '{{ $date }}';
 const FST_CART_KEY  = 'fullstocktaking_count_cart_' + FST_BRANCH_ID + '_' + FST_DATE;
 
-let fstCart = [];
+let fstCart        = [];
 let fstAllProducts = [];
 
-function fstEsc(s) { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
-function fstFmt(n) { return (n === null || n === undefined || n === '') ? '0' : parseFloat(n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
+function fstEsc(s)  { return String(s ?? '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function fstFmt(n)  { return (n === null || n === undefined || n === '') ? '0' : parseFloat(n).toLocaleString('en-US', { maximumFractionDigits: 2 }); }
 function fstFmt2(n) { return (n === null || n === undefined || n === '') ? '0.00' : parseFloat(n).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
-function fstCsrf() { return document.querySelector('meta[name="csrf-token"]').getAttribute('content'); }
+function fstCsrf()  { return document.querySelector('meta[name="csrf-token"]').getAttribute('content'); }
+
 function fstDeviceId() {
     let id = localStorage.getItem('fullstocktaking_device_id');
-    if (!id) { id = 'dev_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('fullstocktaking_device_id', id); }
+    if (!id) { id = 'stk_' + Math.random().toString(36).slice(2, 10); localStorage.setItem('fullstocktaking_device_id', id); }
     return id;
+}
+function fstDeviceLabel() {
+    return 'Stocktaking — ' + (navigator.platform || 'Unknown');
+}
+
+// ── Report this device's queue length to the sync heartbeat table ──────
+function fstReportDeviceSync(pendingOpsCount) {
+    if (!FST_BRANCH_ID) return;
+    const payload = new FormData();
+    payload.append('_token',            fstCsrf());
+    payload.append('branch_id',         FST_BRANCH_ID);
+    payload.append('date',              FST_DATE);
+    payload.append('device_id',         fstDeviceId());
+    payload.append('device_label',      fstDeviceLabel());
+    payload.append('device_type',       'stocktaking');
+    payload.append('pending_ops_count', pendingOpsCount);
+
+    if (navigator.sendBeacon) {
+        navigator.sendBeacon('{{ route("retail.operations.fullstocktaking.device-sync") }}', payload);
+    } else {
+        fetch('{{ route("retail.operations.fullstocktaking.device-sync") }}', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': fstCsrf() },
+            body: JSON.stringify({
+                branch_id: FST_BRANCH_ID, date: FST_DATE,
+                device_id: fstDeviceId(), device_label: fstDeviceLabel(),
+                device_type: 'stocktaking', pending_ops_count: pendingOpsCount,
+            }),
+        }).catch(() => {});
+    }
 }
 
 $(document).ready(function () {
     @if($branchId && !$isRectified)
+
+    // ── Seed session snapshot the moment the tab opens ─────────────────
+    fetch('{{ route("retail.operations.fullstocktaking.seed-session") }}', {
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': fstCsrf() },
+        body:    JSON.stringify({ branch_id: FST_BRANCH_ID, date: FST_DATE }),
+    }).catch(() => {}); // fire-and-forget; controller is idempotent
+
     try { fstAllProducts = JSON.parse(document.getElementById('fst-products-json').textContent || '[]'); } catch(e) { fstAllProducts = []; }
-    loadFstCart(); renderFstCart();
+    loadFstCart();
+    renderFstCart();
+
+    // Report this device's current queue length on page load
+    fstReportDeviceSync(fstCart.length);
 
     const display = document.getElementById('fst-product-display');
 
     function renderRows(products) {
-        if (!products.length) { display.innerHTML = '<div style="text-align:center;padding:24px;color:#595959;font-size:13px;">No products matched.</div>'; return; }
+        if (!products.length) {
+            display.innerHTML = '<div style="text-align:center;padding:24px;color:#595959;font-size:13px;">No products matched.</div>';
+            return;
+        }
         display.innerHTML = products.map(p => `
             <div class="fst-row" data-id="${p.id}">
                 <a href="#" class="fst-link" onclick="event.preventDefault();fstRowClick(${p.id})">
@@ -488,8 +539,10 @@ $(document).ready(function () {
                     <span class="fst-stock-tag">[${fstFmt(p.stock)}]</span>
                     ${p.already !== null ? `<span class="fst-already">counted: ${fstFmt(p.already)}</span>` : ''}
                 </a>
-                <input type="number" class="fst-qty-input" id="fstq_${p.id}" min="0" step="any" autocomplete="off" onchange="fstQtyChange(${p.id})">
-            </div>`).join('');
+                <input type="number" class="fst-qty-input" id="fstq_${p.id}" min="0" step="any"
+                       autocomplete="off" onchange="fstQtyChange(${p.id})">
+            </div>`
+        ).join('');
     }
 
     $('#fst-search').on('keyup', function () {
@@ -504,29 +557,51 @@ $(document).ready(function () {
     searchInput.addEventListener('click', function () { if (this.value) { this.value = ''; display.innerHTML = ''; } });
     setTimeout(() => { searchInput.value = ''; }, 50);
     searchInput.focus();
+
     @endif
 });
 
 function fstFindProduct(id) { return fstAllProducts.find(p => p.id === id); }
-function fstRowClick(id) { const input = document.getElementById('fstq_' + id); if (input) input.focus(); }
+function fstRowClick(id)    { const input = document.getElementById('fstq_' + id); if (input) input.focus(); }
 
 function fstQtyChange(id) {
     const p = fstFindProduct(id); if (!p) return;
     const input = document.getElementById('fstq_' + id);
-    const qty = parseFloat(input.value);
+    const qty   = parseFloat(input.value);
     if (!qty || qty <= 0) { input.value = ''; return; }
+
     const existing = fstCart.find(c => c.id === id);
-    if (existing) { existing.qty += qty; } else { fstCart.push({ id: p.id, name: p.name, unit: p.unit, price: p.price, qty }); }
-    saveFstCart(); renderFstCart();
+    if (existing) {
+        existing.qty += qty;
+    } else {
+        fstCart.push({
+            id:          p.id,
+            name:        p.name,
+            unit:        p.unit,
+            price:       p.price,
+            qty,
+            client_uuid: 'stk_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9),
+        });
+    }
+
+    saveFstCart();
+    renderFstCart();
+    fstReportDeviceSync(fstCart.length);
     input.value = '';
     document.getElementById('fst-search').value = '';
     document.getElementById('fst-product-display').innerHTML = '';
     document.getElementById('fst-search').focus();
 }
 
-function fstRemoveCartLine(id) { fstCart = fstCart.filter(c => c.id !== id); saveFstCart(); renderFstCart(); }
-function saveFstCart() { localStorage.setItem(FST_CART_KEY, JSON.stringify(fstCart)); }
-function loadFstCart() { try { fstCart = JSON.parse(localStorage.getItem(FST_CART_KEY) || '[]'); } catch(e) { fstCart = []; } }
+function fstRemoveCartLine(id) {
+    fstCart = fstCart.filter(c => c.id !== id);
+    saveFstCart();
+    renderFstCart();
+    fstReportDeviceSync(fstCart.length);
+}
+
+function saveFstCart()  { localStorage.setItem(FST_CART_KEY, JSON.stringify(fstCart)); }
+function loadFstCart()  { try { fstCart = JSON.parse(localStorage.getItem(FST_CART_KEY) || '[]'); } catch(e) { fstCart = []; } }
 function fstCartValue() { return fstCart.reduce((s, c) => s + (c.qty * (c.price || 0)), 0); }
 
 function renderFstCart() {
@@ -535,14 +610,24 @@ function renderFstCart() {
     const empty = document.getElementById('fst-cart-empty');
     const btn   = document.getElementById('fst-merge-btn');
     document.getElementById('fstCartTotal').textContent = fstFmt2(fstCartValue());
+
     if (!fstCart.length) {
-        tbody.innerHTML = ''; table.style.display = 'none'; empty.style.display = 'block';
-        if (btn) btn.disabled = true; return;
+        tbody.innerHTML = '';
+        table.style.display = 'none';
+        empty.style.display = 'block';
+        if (btn) btn.disabled = true;
+        return;
     }
-    empty.style.display = 'none'; table.style.display = 'table';
+
+    empty.style.display = 'none';
+    table.style.display = 'table';
     tbody.innerHTML = fstCart.map(c =>
-        `<tr><td>${fstEsc(c.name)}</td><td>${fstEsc(c.unit)}</td><td>${fstFmt(c.qty)}</td>
-         <td><a href="#" class="fst-cart-remove" onclick="event.preventDefault();fstRemoveCartLine(${c.id})">X</a></td></tr>`
+        `<tr>
+            <td>${fstEsc(c.name)}</td>
+            <td>${fstEsc(c.unit)}</td>
+            <td>${fstFmt(c.qty)}</td>
+            <td><a href="#" class="fst-cart-remove" onclick="event.preventDefault();fstRemoveCartLine(${c.id})">X</a></td>
+        </tr>`
     ).join('');
     if (btn) btn.disabled = false;
 }
@@ -557,24 +642,60 @@ function openMergeModal() {
 document.getElementById('fstMergeSubmitBtn')?.addEventListener('click', function () {
     const password = document.getElementById('fstMergePassword').value;
     if (!password) { toastr.warning('Please enter your password.'); return; }
-    const lines = fstCart.map(c => ({ base_product_id: c.id, quantity: c.qty, product_name: c.name, unit: c.unit }));
-    const btn = this; btn.disabled = true;
+
+    const lines = fstCart.map(c => ({
+        base_product_id: c.id,
+        quantity:        c.qty,
+        product_name:    c.name,
+        unit:            c.unit,
+        client_uuid:     c.client_uuid,
+    }));
+
+    const btn = this;
+    btn.disabled = true;
+    const originalHtml = btn.innerHTML;
+    btn.innerHTML = '<i class="ri-loader-4-line"></i> Merging...';
+
     fetch('{{ route("retail.operations.fullstocktaking.merge") }}', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRF-TOKEN': fstCsrf() },
-        body: new URLSearchParams({ password, branch_id: FST_BRANCH_ID, date: FST_DATE, device_id: fstDeviceId(), lines: JSON.stringify(lines) }),
+        method:  'POST',
+        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': fstCsrf(), 'Accept': 'application/json' },
+        body:    JSON.stringify({
+            password:     password,
+            branch_id:    FST_BRANCH_ID,
+            date:         FST_DATE,
+            device_id:    fstDeviceId(),
+            device_label: fstDeviceLabel(),
+            lines:        lines,
+        }),
     })
     .then(r => r.json().then(d => ({ status: r.status, d })))
     .then(({ status, d }) => {
-        btn.disabled = false;
-        if (status === 200) { toastr.success(d.message, 'Merged'); fstCart = []; saveFstCart(); renderFstCart(); $('#fstMergeModal').modal('hide'); setTimeout(() => location.reload(), 800); }
-        else if (status === 401) { toastr.error(d.message, 'Incorrect Password'); }
-        else if (status === 409) { toastr.error(d.message, 'Locked'); }
-        else { toastr.error(d.message || 'Merge failed.', 'Error'); }
+        btn.disabled  = false;
+        btn.innerHTML = originalHtml;
+        if (status === 200) {
+            toastr.success(d.message, 'Merged');
+            fstCart = [];
+            saveFstCart();
+            renderFstCart();
+            fstReportDeviceSync(0); // cart is empty — 0 pending
+            $('#fstMergeModal').modal('hide');
+            setTimeout(() => location.reload(), 800);
+        } else if (status === 401) {
+            toastr.error(d.message, 'Incorrect Password');
+        } else if (status === 409) {
+            toastr.error(d.message, 'Locked');
+        } else {
+            toastr.error(d.message || 'Merge failed.', 'Error');
+        }
     })
-    .catch(() => { btn.disabled = false; toastr.error('Could not reach the server. Counts remain saved offline.', 'Network Error'); });
+    .catch(() => {
+        btn.disabled  = false;
+        btn.innerHTML = originalHtml;
+        toastr.error('Could not reach the server. Counts remain saved offline.', 'Network Error');
+    });
 });
 
+// ── Date modal helpers ─────────────────────────────────────────────────
 function fstSetDateMode(mode) {
     document.getElementById('fstDmcSystem').classList.toggle('active-sys', mode === 'system');
     document.getElementById('fstDmcSystem').classList.toggle('active-cus', false);
@@ -586,15 +707,19 @@ function fstSetDateMode(mode) {
 function fstPreviewDate(val) {
     if (!val) return;
     document.getElementById('fstDateFormValue').value = val;
-    const d = new Date(val + 'T00:00:00');
+    const d  = new Date(val + 'T00:00:00');
     const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
     document.getElementById('fstDmcCustomVal').textContent = d.getDate() + ' ' + mo[d.getMonth()] + ' ' + d.getFullYear();
 }
+
 document.getElementById('fstDateChip')?.addEventListener('click', () => {
     document.getElementById('fstDateFormValue').value = '{{ $isCustom ? $date : "" }}';
     $('#fstDateModal').modal('show');
 });
-document.getElementById('fstInfoBtn')?.addEventListener('click', e => { e.preventDefault(); $('#fstInfoModal').modal('show'); });
+document.getElementById('fstInfoBtn')?.addEventListener('click', e => {
+    e.preventDefault();
+    $('#fstInfoModal').modal('show');
+});
 
 @if(Session::has('message'))
 toastr['{{ Session::get("alert-type","info") }}']('{{ Session::get("message") }}');

@@ -440,7 +440,7 @@ table.dataTable tbody td:first-child { text-align: left !important; }
                 <p class="mb-2" style="font-size:13px;">Click a button to download merged data in spreadsheet/table form, or generate a PDF stocktaking report.</p>
                 <div class="dt-buttons" id="mergedDataButtons"></div>
                 <hr style="margin:14px 0;">
-                <form action="{{ route('retail.operations.fullstocktaking.report.merged-data') }}" method="POST" target="_blank">
+               <!-- <form action="{{ route('retail.operations.fullstocktaking.report.merged-data') }}" method="POST">
                     @csrf
                     <input type="hidden" name="branch_id" value="{{ $branchId }}">
                     <input type="hidden" name="date" value="{{ $date }}">
@@ -451,7 +451,7 @@ table.dataTable tbody td:first-child { text-align: left !important; }
                             <span style="font-size:11px;color:#64748b;display:block;margin-top:2px;">All merged lines for this branch and date</span>
                         </span>
                     </button>
-                </form>
+                </form>-->
             </div>
         </div>
     </div>

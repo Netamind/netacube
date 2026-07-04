@@ -74,8 +74,11 @@
               $link = Request::root(); 
               ?>
 
+              {{-- TODO: route('master.reset.password.view', ...) removed — wire up the
+                   correct tenant reset-password route here once it exists. Until then
+                   this link is a non-functional placeholder. --}}
               <p style="text-align: center;">
-                 <a href="{{ route('master.reset.password.view', ['token' => $token]) }}" class="button">Reset Your Password</a>
+                 <a href="#" class="button">Reset Your Password</a>
                </p>
           
            

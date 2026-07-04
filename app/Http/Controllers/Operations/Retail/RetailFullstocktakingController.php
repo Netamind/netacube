@@ -167,9 +167,14 @@ class RetailFullstocktakingController extends Controller
                 ->where('base_product_id', $productId)
                 ->first();
 
-            if (! $branchProduct) {
-                continue;
-            }
+            // NOTE: previously this skipped the line entirely when no
+            // retail_branch_products row existed yet (`continue`). That blocked
+            // counting any product that is in the catalog (retail_base_products) but
+            // not yet stocked at this branch — exactly the [NS] "not in system"
+            // products the counting view now deliberately surfaces in search. We now
+            // allow these through: a missing branch product is treated as having had
+            // zero expected stock at this branch, and the branch product record is
+            // created for real at rectification time (see submitRectification).
 
             try {
                 DB::connection('tenant')->table('retail_fullstocktaking_count_lines')->insert([
@@ -204,7 +209,7 @@ class RetailFullstocktakingController extends Controller
                     ->where('date', $date)->where('branch_id', $branchId)
                     ->where('base_product_id', $productId)->first();
 
-                $expectedAtCount = $snapshot->expected_at_session_start ?? $branchProduct->stock_quantity;
+                $expectedAtCount = $snapshot->expected_at_session_start ?? ($branchProduct->stock_quantity ?? 0);
                 $salesIdAtCount  = $snapshot->sales_id_at_session_start ?? null;
 
                 if (! $snapshot) {
@@ -765,16 +770,19 @@ class RetailFullstocktakingController extends Controller
         Log::info("{$tag} Products to process: " . $countedRows->count());
 
         $stockUpdateFailures = [];
+        $branchProductsInserted = 0;
 
         foreach ($countedRows as $row) {
             $trueFound = max(0, DB::connection('tenant')->table('retail_fullstocktaking_count_lines')
                 ->where('date', $date)->where('branch_id', $branchId)
                 ->where('base_product_id', $row->base_product_id)->sum('quantity'));
 
-            $branchProductId = DB::connection('tenant')->table('retail_branch_products')
+            $branchProduct = DB::connection('tenant')->table('retail_branch_products')
                 ->where('branch_id', $branchId)
                 ->where('base_product_id', $row->base_product_id)
-                ->value('id');
+                ->first();
+
+            $branchProductId = $branchProduct->id ?? null;
 
             $salesSinceCount = $branchProductId
                 ? DB::connection('tenant')->table('retail_system_sales')
@@ -798,18 +806,74 @@ class RetailFullstocktakingController extends Controller
                     'updated_at'           => $now,
                 ]);
 
-            $affected = DB::connection('tenant')->table('retail_branch_products')
-                ->where('branch_id', $branchId)
-                ->where('base_product_id', $row->base_product_id)
-                ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
-
-            if ($affected === 0) {
-                $stockUpdateFailures[] = $row->base_product_id;
-                Log::warning("{$tag} Stock update affected 0 rows for base_product_id={$row->base_product_id}");
+            if ($branchProduct) {
+                // Existing branch product — update its stock to the rectified figure.
+                DB::connection('tenant')->table('retail_branch_products')
+                    ->where('id', $branchProduct->id)
+                    ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
+            } else {
+                // Newly-found product — no retail_branch_products row existed for this
+                // branch before today's count. Create one now so the product becomes
+                // a real, sellable branch product rather than silently losing the
+                // counted stock.
+                //
+                // Price rule (applies before AND after rectification):
+                //   1. No branch product row             -> use base price.
+                //   2. Branch product row, price is NULL -> use base price.
+                //   3. Branch product row, price is set   -> use branch price.
+                // A brand-new branch product has never had a deliberate branch
+                // override, so selling_price is left NULL here — it "inherits"
+                // the base price (via COALESCE elsewhere) rather than freezing
+                // today's base price as a permanent branch-specific value. If we
+                // copied the base price in, a later change to the base price
+                // would stop reaching this branch, which breaks the rule above.
+                try {
+                    DB::connection('tenant')->table('retail_branch_products')->insert([
+                        'branch_id'       => $branchId,
+                        'base_product_id' => $row->base_product_id,
+                        'stock_quantity'  => $trueCurrentStock,
+                        'selling_price'   => null,
+                        'is_active'       => 1,
+                        'created_at'      => $now,
+                        'updated_at'      => $now,
+                    ]);
+                    $branchProductsInserted++;
+                } catch (\Illuminate\Database\QueryException $e) {
+                    // Defensive: if a row was created concurrently between our SELECT and
+                    // INSERT, fall back to an update instead of failing the whole run.
+                    if ((int) $e->getCode() === 23000) {
+                        DB::connection('tenant')->table('retail_branch_products')
+                            ->where('branch_id', $branchId)
+                            ->where('base_product_id', $row->base_product_id)
+                            ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
+                    } else {
+                        Log::error("{$tag} Failed to insert new branch product for base_product_id={$row->base_product_id}: " . $e->getMessage());
+                        $stockUpdateFailures[] = $row->base_product_id;
+                    }
+                }
             }
         }
 
-        Log::info("{$tag} Product rows processed. Stock update failures: " . count($stockUpdateFailures));
+        Log::info("{$tag} Product rows processed. New branch products created: {$branchProductsInserted}. Stock update failures: " . count($stockUpdateFailures));
+
+        // ── STEP 4b: REMOVE MISSING PRODUCTS FROM BRANCH PRODUCTS ────────
+        // Anything still sitting in the missing-products table for this branch+date
+        // was never counted by any device, so it is treated as not actually in stock
+        // at this branch. Its retail_branch_products row is removed entirely.
+        $missingBaseProductIds = DB::connection('tenant')->table('retail_fullstocktaking_missing_products')
+            ->where('branch_id', $branchId)->where('date', $date)
+            ->pluck('base_product_id');
+
+        $branchProductsRemoved = 0;
+
+        if ($missingBaseProductIds->isNotEmpty()) {
+            $branchProductsRemoved = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $branchId)
+                ->whereIn('base_product_id', $missingBaseProductIds)
+                ->delete();
+        }
+
+        Log::info("{$tag} Missing products removed from retail_branch_products: {$branchProductsRemoved}");
 
         // ── STEP 5: COMPUTE SUMMARY TOTALS ───────────────────────────────
         $finalRows = DB::connection('tenant')->table('retail_fullstocktaking')
@@ -918,7 +982,7 @@ class RetailFullstocktakingController extends Controller
             'displayDate' => Carbon::parse($date)->format('d F Y'),
         ]);
 
-        return $pdf->stream($branchName . ' Full Stocktaking Report ' . $date . '.pdf');
+        return $pdf->download($branchName . ' Full Stocktaking Report ' . $date . '.pdf');
     }
 
     public function downloadDeliveryNote(Request $request)
@@ -951,7 +1015,7 @@ class RetailFullstocktakingController extends Controller
             'displayDate' => Carbon::parse($date)->format('d F Y'),
         ]);
 
-        return $pdf->stream($branchName . ' Stock Delivery Note ' . $date . '.pdf');
+        return $pdf->download($branchName . ' Stock Delivery Note ' . $date . '.pdf');
     }
 
     public function downloadMergedDataReport(Request $request)
@@ -985,7 +1049,7 @@ class RetailFullstocktakingController extends Controller
             'displayDate'   => Carbon::parse($date)->format('d F Y'),
         ]);
 
-        return $pdf->stream($branchName . ' Merged Data ' . $date . '.pdf');
+        return $pdf->download($branchName . ' Merged Data ' . $date . '.pdf');
     }
 
     public function downloadMissingProductsReport(Request $request)
@@ -1017,6 +1081,6 @@ class RetailFullstocktakingController extends Controller
             'displayDate'  => Carbon::parse($date)->format('d F Y'),
         ]);
 
-        return $pdf->stream($branchName . ' Missing Products ' . $date . '.pdf');
+        return $pdf->download($branchName . ' Missing Products ' . $date . '.pdf');
     }
 }

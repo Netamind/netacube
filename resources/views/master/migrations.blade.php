@@ -132,11 +132,17 @@
                                     if ($isLocal) {
                                         config(['database.connections.tenant.database' => $intendedDbName]);
                                     } else {
+                                        // ✅ FIX: read the same env-backed password the controller uses,
+                                        // instead of the old hardcoded 'binto2020'. Keeping these in sync
+                                        // matters — if they ever diverge, this dashboard will show different
+                                        // migrated/pending counts than what the actual migration runner sees.
+                                        $tenantPassword = config('database.tenant_db_password') ?? env('TENANT_DB_PASSWORD');
+
                                         config([
                                             'database.connections.tenant.host'     => env('TENANT_DB_HOST', config('database.connections.mysql.host')),
                                             'database.connections.tenant.database' => $intendedDbName,
                                             'database.connections.tenant.username' => $tenant->db_user,
-                                            'database.connections.tenant.password' => 'binto2020',
+                                            'database.connections.tenant.password' => $tenantPassword,
                                         ]);
                                     }
                                     DB::purge('tenant');

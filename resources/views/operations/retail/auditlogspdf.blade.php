@@ -1,418 +1,616 @@
-{{--
-  Audit Log PDF Template
-  View  : operations/retail/auditlogspdf.blade.php
-  Engine: DomPDF (A4 landscape)
---}}
 <!DOCTYPE html>
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Audit Report — {{ $branch->name ?? '' }} — {{ $formattedDate }}</title>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Audit Report - {{ $branch->name ?? '' }} - {{ $formattedDate }}</title>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@700;900&family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@500&display=swap" rel="stylesheet">
 <style>
-/* ═══════════════════════════════════════════════════════════════════
-   DomPDF-safe — no flexbox, no grid, no CSS variables, no gradients.
-   All multi-column layouts via <table>.
-═══════════════════════════════════════════════════════════════════ */
-* { box-sizing: border-box; margin: 0; padding: 0; }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
 
-body {
-    font-family: DejaVu Sans, Arial, sans-serif;
-    font-size: 12px;
-    color: #333;
+  @page {
+    size: A4;
+    margin-top: 0;
+    margin-right: 0;
+    margin-bottom: 150px;
+    margin-left: 0;
+  }
+
+  html, body {
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    color: #111;
+  }
+
+  body {
     background: #fff;
-    padding: 36px 40px 0 40px;
-}
+    padding: 0;
+  }
 
-/* ── Header ─────────────────────────────────────────────────────── */
-.hdr-table { width: 100%; border-collapse: collapse; margin-bottom: 0; }
-.hdr-table td { vertical-align: middle; padding: 0; }
-.hdr-table td.right-col { text-align: right; }
+  .print-btn {
+    display: block;
+    margin: 0 auto 10px auto;
+    max-width: 1010px;
+    text-align: right;
+  }
+  .print-btn button {
+    background: #111;
+    color: #fff;
+    border: none;
+    padding: 8px 22px;
+    font-family: 'DM Sans', sans-serif;
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 1px;
+    text-transform: uppercase;
+    cursor: pointer;
+    border-radius: 2px;
+  }
+  .print-btn button:hover { background: #444; }
 
-.company-name {
+  .wrap {
+    max-width: 1010px;
+    margin: 0 auto;
+    background: #fff;
+  }
+
+  .footer-fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+  }
+  .footer-fixed .footer-inner {
+    max-width: 1010px;
+    margin: 0 auto;
+    background: #fff;
+  }
+
+  table.hdr-t {
+    width: 100%;
+    border-collapse: collapse;
+    background: #f5f5f6;
+    border-bottom: 1px solid #e4e4e4;
+  }
+  table.hdr-t td {
+    padding: 22px 36px 18px 36px;
+    vertical-align: top;
+  }
+  table.hdr-t td.hdr-right {
+    text-align: right;
+    vertical-align: top;
+  }
+
+  table.hdr-divider {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.hdr-divider td {
+    height: 1px;
+    padding: 0;
+    line-height: 0;
+    font-size: 0;
+    background: #d8d8d8;
+  }
+
+  .co-name {
+    font-family: 'Playfair Display', serif;
     font-size: 22px;
     font-weight: 700;
-    color: #4B5EBD;
-    line-height: 1;
-    margin-bottom: 0;
-}
-.company-meta {
-    font-size: 10px;
-    color: #555;
-    line-height: 1.7;
+    color: #111;
+    letter-spacing: 0.3px;
     margin-top: 0;
-}
+    margin-bottom: 5px;
+    line-height: 1;
+  }
+  .co-meta {
+    font-size: 10.5px;
+    color: #666;
+    line-height: 1.7;
+    font-weight: 400;
+  }
 
-.report-title {
-    font-size: 22px;
-    font-weight: 800;
+  .inv-word {
+    font-family: 'Playfair Display', serif;
+    font-size: 18px;
+    font-weight: 700;
     color: #4B5EBD;
     letter-spacing: 2px;
     text-transform: uppercase;
     line-height: 1;
-    display: block;
-    margin-bottom: 4px;
-}
-.branch-name-hdr {
-    font-size: 13px;
-    font-weight: 700;
-    color: #222;
-    display: block;
-    margin-bottom: 2px;
-}
-.branch-meta-hdr {
-    font-size: 10.5px;
-    color: #666;
-    line-height: 1.75;
-    display: block;
+    margin-top: 0;
+    margin-bottom: 12px;
+  }
+  .inv-ref {
+    font-size: 11px;
+    color: #555;
+    font-weight: 400;
+  }
+  .inv-ref strong { color: #111; font-weight: 700; }
+
+  .inv-dates {
+    margin-top: 2px;
+  }
+  .d-item {
     margin-bottom: 5px;
-}
-.dir-badge {
+  }
+  .d-item label {
+    font-size: 8px;
+    text-transform: uppercase;
+    letter-spacing: 1.2px;
+    color: #999;
+    font-weight: 700;
+    margin-right: 10px;
+  }
+  .d-item span {
+    font-size: 11.5px;
+    font-weight: 700;
+    color: #111;
+  }
+
+  .dir-badge {
     display: inline-block;
+    margin-top: 4px;
     padding: 2px 10px;
     border-radius: 20px;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0.5px;
     color: #fff;
-}
+  }
 
-/* ── Blue divider ───────────────────────────────────────────────── */
-.divider {
-    width: 100%;
-    border: none;
-    border-top: 2px solid #4B5EBD;
-    margin: 14px 0 16px 0;
-}
-
-/* ── Dates strip ────────────────────────────────────────────────── */
-.dates-table { width: 100%; border-collapse: collapse; margin-bottom: 18px; }
-.dates-table td { padding: 0 32px 0 0; vertical-align: top; }
-.dates-table td:last-child { padding-right: 0; }
-.date-label {
-    font-size: 9px;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-    color: #999;
-    display: block;
-    margin-bottom: 2px;
-}
-.date-val {
-    font-size: 12px;
-    font-weight: 600;
-    color: #333;
-    display: block;
-}
-.date-sub {
-    font-size: 10px;
-    color: #888;
-    display: block;
-    margin-top: 1px;
-}
-
-/* ── Main data table ────────────────────────────────────────────── */
-table.inv-table {
+  table.info-row {
     width: 100%;
     border-collapse: collapse;
-    margin-bottom: 0;
-    table-layout: fixed;
-}
-
-table.inv-table thead tr { background: #4B5EBD; }
-table.inv-table thead th {
-    padding: 8px 8px;
+    border-bottom: 1.5px solid #d0d0d0;
+  }
+  table.info-row td.info-cell {
+    width: 50%;
+    padding: 18px 36px 16px 36px;
+    vertical-align: top;
+  }
+  table.info-row td.info-cell + td.info-cell {
+    border-left: 1.5px solid #e6e6e6;
+  }
+  .info-cell h5 {
     font-size: 8.5px;
-    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.4px;
-    color: #fff;
-    vertical-align: middle;
-}
-table.inv-table thead th.th-num    { text-align: left; padding-left: 7px; width: 26px; }
-table.inv-table thead th.th-name   { text-align: left; width: 28%; }
-table.inv-table thead th.th-center { text-align: center; }
-table.inv-table thead th.th-right  { text-align: center; }
+    letter-spacing: 2px;
+    color: #4B5EBD;
+    font-weight: 700;
+    margin-bottom: 10px;
+    padding-bottom: 5px;
+    border-bottom: 1.5px solid #4B5EBD;
+    display: inline-block;
+  }
+  .cli-name {
+    font-size: 14px;
+    font-weight: 700;
+    color: #111;
+    margin-bottom: 4px;
+    margin-top: 2px;
+  }
+  .info-cell p {
+    font-size: 11px;
+    color: #333;
+    line-height: 1.7;
+    font-weight: 400;
+  }
+  .bank-t {
+    width: 100%;
+    font-size: 11px;
+    border-collapse: collapse;
+    margin-top: 2px;
+  }
+  .bank-t tr { border-bottom: 1px solid #f1f1f1; }
+  .bank-t tr:last-child { border-bottom: none; }
+  .bank-t td { padding: 6px 0; vertical-align: top; }
+  .bank-t td:first-child {
+    color: #9a9a9a;
+    width: 95px;
+    font-size: 9px;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    font-weight: 700;
+  }
+  .bank-t td:last-child {
+    font-weight: 600;
+    color: #111;
+    font-size: 11.5px;
+  }
 
-table.inv-table tbody tr { border-bottom: 1px solid #e9ecef; }
-table.inv-table tbody tr:nth-child(even) { background: #f7f8fd; }
-table.inv-table tbody tr:nth-child(odd)  { background: #fff; }
+  .table-wrap {
+    padding: 0 24px;
+    margin-top: 28px;
+  }
 
-table.inv-table tbody td {
-    padding: 6px 8px;
-    font-size: 10.5px;
-    color: #444;
+  table.t {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 10px 0 0 0;
+    table-layout: fixed;
+  }
+
+  table.t thead tr { background: #f0f0f0; }
+  table.t thead th {
+    padding: 8px 6px;
+    font-size: 9px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    color: #111;
+    text-align: center;
+    border-top: 1.5px solid #d0d0d0;
+    border-bottom: 1.5px solid #d0d0d0;
+  }
+
+  /* 8 columns: #, Product, Unit, Price, Qty Before, Qty After, Diff, Value */
+  table.t thead th:nth-child(1) { text-align: left; width: 4%;  padding-left: 5px; }
+  table.t thead th:nth-child(2) { text-align: left; width: 25%; }
+  table.t thead th:nth-child(3) { width: 9%;  }
+  table.t thead th:nth-child(4) { width: 13%; }
+  table.t thead th:nth-child(5) { width: 13%; }
+  table.t thead th:nth-child(6) { width: 13%; }
+  table.t thead th:nth-child(7) { width: 11%; }
+  table.t thead th:nth-child(8) { width: 12%; }
+
+  table.t tbody tr { border-bottom: 1px solid #e4e4e4; }
+  table.t tbody tr:nth-child(even) { background: #fafafa; }
+  table.t tbody tr:last-child { border-bottom: 2px solid #9a9a9a; }
+
+  table.t tbody td {
+    padding: 6px 6px;
+    font-size: 12px;
+    color: #111;
+    text-align: center;
     vertical-align: middle;
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
-    line-height: 1.4;
-}
-table.inv-table tbody td.td-num  { text-align: left; padding-left: 7px; color: #999; font-size: 9.5px; }
-table.inv-table tbody td.td-name { text-align: left; font-weight: 500; color: #222; }
-table.inv-table tbody td.td-c    { text-align: center; }
-table.inv-table tbody td.td-r    { text-align: center; }
-table.inv-table tbody td.td-mono { text-align: center; font-size: 9px; color: #555; letter-spacing: 0.3px; }
+    font-weight: 400;
+  }
 
-table.inv-table tbody td.change-in   { text-align: center; color: #1a7a3c; font-weight: 700; }
-table.inv-table tbody td.change-out  { text-align: center; color: #c0392b; font-weight: 700; }
-table.inv-table tbody td.change-zero { text-align: center; color: #888;    font-weight: 600; }
-
-/* ── Totals tray ────────────────────────────────────────────────── */
-.totals-wrap {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 0;
-    margin-bottom: 22px;
-}
-.totals-wrap td.spacer     { vertical-align: top; }
-.totals-wrap td.totals-col { width: 260px; vertical-align: top; padding: 0; }
-
-/* Card: thick top grey line, thin sides and bottom */
-.tot-inner {
-    width: 100%;
-    border-collapse: collapse;
-    border-top:    3px solid #9aa0b0;   /* prominent grey top rule */
-    border-left:   1px solid #d6d9e0;
-    border-right:  1px solid #d6d9e0;
-    border-bottom: 1px solid #d6d9e0;  /* subtle closing line */
-}
-
-/* Grand-total row — blue accent */
-.tot-inner tr.total-row td {
-    background: #4B5EBD;
-    color: #fff;
-    font-size: 12px;
-    font-weight: 700;
-    padding: 9px 12px;
-    border-top: 2px solid #9aa0b0;
-    border-bottom: 3px double #9aa0b0;  /* double grey bottom border */
-}
-.tot-inner tr.total-row td.lbl { text-align: left;  color: #dde3ff; }
-.tot-inner tr.total-row td.val { text-align: right; color: #fff;    }
-
-/* Sub-rows for "all" direction */
-.tot-inner tr.sub-row td {
-    padding: 6px 12px;
-    font-size: 11px;
+  table.t tbody td:nth-child(1) {
+    text-align: left;
+    padding-left: 5px;
     color: #555;
-    background: #fafbfc;
-    border-bottom: 1px solid #e4e7ec;
-}
-.tot-inner tr.sub-row:first-child td { padding-top: 8px; }
-.tot-inner tr.sub-row td.sub-lbl     { text-align: left; }
-.tot-inner tr.sub-row td.sub-val-in  { text-align: right; font-weight: 600; color: #1a7a3c; }
-.tot-inner tr.sub-row td.sub-val-out { text-align: right; font-weight: 600; color: #c0392b; }
+  }
+  table.t tbody td:nth-child(2) {
+    text-align: left;
+    font-weight: 400;
+    color: #111;
+    font-size: 12px;
+  }
+  table.t tbody td.amt {
+    font-weight: 400;
+    color: #111;
+  }
+  table.t tbody td.total {
+    font-weight: 600;
+    color: #111;
+  }
 
-/* ── Page footer ─────────────────────────────────────────────────── */
-.pg-foot {
-    position: fixed;
-    bottom: 0;
-    left: 40px;
-    right: 40px;
-    border-top: 1px solid #c2c7d0;     /* grey separator line */
-    padding-top: 7px;
-    padding-bottom: 10px;
-    background: #fff;
-}
-.pg-foot table { width: 100%; border-collapse: collapse; }
-.pg-foot td {
+  /* Allow long numeric values in body cells to break instead of being
+     clipped/ellipsised when figures get very large. */
+  table.t tbody td.amt,
+  table.t tbody td.total {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+  }
+
+  table.t tbody td.change-in   { color: #1a7a3c; font-weight: 700; }
+  table.t tbody td.change-out  { color: #c0392b; font-weight: 700; }
+  table.t tbody td.change-zero { color: #888;    font-weight: 600; }
+
+  table.t tfoot td {
+    padding: 8px 8px;
+    font-size: 10.5px;
+  }
+  table.t tfoot td.gt-empty {
+    background: transparent;
+  }
+  table.t tfoot tr.sub-row td.gt-label {
+    text-align: right;
+    font-weight: 600;
+    color: #444;
+    background: #f5f5f5;
+    border-top: 1px solid #e4e4e4;
+  }
+  table.t tfoot tr.sub-row td.gt-value {
+    text-align: center;
+    font-weight: 700;
+    font-size: 11px;
+    background: #f5f5f5;
+    border-top: 1px solid #e4e4e4;
+  }
+  table.t tfoot tr.sub-row td.gt-value.sub-val-in  { color: #1a7a3c; }
+  table.t tfoot tr.sub-row td.gt-value.sub-val-out { color: #c0392b; }
+  table.t tfoot tr.total-row td.gt-label {
+    text-align: right;
+    font-weight: 700;
+    color: #111;
+    letter-spacing: 0.3px;
+    background: #f5f5f5;
+    border-top: 1.5px solid #9a9a9a;
+    border-bottom: 2px solid #4B5EBD;
+  }
+  table.t tfoot tr.total-row td.gt-value {
+    text-align: center;
+    font-weight: 800;
+    color: #dc2626;
+    font-size: 12px; /* slightly reduced so large figures fit comfortably */
+    background: #f5f5f5;
+    border-top: 1.5px solid #9a9a9a;
+    border-bottom: 2px solid #4B5EBD;
+  }
+
+  /* ── Totals overflow fix ──────────────────────────────────────────────
+     The value cell now spans the last TWO table columns (≈20% width)
+     instead of just one (≈12% width), giving large figures (e.g.
+     50,000,000.00) enough room. word-break/overflow-wrap act as a
+     safety net for any figure that still doesn't fit. */
+  table.t tfoot td.gt-label,
+  table.t tfoot td.gt-value {
+    white-space: normal;
+    word-break: break-word;
+    overflow-wrap: anywhere;
+    line-height: 1.3;
+  }
+
+  table.foot-row {
+    width: 100%;
+    border-collapse: collapse;
+  }
+  table.foot-row td {
+    padding: 16px 36px 18px 36px;
+    vertical-align: bottom;
+  }
+  table.foot-row td.foot-left {
+    width: auto;
+  }
+  table.foot-row td.foot-right {
+    width: 220px;
+    padding-left: 40px;
+    text-align: center;
+  }
+
+  .foot-left h5 {
     font-size: 8.5px;
-    color: #999;
-    vertical-align: middle;
-    white-space: nowrap;
-}
-.pg-foot td.right { text-align: right; }
-.pg-generated { font-style: italic; color: #bbb; font-size: 8px; }
-.pg-num        { font-weight: 700;   color: #777; font-size: 8.5px; }
+    text-transform: uppercase;
+    letter-spacing: 2px;
+    color: #4B5EBD;
+    font-weight: 700;
+    margin-bottom: 6px;
+    padding-bottom: 4px;
+    border-bottom: 1.5px solid #ccc;
+    display: inline-block;
+  }
+  .foot-left p {
+    font-size: 10px;
+    color: #555;
+    line-height: 1.7;
+    max-width: 280px;
+    font-weight: 400;
+  }
 
-/* Prevent body content from hiding behind the fixed footer */
-.footer-spacer { height: 36px; }
+  .sig-block {
+    margin-top: 30px;
+    border-top: 1.5px solid #aaa;
+    width: 200px;
+    padding-top: 6px;
+    font-size: 9.5px;
+    color: #999;
+    letter-spacing: 0.5px;
+    text-align: center;
+    display: inline-block;
+  }
+
+  table.pg-foot {
+    width: 100%;
+    border-collapse: collapse;
+    border-top: 2px solid #4B5EBD;
+    background: #e3e5ea;
+  }
+  table.pg-foot td {
+    padding: 8px 36px;
+    font-size: 9px;
+    color: #777;
+    vertical-align: middle;
+  }
+  table.pg-foot td.pg-right {
+    text-align: right;
+  }
+  table.pg-foot td.pg-right span.pg-num {
+    margin-left: 24px;
+  }
+
+  @media print {
+    .print-btn { display: none; }
+  }
 </style>
 </head>
 <body>
 
-  {{-- ══════════════════════════════════════════════════════════════
-       HEADER
-       Left  : Company name + address + contact
-       Right : AUDIT REPORT + Branch name + address/phone + badge
-  ══════════════════════════════════════════════════════════════════ --}}
-  <table class="hdr-table">
+<div class="wrap">
+
+  <!-- HEADER -->
+  <table class="hdr-t">
     <tr>
-      <td style="vertical-align:top;">
-        <div class="company-name">{{ $company->business_name ?? '—' }}</div>
-        <div class="company-meta">
-          <span>Address: {{ !empty($company->physical_address) ? $company->physical_address : '—' }}</span><br>
-          <span>Email: {{ !empty($company->email_address) ? $company->email_address : '—' }}</span><br>
-          <span>Phone: {{ !empty($company->primary_number) ? $company->primary_number : '—' }}</span>
+      <td>
+        <div class="co-name">{{ $company->business_name ?? '—' }}</div>
+        <div class="co-meta">
+          @if(!empty($company->physical_address)){{ $company->physical_address }}<br>@endif
+          @if(!empty($company->email_address)){{ $company->email_address }} &nbsp;·&nbsp; @endif
+          @if(!empty($company->primary_number)){{ $company->primary_number }}@endif
         </div>
       </td>
-      <td class="right-col" style="vertical-align:top;">
-        <span class="report-title">Audit Report</span>
-        <span class="branch-name-hdr">{{ $branch->name ?? '—' }}</span>
-        <span class="branch-meta-hdr">
-          @if(!empty($branch->address)){{ $branch->address }}<br>@endif
-          @if(!empty($branch->phone)){{ $branch->phone }}@endif
-        </span>
+      <td class="hdr-right">
+        <div class="inv-word">Audit Report</div>
+        <div class="inv-dates">
+          <div class="d-item">
+            <label>Report Date</label>
+            <span>{{ $formattedDate }}</span>
+          </div>
+          <div class="d-item">
+            <label>Currency</label>
+            <span>MWK</span>
+          </div>
+        </div>
         <span class="dir-badge" style="background:{{ $accentHdr }};">{{ $dirLabel }}</span>
       </td>
     </tr>
   </table>
 
-  <hr class="divider">
+  <!-- Slim gray divider -->
+  <table class="hdr-divider"><tr><td></td></tr></table>
 
-  {{-- ══════════════════════════════════════════════════════════════
-       DATES STRIP — Report Date | Generated At | Prepared By
-       Prepared By includes phone number in brackets if available.
-  ══════════════════════════════════════════════════════════════════ --}}
-  <table class="dates-table">
+  <!-- BRANCH INFO + PREPARED BY (side by side) -->
+  <table class="info-row">
     <tr>
-      <td>
-        <span class="date-label">Report Date</span>
-        <span class="date-val">{{ $formattedDate }}</span>
+      <td class="info-cell">
+        <h5>Branch Info</h5>
+        <div class="cli-name">{{ $branch->name ?? '—' }}</div>
+        <p>
+          @if(!empty($branch->address)){{ $branch->address }}<br>@endif
+          @if(!empty($branch->phone))Tel: {{ $branch->phone }}@endif
+        </p>
       </td>
-      <td>
-        <span class="date-label">Generated At</span>
-        <span class="date-val">{{ $generatedAt }}</span>
-      </td>
-      <td>
-        <span class="date-label">Prepared By</span>
-        <span class="date-val">
-          {{ $generatedBy }}@if(!empty($preparedByUser->phone)) ({{ $preparedByUser->phone }})@endif
-        </span>
-      </td>
-    </tr>
-  </table>
-
-  {{-- ══════════════════════════════════════════════════════════════
-       MAIN LOG TABLE
-       Columns: # | Product Name | Code | Unit | Before | Change | After | Price | Value
-       NOTE: Batch No. and Expiry Date have been removed.
-  ══════════════════════════════════════════════════════════════════ --}}
-  <table class="inv-table">
-    <colgroup>
-      <col style="width:26px;">  {{-- # --}}
-      <col style="width:27%;">   {{-- Product Name --}}
-      <col style="width:9%;">    {{-- Code --}}
-      <col style="width:7%;">    {{-- Unit --}}
-      <col style="width:10%;">   {{-- Price --}}
-      <col style="width:10%;">   {{-- Before --}}
-      <col style="width:11%;">   {{-- Change --}}
-      <col style="width:10%;">   {{-- After --}}
-      <col style="width:11%;">   {{-- Value --}}
-    </colgroup>
-    <thead>
-      <tr>
-        <th class="th-num">#</th>
-        <th class="th-name">Product Name</th>
-        <th class="th-center">Code</th>
-        <th class="th-center">Unit</th>
-        <th class="th-right">Price</th>
-        <th class="th-right">Before</th>
-        <th class="th-right">Change</th>
-        <th class="th-right">After</th>
-        <th class="th-right">Value</th>
-      </tr>
-    </thead>
-    <tbody>
-      @forelse($logs as $i => $log)
-        @php
-          $change    = (float) $log->stock_change;
-          $absChange = abs($change);
-          $price     = (float) ($log->product_sell_price ?? 0);
-          $rowValue  = $absChange * $price;
-
-          if ($change > 0)     { $changeStr = '+' . number_format($absChange, 2); $changeTd = 'change-in'; }
-          elseif ($change < 0) { $changeStr = '−' . number_format($absChange, 2); $changeTd = 'change-out'; }
-          else                 { $changeStr = number_format($absChange, 2);        $changeTd = 'change-zero'; }
-        @endphp
-        <tr>
-          <td class="td-num">{{ $i + 1 }}</td>
-          <td class="td-name">{{ $log->product_name ?? '—' }}</td>
-          <td class="td-mono">{{ $log->product_code ?? '—' }}</td>
-          <td class="td-c">{{ $log->product_unit ?? '—' }}</td>
-          <td class="td-r">{{ number_format($price, 2) }}</td>
-          <td class="td-r">{{ number_format((float)$log->stock_before, 2) }}</td>
-          <td class="{{ $changeTd }}">{{ $changeStr }}</td>
-          <td class="td-r">{{ number_format((float)$log->stock_after, 2) }}</td>
-          <td class="td-r">{{ number_format($rowValue, 2) }}</td>
-        </tr>
-      @empty
-        <tr>
-          <td colspan="9" style="padding:20px;text-align:center;color:#aaa;font-style:italic;">
-            No records found for this date and filter.
-          </td>
-        </tr>
-      @endforelse
-    </tbody>
-  </table>
-
-  {{-- ══════════════════════════════════════════════════════════════
-       TOTALS TRAY
-       • Thick top border  (3px #4B5EBD) — prominent accent line
-       • Thin bottom border (1px #c8cef2) — subtle closing line
-       • "all" direction: shows Value Added / Value Removed sub-rows
-         then a Net Value grand-total row
-       • Single direction : shows only the Total Value grand-total row
-  ══════════════════════════════════════════════════════════════════ --}}
-  <table class="totals-wrap">
-    <tr>
-      <td class="spacer">&nbsp;</td>
-      <td class="totals-col">
-        <table class="tot-inner">
-
-          @if($direction === 'all')
-
-            {{-- Sub-rows for split view --}}
-            <tr class="sub-row">
-              <td class="sub-lbl">Value Added</td>
-              <td class="sub-val-in">{{ number_format($summaryIn, 2) }}</td>
-            </tr>
-            <tr class="sub-row">
-              <td class="sub-lbl">Value Removed</td>
-              <td class="sub-val-out">{{ number_format($summaryOut, 2) }}</td>
-            </tr>
-
-            {{-- Grand-total row --}}
-            @php $net = $summaryIn - $summaryOut; @endphp
-            <tr class="total-row">
-              <td class="lbl">Net Value</td>
-              <td class="val">{{ $net >= 0 ? '+' : '−' }}&nbsp;{{ number_format(abs($net), 2) }}</td>
-            </tr>
-
-          @else
-
-            {{-- Single-direction: one grand-total row only --}}
-            <tr class="total-row">
-              <td class="lbl">Total Value</td>
-              <td class="val">{{ number_format($totalValue, 2) }}</td>
-            </tr>
-
+      <td class="info-cell">
+        <h5>Prepared By</h5>
+        <table class="bank-t">
+          <tr><td>Name</td><td>{{ $generatedBy }}</td></tr>
+          @if(!empty($preparedByUser->position))
+          <tr><td>Position</td><td>{{ $preparedByUser->position }}{{ !empty($preparedByUser->department) ? ' · '.$preparedByUser->department : '' }}</td></tr>
           @endif
-
+          <tr><td>Contact</td><td>{{ !empty($preparedByUser->phone) ? $preparedByUser->phone : '—' }}</td></tr>
+          @if(!empty($preparedByUser->email))
+          <tr><td>Email</td><td>{{ $preparedByUser->email }}</td></tr>
+          @endif
         </table>
       </td>
     </tr>
   </table>
 
-  {{-- Spacer prevents content from hiding behind the fixed footer --}}
-  <div class="footer-spacer"></div>
+  <!-- TABLE -->
+  <div class="table-wrap">
+    <table class="t">
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>Product Name</th>
+          <th>Unit</th>
+          <th>Price</th>
+          <th>Qty Before</th>
+          <th>Qty After</th>
+          <th>Diff</th>
+          <th>Value</th>
+        </tr>
+      </thead>
+      <tbody>
+        @forelse($logs as $i => $log)
+          @php
+            $change    = (float) $log->stock_change;
+            $absChange = abs($change);
+            // FIX: this table's price column is `selling_price`, not
+            // `product_sell_price` — the old key never existed on the row,
+            // so it silently fell back to 0 every time.
+            $price     = (float) ($log->selling_price ?? 0);
+            $rowValue  = $absChange * $price;
 
-  {{-- ══════════════════════════════════════════════════════════════
-       PAGE FOOTER — position:fixed → always at page bottom
-       Left : branch · direction · date
-       Right: italic computer-generated note · bold page number
-  ══════════════════════════════════════════════════════════════════ --}}
-  <div class="pg-foot">
-    <table>
+            if ($change > 0)     { $changeStr = '+' . number_format($absChange, 2); $changeTd = 'change-in'; }
+            elseif ($change < 0) { $changeStr = '-' . number_format($absChange, 2); $changeTd = 'change-out'; }
+            else                 { $changeStr = number_format($absChange, 2);        $changeTd = 'change-zero'; }
+          @endphp
+          <tr>
+            <td>{{ $i + 1 }}</td>
+            <td>{{ $log->product_name ?? '—' }}</td>
+            <td>{{ $log->product_unit ?? '—' }}</td>
+            <td class="amt">{{ number_format($price, 2) }}</td>
+            <td class="amt">{{ number_format((float)$log->stock_before, 2) }}</td>
+            <td class="amt">{{ number_format((float)$log->stock_after, 2) }}</td>
+            <td class="{{ $changeTd }}">{{ $changeStr }}</td>
+            <td class="total">{{ number_format($rowValue, 2) }}</td>
+          </tr>
+        @empty
+          <tr>
+            <td colspan="8" style="text-align:center;padding:22px;color:#94a3b8;font-style:italic;">
+              No records found for this date and filter.
+            </td>
+          </tr>
+        @endforelse
+      </tbody>
+      <tfoot>
+        @if($direction === 'all')
+
+          {{-- Sub-rows for split view.
+               Value cell spans the last TWO columns (Diff + Value, ≈23%
+               width) instead of one, so large figures don't overflow. --}}
+          <tr class="sub-row">
+            <td colspan="5" class="gt-empty"></td>
+            <td colspan="1" class="gt-label">Value Added</td>
+            <td colspan="2" class="gt-value sub-val-in">{{ number_format($summaryIn, 2) }}</td>
+          </tr>
+          <tr class="sub-row">
+            <td colspan="5" class="gt-empty"></td>
+            <td colspan="1" class="gt-label">Value Removed</td>
+            <td colspan="2" class="gt-value sub-val-out">{{ number_format($summaryOut, 2) }}</td>
+          </tr>
+
+          {{-- Grand-total row --}}
+          @php $net = $summaryIn - $summaryOut; @endphp
+          <tr class="total-row">
+            <td colspan="5" class="gt-empty"></td>
+            <td colspan="1" class="gt-label">Net Value</td>
+            <td colspan="2" class="gt-value">{{ $net >= 0 ? '+' : '-' }}&nbsp;{{ number_format(abs($net), 2) }}</td>
+          </tr>
+
+        @else
+
+          {{-- Single-direction: one grand-total row only --}}
+          <tr class="total-row">
+            <td colspan="5" class="gt-empty"></td>
+            <td colspan="1" class="gt-label">Total Value</td>
+            <td colspan="2" class="gt-value">{{ number_format($totalValue, 2) }}</td>
+          </tr>
+
+        @endif
+      </tfoot>
+    </table>
+  </div>
+
+</div>
+
+<!-- REPEATING FOOTER -->
+<div class="footer-fixed">
+  <div class="footer-inner">
+
+    <!-- FOOTER -->
+    <table class="foot-row">
       <tr>
-        <td>{{ $branch->name ?? '' }} &nbsp;·&nbsp; {{ $dirLabel }} &nbsp;·&nbsp; {{ $formattedDate }}</td>
-        <td class="right">
-          <span class="pg-generated">This document is computer-generated and does not require a physical signature.</span>
-          &nbsp;&nbsp;<span class="pg-num">Page 1 of 1</span>
+        <td class="foot-left">
+          <h5>Notes</h5>
+          <p>This document is computer-generated and does not require a physical signature.</p>
+        </td>
+        <td class="foot-right">
+          <div class="sig-block">Reviewed By</div>
         </td>
       </tr>
     </table>
+
+    <!-- PAGE FOOTER -->
+    <table class="pg-foot">
+      <tr>
+        <td>{{ $branch->name ?? '' }} &nbsp;·&nbsp; {{ $dirLabel }} &nbsp;·&nbsp; Audit Report</td>
+        <td class="pg-right">
+          <span>Generated At: {{ $generatedAt }}</span>
+        </td>
+      </tr>
+    </table>
+
   </div>
+</div>
 
 </body>
 </html>

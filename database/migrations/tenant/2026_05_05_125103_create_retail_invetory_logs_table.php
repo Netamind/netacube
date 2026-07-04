@@ -25,18 +25,7 @@ return new class extends Migration
             $table->decimal('selling_price', 15, 2)->default(0);
             $table->decimal('cost_price', 15, 2)->default(0); // for margin/loss reporting
 
-            // ── Operation Category ────────────────────────────────────────
-            // Classifies WHY the stock moved. UI shows a dropdown; default = Others.
-            //
-            // INBOUND  (+) : StockDelivery, TransferIn, FoundStock,
-            //                ReturnFromCustomer, ProductionIn, OpeningStock
-            //
-            // OUTBOUND (-) : Sale, TransferOut, Damage, Expired,
-            //                Usage, Theft, Wastage, Donation,
-            //                ReturnToSupplier, Recall, Sample,
-            //                WriteOff, Loss
-            //
-            // NEUTRAL  (±) : Adjustment, Recount, Reversal, Others
+        
             $table->enum('operation_type', [
                 // ── Inbound ──────────────────────────────────────────────
                 'StockDelivery',      // goods received from supplier / warehouse

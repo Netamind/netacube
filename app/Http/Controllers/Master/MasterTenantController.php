@@ -11,7 +11,7 @@ use Illuminate\Support\Facades\Artisan;
 use Illuminate\Support\Facades\Log;
 use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
-use Illuminate\Http\UploadedFile; 
+use Illuminate\Http\UploadedFile;
 use Stancl\Tenancy\Facades\Tenancy;
 use App\Services\CpanelService;
 use App\Models\Tenant;
@@ -23,12 +23,14 @@ use Mail;
 class MasterTenantController extends Controller
 {
 
-    public function showTenantsView() { 
+    public function showTenantsView()
+    {
         return view('master.tenants');
-     }
+    }
 
-    public function showTenantDetailsView() { 
-        return view('master.tenant-details'); 
+    public function showTenantDetailsView()
+    {
+        return view('master.tenant-details');
     }
 
     private function getTenantDatabaseName(string $clientCode): string
@@ -37,18 +39,17 @@ class MasterTenantController extends Controller
         $env  = app()->environment();
         if ($env === 'local') {
             return "netacube_{$code}";
-        } else if($env === 'production'){
-           return "premiate_netacube_{$code}";
-        }
-        else{
-             throw new \Exception("Unresolved application environment. Only 'local' and 'production' are allowed.");
+        } else if ($env === 'production') {
+            return "premiate_netacube_{$code}";
+        } else {
+            throw new \Exception("Unresolved application environment. Only 'local' and 'production' are allowed.");
         }
     }
 
     public function approveTenant(Request $request, CpanelService $cpanel = null)
     {
-        $tenantId = $request->id;
-        $clientUrl = $request->client_url;
+        $tenantId     = $request->id;
+        $clientUrl    = $request->client_url;
         $databaseName = $this->getTenantDatabaseName($clientUrl);
 
         if (str_contains($databaseName, "Failed to resolve")) {
@@ -85,12 +86,12 @@ class MasterTenantController extends Controller
         }
 
         $data = [
-            'client_url' => $clientUrl,
-            'data' => $databaseName,
-            'approved_by' => $request->user_id,
-            'approved_at' => Carbon::today()->toDateString(),
-            'next_payment_date' => Carbon::today()->addDays(7)->toDateString(),
-            'status' => 'Approved',
+            'client_url'       => $clientUrl,
+            'data'             => $databaseName,
+            'approved_by'      => $request->user_id,
+            'approved_at'      => Carbon::today()->toDateString(),
+            'next_payment_date'=> Carbon::today()->addDays(7)->toDateString(),
+            'status'           => 'Approved',
         ];
 
         try {
@@ -98,7 +99,7 @@ class MasterTenantController extends Controller
 
             if ($isLocal) {
                 $escapedDbName = DB::connection('mysql')->getPdo()->quote($databaseName);
-                $dbExists = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
+                $dbExists      = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
                 if (!empty($dbExists)) {
                     throw new \Exception('Database ' . $databaseName . ' already exists.');
                 }
@@ -113,7 +114,13 @@ class MasterTenantController extends Controller
                 }
 
                 $dbUser = $databaseName;
-                $dbPassword = "binto2020";
+                // Password is read from .env — never hardcoded in source.
+                // Set TENANT_DB_PASSWORD in your .env file.
+                $dbPassword = env('TENANT_DB_PASSWORD');
+
+                if (empty($dbPassword)) {
+                    throw new \Exception('TENANT_DB_PASSWORD is not set in .env. Cannot create tenant DB user.');
+                }
 
                 $userCreated = $cpanel->createUser($dbUser, $dbPassword);
                 if (!$userCreated['success']) throw new \Exception($userCreated['message']);
@@ -127,6 +134,9 @@ class MasterTenantController extends Controller
 
             DB::beginTransaction();
 
+            // IMPORTANT: purge FIRST, then set config, then reconnect.
+            DB::purge('tenant');
+
             if ($isLocal) {
                 config(['database.connections.tenant.database' => $databaseName]);
             } else {
@@ -136,7 +146,6 @@ class MasterTenantController extends Controller
                     'database.connections.tenant.password' => $dbPassword,
                 ]);
             }
-            DB::purge('tenant');
 
             $tenantModel->data = $databaseName;
             $tenantModel->save();
@@ -169,21 +178,21 @@ class MasterTenantController extends Controller
     public function masterAddTenant(Request $request)
     {
         $data = [
-            'full_name' => $request->full_name,
-            'email' => $request->email,
-            'phone_number' => $request->phone_number,
-            'business_name' => $request->business_name,
-            'client_url' => $request->email,
+            'full_name'         => $request->full_name,
+            'email'             => $request->email,
+            'phone_number'      => $request->phone_number,
+            'business_name'     => $request->business_name,
+            'client_url'        => $request->email,
             'subscription_plan' => $request->subscription_plan,
-            'created_at' => now(),
-            'updated_at' => now(),
+            'created_at'        => now(),
+            'updated_at'        => now(),
         ];
 
         $validator = $request->validate([
-            'full_name' => 'required|string|max:255',
-            'email' => 'required|email|max:255|unique:tenants,email',
-            'phone_number' => 'required|string|max:20|unique:tenants,phone_number',
-            'business_name' => 'required|string|max:255',
+            'full_name'         => 'required|string|max:255',
+            'email'             => 'required|email|max:255|unique:tenants,email',
+            'phone_number'      => 'required|string|max:20|unique:tenants,phone_number',
+            'business_name'     => 'required|string|max:255',
             'subscription_plan' => 'required|integer|exists:subscription_plans,id',
         ]);
 
@@ -191,22 +200,22 @@ class MasterTenantController extends Controller
             $insertId = DB::table('tenants')->insertGetId($data);
             if ($insertId) {
                 $tenant = DB::table('tenants')->where('id', $insertId)->first();
-                $plan = DB::table('subscription_plans')->where('id', $tenant->subscription_plan)->first();
+                $plan   = DB::table('subscription_plans')->where('id', $tenant->subscription_plan)->first();
 
                 return response()->json([
                     'success' => 'Tenant added successfully.',
-                    'status' => 201,
-                    'tenant' => [
-                        'id' => $tenant->id,
-                        'full_name' => $tenant->full_name,
-                        'business_name' => $tenant->business_name,
-                        'email' => $tenant->email,
+                    'status'  => 201,
+                    'tenant'  => [
+                        'id'           => $tenant->id,
+                        'full_name'    => $tenant->full_name,
+                        'business_name'=> $tenant->business_name,
+                        'email'        => $tenant->email,
                         'phone_number' => $tenant->phone_number,
-                        'status' => $tenant->status,
+                        'status'       => $tenant->status,
                         'next_payment_date' => $tenant->next_payment_date ?? 'NA',
-                        'plan_name' => $plan->plan_name ?? '',
-                        'plan_period' => $plan->plan_period ?? '',
-                        'plan_amount' => $plan->plan_amount ?? '',
+                        'plan_name'    => $plan->plan_name ?? '',
+                        'plan_period'  => $plan->plan_period ?? '',
+                        'plan_amount'  => $plan->plan_amount ?? '',
                     ],
                 ]);
             } else {
@@ -217,23 +226,22 @@ class MasterTenantController extends Controller
         }
     }
 
-
     public function updateTenantDetails(Request $request)
     {
         $data = [
-            'full_name' => $request->full_name,
-            'email' => $request->email,
-            'phone_number' => $request->phone_number,
-            'business_name' => $request->business_name,
-            'physical_address' => $request->physical_address,
-            'postal_address' => $request->postal_address,
+            'full_name'       => $request->full_name,
+            'email'           => $request->email,
+            'phone_number'    => $request->phone_number,
+            'business_name'   => $request->business_name,
+            'physical_address'=> $request->physical_address,
+            'postal_address'  => $request->postal_address,
         ];
 
         $validator = $request->validate([
-            'id' => 'required|integer|exists:tenants,id',
-            'full_name' => 'required|max:255',
-            'email' => 'required|email|max:255|unique:tenants,email,' . $request->id,
-            'phone_number' => 'required|max:255|unique:tenants,phone_number,' . $request->id,
+            'id'            => 'required|integer|exists:tenants,id',
+            'full_name'     => 'required|max:255',
+            'email'         => 'required|email|max:255|unique:tenants,email,' . $request->id,
+            'phone_number'  => 'required|max:255|unique:tenants,phone_number,' . $request->id,
             'business_name' => 'required|max:255',
         ]);
 
@@ -249,130 +257,123 @@ class MasterTenantController extends Controller
         }
     }
 
+    public function deleteTenant(Request $request, CpanelService $cpanel = null)
+    {
+        $validator = $request->validate([
+            'id' => 'required|integer|exists:tenants,id',
+        ]);
 
-public function deleteTenant(Request $request, CpanelService $cpanel = null)
-{
-    $validator = $request->validate([
-        'id' => 'required|integer|exists:tenants,id',
-    ]);
+        if ($validator) {
+            $tenantModel = DB::table('tenants')->where('id', $request->id)->first();
 
-    if ($validator) {
-        $tenantModel = DB::table('tenants')->where('id', $request->id)->first();
+            if (!$tenantModel) {
+                return response()->json(['error' => 'Tenant not found.', 'status' => 404]);
+            }
 
-        if (!$tenantModel) {
-            return response()->json(['error' => 'Tenant not found.', 'status' => 404]);
-        }
+            $databaseName = $tenantModel->data;
 
-        $databaseName = $tenantModel->data;
+            try {
+                $isLocal = app()->environment('local');
 
-        try {
-            $isLocal = app()->environment('local');
-
-            if ($databaseName) {
-                if ($isLocal) {
-                    DB::connection('mysql')->statement("DROP DATABASE IF EXISTS `$databaseName`");
-                } else {
-                    if ($cpanel && $cpanel->databaseExists($databaseName)) {
-                        $cpanel->deleteDatabase($databaseName);
-                        $cpanel->deleteUser($databaseName);
+                if ($databaseName) {
+                    if ($isLocal) {
+                        DB::connection('mysql')->statement("DROP DATABASE IF EXISTS `$databaseName`");
+                    } else {
+                        if ($cpanel && $cpanel->databaseExists($databaseName)) {
+                            $cpanel->deleteDatabase($databaseName);
+                            $cpanel->deleteUser($databaseName);
+                        }
                     }
                 }
+
+                DB::beginTransaction();
+                $deleted = DB::table('tenants')->where('id', $request->id)->delete();
+                DB::commit();
+
+                if ($deleted) {
+                    return response()->json(['success' => 'Tenant deleted successfully.', 'status' => 201]);
+                } else {
+                    return response()->json(['error' => 'An error occurred, tenant could not be deleted.', 'status' => 409]);
+                }
+
+            } catch (\Exception $e) {
+                DB::rollBack();
+                return response()->json(['errors' => [$e->getMessage()], 'status' => 500]);
             }
 
-            DB::beginTransaction();
-            $deleted = DB::table('tenants')->where('id', $request->id)->delete();
-            DB::commit();
+        } else {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+        }
+    }
 
-            if ($deleted) {
-                return response()->json(['success' => 'Tenant deleted successfully.', 'status' => 201]);
+    public function toggleTenantHold(Request $request)
+    {
+        $validator = $request->validate([
+            'id' => 'required|integer|exists:tenants,id',
+        ]);
+
+        if ($validator) {
+            $tenant    = DB::table('tenants')->where('id', $request->id)->first();
+            $newStatus = $tenant->put_on_hold === 'Yes' ? 'No' : 'Yes';
+
+            $updated = DB::table('tenants')->where('id', $request->id)->update([
+                'put_on_hold' => $newStatus,
+            ]);
+
+            if ($updated) {
+                $message = $newStatus === 'Yes' ? 'Tenant has been put on hold.' : 'Tenant hold has been removed.';
+                return response()->json(['success' => $message, 'status' => 201, 'put_on_hold' => $newStatus]);
             } else {
-                return response()->json(['error' => 'An error occurred, tenant could not be deleted.', 'status' => 409]);
+                return response()->json(['error' => 'No change detected.', 'status' => 409]);
             }
-
-        } catch (\Exception $e) {
-            DB::rollBack();
-            return response()->json(['errors' => [$e->getMessage()], 'status' => 500]);
+        } else {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
-
-    } else {
-        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
     }
-}
 
-
-
-public function toggleTenantHold(Request $request)
-{
-    $validator = $request->validate([
-        'id' => 'required|integer|exists:tenants,id',
-    ]);
-
-    if ($validator) {
-        $tenant = DB::table('tenants')->where('id', $request->id)->first();
-        $newStatus = $tenant->put_on_hold === 'Yes' ? 'No' : 'Yes';
-
-        $updated = DB::table('tenants')->where('id', $request->id)->update([
-            'put_on_hold' => $newStatus,
+    public function updatePaymentDates(Request $request)
+    {
+        $validator = $request->validate([
+            'id'                => 'required|integer|exists:tenants,id',
+            'last_payment_date' => 'required|date',
+            'next_payment_date' => 'required|date|after:last_payment_date',
         ]);
 
-        if ($updated) {
-            $message = $newStatus === 'Yes' ? 'Tenant has been put on hold.' : 'Tenant hold has been removed.';
-            return response()->json(['success' => $message, 'status' => 201, 'put_on_hold' => $newStatus]);
+        if ($validator) {
+            $updated = DB::table('tenants')->where('id', $request->id)->update([
+                'last_payment_date' => $request->last_payment_date,
+                'next_payment_date' => $request->next_payment_date,
+            ]);
+
+            if ($updated) {
+                return response()->json(['success' => 'Payment dates updated successfully.', 'status' => 201]);
+            } else {
+                return response()->json(['error' => 'No change detected.', 'status' => 409]);
+            }
         } else {
-            return response()->json(['error' => 'No change detected.', 'status' => 409]);
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
-    } else {
-        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
     }
-}
 
-public function updatePaymentDates(Request $request)
-{
-    $validator = $request->validate([
-        'id'                => 'required|integer|exists:tenants,id',
-        'last_payment_date' => 'required|date',
-        'next_payment_date' => 'required|date|after:last_payment_date',
-    ]);
-
-    if ($validator) {
-        $updated = DB::table('tenants')->where('id', $request->id)->update([
-            'last_payment_date' => $request->last_payment_date,
-            'next_payment_date' => $request->next_payment_date,
+    public function updateSubscriptionPlan(Request $request)
+    {
+        $validator = $request->validate([
+            'id'                => 'required|integer|exists:tenants,id',
+            'subscription_plan' => 'required|integer|exists:subscription_plans,id',
         ]);
 
-        if ($updated) {
-            return response()->json(['success' => 'Payment dates updated successfully.', 'status' => 201]);
+        if ($validator) {
+            $updated = DB::table('tenants')->where('id', $request->id)->update([
+                'subscription_plan' => $request->subscription_plan,
+            ]);
+
+            if ($updated) {
+                return response()->json(['success' => 'Subscription plan updated successfully.', 'status' => 201]);
+            } else {
+                return response()->json(['error' => 'No change detected.', 'status' => 409]);
+            }
         } else {
-            return response()->json(['error' => 'No change detected.', 'status' => 409]);
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
-    } else {
-        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
     }
-}
-
-public function updateSubscriptionPlan(Request $request)
-{
-    $validator = $request->validate([
-        'id'                  => 'required|integer|exists:tenants,id',
-        'subscription_plan'   => 'required|integer|exists:subscription_plans,id',
-    ]);
-
-    if ($validator) {
-        $updated = DB::table('tenants')->where('id', $request->id)->update([
-            'subscription_plan' => $request->subscription_plan,
-        ]);
-
-        if ($updated) {
-            return response()->json(['success' => 'Subscription plan updated successfully.', 'status' => 201]);
-        } else {
-            return response()->json(['error' => 'No change detected.', 'status' => 409]);
-        }
-    } else {
-        return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
-    }
-}
-
-
-
-
 }

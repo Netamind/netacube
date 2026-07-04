@@ -183,7 +183,6 @@
                         <input type="text" name="hp_field_a" id="hp_field_a" autocomplete="new-password" tabindex="-1">
                         <input type="text" name="hp_field_b" id="hp_field_b" autocomplete="new-password" tabindex="-1">
                     </div>
-                    <input type="hidden" name="form_loaded_at" id="formLoadedAt" value="">
 
                     <div class="field-row">
                         <div class="field-group">
@@ -295,7 +294,6 @@
 $(function() {
 
     toastr.options = { closeButton: true, progressBar: true, timeOut: 6000 };
-    document.getElementById('formLoadedAt').value = Date.now();
 
     // Defensive: force-clear honeypot fields shortly after load, in case a
     // browser extension or autofill still manages to populate them before
@@ -336,18 +334,11 @@ $(function() {
         var plan  = $('input[name="subscription_plan"]:checked').val();
 
         // Note: honeypot fields are still collected and sent to the server,
-        // but we no longer block on them in the browser — some password
+        // but we don't block on them in the browser — some password
         // manager extensions auto-fill hidden inputs regardless of name or
         // autocomplete attribute, which was causing false positives for
-        // real visitors. The timing check below and the maths check on
-        // step 2 are the front-end bot defenses that actually run here.
-
-        // A genuine visitor takes a moment to read the form before submitting.
-        var loadedAt = parseInt(document.getElementById('formLoadedAt').value) || 0;
-        if (loadedAt && (Date.now() - loadedAt) < 4000) {
-            toastr.warning('Please take a moment to review your details before continuing.', 'Hold on');
-            return false;
-        }
+        // real visitors. The maths check on step 2 is the front-end bot
+        // defense that actually runs here.
 
         if (!name)  { showError('full_name', 'Full name is required.'); ok = false; }
         if (!phone) { showError('phone_number', 'Phone number is required.'); ok = false; }
@@ -418,7 +409,6 @@ $(function() {
                 full_name: $('#full_name').val(), phone_number: $('#phone_number').val(),
                 email: $('#email').val(), business_name: $('#business_name').val(),
                 subscription_plan: $('input[name="subscription_plan"]:checked').val(),
-                form_loaded_at: $('#formLoadedAt').val(),
                 website: $('#hp_field_a').val(), company_url: $('#hp_field_b').val(),
                 _token: '{{ csrf_token() }}'
             },

@@ -1,57 +1,60 @@
 @extends('operations.retail.dashboard')
 @section('content')
-
 @php
     $pref       = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
     $categories = DB::connection('tenant')->table('categories')->orderBy('category')->get();
 
     $selectedCategory = null;
-    $branches         = collect();
-    $branchValueRows  = collect();
-    $totalShopValue   = 0;
-    $totalProducts    = 0;
-
     if ($pref && $pref->category_id) {
         $selectedCategory = DB::connection('tenant')
             ->table('categories')
             ->where('id', $pref->category_id)
             ->first();
+    }
 
-        if ($selectedCategory) {
-            $branches = DB::connection('tenant')
-                ->table('branches')
-                ->where('sector',   'Retail')
-                ->where('category', (string) $selectedCategory->id)
-                ->where('status',   'active')
-                ->orderBy('name')
-                ->get();
+    // Branches: sector = Retail always. Category filter only applied if one is selected.
+    $branchesQuery = DB::connection('tenant')
+        ->table('branches')
+        ->where('sector', 'Retail')
+        ->where('status', 'active');
 
-            foreach ($branches as $branch) {
-                $products = DB::connection('tenant')
-                    ->table('retail_branch_products as rbp')
-                    ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
-                    ->where('rbp.branch_id', $branch->id)
-                    ->select('rbp.selling_price', 'rbp.stock_quantity', 'rbp.is_active')
-                    ->get();
+    if ($selectedCategory) {
+        $branchesQuery->where('category', (string) $selectedCategory->id);
+    }
 
-                $shopValue       = $products->sum(fn($p) => (float)$p->selling_price * (float)$p->stock_quantity);
-                $totalShopValue += $shopValue;
-                $totalProducts  += $products->count();
+    $branches        = $branchesQuery->orderBy('name')->get();
+    $branchValueRows = collect();
+    $totalShopValue  = 0;
+    $totalProducts   = 0;
 
-                $lowStock  = $products->filter(fn($p) => (float)$p->stock_quantity > 0 && (float)$p->stock_quantity <= 5)->count();
-                $zeroStock = $products->filter(fn($p) => (float)$p->stock_quantity <= 0)->count();
+    foreach ($branches as $branch) {
+        $products = DB::connection('tenant')
+            ->table('retail_branch_products as rbp')
+            ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
+            ->where('rbp.branch_id', $branch->id)
+            ->select('rbp.selling_price', 'bp.selling_price as bp_sell', 'rbp.stock_quantity', 'rbp.is_active')
+            ->get();
 
-                $branchValueRows->push((object)[
-                    'id'         => $branch->id,
-                    'name'       => $branch->name,
-                    'shop_value' => $shopValue,
-                    'products'   => $products->count(),
-                    'active'     => $products->where('is_active', 1)->count(),
-                    'low_stock'  => $lowStock,
-                    'zero_stock' => $zeroStock,
-                ]);
-            }
-        }
+        $shopValue = $products->sum(function ($p) {
+            $price = $p->selling_price !== null ? (float) $p->selling_price : (float) $p->bp_sell;
+            return $price * (float) $p->stock_quantity;
+        });
+
+        $totalShopValue += $shopValue;
+        $totalProducts  += $products->count();
+
+        $lowStock  = $products->filter(fn($p) => (float) $p->stock_quantity > 0 && (float) $p->stock_quantity <= 5)->count();
+        $zeroStock = $products->filter(fn($p) => (float) $p->stock_quantity <= 0)->count();
+
+        $branchValueRows->push((object)[
+            'id'         => $branch->id,
+            'name'       => $branch->name,
+            'shop_value' => $shopValue,
+            'products'   => $products->count(),
+            'active'     => $products->where('is_active', 1)->count(),
+            'low_stock'  => $lowStock,
+            'zero_stock' => $zeroStock,
+        ]);
     }
 @endphp
 

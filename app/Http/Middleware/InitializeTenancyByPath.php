@@ -6,6 +6,7 @@ use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\URL;
 use App\Models\Tenant;
+
 class InitializeTenancyByPath
 {
     public function handle(Request $request, Closure $next)
@@ -19,19 +20,21 @@ class InitializeTenancyByPath
                 'response' => "Invalid url  '{$tenantName}' make sure you type client name correctly ",
             ], 404)->throwResponse();
         }
+
         // Lookup tenant
         $tenant = Tenant::where('client_url', $tenantName)->first();
-        
+
         if (!$tenant) {
             return response()->view('tenants.errors.not-found', [
                 'response' => "url not found try again and ensure you type everything correctly or contact system administrator",
             ], 404)->throwResponse();
         }
+
         $tenantDatabase = $tenant->data;
         if (!$tenantDatabase) {
             Log::error('Tenant database not configured', [
                 'tenantName' => $tenantName,
-                'data' => $tenant->data,
+                'data'       => $tenant->data,
             ]);
             return response()->view('tenants.errors.not-found', [
                 'message' => "Tenant '{$tenantName}' database not configured",
@@ -50,60 +53,59 @@ class InitializeTenancyByPath
         // connection the app needs to succeed for the request to work.
         $isLocal = app()->environment('local');
 
+        // IMPORTANT: purge FIRST, then set config, then reconnect.
+        // Purging after config() risks a window where the old open connection
+        // still holds stale credentials before the new config takes effect.
+        DB::purge('tenant');
+
         if ($isLocal) {
             config(['database.connections.tenant.database' => $tenantDatabase]);
         } else {
             if (empty($tenant->db_user)) {
                 Log::error('Tenant db_user not configured for non-local environment', [
                     'tenantName' => $tenantName,
-                    'database' => $tenantDatabase,
+                    'database'   => $tenantDatabase,
                 ]);
                 return response()->view('tenants.errors.not-found', [
                     'response' => "Database not found for client '{$tenantName}' contact support for assistance ",
                 ], 404)->throwResponse();
             }
 
-            // NOTE: matches the hardcoded password used in
-            // MasterApproveTenantController when the cPanel DB user was created.
-            // TODO: replace with a securely stored per-tenant password
-            // (see Option B discussed) once this is migrated off a shared constant.
             config([
                 'database.connections.tenant.host'     => env('TENANT_DB_HOST', config('database.connections.mysql.host')),
                 'database.connections.tenant.database' => $tenantDatabase,
                 'database.connections.tenant.username' => $tenant->db_user,
-                'database.connections.tenant.password' => 'binto2020',
+                'database.connections.tenant.password' => env('TENANT_DB_PASSWORD'),
             ]);
         }
-
-        DB::purge('tenant');
 
         try {
             DB::connection('tenant')->getPdo(); // Real connection attempt = real existence + access check
         } catch (\Exception $e) {
             Log::error('Tenant database connection failed', [
                 'tenantName' => $tenantName,
-                'database' => $tenantDatabase,
-                'error' => $e->getMessage(),
+                'database'   => $tenantDatabase,
+                'error'      => $e->getMessage(),
             ]);
             return response()->view('tenants.errors.not-found', [
-             'response' => "Database not found for client '{$tenantName}' contact support for assistance ",
+                'response' => "Database not found for client '{$tenantName}' contact support for assistance ",
             ], 404)->throwResponse();
         }
 
         // Check tenant status
         if ($tenant->status === 'Pending') {
             return response()->view('tenants.errors.pending-tenant', [
-            'response' => "Client '{$tenantName}' Not configured to use the system contact support for assistance",
+                'response' => "Client '{$tenantName}' Not configured to use the system contact support for assistance",
             ], 404)->throwResponse();
         }
         if ($tenant->status !== 'Approved') {
             return response()->view('tenants.errors.invalid-status', [
-            'response' => "Invalid status for client '{$tenantName}' contact support for assistance",
-            ], 404)->throwResponse(); 
+                'response' => "Invalid status for client '{$tenantName}' contact support for assistance",
+            ], 404)->throwResponse();
         }
         if ($tenant->put_on_hold === 'Yes') {
             return response()->view('tenants.errors.suspended-tenant', [
-            'response' => "Client '{$tenantName}' is suspended contact support for assistance",
+                'response' => "Client '{$tenantName}' is suspended contact support for assistance",
             ], 404)->throwResponse();
         }
 

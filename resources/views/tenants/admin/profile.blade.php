@@ -475,7 +475,7 @@ $(function () {
 
         $.ajax({
             type:    'POST',
-            url:     '{{ route("master.update.profile.info") }}',
+            url:     '{{ route("tenant.admin.update.profile.info") }}',
             data:    $('#profileDataForm').serialize(),
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },
@@ -518,7 +518,7 @@ $(function () {
 
         $.ajax({
             type:    'POST',
-            url:     '{{ route("master.profile.change.password") }}',
+            url:     '{{ route("tenant.admin.profile.change.password") }}',
             data:    $('#changePasswordForm').serialize(),
             timeout: 60000,
             beforeSend: function () { $('#progressBar').show(); },

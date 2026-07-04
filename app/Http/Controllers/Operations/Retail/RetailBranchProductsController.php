@@ -30,7 +30,7 @@ class RetailBranchProductsController extends Controller
         return DB::connection('tenant')
             ->table('retail_base_products')
             ->where('id', $baseProductId)
-            ->first(['id', 'name', 'code', 'unit', 'supplier', 'selling_price', 'cost_price']);
+            ->first();
     }
 
     private function fetchBaseProductsMap(array $baseProductIds): array
@@ -67,9 +67,6 @@ class RetailBranchProductsController extends Controller
         $bpSell = $bp->bp_sell ?? null;
         $bpCost = $bp->bp_cost ?? null;
 
-        // A branch price override exists whenever selling_price / cost_price
-        // is non-null in the branch_products row — regardless of whether the
-        // stored value happens to equal the base catalogue price.
         $sellIsBranch = ($bp->selling_price !== null);
         $costIsBranch = ($bp->cost_price    !== null);
 
@@ -112,10 +109,6 @@ class RetailBranchProductsController extends Controller
         return $this->mergeWithBase($branchRow, $base ?? (object) []);
     }
 
-    /**
-     * Fetch + format many branch products by id, chunked, preserving the
-     * original id order on output.
-     */
     private function fetchBranchProductsFormatted(array $ids): array
     {
         if (empty($ids)) return [];
@@ -164,11 +157,6 @@ class RetailBranchProductsController extends Controller
             ->first();
     }
 
-    /**
-     * Bulk-fetch base products in-category for a whole batch of names at
-     * once (1 query instead of N), keyed by lower(trim(name)) for O(1)
-     * lookup while processing CSV chunks.
-     */
     private function findBaseProductsInCategoryBulk(array $names, int $categoryId): array
     {
         if (empty($names)) return [];
@@ -195,6 +183,7 @@ class RetailBranchProductsController extends Controller
     private function purifyNumber($value): ?float
     {
         if ($value === null) return null;
+        // Strip commas/spaces used as thousand separators, keep digits and dot
         $value = preg_replace('/[^0-9.\-]/', '', (string) $value);
         return $value === '' ? null : (float) $value;
     }
@@ -277,10 +266,6 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    /**
-     * Bulk insert of inventory log rows. Used by chunked bulk operations so
-     * we issue one insert per chunk instead of one insert per row.
-     */
     private function logStockChangesBulk(array $entries): void
     {
         if (empty($entries)) return;
@@ -364,9 +349,6 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    /**
-     * Bulk insert of price-change log rows (chunked).
-     */
     private function logPriceChangesBulk(array $entries, int $branchId): void
     {
         if (empty($entries)) return;
@@ -527,8 +509,6 @@ class RetailBranchProductsController extends Controller
         $request->validate([
             'branch_id'            => 'required|integer|exists:tenant.branches,id',
             'base_product_id'      => 'required|integer|exists:tenant.retail_base_products,id',
-            'selling_price'        => 'nullable|numeric|min:0',
-            'cost_price'           => 'nullable|numeric|min:0',
             'stock_quantity'       => 'nullable|numeric|min:0',
             'reorder_point'        => 'nullable|numeric|min:0',
             'reorder_quantity'     => 'nullable|numeric|min:0',
@@ -541,15 +521,8 @@ class RetailBranchProductsController extends Controller
             'is_active'            => 'nullable|boolean',
         ]);
 
-        $base = $this->fetchBaseProduct((int) $request->base_product_id);
-
-        $sellPrice = ($request->selling_price !== null && $request->selling_price !== '')
-            ? (float) $request->selling_price
-            : (float) ($base->selling_price ?? 0);
-
-        $costPrice = ($request->cost_price !== null && $request->cost_price !== '')
-            ? (float) $request->cost_price
-            : (float) ($base->cost_price ?? 0);
+        $base   = $this->fetchBaseProduct((int) $request->base_product_id);
+        $newQty = (float) ($request->stock_quantity ?? 0);
 
         $existing = DB::connection('tenant')
             ->table('retail_branch_products')
@@ -557,32 +530,19 @@ class RetailBranchProductsController extends Controller
             ->where('base_product_id', $request->base_product_id)
             ->first();
 
-        $newQty = (float) ($request->stock_quantity ?? 0);
-
-        $sharedData = [
-            'selling_price'        => $sellPrice,
-            'cost_price'           => ($request->cost_price !== null && $request->cost_price !== '') ? $request->cost_price : null,
-            'reorder_point'        => $request->reorder_point ?? 0,
-            'reorder_quantity'     => ($request->reorder_quantity !== null && $request->reorder_quantity !== '') ? $request->reorder_quantity : null,
-            'max_stock'            => ($request->max_stock        !== null && $request->max_stock        !== '') ? $request->max_stock        : null,
-            'primary_barcode'      => $request->primary_barcode ? trim($request->primary_barcode) : null,
-            'batch_number'         => $request->batch_number    ? trim($request->batch_number)    : null,
-            'expiry_date'          => $request->expiry_date     ?: null,
-            'track_stock'          => (int) ($request->track_stock          ?? 1),
-            'allow_negative_stock' => (int) ($request->allow_negative_stock ?? 0),
-            'is_active'            => (int) ($request->is_active            ?? 1),
-            'updated_at'           => now(),
-        ];
-
         if ($existing) {
             $oldQty    = (float) $existing->stock_quantity;
             $mergedQty = $oldQty + $newQty;
 
-            $sharedData['stock_quantity'] = $mergedQty;
             DB::connection('tenant')->table('retail_branch_products')
-                ->where('id', $existing->id)->update($sharedData);
+                ->where('id', $existing->id)
+                ->update([
+                    'stock_quantity' => $mergedQty,
+                    'updated_at'     => now(),
+                ]);
 
-            $branchProductId = $existing->id;
+            $logSell = (float) ($existing->selling_price ?? $base->selling_price ?? 0);
+            $logCost = (float) ($existing->cost_price    ?? $base->cost_price    ?? 0);
 
             $this->logStockChange(
                 baseProductId: (int) $request->base_product_id,
@@ -593,44 +553,57 @@ class RetailBranchProductsController extends Controller
                 reason:        $newQty >= 0.0001
                     ? 'Stock increased via add-to-branch (added ' . $newQty . ' to existing ' . $oldQty . ')'
                     : 'Product re-added to branch (stock unchanged)',
-                sellingPrice:  $sellPrice,
-                costPrice:     $costPrice,
+                sellingPrice:  $logSell,
+                costPrice:     $logCost,
             );
-        } else {
-            $insertData = array_merge($sharedData, [
-                'branch_id'       => $request->branch_id,
-                'base_product_id' => $request->base_product_id,
-                'stock_quantity'  => $newQty,
-                'created_at'      => now(),
-            ]);
 
-            $branchProductId = DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->insertGetId($insertData);
-
-            $this->logStockChange(
-                baseProductId: (int) $request->base_product_id,
-                branchId:      (int) $request->branch_id,
-                stockBefore:   0,
-                stockAfter:    $newQty,
-                operationType: 'OpeningStock',
-                reason:        'Product added to branch'
-                    . ($newQty > 0 ? ' with quantity of ' . $newQty : ' (zero quantity)'),
-                sellingPrice:  $sellPrice,
-                costPrice:     $costPrice,
-            );
-        }
-
-        if ($branchProductId) {
-            $bp = $this->fetchBranchProduct($branchProductId);
+            $bp = $this->fetchBranchProduct($existing->id);
             return response()->json([
-                'success' => $existing ? 'Branch product updated.' : 'Product added to branch successfully.',
+                'success' => 'Branch product updated.',
                 'status'  => 201,
                 'product' => $this->formatBranchProduct($bp),
             ]);
         }
 
-        return response()->json(['error' => 'Failed to save branch product.', 'status' => 500]);
+        $branchProductId = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->insertGetId([
+                'branch_id'            => $request->branch_id,
+                'base_product_id'      => $request->base_product_id,
+                'selling_price'        => null,
+                'cost_price'           => null,
+                'stock_quantity'       => $newQty,
+                'reorder_point'        => $request->reorder_point ?? 0,
+                'reorder_quantity'     => ($request->reorder_quantity !== null && $request->reorder_quantity !== '') ? $request->reorder_quantity : null,
+                'max_stock'            => ($request->max_stock !== null && $request->max_stock !== '') ? $request->max_stock : null,
+                'primary_barcode'      => $request->primary_barcode ? trim($request->primary_barcode) : null,
+                'batch_number'         => $request->batch_number    ? trim($request->batch_number)    : null,
+                'expiry_date'          => $request->expiry_date     ?: null,
+                'track_stock'          => (int) ($request->track_stock          ?? 1),
+                'allow_negative_stock' => (int) ($request->allow_negative_stock ?? 0),
+                'is_active'            => (int) ($request->is_active            ?? 1),
+                'created_at'           => now(),
+                'updated_at'           => now(),
+            ]);
+
+        $this->logStockChange(
+            baseProductId: (int) $request->base_product_id,
+            branchId:      (int) $request->branch_id,
+            stockBefore:   0,
+            stockAfter:    $newQty,
+            operationType: 'OpeningStock',
+            reason:        'Product added to branch (using base catalogue price)'
+                . ($newQty > 0 ? ' with quantity of ' . $newQty : ' (zero quantity)'),
+            sellingPrice:  (float) ($base->selling_price ?? 0),
+            costPrice:     (float) ($base->cost_price    ?? 0),
+        );
+
+        $bp = $this->fetchBranchProduct($branchProductId);
+        return response()->json([
+            'success' => 'Product added to branch successfully.',
+            'status'  => 201,
+            'product' => $this->formatBranchProduct($bp),
+        ]);
     }
 
     // ── Update ────────────────────────────────────────────────────────────
@@ -652,6 +625,7 @@ class RetailBranchProductsController extends Controller
             'allow_negative_stock' => 'nullable|boolean',
             'is_active'            => 'nullable|boolean',
             'price_change_reason'  => 'nullable|string|max:255',
+            'stock_change_reason'  => 'nullable|string|max:500',
         ]);
 
         $current = DB::connection('tenant')
@@ -665,6 +639,8 @@ class RetailBranchProductsController extends Controller
 
         $base = $this->fetchBaseProduct((int) $current->base_product_id);
 
+        // Selling price for the log snapshot: use the new branch price if set,
+        // otherwise fall back to the base catalogue price.
         $sellPrice = ($request->selling_price !== null && $request->selling_price !== '')
             ? (float) $request->selling_price
             : (float) ($base->selling_price ?? 0);
@@ -677,7 +653,8 @@ class RetailBranchProductsController extends Controller
         $newQty       = $request->stock_quantity !== null ? (float) $request->stock_quantity : $oldQty;
         $oldSellPrice = (float) ($current->selling_price ?? $base->selling_price ?? 0);
 
-        // selling_price = null means revert to base
+        // NULL means "use base catalogue" — only store a value when the user
+        // explicitly chose the branch-override price source.
         $storeSellPrice = ($request->selling_price !== null && $request->selling_price !== '')
             ? (float) $request->selling_price
             : null;
@@ -701,13 +678,19 @@ class RetailBranchProductsController extends Controller
         DB::connection('tenant')->table('retail_branch_products')
             ->where('id', $request->id)->update($data);
 
+        // Build the stock-change log reason: use the user-supplied reason when
+        // provided, otherwise fall back to a sensible default.
+        $stockReason = ($request->stock_change_reason && trim($request->stock_change_reason) !== '')
+            ? trim($request->stock_change_reason)
+            : 'Manual stock update via branch product edit';
+
         $this->logStockChange(
             baseProductId: (int) $current->base_product_id,
             branchId:      (int) $current->branch_id,
             stockBefore:   $oldQty,
             stockAfter:    $newQty,
             operationType: 'Adjustment',
-            reason:        'Manual stock update via branch product edit',
+            reason:        $stockReason,
             sellingPrice:  $sellPrice,
             costPrice:     $costPrice,
         );
@@ -720,7 +703,7 @@ class RetailBranchProductsController extends Controller
             productName:   $base->name ?? '',
             productCode:   $base->code ?? null,
             productUnit:   $base->unit ?? 'Each',
-            reason:        $request->price_change_reason ? trim($request->price_change_reason) : null,
+            reason:        $request->price_change_reason ? trim($request->price_change_reason) : $stockReason,
         );
 
         $bp = $this->fetchBranchProduct((int) $request->id);
@@ -731,7 +714,7 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    // ── Bulk set branch prices (chunked) ───────────────────────────────────
+    // ── Bulk set branch prices ─────────────────────────────────────────────
 
     public function bulkSetBranchPrices(Request $request)
     {
@@ -772,10 +755,6 @@ class RetailBranchProductsController extends Controller
                 $oldSellPrice = (float) ($current->selling_price ?? $base->selling_price ?? 0);
                 $newSellPrice = $price ?? (float) ($base->selling_price ?? 0);
 
-                // Only update rows where a price was explicitly provided.
-                // A null price means the JS left the input blank — skip it
-                // entirely so we do not accidentally clear an existing
-                // branch price override.
                 if ($price === null) {
                     continue;
                 }
@@ -812,7 +791,7 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    // ── Bulk use base prices (chunked) ──────────────────────────────────────
+    // ── Bulk use base prices ───────────────────────────────────────────────
 
     public function bulkUseBasePrices(Request $request)
     {
@@ -857,7 +836,6 @@ class RetailBranchProductsController extends Controller
                 $branchIdForLog = $branchIdForLog ?? $row->branch_id;
             }
 
-            // One update statement clears the whole chunk at once.
             DB::connection('tenant')->table('retail_branch_products')
                 ->whereIn('id', $idsChunk)
                 ->update(['selling_price' => null, 'updated_at' => now()]);
@@ -917,7 +895,7 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
-    // ── Bulk delete (chunked) ───────────────────────────────────────────────
+    // ── Bulk delete ────────────────────────────────────────────────────────
 
     public function bulkDeleteBranchproducts(Request $request)
     {
@@ -975,19 +953,8 @@ class RetailBranchProductsController extends Controller
         return response()->json(['error' => 'No branch products found.', 'status' => 404]);
     }
 
-    // ── CSV Upload + Import (fully chunked, silent upsert, no matching UI) ─
+    // ── CSV Upload + Import ────────────────────────────────────────────────
 
-    /**
-     * Validates and stores the uploaded CSV, then immediately processes the
-     * whole file server-side in chunks (no per-row AJAX loop from the
-     * client). Designed to comfortably handle ~2000+ rows in one request:
-     * - CSV is parsed once into memory-light arrays.
-     * - Existing-product lookups, branch-product lookups, inserts and
-     *   updates are all done in chunks via whereIn()/insert() rather than
-     *   row-by-row queries.
-     * - The response only reports totals; it does not expose per-row
-     *   "matched vs new" detail to the client UI.
-     */
     public function uploadBranchproductsCsv(Request $request)
     {
         $request->validate([
@@ -1016,7 +983,7 @@ class RetailBranchProductsController extends Controller
             ]);
         }
 
-        // ── Parse CSV ────────────────────────────────────────────────────
+        // ── Parse CSV ──────────────────────────────────────────────────────
         $raw = file_get_contents($request->file('csv_file')->getRealPath());
         $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw);
         $raw = str_replace(["\r\n", "\r"], "\n", $raw);
@@ -1069,21 +1036,31 @@ class RetailBranchProductsController extends Controller
 
         $result = $this->processCsvRowsChunked($clean, $branchId, $branchCategory, $supplier);
 
+        $processed  = $result['created'] + $result['updated'];
+        $total      = count($clean);
+
+        $successMsg = "Import complete — {$processed} of {$total} row(s) saved.";
+        if ($result['updated'] > 0) {
+            $successMsg .= " ({$result['created']} new, {$result['updated']} stock updated)";
+        }
+
         return response()->json([
             'status'        => 200,
-            'success'       => "Import complete — {$result['processed']} of " . count($clean) . ' row(s) saved.',
-            'row_count'     => count($clean),
+            'success'       => $successMsg,
+            'row_count'     => $total,
             'created_count' => $result['created'],
             'updated_count' => $result['updated'],
             'skipped_count' => $result['skipped'],
+            'skipped_names' => $result['skipped_names'],
         ]);
     }
 
     private function processCsvRowsChunked(array $rows, int $branchId, int $branchCategory, $supplier): array
     {
-        $created = 0;
-        $updated = 0;
-        $skipped = 0;
+        $created      = 0;
+        $updated      = 0;
+        $skipped      = 0;
+        $skippedNames = [];
 
         $existingCodes = DB::connection('tenant')
             ->table('retail_base_products')
@@ -1093,8 +1070,7 @@ class RetailBranchProductsController extends Controller
             ->all();
 
         foreach (array_chunk($rows, self::CHUNK_SIZE) as $rowsChunk) {
-            $names = array_map(fn($r) => $r['name'], $rowsChunk);
-
+            $names           = array_map(fn($r) => $r['name'], $rowsChunk);
             $baseByLowerName = $this->findBaseProductsInCategoryBulk($names, $branchCategory);
 
             $newBaseInserts     = [];
@@ -1111,7 +1087,6 @@ class RetailBranchProductsController extends Controller
                 if ($code !== null && isset($existingCodes[$code])) {
                     $code = null;
                 }
-
                 $newBaseInserts[$key] = [
                     'name'          => $r['name'],
                     'description'   => null,
@@ -1124,7 +1099,6 @@ class RetailBranchProductsController extends Controller
                     'created_at'    => now(),
                     'updated_at'    => now(),
                 ];
-
                 if ($code !== null) {
                     $existingCodes[$code] = true;
                 }
@@ -1138,11 +1112,9 @@ class RetailBranchProductsController extends Controller
                     ->where('supplier', $supplier->name)
                     ->whereIn(DB::raw('LOWER(TRIM(name))'), array_keys($newBaseInserts))
                     ->get();
-
                 foreach ($createdRows as $cr) {
                     $baseByLowerName[strtolower(trim($cr->name))] = $cr;
                 }
-                $created += count($newBaseInserts);
             }
 
             $baseIdsInChunk = [];
@@ -1150,12 +1122,14 @@ class RetailBranchProductsController extends Controller
             foreach ($rowsChunk as $r) {
                 $key  = strtolower(trim($r['name']));
                 $base = $baseByLowerName[$key] ?? null;
-                if (!$base) { $skipped++; continue; }
-
+                if (!$base) {
+                    $skipped++;
+                    $skippedNames[] = $r['name'];
+                    continue;
+                }
                 $resolvedRows[]   = ['row' => $r, 'base' => $base];
                 $baseIdsInChunk[] = $base->id;
             }
-
             if (empty($resolvedRows)) continue;
 
             $existingBranchProducts = DB::connection('tenant')
@@ -1173,14 +1147,13 @@ class RetailBranchProductsController extends Controller
                 $base = $rr['base'];
                 $qty  = (float) $r['quantity'];
 
-                $sellPrice = $r['selling_price'] ?? $base->selling_price ?? 0;
-                $costPrice = $r['cost_price']    ?? $base->cost_price    ?? 0;
-
                 $existingBp = $existingBranchProducts[$base->id] ?? null;
 
                 if ($existingBp) {
-                    $oldQty = (float) $existingBp->stock_quantity;
-                    $newQty = $oldQty + $qty;
+                    $oldQty  = (float) $existingBp->stock_quantity;
+                    $newQty  = $oldQty + $qty;
+                    $logSell = (float) ($existingBp->selling_price ?? $base->selling_price ?? 0);
+                    $logCost = (float) ($existingBp->cost_price    ?? $base->cost_price    ?? 0);
 
                     DB::connection('tenant')->table('retail_branch_products')
                         ->where('id', $existingBp->id)
@@ -1193,14 +1166,16 @@ class RetailBranchProductsController extends Controller
                         'stock_after'     => $newQty,
                         'operation_type'  => 'StockDelivery',
                         'reason'          => "CSV import — added {$qty} to existing branch stock",
-                        'selling_price'   => $sellPrice,
-                        'cost_price'      => $costPrice,
+                        'selling_price'   => $logSell,
+                        'cost_price'      => $logCost,
                     ];
                     $updated++;
                 } else {
                     $toInsert[] = [
                         'branch_id'            => $branchId,
                         'base_product_id'      => $base->id,
+                        'selling_price'        => null,
+                        'cost_price'           => null,
                         'stock_quantity'       => $qty,
                         'reorder_point'        => 0,
                         'track_stock'          => 1,
@@ -1210,8 +1185,8 @@ class RetailBranchProductsController extends Controller
                         'updated_at'           => now(),
                         '_log_base_id'         => $base->id,
                         '_log_qty'             => $qty,
-                        '_log_sell'            => $sellPrice,
-                        '_log_cost'            => $costPrice,
+                        '_log_sell'            => (float) ($base->selling_price ?? 0),
+                        '_log_cost'            => (float) ($base->cost_price    ?? 0),
                     ];
                 }
             }
@@ -1231,7 +1206,7 @@ class RetailBranchProductsController extends Controller
                         'stock_before'    => 0,
                         'stock_after'     => $row['_log_qty'],
                         'operation_type'  => 'OpeningStock',
-                        'reason'          => 'CSV import — product added to branch'
+                        'reason'          => 'CSV import — product added to branch (using base price)'
                             . ($row['_log_qty'] > 0 ? " with quantity {$row['_log_qty']}" : ''),
                         'selling_price'   => $row['_log_sell'],
                         'cost_price'      => $row['_log_cost'],
@@ -1244,10 +1219,11 @@ class RetailBranchProductsController extends Controller
         }
 
         return [
-            'processed' => $created + $updated,
-            'created'   => $created,
-            'updated'   => $updated,
-            'skipped'   => $skipped,
+            'processed'     => $created + $updated,
+            'created'       => $created,
+            'updated'       => $updated,
+            'skipped'       => $skipped,
+            'skipped_names' => $skippedNames,
         ];
     }
 
@@ -1291,7 +1267,14 @@ class RetailBranchProductsController extends Controller
             if ($change > 0) $byDate[$d]['added'] += $val; else $byDate[$d]['removed'] += abs($val);
         }
 
-        $currentShopValue    = (float) DB::connection('tenant')->table('retail_branch_products')->where('branch_id', $branchId)->selectRaw('COALESCE(SUM(selling_price * stock_quantity), 0) as total')->value('total');
+        // ── FIX: use branch price if set, otherwise base price. Nothing else. ──
+        $currentShopValue = (float) DB::connection('tenant')
+            ->table('retail_branch_products as rbp')
+            ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
+            ->where('rbp.branch_id', $branchId)
+            ->selectRaw('COALESCE(SUM(COALESCE(rbp.selling_price, bp.selling_price) * rbp.stock_quantity), 0) as total')
+            ->value('total');
+
         $netSincePeriodStart = array_sum(array_map(fn($b) => $b['added'] - $b['removed'], $byDate));
         $periodOpeningValue  = max(0, $currentShopValue - $netSincePeriodStart);
 
@@ -1334,25 +1317,47 @@ class RetailBranchProductsController extends Controller
         $date     = $request->date;
         $isAdd    = ($request->type === 'added');
 
-        $query = DB::connection('tenant')
+        $entries = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->join('retail_base_products as bp', 'bp.id', '=', 'ril.product_id')
-            ->leftJoin('users as u', 'u.id', '=', 'ril.user_id')
             ->where('ril.branch_id', $branchId)
             ->where('ril.log_date', $date)
             ->where('ril.stock_change', $isAdd ? '>' : '<', 0)
-            ->select('ril.id', 'ril.stock_before', 'ril.stock_after', 'ril.stock_change', 'ril.selling_price', 'ril.action_reason', 'ril.log_time', 'bp.name as product_name', 'bp.code as product_code', DB::raw('ABS(ril.stock_change) * ril.selling_price as value_change'), DB::raw("CONCAT(u.first_name, ' ', u.last_name) as user_name"))
+            ->select(
+                'ril.stock_before', 'ril.stock_after', 'ril.stock_change',
+                'ril.selling_price', 'ril.action_reason', 'ril.log_time',
+                'ril.user_full_name',
+                'bp.name as product_name', 'bp.code as product_code',
+                DB::raw('ABS(ril.stock_change) * ril.selling_price as value_change')
+            )
             ->orderBy('ril.log_time')
-            ->get();
-
-        $entries = $query->map(function ($row) {
-            return ['product_name' => $row->product_name, 'product_code' => $row->product_code, 'unit_price' => (float) $row->selling_price, 'stock_before' => (float) $row->stock_before, 'stock_change' => (float) $row->stock_change, 'stock_after' => (float) $row->stock_after, 'value_change' => (float) $row->stock_change * (float) $row->selling_price, 'action_reason' => $row->action_reason, 'log_time' => $row->log_time, 'user_name' => trim($row->user_name) ?: 'System'];
-        })->values()->toArray();
+            ->get()
+            ->map(fn($row) => [
+                'product_name'  => $row->product_name,
+                'product_code'  => $row->product_code,
+                'unit_price'    => (float) $row->selling_price,
+                'stock_before'  => (float) $row->stock_before,
+                'stock_change'  => (float) $row->stock_change,
+                'stock_after'   => (float) $row->stock_after,
+                'value_change'  => (float) $row->stock_change * (float) $row->selling_price,
+                'action_reason' => $row->action_reason,
+                'log_time'      => $row->log_time,
+                'user_name'     => $row->user_full_name ?: 'System',
+            ])->values()->toArray();
 
         $totalUnits = array_sum(array_column($entries, 'stock_change'));
         $totalValue = array_sum(array_column($entries, 'value_change'));
         $products   = array_unique(array_column($entries, 'product_name'));
 
-        return response()->json(['status' => 200, 'entries' => $entries, 'summary' => ['entry_count' => count($entries), 'product_count' => count($products), 'total_units' => $totalUnits, 'total_value' => $totalValue]]);
+        return response()->json([
+            'status'  => 200,
+            'entries' => $entries,
+            'summary' => [
+                'entry_count'   => count($entries),
+                'product_count' => count($products),
+                'total_units'   => $totalUnits,
+                'total_value'   => $totalValue,
+            ],
+        ]);
     }
 }

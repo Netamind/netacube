@@ -39,6 +39,20 @@
             margin-bottom: 12px;
             font-size: 14px;
         }
+
+        /* ✅ FIX 8: Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
+        .auth-card-wrap {
+            width: 100%;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (max-width: 575.98px) {
+            .auth-card-wrap {
+                max-width: 100%;
+            }
+        }
     </style>
 </head>
 <body class="authentication-bg position-relative">
@@ -74,7 +88,10 @@
     <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
         <div class="container">
             <div class="row justify-content-center">
-                <div class="col-xxl-4 col-lg-5">
+                {{-- ✅ FIX 9: Narrowed column + fixed max-width wrapper so the card stays a sane,
+                     standard size on mobile and on smaller laptop screens instead of stretching wide --}}
+                <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
+                    <div class="auth-card-wrap">
                     <div class="card">
 
                         <!-- Logo -->
@@ -103,11 +120,17 @@
                             </div>
 
                             {{-- ✅ FIX 4: Proper POST form with @csrf Blade directive --}}
+                            {{-- ✅ FIX 11: autocomplete="off" on the form + a masked, non-"password"-typed
+                                 input (same technique as the old system) so browsers don't offer to save
+                                 the credentials. The real value is written into the hidden #password-actual
+                                 field that actually gets submitted under name="password". --}}
                             <form action="{{ route('tenant.submit.login') }}" method="POST" id="dataForm">
                                 @csrf
 
                                 <div class="mb-3">
                                     <label for="emailaddress" class="form-label">Email address</label>
+                                    {{-- ✅ FIX 13: autocomplete left on (matches old system) so the browser
+                                         still shows its email autosuggest dropdown here --}}
                                     <input
                                         class="form-control @error('email') is-invalid @enderror"
                                         type="email"
@@ -127,13 +150,13 @@
                                     <label for="password" class="form-label">Password</label>
                                     <input
                                         class="form-control @error('password') is-invalid @enderror"
-                                        type="password"
+                                        type="text"
                                         id="password"
-                                        name="password"
+                                        autocomplete="off"
                                         placeholder="Enter your password"
                                         required
-                                        autocomplete="current-password"
                                     >
+                                    <input type="hidden" id="password-actual" name="password">
                                     @error('password')
                                         <div class="invalid-feedback">{{ $message }}</div>
                                     @enderror
@@ -141,7 +164,8 @@
 
                                 <div class="mt-2 mb-3">
                                     <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
-                                    <a href="{{ route('master.forgot.password') }}" class="text-muted float-end fs-15">
+                                    {{-- ✅ FIX 10: Forgot password no longer routes to master area; placeholder link only --}}
+                                    <a href="#" class="text-muted float-end fs-15">
                                         Forgot password?
                                     </a>
                                 </div>
@@ -161,6 +185,7 @@
                             </form>
                         </div><!-- end card-body -->
                     </div><!-- end card -->
+                    </div><!-- end auth-card-wrap -->
                 </div><!-- end col -->
             </div><!-- end row -->
         </div><!-- end container -->
@@ -174,6 +199,27 @@
     <script src="{{ asset('library/toastr/toastr.min.js') }}"></script>
     <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
     <script src="{{ asset('library/cropper/cropper.js') }}"></script>
+
+    {{-- ✅ FIX 12: Password masking, ported as-is from the old system. The visible field is
+         plain text and never holds the real password — characters are tracked manually and the
+         field just displays asterisks. The real value only ever lives in the hidden #password-actual
+         input, which is what actually gets posted as "password". Browsers never see a genuine
+         password field, so they don't offer to save it. --}}
+    <script>
+        const passwordInput = document.getElementById('password');
+        const passwordActualInput = document.getElementById('password-actual');
+        let actualPasswordValue = '';
+        passwordInput.addEventListener('input', (e) => {
+            if (e.inputType === 'deleteContentBackward') {
+                actualPasswordValue = actualPasswordValue.slice(0, -1);
+            } else if (e.data && e.inputType !== 'insertCompositionText') {
+                actualPasswordValue += e.data;
+            }
+            const maskedValue = '*'.repeat(actualPasswordValue.length);
+            e.target.value = maskedValue;
+            passwordActualInput.value = actualPasswordValue;
+        });
+    </script>
 
     <script>
         $(document).ready(function () {

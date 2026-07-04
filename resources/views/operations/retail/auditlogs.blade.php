@@ -82,16 +82,34 @@
   padding: 0.5rem 1.5rem !important;
   background: linear-gradient(to right, #4B5EBD, #576CC0); color: #fff;
   border-radius: 10px 10px 0 0 !important;
+  flex-wrap: wrap; gap: 8px;
 }
 .card-body  { padding: 0 1.5rem 1.5rem 1.5rem !important; }
 .card       { border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; }
 .card-header h4 { color:#fff; font-weight:600; margin-bottom:0; display:flex; align-items:center; }
-.card-header h4 i { margin-right: 0.25rem; }
 .card-header .btn-light {
   height:28px; padding:0 10px;
   display:flex; align-items:center; justify-content:center; line-height:1;
 }
 .card-header .btn-light:hover { background-color:#f8f9fa; transition:background-color 0.2s; }
+
+/* ── Select all checkbox in header ─────────────────────────────────────── */
+.header-select-all {
+  width: 16px; height: 16px; cursor: pointer;
+  accent-color: #4B5EBD; background: #d1d5db;
+  border-radius: 3px; margin-right: 10px;
+  flex-shrink: 0; vertical-align: middle;
+}
+.header-title-block { display: flex; flex-direction: column; line-height: 1.25; min-width: 0; }
+.card-header-actions { display: flex; align-items: center; gap: 4px; flex-wrap: wrap; justify-content: flex-end; }
+
+@media (max-width: 576px) {
+  .card-header { padding: 10px 14px !important; }
+  .header-title-block { max-width: 55vw; }
+  #branchSelectHeader { font-size: 15px; max-width: 100%; }
+  .card-header-actions { width: 100%; justify-content: flex-start; }
+  .card-header .btn-light { height: 32px; width: 32px; padding: 0; font-size: 15px; }
+}
 
 /* ── Branch select in header ────────────────────────────────────────────── */
 #branchSelectHeader {
@@ -248,8 +266,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 #tableLoadingOverlay .spinner-border { color:#4B5EBD; }
 #tableWrapper { position:relative; }
 
-
-css/* ── DataTable empty-state message ─────────────────────────────────────── */
+/* ── DataTable empty-state message ─────────────────────────────────────── */
 #maintable.dataTable tbody td.dataTables_empty {
   text-align: center !important;
 }
@@ -268,25 +285,30 @@ css/* ── DataTable empty-state message ────────────�
   {{-- ── Card header ─────────────────────────────────────────────────────── --}}
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0" style="gap:8px;">
+      @if($selectedBranch)
+        <input type="checkbox" id="selectAll" class="header-select-all" title="Select all rows">
+      @endif
       <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
             id="headerBranchForm" style="margin:0;display:inline;">
         @csrf
         <input type="hidden" name="user_id" value="{{ Auth::id() }}">
-        <select name="branch_id" id="branchSelectHeader"
-                onchange="document.getElementById('headerBranchForm').submit()">
-          <option value="" hidden>{{ $selectedBranch ? $selectedBranch->name : '— Select Branch —' }}</option>
-          @foreach($branches as $b)
-            <option value="{{ $b->id }}"
-              {{ ($pref && $pref->branch_id == $b->id) ? 'selected' : '' }}>
-              {{ $b->name }}
-            </option>
-          @endforeach
-        </select>
+        <div class="header-title-block">
+          <select name="branch_id" id="branchSelectHeader"
+                  onchange="document.getElementById('headerBranchForm').submit()">
+            <option value="" hidden>{{ $selectedBranch ? $selectedBranch->name : '— Select Branch —' }}</option>
+            @foreach($branches as $b)
+              <option value="{{ $b->id }}"
+                {{ ($pref && $pref->branch_id == $b->id) ? 'selected' : '' }}>
+                {{ $b->name }}
+              </option>
+            @endforeach
+          </select>
+        </div>
       </form>
       <span style="font-size:13px;font-weight:400;opacity:.75;margin-left:2px;">— Audit Logs</span>
     </h4>
 
-    <div class="d-flex align-items-center" style="gap:6px;">
+    <div class="card-header-actions">
       @if($selectedBranch)
       <div id="selectionBadge" title="Bulk actions">
         <i class="ri-checkbox-multiple-line"></i>
@@ -378,7 +400,6 @@ css/* ── DataTable empty-state message ────────────�
 
     <div class="card-body">
 
-      {{-- No branch selected — shown before any branch is picked, hidden once one is --}}
       @if(!$selectedBranch)
         <div class="no-branch-wrap" id="noBranchState">
           <i class="ri-store-line"></i>
@@ -387,14 +408,12 @@ css/* ── DataTable empty-state message ────────────�
         </div>
       @endif
 
-      {{-- Table is always rendered when a branch is selected; DataTable shows its
-           own "No data available in table" message when tbody is empty. --}}
       @if($selectedBranch)
       <table id="maintable"
              class="table table-sm table-striped row-border order-column w-100 mt-3">
         <thead style="background-color:#e2e2e9">
           <tr>
-            <th><input type="checkbox" id="selectAll">&nbsp;&nbsp;Product Name</th>
+            <th>Product Name</th>
             <th>Code</th>
             <th>Unit</th>
             <th>Type</th>
@@ -444,7 +463,6 @@ css/* ── DataTable empty-state message ────────────�
               <td><span class="reason-cell" title="{{ $log->action_reason }}">{{ $log->action_reason }}</span></td>
               <td>{{ $log->user_name }}</td>
               <td>
-                {{-- VIEW --}}
                 <a href="#" class="viewDataBtn"
                    data-id="{{ $log->id }}"
                    data-product="{{ $log->product_name }}"
@@ -476,7 +494,6 @@ css/* ── DataTable empty-state message ────────────�
                    data-reversed="{{ $isReversed ? 1 : 0 }}">
                   <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                 </a>
-                {{-- EDIT --}}
                 <a href="#" class="editDataBtn"
                    data-id="{{ $log->id }}"
                    data-product="{{ $log->product_name }}"
@@ -491,7 +508,6 @@ css/* ── DataTable empty-state message ────────────�
                    data-time="{{ $log->log_time }}">
                   <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                 </a>
-                {{-- REVERSE --}}
                 <a href="#" class="reverseBtn"
                    data-id="{{ $log->id }}"
                    data-product="{{ $log->product_name }}"
@@ -500,7 +516,6 @@ css/* ── DataTable empty-state message ────────────�
                    title="{{ $isReversed ? 'Already reversed' : 'Reverse this entry' }}">
                   <i class="ri-reply-line {{ $isReversed ? 'text-secondary' : 'text-warning' }}" style="font-weight:bold;font-size:17px"></i>
                 </a>
-                {{-- DELETE --}}
                 <a href="#" class="deleteDataBtn"
                    data-id="{{ $log->id }}"
                    data-product="{{ $log->product_name }}"
@@ -520,9 +535,7 @@ css/* ── DataTable empty-state message ────────────�
 </div></div></div>
 
 
-{{-- ══════════════════════════════════════════════════════════════════
-     DATE PICKER MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ DATE PICKER MODAL ══ --}}
 <div class="modal fade" id="datePickerModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -572,9 +585,7 @@ css/* ── DataTable empty-state message ────────────�
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     DOWNLOAD MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ DOWNLOAD MODAL ══ --}}
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
     <div class="modal-header mh-blue">
@@ -588,9 +599,7 @@ css/* ── DataTable empty-state message ────────────�
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     INFO MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ INFO MODAL ══ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
     <div class="modal-header mh-blue">
@@ -619,9 +628,7 @@ css/* ── DataTable empty-state message ────────────�
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     VIEW LOG MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ VIEW LOG MODAL ══ --}}
 <div class="modal fade" id="viewLogModal" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -656,7 +663,6 @@ css/* ── DataTable empty-state message ────────────�
           <div class="view-item"><label>Selling Price</label><div class="view-val" id="vw-sell-price"></div></div>
           <div class="view-item"><label>Cost Price</label><div class="view-val" id="vw-cost-price"></div></div>
           <div class="view-item full"><label>Action Reason</label><div class="view-val" id="vw-reason" style="white-space:pre-wrap;font-size:12px;line-height:1.5;"></div></div>
-          {{-- Source reference (replaces old reference_type / reference_id) --}}
           <div class="view-item full" id="vw-source-wrap" style="display:none;">
             <label>Source Reference</label>
             <div class="view-val" id="vw-source" style="font-size:12px;color:#64748b;"></div>
@@ -684,9 +690,7 @@ css/* ── DataTable empty-state message ────────────�
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     EDIT LOG MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ EDIT LOG MODAL ══ --}}
 <div class="modal fade" id="editLogModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog modal-lg">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -773,9 +777,7 @@ css/* ── DataTable empty-state message ────────────�
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     REVERSE MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ REVERSE MODAL ══ --}}
 <div class="modal fade" id="reverseModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:380px;margin:1.75rem auto;">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -802,9 +804,7 @@ css/* ── DataTable empty-state message ────────────�
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     DELETE MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ DELETE MODAL (single) ══ --}}
 <div class="modal fade" id="deleteModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog" style="max-width:380px;margin:1.75rem auto;">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -829,9 +829,32 @@ css/* ── DataTable empty-state message ────────────�
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════
-     BULK ACTIONS MODAL
-══════════════════════════════════════════════════════════════════════ --}}
+{{-- ══ BULK DELETE CONFIRM MODAL ══ --}}
+<div class="modal fade" id="bulkDeleteConfirmModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:380px;margin:1.75rem auto;">
+    <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+      <div class="modal-header mh-danger">
+        <h5 class="modal-title mh-title"><i class="ri-delete-bin-line"></i> Delete Selected Logs</h5>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <i class="ri-error-warning-line text-danger" style="font-size:56px"></i>
+        <h5 class="mt-2 mb-1">
+          Delete <span id="bulkDeleteCount" class="text-danger">0</span> log entr<span id="bulkDeletePlural">ies</span>?
+        </h5>
+        <p style="font-size:13px;color:#6c757d;margin-bottom:0;">
+          This <strong>permanently removes</strong> the selected log entries. This cannot be undone.
+        </p>
+      </div>
+      <div class="modal-footer justify-content-center gap-2" style="padding:10px 20px 18px;">
+        <button type="button" class="btn btn-secondary btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+        <a href="#" class="btn btn-danger btn-sm px-4" id="submitBulkDeleteBtn">Yes, Delete</a>
+      </div>
+    </div>
+  </div>
+</div>
+
+{{-- ══ BULK ACTIONS MODAL ══ --}}
 <div class="modal fade" id="bulkActionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
@@ -914,10 +937,17 @@ $(document).ready(function () {
     }
 
     function updateSelectedCount() {
+        var total = $('.selectRow').length;
         var count = $('.selectRow:checked').length;
         $('#selectedCount, #headerSelCount').text(count);
-        if (count > 0) { $('#bulkTriggerBtn').show(); $('#selectionBadge').addClass('visible'); }
-        else           { $('#bulkTriggerBtn').hide(); $('#selectionBadge').removeClass('visible'); }
+        if (count > 0) {
+            $('#bulkTriggerBtn').show();
+            $('#selectionBadge').addClass('visible');
+        } else {
+            $('#bulkTriggerBtn').hide();
+            $('#selectionBadge').removeClass('visible');
+        }
+        $('#selectAll').prop('checked', total > 0 && count === total);
     }
 
     // ── buildRow ──────────────────────────────────────────────────────────
@@ -1107,7 +1137,6 @@ $(document).ready(function () {
                              .css('color', net >= 0 ? '#16a34a' : '#dc2626');
                 $('#sumDateText').text(fmtDate(date));
 
-                // Show summary strip only when there are logs
                 if (data.logs.length > 0) {
                     $('#summaryStrip').css('display','flex');
                     $('#sumDateBadge').show();
@@ -1116,8 +1145,6 @@ $(document).ready(function () {
                     $('#sumDateBadge').hide();
                 }
 
-                // Always rebuild the table — DataTable renders its own
-                // "No data available in table" message when rows is empty.
                 var html = '';
                 data.logs.forEach(function(p) { html += buildRow(p); });
                 reInitTable(html, 'Audit Logs — {{ addslashes($selectedBranch->name) }} — ' + date);
@@ -1180,7 +1207,6 @@ $(document).ready(function () {
         $('#vw-cost-price').text('MWK ' + fmtNum(b.data('cost-price')));
         $('#vw-reason').text(b.data('reason') || '—');
 
-        // Source reference (new schema: source_type + source_id)
         if (srcType && srcId) {
             $('#vw-source').text(srcType + ' #' + srcId);
             $('#vw-source-wrap').show();
@@ -1311,7 +1337,7 @@ $(document).ready(function () {
     }
 
     // ════════════════════════════════════════════════════════════════════════
-    //  DELETE
+    //  DELETE (single)
     // ════════════════════════════════════════════════════════════════════════
     $('#tbody').on('click', '.deleteDataBtn', function(e) {
         e.preventDefault();
@@ -1346,7 +1372,7 @@ $(document).ready(function () {
     // ════════════════════════════════════════════════════════════════════════
     //  CHECKBOXES & BULK
     // ════════════════════════════════════════════════════════════════════════
-    $('#selectAll').on('click', function() { $('.selectRow').prop('checked', this.checked); updateSelectedCount(); });
+    $('#selectAll').on('change', function() { $('.selectRow').prop('checked', this.checked); updateSelectedCount(); });
     $('#tbody').on('change', '.selectRow', function() { updateSelectedCount(); });
 
     $('#selectionBadge, #bulkTriggerBtn').on('click', function(e) {
@@ -1377,25 +1403,43 @@ $(document).ready(function () {
         });
     });
 
+    // ── Bulk delete: opens a confirmation MODAL (no native confirm()) ──────
     $('#bulkDeleteBtn').on('click', function(e) {
         e.preventDefault();
-        var ids = getSelectedIds(); var rows = getSelectedRows();
+        var ids = getSelectedIds();
         if (!ids.length) { toastr.warning('No entries selected.', 'Warning'); return; }
-        if (!confirm('Permanently delete ' + ids.length + ' log entr' + (ids.length > 1 ? 'ies' : 'y') + '? This cannot be undone.')) return;
         $('#bulkActionsModal').modal('hide');
+        $('#bulkDeleteCount').text(ids.length);
+        $('#bulkDeletePlural').text(ids.length > 1 ? 'ies' : 'y');
+        setTimeout(function() { $('#bulkDeleteConfirmModal').modal('show'); }, 250);
+    });
+
+    $('#submitBulkDeleteBtn').on('click', function(e) {
+        e.preventDefault();
+        var ids  = getSelectedIds();
+        var rows = getSelectedRows();
+        if (!ids.length) {
+            toastr.warning('No entries selected.', 'Warning');
+            $('#bulkDeleteConfirmModal').modal('hide');
+            return;
+        }
+        var self = $(this); self.prop('disabled', true);
         $.ajaxSetup({ headers: {'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
             type: 'POST', url: '{{ route("retail.auditlogs.bulkdelete") }}', timeout: 60000,
             data: { ids: ids, _token: '{{ csrf_token() }}' },
             beforeSend: function() { $('#progressBar').show(); },
-            complete:   function() { $('#progressBar').hide(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function(data) {
                 if (data.status === 201) {
                     toastr.success(data.success, 'Success');
                     rows.forEach(function(r) { if (table) { table.row('#' + r).remove(); } else { $('#' + r).remove(); } });
                     if (table) { table.draw(false); }
                     $('.selectRow').prop('checked', false); $('#selectAll').prop('checked', false); updateSelectedCount();
-                } else { toastr.error(data.error || 'Failed.', 'Error'); }
+                    $('#bulkDeleteConfirmModal').modal('hide');
+                } else {
+                    toastr.error(data.error || 'Failed.', 'Error');
+                }
             },
             error: handleAjaxError
         });

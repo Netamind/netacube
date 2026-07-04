@@ -17,11 +17,24 @@ return new class extends Migration
      *
      * Each row also captures the stock movement (qty_before/qty_sold/qty_after)
      * and basic device/audit info for the user who recorded the sale.
+     *
+     * INDEX STRATEGY
+     * ──────────────
+     * The original migration had only one unique index, meaning every report,
+     * DataTable load, and daily summary would do a full table scan as the table
+     * grows. Indexes below cover every access pattern used in the views:
+     *
+     *  rss_branch_date          → daily/range sales reports per branch
+     *  rss_product_date         → per-product sales history
+     *  rss_transid              → receipt lookup, return/refund flow
+     *  rss_date_payment         → payment method breakdown reports
+     *  rss_branch_user_date     → per-user sales summary
+     *  rss_created_at           → ordering by insertion time, cleanup jobs
      */
     public function up(): void
-    
     {
-          DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+
         Schema::create('retail_system_sales', function (Blueprint $table) {
             $table->id();
 
@@ -47,22 +60,50 @@ return new class extends Migration
 
             // Stock movement snapshot at the moment of sale.
             $table->decimal('qty_before', 65, 2)->default(0.00);
-            $table->decimal('qty_sold', 65, 2)->default(0.00);
-            $table->decimal('qty_after', 65, 2)->default(0.00);
+            $table->decimal('qty_sold',   65, 2)->default(0.00);
+            $table->decimal('qty_after',  65, 2)->default(0.00);
 
             $table->string('payment_method', 30)->default('cash'); // cash, airtel, mpamba, bank
-            $table->decimal('amount_paid', 65, 2)->nullable();      // amount tendered, for change calc on cash sales
+            $table->decimal('amount_paid', 65, 2)->nullable();     // amount tendered, for change calc on cash sales
 
             $table->string('slot', 165)->default('0'); // informational snapshot of the interval, not a FK
 
             // Device / audit info for whoever recorded the sale.
             $table->string('device_name', 165)->nullable();
-            $table->string('ip_address', 45)->nullable();   // 45 = max length of an IPv6 address
+            $table->string('ip_address', 45)->nullable();  // 45 = max length of an IPv6 address
             $table->text('user_agent')->nullable();
 
             $table->timestamps();
 
+            // ── Uniqueness constraint ─────────────────────────────────────────
+            // Prevents duplicate sale line items from POS retries or double-submits.
             $table->unique(['branch', 'branch_product_id', 'transid', 'date'], 'retail_system_sales_unique');
+
+            // ── Query indexes ─────────────────────────────────────────────────
+
+            // Daily and date-range sales reports filtered by branch.
+            // Covers: "show me today's sales for Branch A",
+            //         "sales between date X and date Y for Branch B"
+            $table->index(['branch', 'date'], 'rss_branch_date');
+
+            // Per-product sales history across a date range.
+            // Covers: product movement reports, stock reconciliation
+            $table->index(['branch_product_id', 'date'], 'rss_product_date');
+
+            // Receipt lookup and return/refund flow.
+            // Covers: "find all line items for transaction ABC123"
+            $table->index('transid', 'rss_transid');
+
+            // Payment method breakdown reports.
+            // Covers: "how much was paid by Airtel Money today?"
+            $table->index(['date', 'payment_method'], 'rss_date_payment');
+
+            // Per-user sales summary filtered by branch.
+            // Covers: "show sales recorded by user John at Branch A"
+            $table->index(['branch', 'user', 'date'], 'rss_branch_user_date');
+
+            // Ordering by insertion time and background cleanup jobs.
+            $table->index('created_at', 'rss_created_at');
         });
     }
 
@@ -71,7 +112,7 @@ return new class extends Migration
      */
     public function down(): void
     {
-          DB::statement('SET FOREIGN_KEY_CHECKS=0;');
+        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Schema::dropIfExists('retail_system_sales');
     }
 };

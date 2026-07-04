@@ -38,8 +38,8 @@ class MasterApproveTenantController extends Controller
 
     public function approveTenant(Request $request, CpanelService $cpanel)
     {
-        $tenantId = $request->id;
-        $clientUrl = $request->client_url;
+        $tenantId     = $request->id;
+        $clientUrl    = $request->client_url;
         $databaseName = $this->getTenantDatabaseName($clientUrl);
 
         if (str_contains($databaseName, "Failed to resolve")) {
@@ -76,26 +76,26 @@ class MasterApproveTenantController extends Controller
         }
 
         $data = [
-            'client_url' => $clientUrl,
-            'data' => $databaseName,
-            'approved_by' => $request->user_id,
-            'approved_at' => Carbon::today()->toDateString(),
-            'next_payment_date' => Carbon::today()->addDays(7)->toDateString(),
-            'status' => 'Approved',
+            'client_url'       => $clientUrl,
+            'data'             => $databaseName,
+            'approved_by'      => $request->user_id,
+            'approved_at'      => Carbon::today()->toDateString(),
+            'next_payment_date'=> Carbon::today()->addDays(7)->toDateString(),
+            'status'           => 'Approved',
             'number_of_tables' => 0,
             'migration_status' => 'not_started',
-            'migrated_at' => null,
-            'migration_error' => null,
+            'migrated_at'      => null,
+            'migration_error'  => null,
         ];
 
-        $isLocal = app()->environment('local');
-        $dbUser = null;
+        $isLocal    = app()->environment('local');
+        $dbUser     = null;
         $dbPassword = null;
 
         try {
             if ($isLocal) {
                 $escapedDbName = DB::connection('mysql')->getPdo()->quote($databaseName);
-                $dbExists = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
+                $dbExists      = DB::connection('mysql')->select("SHOW DATABASES LIKE $escapedDbName");
                 if (!empty($dbExists)) {
                     throw new \Exception('Database ' . $databaseName . ' already exists.');
                 }
@@ -109,8 +109,14 @@ class MasterApproveTenantController extends Controller
                     throw new \Exception('Database already exists.');
                 }
 
-                $dbUser = $databaseName;
-                $dbPassword = "binto2020";
+                $dbUser     = $databaseName;
+                // Password is read from .env — never hardcoded in source.
+                // Set TENANT_DB_PASSWORD in your .env file.
+                $dbPassword = env('TENANT_DB_PASSWORD');
+
+                if (empty($dbPassword)) {
+                    throw new \Exception('TENANT_DB_PASSWORD is not set in .env. Cannot create tenant DB user.');
+                }
 
                 $userCreated = $cpanel->createUser($dbUser, $dbPassword);
                 if (!$userCreated['success']) throw new \Exception($userCreated['message']);
@@ -121,11 +127,13 @@ class MasterApproveTenantController extends Controller
                 $privilegesSet = $cpanel->setPrivileges($dbUser, $databaseName);
                 if (!$privilegesSet['success']) throw new \Exception($privilegesSet['message']);
 
-          
                 $data['db_user'] = $dbUser;
             }
 
             DB::beginTransaction();
+
+            // IMPORTANT: purge FIRST, then set config, then reconnect.
+            DB::purge('tenant');
 
             if ($isLocal) {
                 config(['database.connections.tenant.database' => $databaseName]);
@@ -136,12 +144,10 @@ class MasterApproveTenantController extends Controller
                     'database.connections.tenant.password' => $dbPassword,
                 ]);
             }
-            DB::purge('tenant');
 
             $tenantModel->data = $databaseName;
             $tenantModel->save();
 
-          
             $updated = DB::table('tenants')->where('id', $tenantId)->update($data);
             if (!$updated) {
                 throw new \Exception('Failed to update tenant record.');

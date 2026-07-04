@@ -1,146 +1,153 @@
 @extends('operations.retail.dashboard')
 @section('content')
-<style>
-/* ── DataTable export buttons ───────────────────────────────────────────── */
-.dt-buttons .btn {
-  background: transparent !important; background-image: none !important;
-  box-shadow: none !important; border-color: #5bc0de; color: #5bc0de;
-}
-.dt-buttons .btn:hover { background: #5bc0de !important; color: #fff; }
 
-/* ── Card chrome ────────────────────────────────────────────────────────── */
-.card-header {
-  padding: 0.5rem 1.5rem !important;
-  background: linear-gradient(to right, #4B5EBD, #576CC0); color: #fff;
-  border-radius: 10px 10px 0 0 !important;
-}
-.card-body  { padding: 0 1.5rem 1.5rem 1.5rem !important; }
-.card       { border: none; box-shadow: 0 4px 8px rgba(0,0,0,0.1); border-radius: 10px; }
+@php
+    $categories = DB::connection('tenant')->table('categories')->orderBy('category')->get();
+
+    $pref = DB::connection('tenant')
+               ->table('user_filters')
+               ->where('user_id', Auth::id())
+               ->first();
+
+    $savedCategoryId = $pref->category_id ?? null;
+    $savedSupplierId = $pref->supplier_id  ?? null;
+
+    $suppliers = collect();
+    if ($savedCategoryId) {
+        $suppliers = DB::connection('tenant')
+                        ->table('suppliers')
+                        ->where('status', 'active')
+                        ->where('category', $savedCategoryId)
+                        ->orderBy('name')
+                        ->get(['id', 'name', 'category']);
+    }
+
+    // retail_base_products.supplier stores supplier ID (int)
+    $products = collect();
+    if ($savedCategoryId) {
+        if ($savedSupplierId) {
+            $products = DB::connection('tenant')
+                           ->table('retail_base_products')
+                           ->where('supplier', $savedSupplierId)
+                           ->orderBy('name')
+                           ->get();
+        } else {
+            $categorySupplierIds = DB::connection('tenant')
+                                      ->table('suppliers')
+                                      ->where('status', 'active')
+                                      ->where('category', $savedCategoryId)
+                                      ->pluck('id')
+                                      ->toArray();
+            if (!empty($categorySupplierIds)) {
+                $products = DB::connection('tenant')
+                               ->table('retail_base_products')
+                               ->whereIn('supplier', $categorySupplierIds)
+                               ->orderBy('name')
+                               ->get();
+            }
+        }
+    }
+
+    // Resolve supplier names for display
+    $supplierNamesMap = collect();
+    if ($products->isNotEmpty()) {
+        $supplierNamesMap = DB::connection('tenant')
+            ->table('suppliers')
+            ->whereIn('id', $products->pluck('supplier')->unique()->filter()->values())
+            ->pluck('name', 'id');
+    }
+
+    $maintableTitle = 'Retail Base Products';
+@endphp
+
+<style>
+/* ── DataTable export buttons ─────────────────────────────────────── */
+.dt-buttons .btn { background:transparent !important; background-image:none !important; box-shadow:none !important; border-color:#5bc0de; color:#5bc0de; }
+.dt-buttons .btn:hover { background:#5bc0de !important; color:#fff; }
+
+/* ── Card chrome ─────────────────────────────────────────────────── */
+.card-header { padding:0.5rem 1.5rem !important; background:linear-gradient(to right,#4B5EBD,#576CC0); color:#fff; border-radius:10px 10px 0 0 !important; flex-wrap:wrap; gap:8px; }
+.card-body   { padding:0 1.5rem 1.5rem 1.5rem !important; }
+.card        { border:none; box-shadow:0 4px 8px rgba(0,0,0,0.1); border-radius:10px; }
 .card-header h4 { color:#fff; font-weight:600; margin-bottom:0; display:flex; align-items:center; }
-.card-header h4 i { margin-right: 0.25rem; }
-.card-header .btn-light {
-  height:28px; padding:0 10px;
-  display:flex; align-items:center; justify-content:center; line-height:1;
-}
+.card-header .btn-light { height:28px; padding:0 10px; display:flex; align-items:center; justify-content:center; line-height:1; }
 .card-header .btn-light:hover { background-color:#f8f9fa; transition:background-color 0.2s; }
 
-/* ── Filter bar ─────────────────────────────────────────────────────────── */
-.card-filter {
-  background: #eef0f7; border-bottom: 1px solid #d6daf0;
-  padding: 9px 1.5rem; display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
-}
-.card-filter label { font-size:12px; font-weight:600; color:#4B5EBD; margin-bottom:0; white-space:nowrap; }
-.card-filter select {
-  font-size:12px; height:30px; padding:0 8px; border-radius:6px;
-  border:1px solid #c8d0ed; background:#fff; min-width:160px; max-width:220px;
-}
-.filter-divider { width:1px; height:22px; background:#c8d0ed; margin:0 4px; }
-.filter-badge { font-size:11px; background:#4B5EBD; color:#fff; border-radius:10px; padding:1px 8px; }
+/* ── Select-all checkbox ── */
+.header-select-all { width:16px; height:16px; cursor:pointer; accent-color:#4B5EBD; border-radius:3px; margin-right:10px; flex-shrink:0; vertical-align:middle; }
 
-/* ── Bulk trigger ───────────────────────────────────────────────────────── */
-#bulkTriggerBtn {
-  font-size:12px; font-weight:700; margin-left:auto; height:28px; padding:0 12px;
-  display:none; align-items:center; gap:5px;
-}
+/* ── Filter bar ─────────────────────────────────────────────────── */
+.card-filter { background:#eef0f7; border-bottom:1px solid #d6daf0; padding:9px 1.5rem; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+.card-filter label { font-size:12px; font-weight:600; color:#4B5EBD; margin-bottom:0; white-space:nowrap; }
+.card-filter select { font-size:12px; height:30px; padding:0 8px; border-radius:6px; border:1px solid #c8d0ed; background:#fff; min-width:160px; max-width:220px; }
+.filter-divider { width:1px; height:22px; background:#c8d0ed; margin:0 4px; }
+
+/* ── Bulk trigger ───────────────────────────────────────────────── */
+#bulkTriggerBtn { font-size:12px; font-weight:700; margin-left:auto; height:28px; padding:0 12px; display:none; align-items:center; gap:5px; }
 #bulkTriggerBtn.visible { display:flex !important; }
 
-/* ── Table alignment ────────────────────────────────────────────────────── */
-#maintable thead th,
-table.dataTable thead th { text-align:center !important; vertical-align:middle !important; }
-#maintable thead th:first-child,
-table.dataTable thead th:first-child { text-align:left !important; }
-#maintable tbody td,
-table.dataTable tbody td { text-align:center !important; vertical-align:middle !important; }
-#maintable tbody td:first-child,
-table.dataTable tbody td:first-child { text-align:left !important; }
+/* ── Table alignment ────────────────────────────────────────────── */
+#maintable thead th, table.dataTable thead th { text-align:center !important; vertical-align:middle !important; }
+#maintable thead th:first-child, table.dataTable thead th:first-child { text-align:left !important; }
+#maintable tbody td, table.dataTable tbody td { text-align:center !important; vertical-align:middle !important; }
+#maintable tbody td:first-child, table.dataTable tbody td:first-child { text-align:left !important; }
 
-/* ── Prices ─────────────────────────────────────────────────────────────── */
+/* ── Prices & badges ────────────────────────────────────────────── */
 .price-cell { font-size:12px; font-weight:600; color:#198754; }
-
-/* ── Type badge ─────────────────────────────────────────────────────────── */
 .type-badge-product { font-size:10px; font-weight:600; background:#e8f5e9; color:#2d6a4f; border:1px solid #a5d6a7; border-radius:10px; padding:1px 7px; white-space:nowrap; }
 .type-badge-service { font-size:10px; font-weight:600; background:#fff3e0; color:#e65100; border:1px solid #ffcc80; border-radius:10px; padding:1px 7px; white-space:nowrap; }
 
-/* ── Modal selects fix ──────────────────────────────────────────────────── */
-.modal-body .form-select,
-.modal-body .form-control { width:100% !important; }
-
-/* ── Modal header helpers ───────────────────────────────────────────────── */
+/* ── Modal header helpers ────────────────────────────────────────── */
 .mh-blue   { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-green  { background:linear-gradient(135deg,#2d6a4f,#40916c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-info   { background:linear-gradient(135deg,#0d6efd,#3b82f6); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-orange { background:linear-gradient(135deg,#fd7e14,#e8590c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
+.mh-danger { background:linear-gradient(135deg,#c0392b,#e74c3c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
 .mh-title  { color:#fff; font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; }
 .mh-close  { filter:brightness(0) invert(1); opacity:.8; }
 .mh-close:hover { opacity:1; }
 
-/* ── View modal ─────────────────────────────────────────────────────────── */
+/* ── View modal ─────────────────────────────────────────────────── */
 .view-grid { display:grid; grid-template-columns:1fr 1fr; gap:6px 14px; }
 .view-item label { font-size:10px; font-weight:600; color:#9ca3af; text-transform:uppercase; letter-spacing:0.5px; display:block; margin-bottom:2px; }
 .view-item .view-val { font-size:13px; color:#1e293b; font-weight:500; }
-.view-item .view-val.muted { color:#9ca3af; font-style:italic; }
 .view-item.full { grid-column:1/-1; }
 
-/* ── Import modal ───────────────────────────────────────────────────────── */
-.excel-preview-wrap { border:2px solid #b7d5c4; border-radius:8px; overflow:hidden; box-shadow:0 2px 8px rgba(0,0,0,0.07); }
-.excel-header-bar { background:#217346; color:#fff; font-size:11px; font-weight:700; padding:5px 10px; letter-spacing:0.5px; display:flex; align-items:center; gap:6px; }
-.excel-preview-table { width:100%; border-collapse:collapse; font-size:12px; }
-.excel-row-num { background:#f0f0f0; color:#888; font-size:10px; font-weight:600; text-align:center; padding:4px 6px; border-right:1px solid #d0d0d0; border-bottom:1px solid #d0d0d0; min-width:28px; }
-.excel-preview-table thead th { background:#217346; color:#fff; text-align:center; padding:6px 10px; border-right:1px solid #1a5c38; font-weight:600; font-size:11px; white-space:nowrap; }
-.excel-preview-table thead th.col-name { text-align:left; }
-.excel-preview-table tbody td { text-align:center; padding:5px 10px; border-bottom:1px solid #e8e8e8; border-right:1px solid #e8e8e8; background:#fff; }
-.excel-preview-table tbody td.col-name { text-align:left; }
-.excel-preview-table tbody tr:nth-child(even) td { background:#f8fff8; }
-.excel-preview-table tbody tr:hover td { background:#e8f5e9; }
-.excel-col-code { font-family:monospace; background:#f1f8e9; padding:1px 5px; border-radius:3px; color:#2d6a4f; font-size:11px; }
-.excel-req-star { color:#e74c3c; margin-left:2px; font-size:13px; }
-.excel-sample-val { color:#555; }
-.excel-sample-muted { color:#aaa; font-style:italic; font-size:11px; }
-
-.drop-zone { border:2px dashed #40916c; border-radius:12px; padding:26px 20px; text-align:center; cursor:pointer; transition:all .2s; background:#f0faf5; position:relative; }
-.drop-zone:hover,.drop-zone.drag-over { background:#d8f3e6; border-color:#1b4332; }
-.drop-zone input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; width:100%; height:100%; }
-.drop-zone i { font-size:36px; color:#40916c; display:block; margin-bottom:6px; }
-#importPreviewTable { font-size:12px; }
-#importPreviewTable th { background:#e8f5e9; position:sticky; top:0; text-align:center; }
-#importPreviewTable th:first-child { text-align:left; }
-#importPreviewTable td { text-align:center; }
-#importPreviewTable td:first-child { text-align:left; }
-.import-progress-bar { height:6px; border-radius:3px; background:#e9ecef; overflow:hidden; }
-.import-progress-bar .bar { height:100%; width:0; background:linear-gradient(to right,#40916c,#52b788); transition:width .3s ease; border-radius:3px; }
-
-/* ── Import done summary ─────────────────────────────────────────────────── */
-.import-failed-list {
-  max-height:140px; overflow-y:auto;
-  background:#fff8f8; border:1px solid #fecaca;
-  border-radius:6px; padding:8px 12px;
-  margin-top:8px; text-align:left;
-}
-.import-failed-list li { font-size:12px; color:#7f1d1d; padding:1px 0; }
-
-/* ── Supplier notice banners ─────────────────────────────────────────────── */
-.supplier-ok-banner {
-  background:#ecfdf5; border-left:3px solid #059669;
-  border-radius:0 5px 5px 0; padding:8px 12px;
-  font-size:12px; color:#065f46; margin-bottom:12px;
-}
-.supplier-warn-banner {
-  background:#fef2f2; border-left:3px solid #dc2626;
-  border-radius:0 5px 5px 0; padding:8px 12px;
-  font-size:12px; color:#7f1d1d; margin-bottom:12px;
-}
-
-/* ── Bulk actions modal ─────────────────────────────────────────────────── */
+/* ── Bulk actions modal ─────────────────────────────────────────── */
 .bulk-section { background:#f8f9fa; border-radius:8px; padding:12px 14px; margin-bottom:12px; }
 .bulk-section-title { font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:.8px; color:#6c757d; margin-bottom:10px; }
 
-/* ── Edit modal read-only fields ────────────────────────────────────────── */
-.edit-readonly-field {
-  background:#f8f9fa !important; color:#495057 !important;
-  border-color:#dee2e6 !important; cursor:default !important;
-}
+/* ── CSV wizard steps (mirrors Branch Products exactly) ─────────── */
+.csv-step { display:none; }
+.csv-step.active { display:block; }
+.csv-step-indicator { display:flex; align-items:center; gap:0; margin-bottom:18px; }
+.csi-step { display:flex; align-items:center; gap:6px; font-size:11px; font-weight:600; color:#94a3b8; }
+.csi-step.active { color:#4B5EBD; }
+.csi-step.done   { color:#059669; }
+.csi-num { width:22px; height:22px; border-radius:50%; border:2px solid currentColor; display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+.csi-line { flex:1; height:1px; background:#dee2e6; margin:0 6px; }
+.csv-preview-scroll { max-height:200px; overflow-y:auto; border:1px solid #dee2e6; border-radius:8px; margin-bottom:10px; }
+.csv-preview-scroll::-webkit-scrollbar { width:8px; }
+.csv-preview-scroll::-webkit-scrollbar-thumb { background:#c8d0ed; border-radius:8px; }
+.csv-preview-scroll::-webkit-scrollbar-track { background:#f8f9fb; }
+.csv-preview-row { padding:6px 10px; border-bottom:1px solid #f1f5f9; font-size:12px; display:flex; justify-content:space-between; align-items:center; gap:8px; }
+.csv-preview-row:last-child { border-bottom:none; }
+.csv-preview-row .cpr-name { flex:1; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+.csv-preview-row .cpr-meta { flex-shrink:0; color:#94a3b8; font-size:11px; }
 
-/* ── Spinner ────────────────────────────────────────────────────────────── */
+/* ── Skipped / failed names list ──────────────────────────────────── */
+.import-skipped-list { max-height:140px; overflow-y:auto; background:#fff8f8; border:1px solid #fecaca; border-radius:6px; padding:8px 12px; margin-top:8px; text-align:left; }
+.import-skipped-list li { font-size:12px; color:#7f1d1d; padding:1px 0; }
+
+/* ── Invalid-on-parse banner (Step 3) ──────────────────────────────── */
+.csv-invalid-banner { background:#fff8f8; border:1px solid #fecaca; border-radius:8px; padding:10px 12px; margin-top:10px; font-size:12px; color:#7f1d1d; display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; }
+
+/* ── Chunk progress bar (Step 4) ───────────────────────────────────── */
+.csv-chunk-progress-track { background:#e9ecef; border-radius:6px; height:8px; overflow:hidden; margin:14px 0 6px; }
+.csv-chunk-progress-fill { background:linear-gradient(to right,#4B5EBD,#576CC0); height:100%; width:0%; transition:width .25s ease; }
+.csv-chunk-progress-label { font-size:11px; color:#6c757d; text-align:center; }
+
+/* ── Spinner ────────────────────────────────────────────────────── */
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 </style>
 
@@ -151,243 +158,142 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 <div class="content-page"><div class="content"><div class="container-fluid">
 <div class="row mb-3"></div>
 
-<?php
-    $maintableTitle = "Retail Base Products";
-
-    $categories = DB::connection('tenant')
-                    ->table('categories')
-                    ->orderBy('category')
-                    ->get();
-
-    $pref = DB::connection('tenant')
-               ->table('user_filters')
-               ->where('user_id', Auth::id())
-               ->first();
-
-    $savedCategoryId = $pref->category_id ?? null;
-    $savedSupplierId = $pref->supplier_id  ?? null;
-
-    $savedCategoryName = null;
-    if ($savedCategoryId) {
-        $savedCategoryName = DB::connection('tenant')
-                               ->table('categories')
-                               ->where('id', $savedCategoryId)
-                               ->value('category');
-    }
-
-    $allRetailSuppliers = DB::connection('tenant')
-                             ->table('suppliers')
-                             ->where('sector', 'retail')
-                             ->orderBy('name')
-                             ->get();
-
-    $suppliers = collect();
-    if ($savedCategoryId) {
-        $suppliers = DB::connection('tenant')
-                        ->table('suppliers')
-                        ->where('sector', 'retail')
-                        ->where('category', $savedCategoryId)
-                        ->orderBy('name')
-                        ->get();
-    }
-
-    $products = collect();
-
-    if ($savedCategoryId) {
-        if ($savedSupplierId) {
-            $supplierName = DB::connection('tenant')
-                               ->table('suppliers')
-                               ->where('id', $savedSupplierId)
-                               ->where('sector', 'retail')
-                               ->where('category', $savedCategoryId)
-                               ->value('name');
-
-            if ($supplierName) {
-                $products = DB::connection('tenant')
-                               ->table('retail_base_products')
-                               ->where('supplier', $supplierName)
-                               ->orderBy('name')
-                               ->get();
-            }
-        } else {
-            $categorySupplierNames = DB::connection('tenant')
-                                        ->table('suppliers')
-                                        ->where('sector', 'retail')
-                                        ->where('category', $savedCategoryId)
-                                        ->pluck('name')
-                                        ->toArray();
-
-            if (!empty($categorySupplierNames)) {
-                $products = DB::connection('tenant')
-                               ->table('retail_base_products')
-                               ->whereIn('supplier', $categorySupplierNames)
-                               ->orderBy('name')
-                               ->get();
-            }
-        }
-    }
-
-    // ── Resolve import supplier from user_filters ────────────────────────
-    $importSupplier = null;
-    if ($savedSupplierId) {
-        $importSupplier = DB::connection('tenant')
-            ->table('suppliers')
-            ->where('id', $savedSupplierId)
-            ->where('sector', 'retail')
-            ->first();
-    }
-?>
-
 <div class="card">
 
-{{-- ── Card header ──────────────────────────────────────────────────────── --}}
-<div class="card-header d-flex justify-content-between align-items-center">
-  <h4 class="header-title mb-0">Base Products</h4>
-  <div class="d-flex align-items-center" style="gap:4px;">
-    <a href="#" class="btn btn-light text-success fs-16 mx-1" id="importBtn"       title="Import from CSV"><i class="ri-file-excel-2-line"></i></a>
-    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn"      title="Add new product"><i class="ri-add-circle-line"></i></a>
-    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn"         title="Info"><i class="ri-information-line"></i></a>
-    <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download"><i class="ri-download-line"></i></a>
+  {{-- ── Card header ── --}}
+  <div class="card-header d-flex justify-content-between align-items-center">
+    <h4 class="header-title mb-0">
+      <input type="checkbox" id="selectAll" class="header-select-all">
+      Base Products
+    </h4>
+    <div class="d-flex align-items-center" style="gap:4px;">
+      <a href="#" class="btn btn-light text-success fs-16 mx-1" id="importBtn"       title="Import CSV"><i class="ri-file-excel-2-line"></i></a>
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn"      title="Add product"><i class="ri-add-circle-line"></i></a>
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn"         title="Info"><i class="ri-information-line"></i></a>
+      <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="tableButtonsBtn" title="Download"><i class="ri-download-line"></i></a>
+    </div>
   </div>
-</div>
 
-{{-- ── Filter bar ───────────────────────────────────────────────────────── --}}
-<div class="card-filter">
+  {{-- ── Filter bar ── --}}
+  <div class="card-filter">
+    <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+          id="filterCategoryForm" style="display:contents;">
+      @csrf
+      <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
+      <input type="hidden" name="supplier_id" value="">
+      <label>Category:</label>
+      <select name="category_id" id="filterCategory"
+              onchange="document.getElementById('filterCategoryForm').submit()">
+        <option value="" hidden>— Select Category —</option>
+        @foreach($categories as $cat)
+          <option value="{{ $cat->id }}" {{ $savedCategoryId == $cat->id ? 'selected' : '' }}>
+            {{ $cat->category }}
+          </option>
+        @endforeach
+      </select>
+    </form>
 
-  <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
-        id="filterCategoryForm" style="display:contents;">
-    @csrf
-    <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
-    <input type="hidden" name="supplier_id" value="">
-    <label>Category:</label>
-    <select name="category_id" id="filterCategory"
-            onchange="document.getElementById('filterCategoryForm').submit()">
-      <option value="" hidden>—Select Category—</option>
-      @foreach($categories as $cat)
-        <option value="{{ $cat->id }}" {{ $savedCategoryId == $cat->id ? 'selected' : '' }}>
-          {{ $cat->category }}
-        </option>
-      @endforeach
-    </select>
-  </form>
+    <div class="filter-divider"></div>
 
-  <div class="filter-divider"></div>
-
-  @if($savedCategoryId)
-    @if($suppliers->isEmpty())
-      <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:5px 12px;font-size:12px;color:#7d5a00;display:flex;align-items:center;gap:6px;">
-        <i class="ri-information-line"></i> No retail suppliers for this category.
-      </div>
+    @if($savedCategoryId)
+      @if($suppliers->isEmpty())
+        <div style="background:#fff8e1;border:1px solid #ffe082;border-radius:8px;padding:5px 12px;font-size:12px;color:#7d5a00;display:flex;align-items:center;gap:6px;">
+          <i class="ri-information-line"></i> No active suppliers for this category.
+        </div>
+      @else
+        <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+              id="filterSupplierForm" style="display:contents;">
+          @csrf
+          <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
+          <input type="hidden" name="category_id" value="{{ $savedCategoryId }}">
+          <label>Supplier:</label>
+          <select name="supplier_id" id="filterSupplier"
+                  onchange="document.getElementById('filterSupplierForm').submit()">
+            <option value="">All Suppliers</option>
+            @foreach($suppliers as $sup)
+              <option value="{{ $sup->id }}" {{ $savedSupplierId == $sup->id ? 'selected' : '' }}>
+                {{ $sup->name }}
+              </option>
+            @endforeach
+          </select>
+        </form>
+      @endif
     @else
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
-            id="filterSupplierForm" style="display:contents;">
-        @csrf
-        <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
-        <input type="hidden" name="category_id" value="{{ $savedCategoryId }}">
-        <label>Supplier:</label>
-        <select name="supplier_id" id="filterSupplier"
-                onchange="document.getElementById('filterSupplierForm').submit()">
-          <option value="">All Suppliers</option>
-          @foreach($suppliers as $sup)
-            <option value="{{ $sup->id }}" {{ $savedSupplierId == $sup->id ? 'selected' : '' }}>
-              {{ $sup->name }}
-            </option>
-          @endforeach
-        </select>
-      </form>
+      <label>Supplier:</label>
+      <select disabled><option>— Select a category first —</option></select>
     @endif
-  @else
-    <label>Supplier:</label>
-    <select disabled title="Select a category first">
-      <option>— Select a category first —</option>
-    </select>
-  @endif
 
-  <a href="#" class="btn btn-warning btn-sm" id="bulkTriggerBtn" title="Bulk Actions" style="margin-left:auto;">
-    <i class="ri-checkbox-multiple-line me-1"></i><span id="selectedCount">0</span> Selected
-  </a>
-</div>
+    <a href="#" class="btn btn-warning btn-sm" id="bulkTriggerBtn" style="margin-left:auto;">
+      <i class="ri-checkbox-multiple-line me-1"></i><span id="selectedCount">0</span> Selected
+    </a>
+  </div>
 
-{{-- ── Table ────────────────────────────────────────────────────────────── --}}
-<div class="card-body">
-<table id="maintable" class="table table-sm table-striped row-border order-column w-100">
-  <thead style="background-color:#e2e2e9">
-    <tr>
-      <th><input type="checkbox" id="selectAll">&nbsp;&nbsp;Product Name</th>
-      <th>Code</th>
-      <th>Unit</th>
-      <th>Order Price</th>
-      <th>Sell Price</th>
-      <th>Action</th>
-    </tr>
-  </thead>
-  <tbody id="tbody">
-    @foreach($products as $product)
-      <?php $row = "row".$product->id ?>
-      <tr id="{{ $row }}">
-        <td>
-          <input type="checkbox" class="selectRow"
-                 value="{{ $product->id }}" data-row-id="{{ $row }}">
-          &nbsp;{{ $product->name }}
-        </td>
-        <td>{{ $product->code ?? '—' }}</td>
-        <td>{{ $product->unit }}</td>
-        <td>
-          @if($product->cost_price !== null)
-            <span style="font-size:12px;color:#6c757d">{{ number_format($product->cost_price,2) }}</span>
-          @else
-            <span class="text-muted" style="font-size:12px">—</span>
-          @endif
-        </td>
-        <td>
-          @if($product->selling_price !== null)
-            <span class="price-cell">{{ number_format($product->selling_price,2) }}</span>
-          @else
-            <span class="text-muted" style="font-size:12px">—</span>
-          @endif
-        </td>
-        <td>
-          <a href="#" class="viewDataBtn"
-             data-id="{{ $product->id }}"
-             data-name="{{ $product->name }}"
-             data-description="{{ $product->description }}"
-             data-supplier="{{ $product->supplier }}"
-             data-code="{{ $product->code }}"
-             data-unit="{{ $product->unit }}"
-             data-sell="{{ $product->selling_price }}"
-             data-cost="{{ $product->cost_price }}"
-             data-is-product="{{ $product->is_product }}">
-            <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
-          </a>
-          <a href="#" class="editDataBtn"
-             editId="{{ $product->id }}"
-             editRow="{{ $row }}"
-             editName="{{ $product->name }}"
-             editDescription="{{ $product->description }}"
-             editSupplier="{{ $product->supplier }}"
-             editCode="{{ $product->code }}"
-             editUnit="{{ $product->unit }}"
-             editSellingPrice="{{ $product->selling_price }}"
-             editCostPrice="{{ $product->cost_price }}"
-             editIsProduct="{{ $product->is_product }}">
-            <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
-          </a>
-          <a href="#" class="deleteDataBtn"
-             deleteLabel="{{ $product->name }}"
-             deleteId="{{ $product->id }}"
-             deleteRow="{{ $row }}">
-            <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px"></i>
-          </a>
-        </td>
-      </tr>
-    @endforeach
-  </tbody>
-</table>
-</div>
+  {{-- ── Table ── --}}
+  <div class="card-body">
+    <table id="maintable" class="table table-sm table-striped row-border order-column w-100 mt-2">
+      <thead style="background-color:#e2e2e9">
+        <tr>
+          <th>Product Name</th>
+          <th>Code</th>
+          <th>Unit</th>
+          <th>Order Price</th>
+          <th>Sell Price</th>
+          <th>Action</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        @foreach($products as $product)
+          @php $row = 'row' . $product->id; $supplierName = $supplierNamesMap[$product->supplier] ?? '—'; @endphp
+          <tr id="{{ $row }}">
+            <td>
+              <input type="checkbox" class="selectRow" value="{{ $product->id }}" data-row-id="{{ $row }}">
+              &nbsp;{{ $product->name }}
+            </td>
+            <td>{{ $product->code ?? '—' }}</td>
+            <td>{{ $product->unit }}</td>
+            <td>
+              @if($product->cost_price !== null)
+                <span style="font-size:12px;color:#6c757d">{{ number_format($product->cost_price,2) }}</span>
+              @else <span class="text-muted" style="font-size:12px">—</span> @endif
+            </td>
+            <td>
+              @if($product->selling_price !== null)
+                <span class="price-cell">{{ number_format($product->selling_price,2) }}</span>
+              @else <span class="text-muted" style="font-size:12px">—</span> @endif
+            </td>
+            <td>
+              <a href="#" class="viewDataBtn"
+                 data-id="{{ $product->id }}" data-name="{{ $product->name }}"
+                 data-description="{{ $product->description }}"
+                 data-supplier-id="{{ $product->supplier }}" data-supplier-name="{{ $supplierName }}"
+                 data-code="{{ $product->code }}" data-unit="{{ $product->unit }}"
+                 data-sell="{{ $product->selling_price }}" data-cost="{{ $product->cost_price }}"
+                 data-is-product="{{ $product->is_product }}">
+                <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
+              </a>
+              <a href="#" class="editDataBtn"
+                 data-id="{{ $product->id }}" data-row="{{ $row }}"
+                 data-name="{{ $product->name }}" data-description="{{ $product->description }}"
+                 data-supplier-id="{{ $product->supplier }}"
+                 data-code="{{ $product->code }}" data-unit="{{ $product->unit }}"
+                 data-sell="{{ $product->selling_price }}" data-cost="{{ $product->cost_price }}"
+                 data-is-product="{{ $product->is_product }}">
+                <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
+              </a>
+              <a href="#" class="deleteDataBtn"
+                 data-label="{{ $product->name }}" data-id="{{ $product->id }}" data-row="{{ $row }}">
+                <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px"></i>
+              </a>
+            </td>
+          </tr>
+        @endforeach
+      </tbody>
+    </table>
+  </div>
 </div>
 </div></div></div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      DOWNLOAD MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
@@ -396,14 +302,11 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <h5 class="modal-title">Download</h5>
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
-    <div class="modal-body">
-      <p class="mb-2">Click a button to download base products data</p>
-      <div class="buttons"></div>
-    </div>
+    <div class="modal-body"><div class="buttons"></div></div>
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      INFO MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
@@ -413,20 +316,16 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body">
-      <p class="mb-2"><strong>What is a Base Product?</strong><br>
-      Base products are your <strong>master catalogue</strong> — the permanent list of everything you sell or offer. Each entry is defined once here and can then be assigned to one or more branches.</p>
-      <p class="mb-2"><strong>Supplier (Required)</strong><br>
-      Every product must be linked to a supplier. The supplier field drives the category classification — select the correct retail supplier when adding or editing a product.</p>
-      <p class="mb-2"><strong>Default Prices</strong><br>
-      The selling price and order/cost price set here apply to all branches by default. Individual branches can override these with their own prices if needed.</p>
-      <p class="mb-0"><strong>Product vs Service</strong><br>
-      Each entry is flagged as either a <strong>Product</strong> (a physical item) or a <strong>Service</strong> (a non-physical offering). This flag can be set or changed via the <strong>Edit</strong> form — new entries default to <em>Product</em>.</p>
+      <p class="mb-2"><strong>Base Products</strong> are your master catalogue — defined once and assigned to branches.</p>
+      <p class="mb-2"><strong>Supplier (Required)</strong> — every product links to a supplier which determines its category.</p>
+      <p class="mb-2"><strong>Default Prices</strong> — selling and cost prices here apply to all branches by default. Branches can override individually.</p>
+      <p class="mb-0"><strong>Product vs Service</strong> — flagged via the Edit form. New entries default to Product.</p>
     </div>
   </div></div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
-     VIEW PRODUCT MODAL
+{{-- ══════════════════════════════════════════════════════════════════
+     VIEW MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="viewProductModal" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -443,9 +342,9 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           </div>
           <div id="vw-badges" class="d-flex gap-2 flex-wrap justify-content-end"></div>
         </div>
-        <ul class="nav nav-tabs nav-sm mb-3" id="viewModalTabs" role="tablist" style="font-size:12px;">
+        <ul class="nav nav-tabs nav-sm mb-3" role="tablist" style="font-size:12px;">
           <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t1"><i class="ri-price-tag-3-line me-1"></i>Identity</button></li>
-          <li class="nav-item"><button class="nav-link py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
+          <li class="nav-item"><button class="nav-link py-1 px-2"        data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
         </ul>
         <div class="tab-content">
           <div class="tab-pane fade show active" id="vw-t1">
@@ -475,7 +374,7 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      ADD MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="newDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
@@ -486,23 +385,22 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px 20px 8px !important;">
-        <form action="#" method="post" id="newDataForm">
+        <form id="newDataForm">
           @csrf
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
-            <input class="form-control" type="text" name="name" id="new-name"
-                   placeholder="e.g. Cooking Oil 2L" autocomplete="off" required />
+            <input class="form-control" type="text" id="new-name" placeholder="e.g. Cooking Oil 2L" autocomplete="off" />
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Supplier <span class="text-danger">*</span></label>
-            <select class="form-select" name="supplier" id="new-supplier" required>
+            <select class="form-select" id="new-supplier">
               <option value="">— Select Supplier —</option>
               @foreach($suppliers as $sup)
-                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
               @endforeach
             </select>
             @if($savedCategoryId && $suppliers->isEmpty())
-              <div class="form-text text-warning"><i class="ri-information-line"></i> No retail suppliers for the selected category.</div>
+              <div class="form-text text-warning"><i class="ri-information-line"></i> No active suppliers for this category.</div>
             @elseif(!$savedCategoryId)
               <div class="form-text text-muted">Select a category filter to see suppliers.</div>
             @endif
@@ -510,36 +408,29 @@ table.dataTable tbody td:first-child { text-align:left !important; }
           <div class="row g-2 mb-3">
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:13px">Selling Price <small class="text-muted fw-normal">(MWK)</small></label>
-              <input class="form-control" type="number" step="0.01" min="0"
-                     name="selling_price" id="new-selling-price" placeholder="0.00" />
+              <input class="form-control" type="number" step="0.01" min="0" id="new-selling-price" placeholder="0.00" />
             </div>
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
-              <input class="form-control" type="number" step="0.01" min="0"
-                     name="cost_price" id="new-cost-price" placeholder="0.00" />
+              <input class="form-control" type="number" step="0.01" min="0" id="new-cost-price" placeholder="0.00" />
             </div>
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure</label>
-            <input class="form-control" type="text" name="unit" id="new-unit"
-                   list="newUnitOptions" placeholder="e.g. Each, kg, Litre…" value="Each" autocomplete="off" />
+            <input class="form-control" type="text" id="new-unit" list="newUnitOptions" placeholder="Each, kg, Litre…" value="Each" autocomplete="off" />
             <datalist id="newUnitOptions">
-              <option value="Each"><option value="kg"><option value="g">
-              <option value="Litre"><option value="ml"><option value="Box">
-              <option value="Carton"><option value="Pack"><option value="Pair">
-              <option value="Dozen"><option value="Bag"><option value="Bottle">
-              <option value="Metre"><option value="Service">
+              <option value="Each"><option value="kg"><option value="g"><option value="Litre"><option value="ml">
+              <option value="Box"><option value="Carton"><option value="Pack"><option value="Pair">
+              <option value="Dozen"><option value="Bag"><option value="Bottle"><option value="Metre"><option value="Service">
             </datalist>
           </div>
           <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(optional SKU)</small></label>
-            <input class="form-control" type="text" name="code" id="new-code"
-                   placeholder="e.g. OIL-001" autocomplete="off" />
+            <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU — optional)</small></label>
+            <input class="form-control" type="text" id="new-code" placeholder="e.g. OIL-001" autocomplete="off" />
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Description <small class="text-muted fw-normal">(optional)</small></label>
-            <textarea class="form-control" name="description" id="new-description" rows="2"
-                      placeholder="Brief description…"></textarea>
+            <textarea class="form-control" id="new-description" rows="2" placeholder="Brief description…"></textarea>
           </div>
         </form>
       </div>
@@ -551,314 +442,197 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
-     EXCEL SAMPLE MODAL
-══════════════════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="excelSampleModal" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog">
-    <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
-      <div class="modal-header mh-green">
-        <h5 class="modal-title mh-title"><i class="ri-table-line"></i> CSV Column Guide</h5>
-        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
-      </div>
-      <div class="modal-body" style="padding:16px 20px !important;">
-        <div class="d-flex justify-content-between align-items-center mb-3">
-          <div>
-            <strong style="font-size:13px"><i class="ri-table-line me-1 text-success"></i> Required CSV Structure</strong>
-            <span class="ms-2 text-muted" style="font-size:12px">5 columns</span>
-          </div>
-          <a href="#" id="downloadTemplateBtn" class="btn btn-sm btn-success" style="font-size:12px">
-            <i class="ri-download-2-line"></i> Download Template
-          </a>
-        </div>
-        <div class="excel-preview-wrap mb-3">
-          <div class="excel-header-bar"><i class="ri-file-excel-2-line"></i> base_products_template.csv</div>
-          <div style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:5px 10px;font-size:11px;color:#2d6a4f;display:flex;align-items:center;gap:5px;">
-            <i class="ri-information-line"></i>
-            <span>Row 1 is the <strong>header row</strong> — keep it exactly as shown. Your products start from row 2.</span>
-          </div>
-          <div class="table-responsive">
-            <table class="excel-preview-table">
-              <thead>
-                <tr>
-                  <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
-                  <th class="col-name">name <span class="excel-req-star">*</span></th>
-                  <th>code</th>
-                  <th>unit</th>
-                  <th>cost_price</th>
-                  <th>selling_price</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr>
-                  <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
-                  <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                  <td style="color:#2d6a4f;">headers</td>
-                </tr>
-                <tr>
-                  <td class="excel-row-num">2</td>
-                  <td class="col-name excel-sample-val">Cooking Oil 2L</td>
-                  <td><span class="excel-col-code">OIL-001</span></td>
-                  <td>Each</td>
-                  <td>1,500.00</td>
-                  <td>2,000.00</td>
-                </tr>
-                <tr>
-                  <td class="excel-row-num">3</td>
-                  <td class="col-name excel-sample-val">Drinking Water 500ml</td>
-                  <td><span class="excel-col-code">WAT-001</span></td>
-                  <td>Each</td>
-                  <td>350.00</td>
-                  <td>500.00</td>
-                </tr>
-                <tr style="background:#fafafa;">
-                  <td class="excel-row-num" style="color:#ccc;">4</td>
-                  <td class="col-name excel-sample-muted">your product here…</td>
-                  <td class="excel-sample-muted">optional</td>
-                  <td class="excel-sample-muted">Each / kg / Litre…</td>
-                  <td class="excel-sample-muted">numeric, no commas</td>
-                  <td class="excel-sample-muted">numeric, no commas</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
-        </div>
-        <div class="alert alert-success border-0 py-2 px-3 mb-0" style="font-size:12px;border-radius:8px;background:#d8f3e6;">
-          <strong><i class="ri-check-double-line me-1"></i>Auto-applied to all rows:</strong>
-          is_product = true (Product). Supplier is taken from your <strong>selected Supplier filter</strong> — no supplier column needed in the CSV.
-        </div>
-      </div>
-      <div class="modal-footer">
-        <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-        <a href="#" id="downloadTemplateBtnFooter" class="btn btn-success btn-sm">
-          <i class="ri-download-2-line me-1"></i> Download Template
-        </a>
-      </div>
-    </div>
-  </div>
-</div>
-
-{{-- ══════════════════════════════════════════════════════════════════════
-     IMPORT MODAL
+{{-- ══════════════════════════════════════════════════════════════════
+     IMPORT MODAL — 4-step wizard
+     Step 1: Guide  ·  Step 2: Supplier  ·  Step 3: Upload/Validate/Preview  ·  Step 4: Chunked Import
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="importModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.2);">
       <div class="modal-header mh-green">
-        <h5 class="modal-title mh-title"><i class="ri-file-excel-2-line"></i> Import Products from CSV</h5>
-        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" id="importModalCloseBtn"></button>
+        <h5 class="modal-title mh-title"><i class="ri-file-excel-2-line"></i> Import Base Products from CSV</h5>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
-      <div class="modal-body" style="padding:16px !important;">
+      <div class="modal-body" style="padding:16px 18px !important;">
 
-        {{-- ── Supplier notice ─────────────────────────────────────────── --}}
-        @if($importSupplier)
-          <div class="supplier-ok-banner">
-            <i class="ri-user-line me-1"></i>
-            All imported rows will be assigned to supplier
-            <strong>{{ $importSupplier->name }}</strong>.
-            To use a different supplier, update your <strong>Supplier filter</strong> before importing.
-          </div>
-        @else
-          <div class="supplier-warn-banner">
-            <i class="ri-error-warning-line me-1"></i>
-            <strong>No supplier selected.</strong>
-            Please select a specific supplier in the <strong>Supplier filter</strong> above before importing.
-            Import is disabled until a supplier is chosen.
-          </div>
-        @endif
+        <div class="csv-step-indicator">
+          <div class="csi-step active" id="bp-csi1"><span class="csi-num">1</span>Guide</div>
+          <div class="csi-line"></div>
+          <div class="csi-step" id="bp-csi2"><span class="csi-num">2</span>Supplier</div>
+          <div class="csi-line"></div>
+          <div class="csi-step" id="bp-csi3"><span class="csi-num">3</span>Upload</div>
+          <div class="csi-line"></div>
+          <div class="csi-step" id="bp-csi4"><span class="csi-num">4</span>Import</div>
+        </div>
 
-        <div id="importSetupFields">
-          <div class="mb-3">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <span style="font-size:12px;font-weight:600;color:#1e293b;">
-                <i class="ri-table-line me-1 text-success"></i>
-                Prepare your CSV file:
-              </span>
-              <a href="#" id="viewSampleBtn" class="btn btn-sm btn-outline-success" style="font-size:12px;white-space:nowrap;">
-                <i class="ri-table-line me-1"></i> View Full Guide
-              </a>
-            </div>
-            <div class="excel-preview-wrap mb-2">
-              <div class="excel-header-bar"><i class="ri-file-excel-2-line"></i> base_products_template.csv</div>
-              <div style="background:#f0faf5;border-bottom:1px solid #b7d5c4;padding:5px 10px;font-size:11px;color:#2d6a4f;display:flex;align-items:center;gap:5px;">
-                <i class="ri-information-line"></i>
-                <strong>Row 1 is the header row</strong> — keep exactly as shown. Products start from row 2.
-              </div>
-              <div class="table-responsive">
-                <table class="excel-preview-table">
-                  <thead>
-                    <tr>
-                      <th class="excel-row-num" style="background:#1a5c38;color:#aaa;">#</th>
-                      <th class="col-name">name <span class="excel-req-star">*</span></th>
-                      <th>code</th>
-                      <th>unit</th>
-                      <th>cost_price</th>
-                      <th>selling_price</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr>
-                      <td class="excel-row-num" style="background:#e8f5e9;color:#2d6a4f;font-weight:600;">1</td>
-                      <td class="col-name" style="color:#2d6a4f;font-weight:600;">← header row</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                      <td style="color:#2d6a4f;">headers</td>
-                    </tr>
-                    <tr>
-                      <td class="excel-row-num">2</td>
-                      <td class="col-name excel-sample-val">Cooking Oil 2L</td>
-                      <td><span class="excel-col-code">OIL-001</span></td>
-                      <td>Each</td>
-                      <td>1500.00</td>
-                      <td>2000.00</td>
-                    </tr>
-                    <tr style="background:#fafafa;">
-                      <td class="excel-row-num" style="color:#ccc;">3</td>
-                      <td class="col-name excel-sample-muted">your product here…</td>
-                      <td class="excel-sample-muted">optional</td>
-                      <td class="excel-sample-muted">Each / kg / Litre…</td>
-                      <td class="excel-sample-muted">numeric, no commas</td>
-                      <td class="excel-sample-muted">numeric, no commas</td>
-                    </tr>
-                  </tbody>
-                </table>
-              </div>
-            </div>
-            <div class="d-flex justify-content-end mb-2">
-              <a href="#" id="downloadTemplateInline" class="btn btn-sm btn-success" style="font-size:12px">
-                <i class="ri-download-2-line me-1"></i> Download Template
-              </a>
-            </div>
+        {{-- Step 1: Guide --}}
+        <div class="csv-step active" id="bpCsvStep1">
+          <div style="font-size:13px;color:#374151;margin-bottom:12px;">
+            Prepare a CSV file with the following columns:
           </div>
-
-          <div id="importStepSetup">
-            <div class="drop-zone" id="dropZone">
-              <input type="file" id="csvFileInput" accept=".csv,text/csv"
-                     @if(!$importSupplier) disabled @endif>
-              <i class="ri-file-excel-2-line"></i>
-              <p class="mb-1 fw-semibold" style="font-size:13px">Drop your CSV file here</p>
-              <p class="text-muted mb-0" style="font-size:12px">or click to browse — CSV files only</p>
-            </div>
-            <div id="csvFileName" class="mt-2 text-muted" style="font-size:12px;display:none;">
-              <i class="ri-file-line text-success"></i> <span id="csvFileNameText"></span>
-            </div>
+          <div style="background:#f8f9fa;border-radius:8px;padding:12px 14px;margin-bottom:14px;font-family:monospace;font-size:12px;color:#374151;overflow-x:auto;white-space:nowrap;">
+            name, code, unit, cost_price, selling_price
           </div>
-
-          <div id="importStepPreview" style="display:none;">
-            <div class="d-flex align-items-center justify-content-between mb-2">
-              <div>
-                <strong style="font-size:13px">Preview</strong>
-                <span class="ms-2 text-muted" style="font-size:12px">First 5 of <strong id="importTotalCount">0</strong> rows</span>
-              </div>
-              <a href="#" id="resetCsvBtn" class="btn btn-sm btn-outline-secondary" style="font-size:12px">
-                <i class="ri-refresh-line"></i> Change file
-              </a>
-            </div>
-            <div class="table-responsive" style="max-height:180px;overflow-y:auto;border:1px solid #dee2e6;border-radius:6px;">
-              <table class="table table-sm table-bordered mb-0" id="importPreviewTable">
-                <thead id="importPreviewHead"></thead>
-                <tbody id="importPreviewBody"></tbody>
-              </table>
-            </div>
-            <div class="alert alert-success border-0 mt-3 py-2 px-3 mb-0 d-flex align-items-center gap-2"
-                 style="font-size:13px;border-radius:8px;">
-              <i class="ri-check-double-line fs-5 text-success"></i>
-              <span>Ready to import <strong><span id="importConfirmCount">0</span> products</strong>.</span>
-            </div>
+          <div class="alert" style="background:#eff6ff;border-left:3px solid #4B5EBD;border-radius:0 5px 5px 0;padding:8px 12px;font-size:11px;color:#1e40af;margin-bottom:14px;">
+            <i class="ri-information-line me-1"></i>
+            All rows will be assigned to the supplier you choose in the next step. Formatted numbers like <code>2,000</code> are accepted. Unit is imported exactly as written in the file. Rows are checked as the file is read — anything invalid (name too long, bad price format, duplicate within the file) is set aside immediately and can be downloaded instead of being sent. Rows that fail to save on the server (e.g. already in the catalogue) are also reported at the end and can be downloaded.
+          </div>
+          <table style="width:100%;border-collapse:collapse;font-size:11px;margin-bottom:14px;">
+            <thead>
+              <tr style="background:#eef0f7;">
+                <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #dee2e6;">Column</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #dee2e6;">Required</th>
+                <th style="padding:6px 8px;text-align:left;border-bottom:1px solid #dee2e6;">Notes</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 8px;font-weight:600;">name</td><td style="padding:5px 8px;color:#dc2626;">Yes</td><td style="padding:5px 8px;color:#6c757d;">Product name (max 255 chars)</td></tr>
+              <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 8px;font-weight:600;">code</td><td style="padding:5px 8px;color:#6c757d;">No</td><td style="padding:5px 8px;color:#6c757d;">SKU / product code (max 100 chars)</td></tr>
+              <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 8px;font-weight:600;">unit</td><td style="padding:5px 8px;color:#6c757d;">No</td><td style="padding:5px 8px;color:#6c757d;">Kept exactly as written (defaults to "Each" only if blank)</td></tr>
+              <tr style="border-bottom:1px solid #f1f5f9;"><td style="padding:5px 8px;font-weight:600;">cost_price</td><td style="padding:5px 8px;color:#6c757d;">No</td><td style="padding:5px 8px;color:#6c757d;">2,000 or 2000</td></tr>
+              <tr><td style="padding:5px 8px;font-weight:600;">selling_price</td><td style="padding:5px 8px;color:#6c757d;">No</td><td style="padding:5px 8px;color:#6c757d;">2,000 or 2000</td></tr>
+            </tbody>
+          </table>
+          <div class="d-flex justify-content-between align-items-center">
+            <a href="#" id="bpCsvDownloadSample" style="font-size:12px;color:#4B5EBD;">
+              <i class="ri-download-line me-1"></i>Download sample CSV
+            </a>
+            <button type="button" class="btn btn-primary btn-sm" onclick="bpCsvGoToStep(2)">
+              Next <i class="ri-arrow-right-s-line"></i>
+            </button>
           </div>
         </div>
 
-        {{-- ── Progress step ──────────────────────────────────────────── --}}
-        <div id="importStepProgress" style="display:none;">
-          <div class="text-center mb-3">
-            <i class="ri-loader-4-line text-success" style="font-size:40px;animation:spin 1s linear infinite"></i>
-            <p class="mt-2 mb-0 fw-semibold" style="font-size:14px">Importing products…</p>
-            <p class="text-muted" style="font-size:12px" id="importProgressText">0 of 0 done</p>
+        {{-- Step 2: Supplier --}}
+        <div class="csv-step" id="bpCsvStep2">
+          <label class="form-label fw-semibold" style="font-size:12px">Supplier <span class="text-danger">*</span></label>
+          <select class="form-select form-select-sm mb-3" id="bp-csv-supplier">
+            <option value="">Select supplier</option>
+            @foreach($suppliers as $sup)
+              <option value="{{ $sup->id }}">{{ $sup->name }}</option>
+            @endforeach
+          </select>
+          <div style="font-size:11px;color:#6c757d;margin-bottom:14px;">
+            @if($savedCategoryId)
+              Only active suppliers in the currently selected category are listed. All imported rows will be assigned to this supplier.
+            @else
+              Select a category in the page filter bar first to see available suppliers.
+            @endif
           </div>
-          <div class="import-progress-bar mb-2"><div class="bar" id="importBarFill"></div></div>
-          {{-- Log div kept in DOM but hidden — no per-row messages shown --}}
-          <div id="importLog" style="display:none;"></div>
-        </div>
-
-        {{-- ── Done step ──────────────────────────────────────────────── --}}
-        <div id="importStepDone" style="display:none;">
-          <div class="text-center py-3">
-            <i class="ri-checkbox-circle-line text-success" style="font-size:52px"></i>
-            <h5 class="mt-2">Import Complete!</h5>
-            {{-- Summary replaced with a div so it can hold rich HTML --}}
-            <div id="importDoneSummary" class="mt-1" style="font-size:13px;"></div>
-            <p class="text-muted mt-2 mb-0" style="font-size:12px">Page will reload shortly.</p>
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="bpCsvGoToStep(1)">
+              <i class="ri-arrow-left-s-line"></i> Back
+            </button>
+            <button type="button" class="btn btn-primary btn-sm" onclick="bpCsvStep2Next()">
+              Next <i class="ri-arrow-right-s-line"></i>
+            </button>
           </div>
         </div>
 
-      </div>
-
-      <div class="modal-footer" style="justify-content:space-between;padding:10px 18px 14px;">
-        <div></div>
-        <div class="d-flex gap-2">
-          <a href="#" class="btn btn-secondary btn-sm" id="cancelImportBtn" style="font-size:12px">
-            <i class="ri-close-line"></i> Cancel
-          </a>
-          <a href="#" class="btn btn-success btn-sm" id="submitImportBtn"
-             style="font-size:12px;display:none;"
-             @if(!$importSupplier) disabled @endif>
-            <i class="ri-upload-2-line"></i> Start Import
-          </a>
+        {{-- Step 3: Upload — parses + validates fully client-side, caches valid/invalid
+             rows separately to localStorage, previews valid rows, offers immediate
+             download of invalid rows. --}}
+        <div class="csv-step" id="bpCsvStep3">
+          <label class="form-label fw-semibold" style="font-size:12px">CSV File <span class="text-danger">*</span></label>
+          <input class="form-control form-control-sm mb-2" type="file" id="bp-csv-file" accept=".csv,.txt" />
+          <div id="bpCsvParseError" class="alert alert-danger py-2 px-3 mb-2" style="font-size:11px;display:none;"></div>
+          <div id="bpCsvFilePreviewWrap" style="display:none;">
+            <div style="font-size:11px;color:#6c757d;margin-bottom:6px;" id="bpCsvFilePreviewLabel"></div>
+            <div class="csv-preview-scroll" id="bpCsvFilePreviewScroll"></div>
+          </div>
+          <div id="bpCsvInvalidWrap" class="csv-invalid-banner" style="display:none;">
+            <span><i class="ri-error-warning-line me-1"></i><span id="bpCsvInvalidCount">0</span> row(s) look invalid and won't be sent — fix and re-import separately.</span>
+            <a href="#" id="bpCsvDownloadInvalidBtn" class="btn btn-sm btn-outline-danger">
+              <i class="ri-file-excel-2-line me-1"></i>Download Invalid Rows (.xlsx)
+            </a>
+          </div>
+          <div style="font-size:11px;color:#6c757d;margin:10px 0 14px;">
+            The file is fully parsed and validated in this browser before anything is sent — if the modal closes accidentally your parsed rows are kept until you re-open it. Only valid rows are uploaded, in small batches, so large files never time out. Products already in the catalogue (by name) will be skipped server-side — you'll see a count at the end.
+          </div>
+          <div class="d-flex justify-content-between">
+            <button type="button" class="btn btn-secondary btn-sm" onclick="bpCsvGoToStep(2)">
+              <i class="ri-arrow-left-s-line"></i> Back
+            </button>
+            <button type="button" class="btn btn-success btn-sm" id="bpCsvImportBtn" disabled>
+              <i class="ri-upload-2-line"></i> Import CSV
+            </button>
+          </div>
         </div>
+
+        {{-- Step 4: Chunked upload progress + combined result --}}
+        <div class="csv-step" id="bpCsvStep4">
+          <div id="bpCsvImportProgress" style="font-size:13px;color:#475569;text-align:center;padding:20px 0;"></div>
+          <div id="bpCsvChunkProgressWrap" style="display:none;">
+            <div class="csv-chunk-progress-track"><div class="csv-chunk-progress-fill" id="bpCsvChunkProgressFill"></div></div>
+            <div class="csv-chunk-progress-label" id="bpCsvChunkProgressLabel"></div>
+          </div>
+          <div class="d-flex justify-content-end mt-2">
+            <button type="button" class="btn btn-primary btn-sm" id="bpCsvDoneBtn">
+              <i class="ri-check-line"></i> Done
+            </button>
+          </div>
+        </div>
+
       </div>
     </div>
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      SINGLE DELETE MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="singleDeleteDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog" style="max-width:350px;margin:1.75rem auto;">
-    <div class="modal-content">
-      <div class="modal-body text-center pb-4">
-        <i class="ri-error-warning-line text-danger" style="font-size:70px"></i>
-        <form action="#" method="post" id="singleDeleteDataForm">
-          @csrf
-          <h4 class="mt-2">Delete <span id="singleDisplayDeleteLabel" class="text-danger"></span>?</h4>
-          <h5>This cannot be undone.</h5>
-          <input type="hidden" id="singleDeleteId"  name="id">
-          <input type="hidden" id="singleDeleteRow">
-          <a href="#" class="btn btn-danger me-2 mt-3" id="submitSingleDeleteDataBtn">Yes, Delete it</a>
-          <a href="#" class="btn btn-info mt-3"        id="keepSingleDataBtn">No, Keep it</a>
-        </form>
+<div class="modal fade" id="singleDeleteModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:380px;">
+    <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+      <div class="modal-header mh-danger">
+        <h5 class="modal-title mh-title"><i class="ri-delete-bin-line"></i> Delete Product</h5>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <i class="ri-error-warning-line text-danger" style="font-size:60px"></i>
+        <h5 class="mt-2 mb-1">Delete <span id="singleDeleteLabel" class="text-danger"></span>?</h5>
+        <p style="font-size:12px;color:#6c757d;margin-bottom:0;">
+          Cannot be undone. If this product is assigned to a branch, it will be skipped instead.
+        </p>
+        <input type="hidden" id="singleDeleteId">
+        <input type="hidden" id="singleDeleteRow">
+      </div>
+      <div class="modal-footer justify-content-center gap-2" style="padding:10px 20px 18px;">
+        <a href="#" class="btn btn-secondary btn-sm px-4" id="keepSingleBtn">Keep</a>
+        <a href="#" class="btn btn-danger btn-sm px-4"    id="submitSingleDeleteBtn">Yes, Delete</a>
       </div>
     </div>
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      BULK DELETE MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
-<div class="modal fade" id="multipleDeleteDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog" style="max-width:350px;margin:1.75rem auto;">
-    <div class="modal-content">
-      <div class="modal-body text-center pb-4">
-        <i class="ri-error-warning-line text-danger" style="font-size:70px"></i>
-        <form action="#" method="post" id="multipleDeleteDataForm">
-          @csrf
-          <h4 class="mt-2">Delete <span id="multipleDisplayDeleteLabel"></span>?</h4>
-          <h5>This cannot be undone.</h5>
-          <input type="hidden" id="multipleDeleteIds"  name="ids[]">
-          <input type="hidden" id="multipleDeleteRows">
-          <a href="#" class="btn btn-danger me-2 mt-3" id="submitMultipleDeleteDataBtn">Yes, Delete them</a>
-          <a href="#" class="btn btn-info mt-3"         id="keepMultipleDataBtn">No, Keep them</a>
-        </form>
+<div class="modal fade" id="multipleDeleteModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+  <div class="modal-dialog" style="max-width:380px;">
+    <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+      <div class="modal-header mh-danger">
+        <h5 class="modal-title mh-title"><i class="ri-delete-bin-line"></i> Delete Selected</h5>
+        <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
+      </div>
+      <div class="modal-body text-center py-4">
+        <i class="ri-error-warning-line text-danger" style="font-size:60px"></i>
+        <h5 class="mt-2 mb-1">Delete <span id="multipleDeleteCount" class="text-danger">0</span> product(s)?</h5>
+        <p style="font-size:12px;color:#6c757d;margin-bottom:0;">
+          Cannot be undone. Products assigned to a branch will be skipped — you'll see how many.
+        </p>
+        <input type="hidden" id="multipleDeleteIds">
+        <input type="hidden" id="multipleDeleteRows">
+      </div>
+      <div class="modal-footer justify-content-center gap-2" style="padding:10px 20px 18px;">
+        <a href="#" class="btn btn-secondary btn-sm px-4" id="keepMultipleBtn">Keep</a>
+        <a href="#" class="btn btn-danger btn-sm px-4"    id="submitMultipleDeleteBtn">Yes, Delete</a>
       </div>
     </div>
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
+{{-- ══════════════════════════════════════════════════════════════════
      BULK ACTIONS MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="bulkActionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
@@ -867,39 +641,39 @@ table.dataTable tbody td:first-child { text-align:left !important; }
       <div class="modal-header mh-orange">
         <h5 class="modal-title mh-title">
           <i class="ri-checkbox-multiple-line"></i>
-          Bulk Actions — <span id="bulkActionsCount">0</span> item(s) selected
+          Bulk Actions — <span id="bulkActionsCount">0</span> selected
         </h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
       <div class="modal-body" style="padding:16px 18px !important;">
         <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-truck-line me-1"></i> Change Supplier</div>
+          <div class="bulk-section-title"><i class="ri-truck-line me-1"></i>Change Supplier</div>
           <div class="d-flex gap-2 align-items-center">
             <select class="form-select form-select-sm" id="bulkSupplierSelect">
               <option value="">— Select Supplier —</option>
               @foreach($suppliers as $sup)
-                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
               @endforeach
             </select>
             <a href="#" class="btn btn-sm btn-warning text-dark" id="applyBulkSupplierBtn" style="white-space:nowrap">
-              <i class="ri-check-line me-1"></i> Apply
+              <i class="ri-check-line me-1"></i>Apply
             </a>
           </div>
         </div>
         <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-toggle-line me-1"></i> Set Type</div>
+          <div class="bulk-section-title"><i class="ri-toggle-line me-1"></i>Set Type</div>
           <div class="d-flex gap-2">
             <a href="#" class="btn btn-sm btn-success text-white flex-fill" id="bulkMarkProductBtn">
-              <i class="ri-box-3-line me-1"></i> Mark as Product
+              <i class="ri-box-3-line me-1"></i>Mark as Product
             </a>
             <a href="#" class="btn btn-sm btn-warning text-dark flex-fill" id="bulkMarkServiceBtn">
-              <i class="ri-service-line me-1"></i> Mark as Service
+              <i class="ri-service-line me-1"></i>Mark as Service
             </a>
           </div>
         </div>
         <div class="d-grid mt-1">
           <a href="#" class="btn btn-danger" id="deleteSelectedBtn">
-            <i class="ri-delete-bin-line me-1"></i> Delete Selected
+            <i class="ri-delete-bin-line me-1"></i>Delete Selected
           </a>
         </div>
       </div>
@@ -907,8 +681,8 @@ table.dataTable tbody td:first-child { text-align:left !important; }
   </div>
 </div>
 
-{{-- ══════════════════════════════════════════════════════════════════════
-     EDIT MODAL  ── single tab, all fields editable
+{{-- ══════════════════════════════════════════════════════════════════
+     EDIT MODAL
 ══════════════════════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
   <div class="modal-dialog">
@@ -917,122 +691,73 @@ table.dataTable tbody td:first-child { text-align:left !important; }
         <h5 class="modal-title mh-title"><i class="ri-edit-box-line"></i> Update Base Product</h5>
         <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
       </div>
-
       <div class="modal-body" style="padding:16px 18px 8px !important;">
-        <form action="#" method="post" id="editDataForm">
+        <form id="editDataForm">
           @csrf
-          <input type="hidden" name="id"      id="editId">
-          <input type="hidden" name="editrow" id="editRow">
-
-          {{-- Product Name --}}
+          <input type="hidden" id="editId">
+          <input type="hidden" id="editRow">
           <div class="mb-2">
-            <label class="form-label fw-semibold" style="font-size:13px">
-              Product Name <span class="text-danger">*</span>
-            </label>
-            <input class="form-control form-control-sm" type="text"
-                   name="name" id="editName" autocomplete="off"
-                   placeholder="Product name" required />
+            <label class="form-label fw-semibold" style="font-size:13px">Product Name <span class="text-danger">*</span></label>
+            <input class="form-control form-control-sm" type="text" id="editName" autocomplete="off" required />
           </div>
-
-          {{-- Supplier --}}
           <div class="mb-2">
-            <label class="form-label fw-semibold" style="font-size:13px">
-              Supplier <span class="text-danger">*</span>
-            </label>
-            <select class="form-select form-select-sm" name="supplier" id="editSupplier" required>
+            <label class="form-label fw-semibold" style="font-size:13px">Supplier <span class="text-danger">*</span></label>
+            <select class="form-select form-select-sm" id="editSupplier" required>
               <option value="">— Select Supplier —</option>
               @foreach($suppliers as $sup)
-                <option value="{{ $sup->name }}">{{ $sup->name }}</option>
+                <option value="{{ $sup->id }}">{{ $sup->name }}</option>
               @endforeach
             </select>
           </div>
-
-          {{-- Prices --}}
           <div class="row g-2 mb-2">
             <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">
-                Selling Price <small class="text-muted fw-normal">(MWK)</small>
-              </label>
-              <input class="form-control form-control-sm" type="number" step="0.01" min="0"
-                     name="selling_price" id="editSellingPrice" placeholder="0.00" />
+              <label class="form-label fw-semibold" style="font-size:13px">Selling Price <small class="text-muted fw-normal">(MWK)</small></label>
+              <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editSellingPrice" placeholder="0.00" />
             </div>
             <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">
-                Order / Cost Price <small class="text-muted fw-normal">(MWK)</small>
-              </label>
-              <input class="form-control form-control-sm" type="number" step="0.01" min="0"
-                     name="cost_price" id="editCostPrice" placeholder="0.00" />
+              <label class="form-label fw-semibold" style="font-size:13px">Order / Cost Price <small class="text-muted fw-normal">(MWK)</small></label>
+              <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editCostPrice" placeholder="0.00" />
             </div>
           </div>
-
-          {{-- Unit --}}
-          {{-- Unit --}}
-        <div class="mb-2">
-          <label class="form-label fw-semibold" style="font-size:13px">
-            Unit of Measure <span class="text-danger">*</span>
-          </label>
-          <input class="form-control form-control-sm" type="text"
-                name="unit" id="editUnit"
-                placeholder="e.g. Each, kg, Litre…"
-                autocomplete="off" required />
-        </div>
-
-          {{-- Code --}}
           <div class="mb-2">
-            <label class="form-label fw-semibold" style="font-size:13px">
-              Code <small class="text-muted fw-normal">(SKU — optional)</small>
-            </label>
-            <input class="form-control form-control-sm" type="text"
-                   name="code" id="editCode" autocomplete="off" />
+            <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure <span class="text-danger">*</span></label>
+            <input class="form-control form-control-sm" type="text" id="editUnit" autocomplete="off" required />
           </div>
-
-          {{-- Description --}}
+          <div class="mb-2">
+            <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU — optional)</small></label>
+            <input class="form-control form-control-sm" type="text" id="editCode" autocomplete="off" />
+          </div>
           <div class="mb-2">
             <label class="form-label fw-semibold" style="font-size:13px">Description</label>
-            <textarea class="form-control form-control-sm"
-                      name="description" id="editDescription" rows="2"></textarea>
+            <textarea class="form-control form-control-sm" id="editDescription" rows="2"></textarea>
           </div>
-
-          {{-- Type --}}
           <div class="mb-2">
             <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
             <div class="d-flex gap-3">
               <div class="form-check">
-                <input class="form-check-input" type="radio"
-                       name="is_product" id="editIsProductYes" value="1">
+                <input class="form-check-input" type="radio" name="is_product" id="editIsProductYes" value="1">
                 <label class="form-check-label" for="editIsProductYes">
-                  <span class="type-badge-product">
-                    <i class="ri-box-3-line me-1"></i>Product
-                  </span>
+                  <span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>
                 </label>
               </div>
               <div class="form-check">
-                <input class="form-check-input" type="radio"
-                       name="is_product" id="editIsProductNo" value="0">
+                <input class="form-check-input" type="radio" name="is_product" id="editIsProductNo" value="0">
                 <label class="form-check-label" for="editIsProductNo">
-                  <span class="type-badge-service">
-                    <i class="ri-service-line me-1"></i>Service
-                  </span>
+                  <span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>
                 </label>
               </div>
             </div>
           </div>
-
-          {{-- Prices note --}}
           <div class="alert border-0 py-2 px-3 mt-2 mb-0"
-               style="background:#f0f3ff;border-left:3px solid #4B5EBD !important;
-                      border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
+               style="background:#f0f3ff;border-left:3px solid #4B5EBD;border-radius:0 5px 5px 0;font-size:11px;color:#3a4a9a;">
             <i class="ri-information-line me-1"></i>
-            Selling and cost prices are <strong>defaults for all branches</strong>.
-            Branches can override them individually.
+            Prices here are <strong>defaults for all branches</strong>. Branches can override individually.
           </div>
-
         </form>
       </div>
-
       <div class="modal-footer" style="padding:10px 18px 14px;justify-content:flex-end;gap:8px;">
-        <a href="#" class="btn btn-secondary btn-sm" id="cancelEditDataBtn">Cancel</a>
-        <a href="#" class="btn btn-primary btn-sm"   id="submitUpdateDataBtn">
+        <a href="#" class="btn btn-secondary btn-sm" id="cancelEditBtn">Cancel</a>
+        <a href="#" class="btn btn-primary btn-sm"   id="submitUpdateBtn">
           <i class="ri-check-line me-1"></i> Update
         </a>
       </div>
@@ -1046,26 +771,26 @@ table.dataTable tbody td:first-child { text-align:left !important; }
 <script>
 $(document).ready(function () {
 
-    toastr.options = {
-        closeButton: true, progressBar: true,
-        showMethod: 'slideDown', timeOut: 5000, allowHtml: true
-    };
+    toastr.options = { closeButton:true, progressBar:true, showMethod:'slideDown', timeOut:5000, allowHtml:true };
 
+    // ── Helpers ───────────────────────────────────────────────────────────
     function handleAjaxError(xhr, status) {
-        if (status === 'timeout')    { toastr.error('The request timed out.', 'Timeout Error'); }
-        else if (xhr.status === 0)   { toastr.error('Unable to connect.', 'Connection Error'); }
-        else if (xhr.status === 422) {
-            var errors = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {};
-            var msg = ''; $.each(errors, function (k, v) { msg += v + '\n'; });
-            toastr.error(msg || 'Validation failed.', 'Validation Errors');
-        } else if (xhr.status === 500) { toastr.error('Server error.', 'Server Error'); }
-        else { toastr.error('Unspecified error.', 'Error'); }
+        if (status === 'timeout') { toastr.error('Request timed out.', 'Timeout'); return; }
+        if (xhr.status === 422) {
+            var e = xhr.responseJSON && xhr.responseJSON.errors ? xhr.responseJSON.errors : {};
+            var m = ''; $.each(e, function(k,v) { m += v + '\n'; });
+            toastr.error(m || (xhr.responseJSON && xhr.responseJSON.error) || 'Validation failed.', 'Error');
+        } else if (xhr.status === 500) {
+            toastr.error('Server error.', 'Error');
+        } else {
+            toastr.error('Unspecified error.', 'Error');
+        }
     }
 
     function fmtPrice(val) {
         if (val === null || val === '' || val === undefined) return '—';
         var n = parseFloat(val);
-        return isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+        return isNaN(n) ? '—' : n.toLocaleString('en-US', { minimumFractionDigits:2, maximumFractionDigits:2 });
     }
 
     function typeBadge(isProduct) {
@@ -1095,24 +820,25 @@ $(document).ready(function () {
             <td>
                 <a href="#" class="viewDataBtn"
                    data-id="${p.id}" data-name="${d(p.name)}" data-description="${d(p.description)}"
-                   data-supplier="${d(p.supplier)}" data-code="${d(p.code)}"
-                   data-unit="${d(p.unit)}"
+                   data-supplier-id="${p.supplier_id}" data-supplier-name="${d(p.supplier_name)}"
+                   data-code="${d(p.code)}" data-unit="${d(p.unit)}"
                    data-sell="${p.selling_price !== null ? p.selling_price : ''}"
                    data-cost="${p.cost_price    !== null ? p.cost_price    : ''}"
                    data-is-product="${p.is_product}">
                    <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="editDataBtn"
-                   editId="${p.id}" editRow="${p.row}" editName="${d(p.name)}"
-                   editDescription="${d(p.description)}" editSupplier="${d(p.supplier)}"
-                   editCode="${d(p.code)}" editUnit="${d(p.unit)}"
-                   editSellingPrice="${p.selling_price !== null ? p.selling_price : ''}"
-                   editCostPrice="${p.cost_price    !== null ? p.cost_price    : ''}"
-                   editIsProduct="${p.is_product}">
+                   data-id="${p.id}" data-row="${p.row}"
+                   data-name="${d(p.name)}" data-description="${d(p.description)}"
+                   data-supplier-id="${p.supplier_id}"
+                   data-code="${d(p.code)}" data-unit="${d(p.unit)}"
+                   data-sell="${p.selling_price !== null ? p.selling_price : ''}"
+                   data-cost="${p.cost_price    !== null ? p.cost_price    : ''}"
+                   data-is-product="${p.is_product}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="deleteDataBtn"
-                   deleteLabel="${d(p.name)}" deleteId="${p.id}" deleteRow="${p.row}">
+                   data-label="${d(p.name)}" data-id="${p.id}" data-row="${p.row}">
                    <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px"></i>
                 </a>
             </td>
@@ -1120,310 +846,12 @@ $(document).ready(function () {
     }
 
     function updateSelectedCount() {
+        var rows  = $('.selectRow').length;
         var count = $('.selectRow:checked').length;
         $('#selectedCount').text(count);
         if (count > 0) $('#bulkTriggerBtn').addClass('visible');
         else           $('#bulkTriggerBtn').removeClass('visible');
-    }
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  IMPORT
-    // ════════════════════════════════════════════════════════════════════════
-    var parsedCsvRows = [];
-    var IMPORT_KEY = 'bp_import_queue';
-
-    // ── Template download ─────────────────────────────────────────────────
-    function downloadTemplate() {
-        var header = 'name,code,unit,cost_price,selling_price';
-        var row1   = 'Cooking Oil 2L,OIL-001,Each,1500.00,2000.00';
-        var row2   = 'Drinking Water 500ml,WAT-001,Each,350.00,500.00';
-        var row3   = 'Bread Loaf 700g,BRD-001,Each,600.00,800.00';
-        var blob   = new Blob([header+'\n'+row1+'\n'+row2+'\n'+row3], {type:'text/csv;charset=utf-8;'});
-        var url    = URL.createObjectURL(blob);
-        var a      = document.createElement('a'); a.href=url; a.download='base_products_template.csv'; a.click();
-        URL.revokeObjectURL(url);
-    }
-    $('#downloadTemplateBtn, #downloadTemplateBtnFooter, #downloadTemplateInline').on('click', function(e) {
-        e.preventDefault(); downloadTemplate();
-    });
-
-    function resetImportModal() {
-        parsedCsvRows = [];
-        $('#csvFileInput').val('');
-        $('#csvFileName').hide();
-        $('#importStepSetup').show();
-        $('#importStepPreview').hide();
-        $('#importStepProgress').hide();
-        $('#importStepDone').hide();
-        $('#importSetupFields').show();
-        $('#importPreviewHead, #importPreviewBody, #importDoneSummary').empty();
-        $('#importBarFill').css('width', '0');
-        $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Cancel');
-        $('#submitImportBtn').show().prop('disabled', true).html('<i class="ri-upload-2-line"></i> Start Import');
-    }
-
-    $('#importBtn').on('click', function(e) {
-        e.preventDefault(); resetImportModal(); $('#importModal').modal('show');
-    });
-    $('#cancelImportBtn').on('click', function(e) {
-        e.preventDefault(); localStorage.removeItem(IMPORT_KEY); resetImportModal(); $('#importModal').modal('hide');
-    });
-    $('#importModal').on('hidden.bs.modal', function() {
-        localStorage.removeItem(IMPORT_KEY); resetImportModal();
-    });
-    $('#importModalCloseBtn').on('click', function() {
-        localStorage.removeItem(IMPORT_KEY); resetImportModal();
-    });
-    $('#viewSampleBtn').on('click', function(e) {
-        e.preventDefault(); $('#importModal').modal('hide'); $('#excelSampleModal').modal('show');
-    });
-
-    var dz = document.getElementById('dropZone');
-    if (dz) {
-        dz.addEventListener('dragover',  function(e) { e.preventDefault(); dz.classList.add('drag-over'); });
-        dz.addEventListener('dragleave', function()  { dz.classList.remove('drag-over'); });
-        dz.addEventListener('drop', function(e) {
-            e.preventDefault(); dz.classList.remove('drag-over');
-            var file = e.dataTransfer.files[0]; if (file) processCSVFile(file);
-        });
-    }
-    $('#csvFileInput').on('change', function() {
-        if (this.files && this.files[0]) processCSVFile(this.files[0]);
-    });
-
-    function processCSVFile(file) {
-        if (!file.name.match(/\.csv$/i)) { toastr.error('Please select a valid CSV file.', 'Invalid File'); return; }
-        $('#csvFileNameText').text(file.name); $('#csvFileName').show();
-        var reader = new FileReader();
-        reader.onload = function(e) { parseCSV(e.target.result); };
-        reader.readAsText(file, 'UTF-8');
-    }
-
-    function parseCSV(text) {
-        var lines = text.split(/\r?\n/).filter(function(l) { return l.trim() !== ''; });
-        if (lines.length < 2) { toastr.error('CSV has no data rows.', 'Empty File'); return; }
-        var headers = lines[0].split(',').map(function(h) { return h.trim().replace(/^"|"$/g,''); });
-        parsedCsvRows = [];
-        for (var i = 1; i < lines.length; i++) {
-            var cols = splitCSVLine(lines[i]);
-            if (!cols.length) continue;
-            var row = {};
-            for (var j = 0; j < headers.length; j++) {
-                row[headers[j]] = (cols[j] !== undefined) ? cols[j].trim().replace(/^"|"$/g,'') : '';
-            }
-            if (!row['name'] || row['name'].trim() === '') continue;
-            parsedCsvRows.push(row);
-        }
-        if (!parsedCsvRows.length) { toastr.error('No valid data rows found.', 'Empty Data'); return; }
-        try { localStorage.setItem(IMPORT_KEY, JSON.stringify(parsedCsvRows)); } catch(ex) {}
-        showImportPreview(headers, parsedCsvRows);
-        $('#importStepSetup').hide(); $('#importStepPreview').show();
-        $('#importTotalCount').text(parsedCsvRows.length);
-        $('#importConfirmCount').text(parsedCsvRows.length);
-        @if($importSupplier)
-            $('#submitImportBtn').prop('disabled', false);
-        @else
-            toastr.warning('Select a specific supplier in the Supplier filter before importing.', 'Supplier Required');
-        @endif
-    }
-
-    function splitCSVLine(line) {
-        var result=[], current='', inQ=false;
-        for (var i=0; i<line.length; i++) {
-            var ch = line[i];
-            if (ch==='"') { inQ=!inQ; }
-            else if (ch===','&&!inQ) { result.push(current); current=''; }
-            else { current+=ch; }
-        }
-        result.push(current); return result;
-    }
-
-    function showImportPreview(headers, rows) {
-        var displayMap = {
-            'name':'Product Name','code':'Code',
-            'unit':'Unit','cost_price':'Order Price','selling_price':'Selling Price'
-        };
-        var displayOrder = ['name','code','unit','cost_price','selling_price'];
-        var shown = displayOrder.filter(function(k) { return headers.indexOf(k) >= 0; });
-        if (!shown.length) shown = headers.slice(0,5);
-
-        var thead = '<tr>' + shown.map(function(k, idx) {
-            return '<th' + (idx===0?'':' style="text-align:center"') + '>' + (displayMap[k]||k) + '</th>';
-        }).join('') + '</tr>';
-        $('#importPreviewHead').html(thead);
-
-        var tbody = '';
-        var limit = Math.min(5, rows.length);
-        for (var i=0; i<limit; i++) {
-            var r = rows[i];
-            tbody += '<tr>' + shown.map(function(k, idx) {
-                var v = r[k] || '—';
-                if ((k==='cost_price'||k==='selling_price') && r[k] && !isNaN(parseFloat(r[k]))) {
-                    v = parseFloat(r[k]).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
-                }
-                return '<td' + (idx===0?'':' style="text-align:center"') + '>' + v + '</td>';
-            }).join('') + '</tr>';
-        }
-        $('#importPreviewBody').html(tbody);
-    }
-
-    $('#resetCsvBtn').on('click', function(e) {
-        e.preventDefault();
-        parsedCsvRows = [];
-        $('#csvFileInput').val(''); $('#csvFileName').hide();
-        $('#importStepPreview').hide(); $('#importStepSetup').show();
-        localStorage.removeItem(IMPORT_KEY);
-        $('#submitImportBtn').prop('disabled', true);
-    });
-
-    $('#submitImportBtn').on('click', function(e) {
-        e.preventDefault();
-        @if(!$importSupplier)
-            toastr.error(
-                'No supplier selected. Choose a specific supplier in the <strong>Supplier filter</strong> before importing.',
-                'Supplier Required',
-                { timeOut: 8000 }
-            );
-            return;
-        @endif
-        var queue = [];
-        try { var s = localStorage.getItem(IMPORT_KEY); queue = s ? JSON.parse(s) : parsedCsvRows; }
-        catch(ex) { queue = parsedCsvRows; }
-        if (!queue || !queue.length) { toastr.error('No data to import.', 'Error'); return; }
-        runImport(queue);
-    });
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  runImport — silent per-row failures, summary at the end
-    //
-    //  During import: progress bar + count only. No per-row messages.
-    //  On finish:
-    //    • All succeeded  → "All 70 rows imported successfully."
-    //    • Some failed    → "50 of 70 rows imported."
-    //                       "20 rows could not be imported (duplicate
-    //                        name or code)." + scrollable list of names
-    // ════════════════════════════════════════════════════════════════════════
-    function runImport(queue) {
-        $('#importSetupFields').hide();
-        $('#importStepPreview').hide();
-        $('#importStepProgress').show();
-        $('#submitImportBtn').prop('disabled', true);
-        $('#cancelImportBtn').prop('disabled', true);
-
-        var total     = queue.length;
-        var done      = 0;
-        var succeeded = 0;
-        var failedRows = [];   // collect failed product names silently
-
-        $('#importProgressText').text('0 of ' + total + ' done');
-
-        function importNext(index) {
-            if (index >= queue.length) {
-                // ── All rows processed — show summary ────────────────────
-                localStorage.removeItem(IMPORT_KEY);
-                $('#importStepProgress').hide();
-                $('#importStepDone').show();
-
-                var failed     = failedRows.length;
-                var summaryHtml = '';
-
-                if (failed === 0) {
-                    // Perfect run
-                    summaryHtml  = '<div class="alert alert-success border-0 py-2 px-3 mt-1" style="font-size:13px;border-radius:8px;">';
-                    summaryHtml += '<i class="ri-check-double-line me-1"></i>';
-                    summaryHtml += 'All <strong>' + succeeded + '</strong> row' + (succeeded !== 1 ? 's' : '') + ' imported successfully.';
-                    summaryHtml += '</div>';
-                } else {
-                    // Partial success
-                    summaryHtml  = '<div class="alert alert-warning border-0 py-2 px-3 mt-1 mb-2" style="font-size:13px;border-radius:8px;">';
-                    summaryHtml += '<i class="ri-information-line me-1"></i>';
-                    summaryHtml += '<strong>' + succeeded + ' of ' + total + '</strong> row' + (total !== 1 ? 's' : '') + ' imported successfully.';
-                    summaryHtml += '</div>';
-
-                    summaryHtml += '<div style="font-size:12px;color:#6c757d;margin-bottom:4px;text-align:left;">';
-                    summaryHtml += '<strong>' + failed + '</strong> row' + (failed !== 1 ? 's' : '') +
-                                   ' could not be imported — likely already exist (duplicate name or code):';
-                    summaryHtml += '</div>';
-
-                    summaryHtml += '<div class="import-failed-list"><ul class="mb-0 ps-3">';
-                    $.each(failedRows, function(i, name) {
-                        summaryHtml += '<li>' + $('<div>').text(name).html() + '</li>';
-                    });
-                    summaryHtml += '</ul></div>';
-                }
-
-                $('#importDoneSummary').html(summaryHtml);
-                $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Close');
-                setTimeout(function() { location.reload(); }, 4500);
-                return;
-            }
-
-            var row        = queue[index];
-            var abortFired = false;
-
-            $.ajax({
-                type    : 'POST',
-                url     : '{{ route("retail.operations.baseproducts.import.row") }}',
-                data    : {
-                    name          : row.name          || '',
-                    code          : row.code          || '',
-                    unit          : row.unit          || 'Each',
-                    cost_price    : row.cost_price    || '',
-                    selling_price : row.selling_price || '',
-                    description   : row.description   || '',
-                    is_product    : 1,
-                    _token        : '{{ csrf_token() }}'
-                    // supplier intentionally omitted — server reads from user_filters
-                },
-                timeout : 30000,
-                success : function(data) {
-                    // ── Server-side abort (no supplier in user_filters) ───
-                    if (data.abort) {
-                        abortFired = true;
-                        toastr.error(data.error, 'Import Halted', { timeOut: 10000 });
-                        localStorage.removeItem(IMPORT_KEY);
-                        $('#importStepProgress').hide();
-                        $('#importStepDone').show();
-
-                        var haltHtml  = '<div class="alert alert-danger border-0 py-2 px-3 mt-1" style="font-size:13px;border-radius:8px;">';
-                            haltHtml += '<i class="ri-error-warning-line me-1"></i>';
-                            haltHtml += 'Import halted — no supplier set. ';
-                            haltHtml += succeeded + ' row' + (succeeded !== 1 ? 's' : '') + ' imported before halt.';
-                            haltHtml += '</div>';
-
-                        $('#importDoneSummary').html(haltHtml);
-                        $('#cancelImportBtn').prop('disabled', false).html('<i class="ri-close-line"></i> Close');
-                        return; // stop recursion
-                    }
-
-                    if (data.status === 201) {
-                        // Success — add row to DataTable silently
-                        succeeded++;
-                        if (data.product && window._dt) {
-                            window._dt.row.add($(buildRow(data.product)));
-                        }
-                    } else {
-                        // Skip/fail — collect name silently, no toastr
-                        failedRows.push(row.name || ('Row ' + (index + 1)));
-                    }
-                },
-                error : function() {
-                    // Network/server error — count as failed silently
-                    failedRows.push(row.name || ('Row ' + (index + 1)));
-                },
-                complete : function(xhr) {
-                    if (abortFired) return; // halted — don't continue
-
-                    done++;
-                    var pct = Math.round((done / total) * 100);
-                    $('#importBarFill').css('width', pct + '%');
-                    $('#importProgressText').text(done + ' of ' + total + ' done');
-                    importNext(index + 1);
-                }
-            });
-        }
-
-        importNext(0);
+        $('#selectAll').prop('checked', rows > 0 && count === rows);
     }
 
     // ════════════════════════════════════════════════════════════════════════
@@ -1462,38 +890,540 @@ $(document).ready(function () {
         $('#bulkActionsModal').modal('show');
     });
 
-    // ── VIEW ──────────────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    //  CSV IMPORT WIZARD
+    //  - Parses the whole file client-side (proper quoted-CSV parser).
+    //  - VALIDATES every row at parse time and splits them into:
+    //      · validRows   → cached to localStorage, these get uploaded
+    //      · invalidRows → cached separately, never sent, downloadable
+    //        immediately as .xlsx from Step 3
+    //  - Uploads validRows to the server in small sequential CHUNKS (not one
+    //    big request) so large files never risk a timeout or payload limit.
+    //  - Server-side failures (e.g. name already exists) from every chunk
+    //    are merged with the client-side invalidRows into ONE combined
+    //    "Download All Failed/Invalid Rows" button at the end.
+    // ════════════════════════════════════════════════════════════════════════
+    var BP_CSV_VALID_LS_KEY   = 'bp_csv_import_valid_rows_v2';
+    var BP_CSV_INVALID_LS_KEY = 'bp_csv_import_invalid_rows_v2';
+    var BP_CSV_UPLOAD_CHUNK_SIZE = 150; // rows per network request — keeps every POST small
+
+    // Small RFC4180-ish CSV parser: handles quoted fields, embedded commas,
+    // escaped quotes ("") and CRLF/CR/LF line endings.
+    function bpParseCsv(text) {
+        text = text.replace(/^\uFEFF/, ''); // strip BOM
+        var rows = [];
+        var row = [];
+        var field = '';
+        var inQuotes = false;
+        var i = 0, len = text.length;
+
+        while (i < len) {
+            var ch = text[i];
+
+            if (inQuotes) {
+                if (ch === '"') {
+                    if (text[i + 1] === '"') { field += '"'; i += 2; continue; }
+                    inQuotes = false; i++; continue;
+                }
+                field += ch; i++; continue;
+            }
+
+            if (ch === '"') { inQuotes = true; i++; continue; }
+            if (ch === ',') { row.push(field); field = ''; i++; continue; }
+            if (ch === '\r') { i++; continue; }
+            if (ch === '\n') {
+                row.push(field); field = '';
+                if (row.length > 1 || row[0] !== '') rows.push(row);
+                row = []; i++; continue;
+            }
+            field += ch; i++;
+        }
+        // last field/row (file may not end with a newline)
+        if (field !== '' || row.length) {
+            row.push(field);
+            if (row.length > 1 || row[0] !== '') rows.push(row);
+        }
+        return rows;
+    }
+
+    // Permissive numeric parse: strips thousands separators/currency chars.
+    // Returns { ok, value } — value is '' when the field was blank (allowed),
+    // ok is false only when something was typed but isn't a valid number.
+    function bpParsePriceField(raw) {
+        var s = (raw || '').toString().trim();
+        if (s === '') return { ok: true, value: '' };
+        var cleaned = s.replace(/[^0-9.\-]/g, '');
+        if (cleaned === '' || isNaN(parseFloat(cleaned))) return { ok: false, value: s };
+        return { ok: true, value: cleaned };
+    }
+
+    /**
+     * Parses the CSV text and VALIDATES every row as it goes, splitting the
+     * result into validRows (will be uploaded) and invalidRows (will not —
+     * offered as an immediate download instead). Nothing invalid is ever
+     * sent to the server.
+     */
+    function bpBuildAndValidateRowsFromCsv(text) {
+        var table = bpParseCsv(text);
+        if (table.length < 2) return { error: 'CSV is empty or has no data rows.' };
+
+        var header = table[0].map(function(h) { return h.trim().toLowerCase(); });
+        var map = { name:null, code:null, unit:null, cost_price:null, selling_price:null };
+        header.forEach(function(col, idx) {
+            if (['name','product','product_name'].indexOf(col) !== -1) map.name = idx;
+            if (['code','sku'].indexOf(col) !== -1)                    map.code = idx;
+            if (col === 'unit')                                        map.unit = idx;
+            if (['cost_price','cost'].indexOf(col) !== -1)             map.cost_price = idx;
+            if (['selling_price','price','sell_price'].indexOf(col) !== -1) map.selling_price = idx;
+        });
+        if (map.name === null) return { error: 'CSV must contain a "name" column.' };
+
+        var validRows   = [];
+        var invalidRows = [];
+        var seenNames   = {}; // catches duplicates WITHIN the file itself, before upload
+
+        for (var r = 1; r < table.length; r++) {
+            var cols = table[r];
+            var name = (cols[map.name] || '').trim();
+            if (name === '') continue; // blank row — skip silently, not an error
+
+            var code = map.code !== null ? (cols[map.code] || '').trim() : '';
+            // Unit kept exactly as written — only fall back to "Each" if blank.
+            var unit = map.unit !== null ? (cols[map.unit] || '').trim() : '';
+            if (unit === '') unit = 'Each';
+
+            var costResult = map.cost_price    !== null ? bpParsePriceField(cols[map.cost_price])    : { ok:true, value:'' };
+            var sellResult = map.selling_price !== null ? bpParsePriceField(cols[map.selling_price]) : { ok:true, value:'' };
+
+            var row = {
+                name: name,
+                code: code || null,
+                unit: unit,
+                cost_price:    costResult.value,
+                selling_price: sellResult.value
+            };
+
+            var reasons = [];
+            if (name.length > 255)               reasons.push('Name exceeds 255 characters.');
+            if (code && code.length > 100)        reasons.push('Code exceeds 100 characters.');
+            if (unit.length > 50)                 reasons.push('Unit exceeds 50 characters.');
+            if (!costResult.ok)                   reasons.push('Cost price is not a valid number.');
+            if (!sellResult.ok)                   reasons.push('Selling price is not a valid number.');
+
+            var key = name.toLowerCase();
+            if (reasons.length === 0 && seenNames[key]) {
+                reasons.push('Duplicate name within this file (first occurrence kept).');
+            }
+
+            if (reasons.length > 0) {
+                row.error = reasons.join(' ');
+                invalidRows.push(row);
+                continue;
+            }
+
+            seenNames[key] = true;
+            validRows.push(row);
+        }
+
+        if (!validRows.length && !invalidRows.length) return { error: 'No valid rows found in CSV.' };
+        return { validRows: validRows, invalidRows: invalidRows };
+    }
+
+    function bpSaveToStorage(key, rows) {
+        try { localStorage.setItem(key, JSON.stringify(rows)); } catch (e) { /* storage full/unavailable — proceed in-memory only */ }
+    }
+    function bpLoadFromStorage(key) {
+        try {
+            var raw = localStorage.getItem(key);
+            return raw ? JSON.parse(raw) : null;
+        } catch (e) { return null; }
+    }
+    function bpClearStorage(key) {
+        try { localStorage.removeItem(key); } catch (e) {}
+    }
+
+    var bpCsvValidRows   = []; // in-memory mirror of localStorage (valid)
+    var bpCsvInvalidRows = []; // in-memory mirror of localStorage (invalid)
+
+    function bpRenderPreview(validRows, invalidRows) {
+        var html = validRows.map(function(r) {
+            var meta = [r.code || '—', r.unit, r.cost_price || '—', r.selling_price || '—'].join(' · ');
+            return '<div class="csv-preview-row">' +
+                   '<span class="cpr-name">' + $('<div>').text(r.name).html() + '</span>' +
+                   '<span class="cpr-meta">' + $('<div>').text(meta).html() + '</span>' +
+                   '</div>';
+        }).join('');
+        $('#bpCsvFilePreviewLabel').text(validRows.length + ' valid row(s) parsed and cached — scroll to review before importing');
+        $('#bpCsvFilePreviewScroll').html(html);
+        $('#bpCsvFilePreviewWrap').toggle(validRows.length > 0);
+        $('#bpCsvImportBtn').prop('disabled', validRows.length === 0);
+
+        if (invalidRows.length > 0) {
+            $('#bpCsvInvalidCount').text(invalidRows.length);
+            $('#bpCsvInvalidWrap').show();
+        } else {
+            $('#bpCsvInvalidWrap').hide();
+        }
+    }
+
+    function bpCsvReset() {
+        bpCsvGoToStep(1);
+        $('#bp-csv-supplier').val('');
+        $('#bp-csv-file').val('');
+        $('#bpCsvFilePreviewWrap').hide();
+        $('#bpCsvFilePreviewScroll').html('');
+        $('#bpCsvInvalidWrap').hide();
+        $('#bpCsvImportProgress').html('');
+        $('#bpCsvChunkProgressWrap').hide();
+        $('#bpCsvChunkProgressFill').css('width', '0%');
+        $('#bpCsvChunkProgressLabel').text('');
+        $('#bpCsvParseError').hide().text('');
+        $('#bpCsvImportBtn').prop('disabled', true);
+
+        // Re-hydrate from localStorage if a previous parse is still cached,
+        // so closing the modal mid-way doesn't lose the work.
+        var cachedValid   = bpLoadFromStorage(BP_CSV_VALID_LS_KEY);
+        var cachedInvalid = bpLoadFromStorage(BP_CSV_INVALID_LS_KEY);
+        if (cachedValid && cachedValid.length) {
+            bpCsvValidRows   = cachedValid;
+            bpCsvInvalidRows = cachedInvalid || [];
+            bpRenderPreview(bpCsvValidRows, bpCsvInvalidRows);
+        } else {
+            bpCsvValidRows   = [];
+            bpCsvInvalidRows = [];
+        }
+    }
+
+    $('#importBtn').on('click', function(e) { e.preventDefault(); bpCsvReset(); $('#importModal').modal('show'); });
+    // Note: intentionally NOT clearing localStorage on modal hide — that's what lets a parse survive an accidental close.
+
+    window.bpCsvGoToStep = function(step) {
+        $('.csv-step').removeClass('active');
+        $('#bpCsvStep' + step).addClass('active');
+        for (var i = 1; i <= 4; i++) {
+            var el = document.getElementById('bp-csi' + i);
+            el.className = 'csi-step' + (i < step ? ' done' : (i === step ? ' active' : ''));
+        }
+    };
+
+    window.bpCsvStep2Next = function() {
+        if (!$('#bp-csv-supplier').val()) {
+            toastr.warning('Select a supplier.', 'Required');
+            return;
+        }
+        bpCsvGoToStep(3);
+    };
+
+    $('#bpCsvDownloadSample').on('click', function(e) {
+        e.preventDefault();
+        var csv = 'name,code,unit,cost_price,selling_price\n' +
+                  'Cooking Oil 2L,OIL-001,Each,1500.00,2000.00\n' +
+                  'Drinking Water 500ml,WAT-001,Each,350.00,500.00\n' +
+                  '"Bread Loaf, 700g",BRD-001,Each,600.00,800.00\n';
+        var blob = new Blob([csv], { type:'text/csv' });
+        var url  = URL.createObjectURL(blob);
+        var a    = document.createElement('a');
+        a.href   = url; a.download = 'base_products_sample.csv'; a.click();
+        URL.revokeObjectURL(url);
+    });
+
+    // Parse + validate on file select → cache valid/invalid separately →
+    // render preview + invalid download banner. Nothing is sent yet.
+    $('#bp-csv-file').on('change', function() {
+        var file = this.files[0];
+        $('#bpCsvParseError').hide().text('');
+        if (!file) {
+            $('#bpCsvFilePreviewWrap').hide();
+            $('#bpCsvInvalidWrap').hide();
+            $('#bpCsvImportBtn').prop('disabled', true);
+            return;
+        }
+
+        var reader = new FileReader();
+        reader.onload = function(e) {
+            var result = bpBuildAndValidateRowsFromCsv(e.target.result);
+            if (result.error) {
+                $('#bpCsvParseError').text(result.error).show();
+                $('#bpCsvFilePreviewWrap').hide();
+                $('#bpCsvInvalidWrap').hide();
+                $('#bpCsvImportBtn').prop('disabled', true);
+                bpClearStorage(BP_CSV_VALID_LS_KEY);
+                bpClearStorage(BP_CSV_INVALID_LS_KEY);
+                bpCsvValidRows = []; bpCsvInvalidRows = [];
+                return;
+            }
+            bpCsvValidRows   = result.validRows;
+            bpCsvInvalidRows = result.invalidRows;
+            bpSaveToStorage(BP_CSV_VALID_LS_KEY,   bpCsvValidRows);
+            bpSaveToStorage(BP_CSV_INVALID_LS_KEY, bpCsvInvalidRows);
+            bpRenderPreview(bpCsvValidRows, bpCsvInvalidRows);
+
+            if (bpCsvInvalidRows.length > 0) {
+                toastr.warning(bpCsvInvalidRows.length + ' row(s) were invalid and will not be imported — download them from Step 3 to review.', 'Some rows skipped');
+            }
+        };
+        reader.onerror = function() {
+            $('#bpCsvParseError').text('Could not read that file.').show();
+        };
+        reader.readAsText(file);
+    });
+
+    // Loads xlsx.js on demand (only needed when there are rows to export).
+    var _bpXlsxLoading = null;
+    function bpLoadXlsxLib() {
+        if (window.XLSX) return Promise.resolve();
+        if (_bpXlsxLoading) return _bpXlsxLoading;
+        _bpXlsxLoading = new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+        return _bpXlsxLoading;
+    }
+
+    function bpDownloadRowsAsExcel(rows, filename, sheetName) {
+        bpLoadXlsxLib().then(function() {
+            var sheetData = rows.map(function(r) {
+                return {
+                    name:          r.name,
+                    code:          r.code,
+                    unit:          r.unit,
+                    cost_price:    r.cost_price,
+                    selling_price: r.selling_price,
+                    error:         r.error || 'Failed to save'
+                };
+            });
+            var ws = XLSX.utils.json_to_sheet(sheetData);
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, sheetName || 'Rows');
+            XLSX.writeFile(wb, filename);
+        }).catch(function() {
+            toastr.error('Could not load the Excel export library — check your connection.', 'Error');
+        });
+    }
+
+    // Step 3: download the rows that failed CLIENT-SIDE validation, before
+    // anything was even sent to the server.
+    $('#bpCsvDownloadInvalidBtn').on('click', function(e) {
+        e.preventDefault();
+        var rows = bpLoadFromStorage(BP_CSV_INVALID_LS_KEY) || bpCsvInvalidRows;
+        if (!rows.length) { toastr.info('No invalid rows to download.', 'Info'); return; }
+        bpDownloadRowsAsExcel(rows, 'base_products_invalid_rows.xlsx', 'Invalid Rows');
+    });
+
+    /**
+     * Uploads validRows to the server in sequential chunks of
+     * BP_CSV_UPLOAD_CHUNK_SIZE rows. Each chunk is its own small POST, so a
+     * large file (hundreds/thousands of rows) never risks a single request
+     * timing out or exceeding post_max_size — and one chunk failing outright
+     * (network blip, server error) doesn't lose everything: chunks already
+     * processed stay committed, and we keep going with the rest.
+     *
+     * Results (created/skipped/failed) are aggregated across all chunks and
+     * shown as one combined summary at the end, with a single "download all
+     * failed/invalid rows" button covering BOTH server-side failures and the
+     * rows that were already filtered out client-side in Step 3.
+     */
+    function bpUploadRowsChunked(validRows, supplierId, clientBatchId) {
+        var chunks = [];
+        for (var i = 0; i < validRows.length; i += BP_CSV_UPLOAD_CHUNK_SIZE) {
+            chunks.push(validRows.slice(i, i + BP_CSV_UPLOAD_CHUNK_SIZE));
+        }
+
+        var totalChunks = chunks.length;
+        var aggregate = {
+            created: 0,
+            skipped: 0,
+            skippedNames: [],
+            failedRows: [],
+            chunkErrors: 0
+        };
+
+        $('#bpCsvChunkProgressWrap').show();
+        $('#bpCsvChunkProgressLabel').text('Preparing ' + totalChunks + ' batch(es)…');
+
+        function uploadOne(index) {
+            if (index >= totalChunks) {
+                return Promise.resolve();
+            }
+
+            var chunkRows = chunks[index];
+            var pct = Math.round((index / totalChunks) * 100);
+            $('#bpCsvChunkProgressFill').css('width', pct + '%');
+            $('#bpCsvChunkProgressLabel').text(
+                'Uploading batch ' + (index + 1) + ' of ' + totalChunks +
+                ' — ' + (index * BP_CSV_UPLOAD_CHUNK_SIZE) + '/' + validRows.length + ' rows sent'
+            );
+
+            return new Promise(function(resolve) {
+                $.ajax({
+                    type:        'POST',
+                    url:         '{{ route("retail.operations.baseproducts.csv.upload") }}',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        rows:          chunkRows,
+                        supplier_id:   supplierId,
+                        batch_id:      clientBatchId,
+                        chunk_index:   index + 1,
+                        total_chunks:  totalChunks,
+                        _token:        '{{ csrf_token() }}'
+                    }),
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    timeout: 60000, // small chunk → short, generous timeout is still safe
+                    success: function(data) {
+                        if (data.status === 200) {
+                            aggregate.created += (data.created_count || 0);
+                            aggregate.skipped += (data.skipped_count || 0);
+                            if (data.skipped_names) aggregate.skippedNames = aggregate.skippedNames.concat(data.skipped_names);
+                            if (data.failed_rows)   aggregate.failedRows   = aggregate.failedRows.concat(data.failed_rows);
+                        } else {
+                            aggregate.chunkErrors++;
+                            // Mark every row in this chunk as failed so nothing silently vanishes.
+                            chunkRows.forEach(function(r) {
+                                aggregate.failedRows.push($.extend({}, r, { error: data.error || 'Batch failed to process.' }));
+                            });
+                        }
+                        resolve();
+                    },
+                    error: function(xhr, status) {
+                        aggregate.chunkErrors++;
+                        var msg = status === 'timeout' ? 'Request timed out.' : 'Network/server error for this batch.';
+                        chunkRows.forEach(function(r) {
+                            aggregate.failedRows.push($.extend({}, r, { error: msg }));
+                        });
+                        resolve(); // keep going with remaining chunks regardless
+                    }
+                });
+            }).then(function() {
+                return uploadOne(index + 1);
+            });
+        }
+
+        return uploadOne(0).then(function() {
+            $('#bpCsvChunkProgressFill').css('width', '100%');
+            $('#bpCsvChunkProgressLabel').text('All batches sent — ' + totalChunks + ' of ' + totalChunks);
+            return aggregate;
+        });
+    }
+
+    $('#bpCsvImportBtn').on('click', function() {
+        var supId     = $('#bp-csv-supplier').val();
+        var validRows = bpLoadFromStorage(BP_CSV_VALID_LS_KEY) || bpCsvValidRows;
+        if (!supId)          { toastr.warning('Select a supplier first.', 'Required'); bpCsvGoToStep(2); return; }
+        if (!validRows.length) { toastr.warning('Choose a CSV file.', 'Required'); bpCsvGoToStep(3); return; }
+
+        var self = $(this); self.prop('disabled', true);
+        bpCsvGoToStep(4);
+        $('#bpCsvImportProgress').html(
+            '<i class="ri-loader-4-line" style="font-size:32px;animation:spin 1s linear infinite;display:inline-block;"></i>' +
+            '<div class="mt-2">Importing — please wait…</div>'
+        );
+
+        var clientBatchId = (window.crypto && crypto.randomUUID) ? crypto.randomUUID() : ('bp_' + Date.now() + '_' + Math.random().toString(36).slice(2));
+
+        $('#progressBar').show();
+
+        bpUploadRowsChunked(validRows, supId, clientBatchId).then(function(aggregate) {
+            $('#progressBar').hide();
+            self.prop('disabled', false);
+
+            var invalidRows  = bpLoadFromStorage(BP_CSV_INVALID_LS_KEY) || bpCsvInvalidRows || [];
+            var allFailedRows = aggregate.failedRows.concat(invalidRows);
+
+            var html = '<i class="ri-checkbox-circle-line text-success" style="font-size:38px;"></i>' +
+                       '<div class="mt-2" style="font-weight:600;color:#1e293b;">' +
+                       aggregate.created + ' of ' + validRows.length + ' row(s) created.</div>';
+
+            if (aggregate.chunkErrors > 0) {
+                html += '<div class="mt-1" style="font-size:12px;color:#dc2626;">' + aggregate.chunkErrors + ' batch(es) hit an error — affected rows are included in the failed download below.</div>';
+            }
+
+            if (aggregate.skipped > 0 && aggregate.skippedNames.length) {
+                html += '<div class="mt-2" style="font-size:12px;color:#6c757d;text-align:left;">' +
+                        '<strong>' + aggregate.skipped + '</strong> row(s) skipped (already in catalogue):</div>' +
+                        '<div class="import-skipped-list"><ul class="mb-0 ps-3">';
+                aggregate.skippedNames.slice(0, 50).forEach(function(name) {
+                    html += '<li>' + $('<div>').text(name).html() + '</li>';
+                });
+                if (aggregate.skippedNames.length > 50) {
+                    html += '<li style="color:#94a3b8;">…and ' + (aggregate.skippedNames.length - 50) + ' more</li>';
+                }
+                html += '</ul></div>';
+            }
+
+            if (allFailedRows.length) {
+                html += '<div class="mt-3" style="font-size:12px;color:#7f1d1d;text-align:left;">' +
+                        '<strong>' + allFailedRows.length + '</strong> row(s) were not imported (server failures + rows filtered out before upload) — download, fix, and re-import:</div>' +
+                        '<div class="mt-2 text-center"><a href="#" id="bpDownloadFailedBtn" class="btn btn-sm btn-outline-danger">' +
+                        '<i class="ri-file-excel-2-line me-1"></i>Download All Failed/Invalid Rows (.xlsx)</a></div>';
+            }
+
+            $('#bpCsvImportProgress').html(html);
+            $('#bpCsvChunkProgressWrap').hide();
+
+            if (allFailedRows.length) {
+                $('#bpDownloadFailedBtn').on('click', function(e) {
+                    e.preventDefault();
+                    bpDownloadRowsAsExcel(allFailedRows, 'base_products_failed_rows.xlsx', 'Failed Rows');
+                });
+            }
+
+            toastr.success(aggregate.created + ' row(s) imported.', 'Import complete');
+
+            // Only clear the "will be imported" cache once the batch has
+            // actually been sent — the invalid-rows cache stays so it can
+            // still be downloaded from Step 3 if the modal is reopened,
+            // until the next file is chosen.
+            bpClearStorage(BP_CSV_VALID_LS_KEY);
+        });
+    });
+
+    $('#bpCsvDoneBtn').on('click', function() {
+        $('#importModal').modal('hide');
+        setTimeout(function() { location.reload(); }, 200);
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  VIEW
+    // ════════════════════════════════════════════════════════════════════════
     var _viewData = {};
+
     $('#tbody').on('click', '.viewDataBtn', function(e) {
         e.preventDefault();
         var b = $(this);
         _viewData = {
-            id:        b.data('id'),
-            name:      b.data('name'),
+            id:          b.data('id'),
+            name:        b.data('name'),
             description: b.data('description'),
-            supplier:  b.data('supplier'),
-            code:      b.data('code'),
-            unit:      b.data('unit'),
-            sell:      b.data('sell'),
-            cost:      b.data('cost'),
-            isProduct: b.data('is-product'),
-            editRow:   b.closest('tr').attr('id')
+            supplierId:  b.data('supplier-id'),
+            supplierName:b.data('supplier-name'),
+            code:        b.data('code'),
+            unit:        b.data('unit'),
+            sell:        b.data('sell'),
+            cost:        b.data('cost'),
+            isProduct:   b.data('is-product'),
+            editRow:     b.closest('tr').attr('id')
         };
 
-        function v(val) {
-            return (val===''||val===null||val===undefined||val==='null')
-                ? '<span class="muted">—</span>' : val;
+        function mv(val) {
+            return (val === '' || val === null || val === undefined || val === 'null')
+                ? '<span style="color:#9ca3af;font-style:italic;">—</span>' : val;
         }
+
         $('#vw-name').text(_viewData.name);
-        $('#vw-code-line').text(_viewData.code ? 'Code: '+_viewData.code : '');
+        $('#vw-code-line').text(_viewData.code ? 'Code: ' + _viewData.code : '');
         $('#vw-badges').html(typeBadge(_viewData.isProduct));
-        $('#vw-code').html(v(_viewData.code));
-        $('#vw-unit').html(v(_viewData.unit));
-        $('#vw-supplier').html(v(_viewData.supplier));
+        $('#vw-code').html(mv(_viewData.code));
+        $('#vw-unit').html(mv(_viewData.unit));
+        $('#vw-supplier').html(mv(_viewData.supplierName));
         $('#vw-type').html(typeBadge(_viewData.isProduct));
-        $('#vw-description').html(v(_viewData.description));
-        $('#vw-sell').html(_viewData.sell!==''&&_viewData.sell!==null ? fmtPrice(_viewData.sell) : '<span class="muted">—</span>');
-        $('#vw-cost').html(_viewData.cost!==''&&_viewData.cost!==null ? fmtPrice(_viewData.cost) : '<span class="muted">—</span>');
+        $('#vw-description').html(mv(_viewData.description));
+        $('#vw-sell').html(_viewData.sell !== '' && _viewData.sell !== null ? fmtPrice(_viewData.sell) : '<span style="color:#9ca3af;font-style:italic;">—</span>');
+        $('#vw-cost').html(_viewData.cost !== '' && _viewData.cost !== null ? fmtPrice(_viewData.cost) : '<span style="color:#9ca3af;font-style:italic;">—</span>');
+
+        $('button[data-bs-target="#vw-t1"]').tab('show');
         $('#viewProductModal').modal('show');
     });
 
@@ -1501,231 +1431,252 @@ $(document).ready(function () {
         e.preventDefault();
         $('#viewProductModal').modal('hide');
         setTimeout(function() {
-            var $btn = $('#'+_viewData.editRow).find('.editDataBtn');
+            var $btn = $('#' + _viewData.editRow).find('.editDataBtn');
             if ($btn.length) $btn.trigger('click');
         }, 350);
     });
 
-    // ── ADD ───────────────────────────────────────────────────────────────
-    $('#newDataBtn').on('click', function(e) {
-        e.preventDefault(); resetNewModal(); $('#newDataModal').modal('show');
-    });
+    // ════════════════════════════════════════════════════════════════════════
+    //  ADD
+    // ════════════════════════════════════════════════════════════════════════
+    $('#newDataBtn').on('click', function(e) { e.preventDefault(); resetNewModal(); $('#newDataModal').modal('show'); });
     $('#newDataModal').on('hidden.bs.modal', resetNewModal);
+    $('#cancelDataBtn').on('click', function(e) { e.preventDefault(); $('#newDataModal').modal('hide'); });
+
+    function resetNewModal() {
+        $('#new-name, #new-code, #new-description, #new-selling-price, #new-cost-price').val('');
+        $('#new-unit').val('Each');
+        $('#new-supplier').val('');
+    }
 
     $('#submitDataBtn').on('click', function(e) {
         e.preventDefault();
-        if (!$('#new-name').val().trim()) {
-            toastr.warning('Product name is required.','Required'); $('#new-name').focus(); return;
-        }
-        if (!$('#new-supplier').val()) {
-            toastr.warning('Please select a supplier.','Required'); $('#new-supplier').focus(); return;
-        }
-        var self=$(this); self.prop('disabled',true);
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        var name = $('#new-name').val().trim();
+        if (!name)                { toastr.warning('Product name is required.', 'Required'); $('#new-name').focus();     return; }
+        if (!$('#new-supplier').val()) { toastr.warning('Select a supplier.',  'Required'); $('#new-supplier').focus(); return; }
+
+        var self = $(this); self.prop('disabled', true);
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.insert") }}',
-            data:$('#newDataForm').serializeArray(), timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            type:    'POST',
+            url:     '{{ route("retail.operations.baseproducts.insert") }}',
+            timeout: 60000,
+            data: {
+                name:          name,
+                supplier:      $('#new-supplier').val(),
+                unit:          $('#new-unit').val() || 'Each',
+                code:          $('#new-code').val(),
+                description:   $('#new-description').val(),
+                selling_price: $('#new-selling-price').val(),
+                cost_price:    $('#new-cost-price').val(),
+                _token:        '{{ csrf_token() }}'
+            },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
                     table.row.add($(buildRow(data.product))).draw(false);
-                    $('#new-name').val('').focus();
-                    $('#new-selling-price').val('');
-                    $('#new-cost-price').val('');
-                    $('#new-code').val('');
-                    $('#new-description').val('');
-                    $('#new-unit').val('Each');
-                } else if (data.status===422) {
-                    toastr.error(data.error||'Validation failed.','Error');
-                } else { toastr.info('Unspecified error.','Error'); }
+                    resetNewModal();
+                    $('#new-name').focus();
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
+                } else {
+                    toastr.info('Unspecified error.', 'Error');
+                }
             },
             error: handleAjaxError
         });
     });
-    $('#cancelDataBtn').on('click', function(e) {
-        e.preventDefault(); resetNewModal(); $('#newDataModal').modal('hide');
-    });
 
-    function resetNewModal() {
-        $('#newDataForm')[0].reset();
-        $('#new-unit').val('Each');
-    }
-
-    // ── SINGLE DELETE ─────────────────────────────────────────────────────
-    $('#tbody').on('click', '.deleteDataBtn', function() {
-        $('#singleDisplayDeleteLabel').text($(this).attr('deleteLabel'));
-        $('#singleDeleteRow').val($(this).attr('deleteRow'));
-        $('#singleDeleteId').val($(this).attr('deleteId'));
-        $('#singleDeleteDataModal').modal('show');
-    });
-    $('#keepSingleDataBtn').on('click', function(e) {
-        e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#singleDeleteDataModal').modal('hide');
-    });
-    $('#submitSingleDeleteDataBtn').on('click', function(e) {
+    // ════════════════════════════════════════════════════════════════════════
+    //  EDIT
+    // ════════════════════════════════════════════════════════════════════════
+    $('#tbody').on('click', '.editDataBtn', function(e) {
         e.preventDefault();
-        var self=$(this); self.prop('disabled',true);
-        var row=$('#singleDeleteRow').val(), id=$('#singleDeleteId').val();
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        var b = $(this);
+        $('#editId').val(b.data('id'));
+        $('#editRow').val(b.data('row'));
+        $('#editName').val(b.data('name'));
+        $('#editSupplier').val(b.data('supplier-id'));
+        $('#editCode').val(b.data('code'));
+        $('#editUnit').val(b.data('unit'));
+        $('#editDescription').val(b.data('description'));
+        $('#editSellingPrice').val(b.data('sell'));
+        $('#editCostPrice').val(b.data('cost'));
+        var ip = parseInt(b.data('is-product'));
+        if (ip === 1) $('#editIsProductYes').prop('checked', true);
+        else          $('#editIsProductNo').prop('checked',  true);
+        $('#editDataModal').modal('show');
+    });
+
+    $('#cancelEditBtn').on('click', function(e) { e.preventDefault(); $('#editDataModal').modal('hide'); });
+
+    $('#submitUpdateBtn').on('click', function(e) {
+        e.preventDefault();
+        var name     = $('#editName').val().trim();
+        var supplier = $('#editSupplier').val();
+        if (!name)     { toastr.warning('Product name is required.', 'Required'); $('#editName').focus();     return; }
+        if (!supplier) { toastr.warning('Select a supplier.',        'Required'); $('#editSupplier').focus(); return; }
+
+        var self = $(this); self.prop('disabled', true);
+        var row  = $('#editRow').val();
+
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.delete") }}',
-            data:{id:id,_token:'{{ csrf_token() }}'}, timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            type:    'POST',
+            url:     '{{ route("retail.operations.baseproducts.update") }}',
+            timeout: 60000,
+            data: {
+                id:            $('#editId').val(),
+                name:          name,
+                supplier:      supplier,
+                unit:          $('#editUnit').val(),
+                code:          $('#editCode').val(),
+                description:   $('#editDescription').val(),
+                is_product:    $('input[name="is_product"]:checked').val() || '1',
+                selling_price: $('#editSellingPrice').val(),
+                cost_price:    $('#editCostPrice').val(),
+                _token:        '{{ csrf_token() }}'
+            },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
-                    $('#singleDeleteDataModal').modal('hide');
-                    table.row('#'+row).remove().draw(false);
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    table.row('#' + row).remove();
+                    table.row.add($(buildRow(data.product))).draw(false);
                     updateSelectedCount();
-                } else if (data.status===422) {
-                    toastr.error(data.error||'Validation failed.','Error');
-                } else { toastr.info('Unspecified error.','Error'); }
+                    $('#editDataModal').modal('hide');
+                } else if (data.status === 422) {
+                    toastr.error(data.error || 'Validation failed.', 'Error');
+                } else {
+                    toastr.info('Unspecified error.', 'Error');
+                }
             },
             error: handleAjaxError
         });
     });
-   
 
-    // ── EDIT ──────────────────────────────────────────────────────────────
-$('#tbody').on('click', '.editDataBtn', function () {
-    var b = $(this);
-    $('#editId').val(b.attr('editId'));
-    $('#editRow').val(b.attr('editRow'));
-    $('#editName').val(b.attr('editName'));
-    $('#editSupplier').val(b.attr('editSupplier'));
-    $('#editCode').val(b.attr('editCode'));
-    $('#editUnit').val(b.attr('editUnit'));
-    $('#editDescription').val(b.attr('editDescription'));
-    $('#editSellingPrice').val(b.attr('editSellingPrice'));
-    $('#editCostPrice').val(b.attr('editCostPrice'));
-    var ip = parseInt(b.attr('editIsProduct'));
-    if (ip === 1) { $('#editIsProductYes').prop('checked', true); }
-    else          { $('#editIsProductNo').prop('checked', true);  }
-    $('#editDataModal').modal('show');
-});
-
-$('#submitUpdateDataBtn').on('click', function (e) {
-    e.preventDefault();
-
-    var name     = $('#editName').val().trim();
-    var supplier = $('#editSupplier').val();
-
-    if (!name) {
-        toastr.warning('Product name is required.', 'Required');
-        $('#editName').focus(); return;
-    }
-    if (!supplier) {
-        toastr.warning('Please select a supplier.', 'Required');
-        $('#editSupplier').focus(); return;
-    }
-
-    var self = $(this); self.prop('disabled', true);
-    var row  = $('#editRow').val();
-
-    var formData = {
-        id:            $('#editId').val(),
-        editrow:       row,
-        name:          name,
-        supplier:      supplier,
-        code:          $('#editCode').val(),
-        unit:          $('#editUnit').val(),
-        description:   $('#editDescription').val(),
-        is_product:    $('input[name="is_product"]:checked').val() || '1',
-        selling_price: $('#editSellingPrice').val(),
-        cost_price:    $('#editCostPrice').val(),
-        _token:        '{{ csrf_token() }}'
-    };
-
-    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content') } });
-    $.ajax({
-        type: 'POST', url: '{{ route("retail.operations.baseproducts.update") }}',
-        data: formData, timeout: 60000,
-        beforeSend: function () { $('#progressBar').show(); },
-        complete:   function () { $('#progressBar').hide(); self.prop('disabled', false); },
-        success: function (data) {
-            if (data.status === 201) {
-                toastr.success(data.success, 'Success');
-                $('#editDataModal').modal('hide');
-                table.row('#' + row).remove();
-                table.row.add($(buildRow(data.product))).draw(false);
-                updateSelectedCount();
-            } else if (data.status === 422) {
-                toastr.error(data.error || 'Validation failed.', 'Error');
-            } else {
-                toastr.info('Unspecified error.', 'Error');
-            }
-        },
-        error: handleAjaxError
+    // ════════════════════════════════════════════════════════════════════════
+    //  SINGLE DELETE — server skips if product still has stock at a branch
+    // ════════════════════════════════════════════════════════════════════════
+    $('#tbody').on('click', '.deleteDataBtn', function(e) {
+        e.preventDefault();
+        var b = $(this);
+        $('#singleDeleteLabel').text(b.data('label'));
+        $('#singleDeleteRow').val(b.data('row'));
+        $('#singleDeleteId').val(b.data('id'));
+        $('#singleDeleteModal').modal('show');
     });
-});
 
-$('#cancelEditDataBtn').on('click', function (e) {
-    e.preventDefault();
-    $('#editDataForm')[0].reset();
-    $('#editDataModal').modal('hide');
-});
+    $('#keepSingleBtn').on('click', function(e) { e.preventDefault(); $('#singleDeleteModal').modal('hide'); });
 
-    // ── BULK DELETE ───────────────────────────────────────────────────────
+    $('#submitSingleDeleteBtn').on('click', function(e) {
+        e.preventDefault();
+        var self = $(this); self.prop('disabled', true);
+        var row  = $('#singleDeleteRow').val();
+        var id   = $('#singleDeleteId').val();
+
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
+        $.ajax({
+            type:    'POST',
+            url:     '{{ route("retail.operations.baseproducts.delete") }}',
+            timeout: 60000,
+            data:    { id:id, _token:'{{ csrf_token() }}' },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function(data) {
+                if (data.status === 201) {
+                    if (data.skipped === 1) {
+                        toastr.warning(data.success, 'Skipped');
+                    } else {
+                        toastr.success(data.success, 'Deleted');
+                        table.row('#' + row).remove().draw(false);
+                        updateSelectedCount();
+                    }
+                    $('#singleDeleteModal').modal('hide');
+                } else {
+                    toastr.error(data.error || 'Failed.', 'Error');
+                }
+            },
+            error: handleAjaxError
+        });
+    });
+
+    // ════════════════════════════════════════════════════════════════════════
+    //  BULK DELETE — server skips products still holding stock at a branch
+    // ════════════════════════════════════════════════════════════════════════
     $('#deleteSelectedBtn').on('click', function(e) {
         e.preventDefault();
-        var selected=[], selectedRows=[];
-        $('.selectRow:checked').each(function() {
-            selected.push($(this).val()); selectedRows.push($(this).data('row-id'));
-        });
-        if (!selected.length) { toastr.warning('No products selected.','Warning'); return; }
-        var c=selected.length;
-        $('#multipleDisplayDeleteLabel').html('the selected <strong>'+c+' product'+(c>1?'s':'')+'</strong>');
-        $('#multipleDeleteIds').val(selected.join(','));
-        $('#multipleDeleteRows').val(selectedRows.join(','));
+        var ids  = [], rows = [];
+        $('.selectRow:checked').each(function() { ids.push($(this).val()); rows.push($(this).data('row-id')); });
+        if (!ids.length) { toastr.warning('No products selected.', 'Warning'); return; }
+        $('#multipleDeleteCount').text(ids.length);
+        $('#multipleDeleteIds').val(ids.join(','));
+        $('#multipleDeleteRows').val(rows.join(','));
         $('#bulkActionsModal').modal('hide');
-        setTimeout(function() { $('#multipleDeleteDataModal').modal('show'); }, 300);
+        setTimeout(function() { $('#multipleDeleteModal').modal('show'); }, 250);
     });
-    $('#keepMultipleDataBtn').on('click', function(e) {
-        e.preventDefault(); toastr.info('Your data is safe','Great!'); $('#multipleDeleteDataModal').modal('hide');
-    });
-    $('#submitMultipleDeleteDataBtn').on('click', function(e) {
+
+    $('#keepMultipleBtn').on('click', function(e) { e.preventDefault(); $('#multipleDeleteModal').modal('hide'); });
+
+    $('#submitMultipleDeleteBtn').on('click', function(e) {
         e.preventDefault();
-        var self=$(this); self.prop('disabled',true);
-        var ids=$('#multipleDeleteIds').val().split(',');
-        var rows=$('#multipleDeleteRows').val().split(',');
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        var self = $(this); self.prop('disabled', true);
+        var ids  = $('#multipleDeleteIds').val().split(',');
+        var rows = $('#multipleDeleteRows').val().split(',');
+
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.bulkdelete") }}',
-            data:{ids:ids,_token:'{{ csrf_token() }}'}, timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); self.prop('disabled',false); },
+            type:    'POST',
+            url:     '{{ route("retail.operations.baseproducts.bulkdelete") }}',
+            timeout: 60000,
+            data:    { ids:ids, _token:'{{ csrf_token() }}' },
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
             success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
-                    for (var i=0;i<rows.length;i++) { table.row('#'+rows[i]).remove(); }
-                    table.draw(false); updateSelectedCount();
-                    $('#multipleDeleteDataModal').modal('hide');
-                } else if (data.status===422) {
-                    toastr.error(data.error||'Validation failed.','Error');
-                } else { toastr.info('Unspecified error.','Error'); }
+                if (data.status === 201) {
+                    if (data.deleted > 0) {
+                        if (data.skipped > 0) {
+                            toastr.success(data.success, 'Done');
+                            setTimeout(function() { location.reload(); }, 1800);
+                        } else {
+                            rows.forEach(function(r) { table.row('#' + r).remove(); });
+                            table.draw(false);
+                            updateSelectedCount();
+                            toastr.success(data.success, 'Deleted');
+                        }
+                    } else {
+                        toastr.warning(data.success, 'Skipped');
+                    }
+                    $('#multipleDeleteModal').modal('hide');
+                } else {
+                    toastr.error(data.error || 'Failed.', 'Error');
+                }
             },
             error: handleAjaxError
         });
     });
 
-    // ── BULK TYPE ─────────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    //  BULK TYPE
+    // ════════════════════════════════════════════════════════════════════════
     function doBulkStatus(isProduct) {
-        var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
+        var selected = []; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
         if (!selected.length) return;
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.bulkstatus") }}',
-            data:{ids:selected, is_product:isProduct, _token:'{{ csrf_token() }}'}, timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); },
+            type: 'POST', url: '{{ route("retail.operations.baseproducts.bulkstatus") }}',
+            data: { ids:selected, is_product:isProduct, _token:'{{ csrf_token() }}' }, timeout:60000,
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); },
             success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
-                    $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $.each(data.products, function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
                     table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                } else { toastr.error(data.error||'Failed.','Error'); }
+                } else { toastr.error(data.error || 'Failed.', 'Error'); }
             },
             error: handleAjaxError
         });
@@ -1733,34 +1684,36 @@ $('#cancelEditDataBtn').on('click', function (e) {
     $('#bulkMarkProductBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(1); });
     $('#bulkMarkServiceBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
 
-    // ── BULK SUPPLIER ─────────────────────────────────────────────────────
+    // ════════════════════════════════════════════════════════════════════════
+    //  BULK SUPPLIER
+    // ════════════════════════════════════════════════════════════════════════
     $('#applyBulkSupplierBtn').on('click', function(e) {
         e.preventDefault();
         var supplier = $('#bulkSupplierSelect').val();
-        if (!supplier) { toastr.warning('Select a supplier.','Required'); return; }
-        var selected=[]; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
+        if (!supplier) { toastr.warning('Select a supplier.', 'Required'); return; }
+        var selected = []; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
         if (!selected.length) return;
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN':$('meta[name="csrf-token"]').attr('content')} });
+        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
         $.ajax({
-            type:'POST', url:'{{ route("retail.operations.baseproducts.bulksupplier") }}',
-            data:{ids:selected, supplier:supplier, _token:'{{ csrf_token() }}'}, timeout:60000,
-            beforeSend:function() { $('#progressBar').show(); },
-            complete:  function() { $('#progressBar').hide(); },
+            type: 'POST', url: '{{ route("retail.operations.baseproducts.bulksupplier") }}',
+            data: { ids:selected, supplier:supplier, _token:'{{ csrf_token() }}' }, timeout:60000,
+            beforeSend: function() { $('#progressBar').show(); },
+            complete:   function() { $('#progressBar').hide(); },
             success: function(data) {
-                if (data.status===201) {
-                    toastr.success(data.success,'Success');
-                    $.each(data.products,function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $.each(data.products, function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
                     table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                } else { toastr.error(data.error||'Failed.','Error'); }
+                } else { toastr.error(data.error || 'Failed.', 'Error'); }
             },
             error: handleAjaxError
         });
     });
 
-    // ── SELECT ALL ────────────────────────────────────────────────────────
-    $('#selectAll').on('click', function() {
-        $('.selectRow').prop('checked', this.checked); updateSelectedCount();
-    });
+    // ════════════════════════════════════════════════════════════════════════
+    //  ROW SELECTION
+    // ════════════════════════════════════════════════════════════════════════
+    $('#selectAll').on('change', function() { $('.selectRow').prop('checked', this.checked); updateSelectedCount(); });
     $('#tbody').on('click', '.selectRow', function() { updateSelectedCount(); });
 
 });

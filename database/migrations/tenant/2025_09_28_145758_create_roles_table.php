@@ -17,10 +17,7 @@ return new class extends Migration
             $table->text('description')->nullable();
         });
      DB::table('roles')->insert([
-            [
-                'role'        => 'SuperAdmin',
-                'description' => 'Full unrestricted access to the entire system. Can manage tenants, users, roles, sectors, categories, system configuration, and all data across companies. Highest privilege level.',
-            ],
+
             [
                 'role'        => 'Admin',
                 'description' => 'Full administrative access within permitted sectors. Can manage categories, employees, business operations, reports, and sector-level settings.',

@@ -1,29 +1,28 @@
 @extends('operations.retail.dashboard')
 @section('content')
-
 @php
     $pref       = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
     $categories = DB::connection('tenant')->table('categories')->orderBy('category')->get();
 
     $selectedCategory = null;
-    $branches         = collect();
-
     if ($pref && $pref->category_id) {
         $selectedCategory = DB::connection('tenant')
             ->table('categories')
             ->where('id', $pref->category_id)
             ->first();
-
-        if ($selectedCategory) {
-            $branches = DB::connection('tenant')
-                ->table('branches')
-                ->where('sector',   'Retail')
-                ->where('category', (string) $selectedCategory->id)
-                ->where('status',   'active')
-                ->orderBy('name')
-                ->get();
-        }
     }
+
+    // Same rule as overview: category filter only applied if one is selected.
+    $branchesQuery = DB::connection('tenant')
+        ->table('branches')
+        ->where('sector', 'Retail')
+        ->where('status', 'active');
+
+    if ($selectedCategory) {
+        $branchesQuery->where('category', (string) $selectedCategory->id);
+    }
+
+    $branches = $branchesQuery->orderBy('name')->get();
 
     $savedBranchId       = $pref->branch_id ?? null;
     $preSelectedBranchId = $savedBranchId ?: request()->query('branch_id');
@@ -36,14 +35,12 @@
 
     if ($preSelectedBranchId) {
 
-        // Step 1: today's live shop value — anchor
         $currentShopValue = (float) DB::connection('tenant')
             ->table('retail_branch_products as rbp')
             ->join('retail_base_products as bp', 'bp.id', '=', 'rbp.base_product_id')
             ->where('rbp.branch_id', $preSelectedBranchId)
-            ->sum(DB::raw('CAST(rbp.selling_price AS DECIMAL(15,2)) * CAST(rbp.stock_quantity AS DECIMAL(12,3))'));
+            ->sum(DB::raw('CAST(COALESCE(rbp.selling_price, bp.selling_price) AS DECIMAL(15,2)) * CAST(rbp.stock_quantity AS DECIMAL(12,3))'));
 
-        // Step 2: all in-range logs using the price snapshot stored in the log
         $allLogs = DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->where('ril.branch_id', $preSelectedBranchId)
@@ -51,7 +48,6 @@
             ->select('ril.log_date', 'ril.stock_change', 'ril.selling_price')
             ->get();
 
-        // Step 3: guard against future-dated entries — use log's own price
         $futureValue = (float) DB::connection('tenant')
             ->table('retail_inventory_logs as ril')
             ->where('ril.branch_id', $preSelectedBranchId)
@@ -60,16 +56,13 @@
 
         $closingToday = $currentShopValue - $futureValue;
 
-        // Step 4: group logs by date string
         $logsByDate = $allLogs->groupBy('log_date');
 
-        // Step 5: build 90 dates newest → oldest
         $allDatesNewestFirst = [];
         for ($i = 0; $i < 90; $i++) {
             $allDatesNewestFirst[] = $today->copy()->subDays($i)->toDateString();
         }
 
-        // Step 6: backward walk to assign closing value per date
         $closingByDate = [];
         $running = $closingToday;
 
@@ -80,7 +73,6 @@
             $running -= $net;
         }
 
-        // Step 7: emit rows newest → oldest
         foreach ($allDatesNewestFirst as $date) {
             $dayLogs   = $logsByDate->get($date, collect());
             $closing   = $closingByDate[$date];
@@ -103,7 +95,6 @@
             ]);
         }
 
-        // Totals for tfoot
         $movementTotals = [
             'opening_value'  => round($movementRows->last()->opening_value  ?? 0, 2),
             'value_added'    => round($movementRows->sum('value_added'),      2),

@@ -368,7 +368,7 @@
 
                     <!-- Today: live sales feed for the current trading day -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a  href="{{ route('retail.operations.sales.today') }}" class="side-nav-link">
                             <i class="ri-pulse-line"></i>
                             <span>Today</span>
                         </a>

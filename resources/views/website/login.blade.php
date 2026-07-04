@@ -7,8 +7,16 @@
     <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
     <meta content="Coderthemes" name="author" />
 
+    {{-- ✅ FIX 1: CSRF meta tag — was missing, needed for AJAX/header use --}}
+    <meta name="csrf-token" content="{{ csrf_token() }}">
+
     <!--favicon-->
     <link rel="icon" href="{{asset('dashboard/images/icon.png')}}" type="image/x-icon">
+
+    {{-- ✅ FIX 2: jQuery FIRST — must load before any script that uses $ (it was loaded
+         near the bottom before, after a script that already called $(...).click(...)) --}}
+    <script src="{{ asset('library/jquery/jquery.min.js') }}"></script>
+
     <!-- Theme Config Js -->
     <script src="{{asset('dashboard/assets/js/config.js')}}"></script>
   
@@ -21,6 +29,22 @@
 
     <!-- Toastr -->
     <link href="{{ asset('library/toastr/toastr.min.css') }}" rel="stylesheet" type="text/css" />
+
+    <style>
+        /* ✅ FIX 3: Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
+        .auth-card-wrap {
+            width: 100%;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (max-width: 575.98px) {
+            .auth-card-wrap {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="authentication-bg position-relative">
     <div class="position-absolute start-0 end-0 start-0 bottom-0 w-100 h-100">
@@ -51,7 +75,9 @@
     <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
         <div class="container">
             <div class="row justify-content-center">
-                <div class="col-xxl-4 col-lg-5">
+                {{-- ✅ FIX 4: Narrowed column + fixed max-width wrapper, same as the other auth pages --}}
+                <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
+                    <div class="auth-card-wrap">
                     <div class="card">
                         <!-- Logo -->
                         <div class="card-header pt-4 text-center">
@@ -75,17 +101,23 @@
 
                                   <div class="mb-3">
                                     <label for="emailaddress" class="form-label">Email address</label>
-                                    <input class="form-control" type="email" name="email" placeholder="Enter your email">
+                                    {{-- ✅ FIX 5: autocomplete left on so the browser's email autosuggest still works --}}
+                                    <input class="form-control" type="email" id="emailaddress" name="email" placeholder="Enter your email" autocomplete="email">
                                 </div>
 
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
-                                    <input class="form-control" type="password" name="password" placeholder="Enter your password" autocomplete="off">
+                                    {{-- ✅ FIX 6: Same masked-password trick as the main login page — plain text
+                                         field with no real "password" semantics, so the browser never offers
+                                         to save it. Real value lives only in the hidden #password-actual field. --}}
+                                    <input class="form-control" type="text" id="password" placeholder="Enter your password" autocomplete="off">
+                                    <input type="hidden" id="password-actual" name="password">
                                 </div>
 
                                 <div class="mt-2 mb-3">
                                     <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
-                                    <a href="{{ route('master.forgot.password') }}" class="text-muted float-end fs-15">Forgot password?</a>
+                                    {{-- ✅ FIX 7: Forgot password no longer routes to the master area --}}
+                                    <a href="#" class="text-muted float-end fs-15">Forgot password?</a>
                                 </div>
 
                                 <div class="text-center">
@@ -99,6 +131,7 @@
                         </div> <!-- end card-body -->
                     </div>
                     <!-- end card -->
+                    </div><!-- end auth-card-wrap -->
                 </div> <!-- end col -->
             </div>
             <!-- end row -->
@@ -110,25 +143,42 @@
     <!--<footer class="footer footer-alt">
         <span class="text-white-50"><script>document.write(new Date().getFullYear())</script> © Netamind Technology</span>
     </footer>-->
-   
+
+    {{-- ✅ FIX 8: Corrected typo  dashbaord → dashboard --}}
     <!-- Vendor js -->
-    <script src="{{asset('dashbaord/assets/js/vendor.min.js')}}"></script>
-    
+    <script src="{{asset('dashboard/assets/js/vendor.min.js')}}"></script>
+
     <!-- App js -->
-    <script src="{{asset('dashbaord/assets/js/app.min.js')}}"></script>
-    
+    <script src="{{asset('dashboard/assets/js/app.min.js')}}"></script>
+
+    <script src="{{ asset('library/sweetalert2/sweetalert2.min.js') }}"></script>
+    <script src="{{ asset('library/toastr/toastr.min.js') }}"></script>
+    <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
+    <script src="{{ asset('library/cropper/cropper.js') }}"></script>
+
+    {{-- ✅ FIX 9: Password masking, ported as-is from the main login page --}}
+    <script>
+        const passwordInput = document.getElementById('password');
+        const passwordActualInput = document.getElementById('password-actual');
+        let actualPasswordValue = '';
+        passwordInput.addEventListener('input', (e) => {
+            if (e.inputType === 'deleteContentBackward') {
+                actualPasswordValue = actualPasswordValue.slice(0, -1);
+            } else if (e.data && e.inputType !== 'insertCompositionText') {
+                actualPasswordValue += e.data;
+            }
+            const maskedValue = '*'.repeat(actualPasswordValue.length);
+            e.target.value = maskedValue;
+            passwordActualInput.value = actualPasswordValue;
+        });
+    </script>
+
     <script>
         $('#cancelDataBtn2').click(function() {
             document.getElementById('dataForm').reset();
         });
     </script>
 
-    <!-- jQuery -->
-    <script src="{{ asset('library/jquery/jquery.min.js') }}"></script>
-    <script src="{{ asset('library/sweetalert2/sweetalert2.min.js') }}"></script>
-    <script src="{{ asset('library/toastr/toastr.min.js') }}"></script>
-    <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
-    <script src="{{ asset('library/cropper/cropper.js') }}"></script>
     <script>
         @if(Session::has('message'))
             var type = "{{ Session::get('alert-type', 'info') }}";
@@ -151,4 +201,3 @@
     <!--js toastr notification--> 
 </body>
 </html>
-

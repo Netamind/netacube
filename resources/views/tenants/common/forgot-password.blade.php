@@ -7,6 +7,9 @@
         <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
         <meta content="Coderthemes" name="author" />
 
+        {{-- ✅ FIX 1: CSRF meta tag was missing — needed by the AJAX header below --}}
+        <meta name="csrf-token" content="{{ csrf_token() }}">
+
          <!--favicon-->
 	    <link rel="icon" href="{{asset('dashboard/images/icon.png')}}" type="image/x-icon">
 
@@ -24,6 +27,22 @@
 
         <!-- Toastr -->
         <link href="{{ asset('library/toastr/toastr.min.css') }}" rel="stylesheet" type="text/css" />
+
+        {{-- ✅ FIX 2: Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) --}}
+        <style>
+            .auth-card-wrap {
+                width: 100%;
+                max-width: 380px;
+                margin-left: auto;
+                margin-right: auto;
+            }
+
+            @media (max-width: 575.98px) {
+                .auth-card-wrap {
+                    max-width: 100%;
+                }
+            }
+        </style>
         
     </head>
     
@@ -62,7 +81,9 @@
         <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
             <div class="container">
                 <div class="row justify-content-center">
-                    <div class="col-xxl-4 col-lg-5">
+                    {{-- ✅ FIX 3: Narrowed column so the card stays a standard, sane size on mobile and smaller laptops --}}
+                    <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
+                        <div class="auth-card-wrap">
                         <div class="card">
 
                             <!-- Logo -->
@@ -100,7 +121,8 @@
 
                                     <div class="mt-2 mb-3">
                                         <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
-                                        <a href="{{route('master.login.page')}}" class="text-muted float-end fs-15">Back to Login</a>
+                                        {{-- ✅ FIX 4: No longer routes to the master login page --}}
+                                        <a href="#" class="text-muted float-end fs-15">Back to Login</a>
                                     </div>
 
                                     <div class="text-center">
@@ -114,6 +136,7 @@
                             </div> <!-- end card-body -->
                         </div>
                         <!-- end card -->
+                        </div> <!-- end auth-card-wrap -->
                     </div> <!-- end col -->
                 </div>
                 <!-- end row -->
@@ -204,4 +227,3 @@
    </script>
     </body>
 </html>
-  

@@ -63,8 +63,8 @@
                             <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
                         </a>
                         <a href="{{ route('tenant.admin.dashboard') }}" class="logo-dark">
-                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
-                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/                                                                                      icon.png') }}" alt=""></span>
+                            <span class="logo-lg"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
+                            <span class="logo-sm"><img src="{{ asset('tenants/admin/images/icon.png') }}" alt=""></span>
                         </a>
                     </div>
 

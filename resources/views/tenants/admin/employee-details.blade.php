@@ -321,7 +321,7 @@
                                             </div>
                                         </div>
 
-                                        {{-- ── ON PAYE ── --}}
+                                        {{-- ON PAYE --}}
                                         <div class="row mb-3">
                                             <label class="col-3 col-form-label">PAYE Deduction</label>
                                             <div class="col-9">
@@ -539,13 +539,8 @@ $(function () {
      * Checkboxes are NOT serialised when unchecked, so we handle on_paye
      * explicitly: if the tab form contains an on_paye field we use it;
      * otherwise we strip on_paye from the base and send 0.
-     *
-     * For Tab 1 (profileDataForm) the checkbox is present in the form itself
-     * so we call it directly. For Tab 2 (financesDataForm) we use mergedData.
      */
     function mergedData(tabFormSelector) {
-        // Start with base data minus any on_paye entry —
-        // the base carries a hidden 0/1 but the tab form checkbox is the truth.
         var base = $('#baseDataForm').serialize()
                        .split('&')
                        .filter(function (p) { return p.indexOf('on_paye') === -1; })
@@ -558,7 +553,6 @@ $(function () {
     $('#profileDataForm').on('input change', 'input, select, textarea', function () {
         var name = $(this).attr('name');
         if (!name) return;
-        // For the checkbox we store 0/1 in the hidden field
         if (name === 'on_paye') {
             $('#baseDataForm input[name="on_paye"]').val($(this).is(':checked') ? '1' : '0');
         } else {
@@ -595,7 +589,7 @@ $(function () {
                     let msg = ''; $.each(xhr.responseJSON.errors, (k, v) => msg += v + '\n');
                     toastr.error(msg, 'Validation');
                 } else {
-                    toastr.error('Server error', 'Error');
+                    toastr.error('Something went wrong. Please try again.', 'Error');
                 }
             }
         });
@@ -630,7 +624,7 @@ $(function () {
                     let msg = ''; $.each(xhr.responseJSON.errors, (k, v) => msg += v + '\n');
                     toastr.error(msg, 'Validation');
                 } else {
-                    toastr.error('Server error', 'Error');
+                    toastr.error('Something went wrong. Please try again.', 'Error');
                 }
             }
         });
@@ -653,7 +647,7 @@ $(function () {
                     toastr.success(data.success, 'Success');
                     $('#changePasswordForm')[0].reset();
                 } else {
-                    toastr.error(data.error || 'Failed', 'Error');
+                    toastr.error(data.error || 'Failed to update password.', 'Error');
                 }
             },
             error: xhr => {
@@ -661,7 +655,7 @@ $(function () {
                     let msg = ''; $.each(xhr.responseJSON.errors, (k, v) => msg += v + '\n');
                     toastr.error(msg, 'Validation');
                 } else {
-                    toastr.error('Server error', 'Error');
+                    toastr.error('Something went wrong. Please try again.', 'Error');
                 }
             }
         });
@@ -684,28 +678,35 @@ $(function () {
     });
 
     $('#submitSingleDeleteDataBtn').on('click', function (e) {
-    e.preventDefault();
-    const $btn = $(this).prop('disabled', true);
+        e.preventDefault();
+        const $btn = $(this).prop('disabled', true);
 
-    $.ajax({
-        url:    $('#singleDeleteDataForm').attr('action'),
-        method: 'POST',
-        data:   $('#singleDeleteDataForm').serialize(),
-        beforeSend: () => $('#progressBar').show(),
-        complete:   () => { $('#progressBar').hide(); $btn.prop('disabled', false); },
-        success: res => {
-            if (res.status === 201) {
-                toastr.success(res.success, 'Deleted');
+        $.ajax({
+            url:    $('#singleDeleteDataForm').attr('action'),
+            method: 'POST',
+            data:   $('#singleDeleteDataForm').serialize(),
+            beforeSend: () => $('#progressBar').show(),
+            complete:   () => { $('#progressBar').hide(); $btn.prop('disabled', false); },
+            success: res => {
+                if (res.status === 201) {
+                    toastr.success(res.success, 'Deleted');
+                    delModal.hide();
+                    setTimeout(() => location.href = '{{ route("tenant.admin.employees") }}', 800);
+                } else if (res.status === 403) {
+                    toastr.error(res.error, 'Not Allowed');
+                    delModal.hide();
+                } else {
+                    toastr.error(res.error || 'Delete failed. Please try again.', 'Error');
+                    delModal.hide();
+                }
+            },
+            error: xhr => {
+                const msg = xhr.responseJSON?.error || xhr.responseJSON?.message || 'Something went wrong. Please try again.';
+                toastr.error(msg, 'Error');
                 delModal.hide();
-                setTimeout(() => location.href = '{{ route("tenant.admin.employees") }}', 800);
             }
-        },
-        error: xhr => {
-            toastr.error(xhr.responseJSON?.message || 'Delete failed', 'Error');
-        }
+        });
     });
-});
-
 
 });
 </script>

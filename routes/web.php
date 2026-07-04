@@ -23,8 +23,8 @@ use App\Http\Controllers\Operations\Finance\FinanceOperationsController;
 use App\Http\Controllers\Sales\Retail\RetailSalesController;
 use App\Http\Controllers\Sales\Retail\RetailPointOfSaleController;
 use App\Http\Controllers\Operations\Retail\RetailFullstocktakingController;
+use App\Http\Controllers\Operations\Retail\OperationSalesController;
  
-
 
 
 
@@ -246,6 +246,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     Route::post('operations/retail/baseproducts/bulkdelete',   [BaseproductsController::class, 'bulkDeleteBaseproducts'])->name('retail.operations.baseproducts.bulkdelete');
     Route::post('operations/retail/baseproducts/bulkstatus',   [BaseproductsController::class, 'bulkStatusBaseproducts'])->name('retail.operations.baseproducts.bulkstatus');
     Route::post('operations/retail/baseproducts/bulksupplier', [BaseproductsController::class, 'bulkSupplierBaseproducts'])->name('retail.operations.baseproducts.bulksupplier');
+    Route::post('operations/retail/baseproducts/csv/upload',   [BaseproductsController::class, 'uploadBaseproductsCsv'])->name('retail.operations.baseproducts.csv.upload');
     Route::post('operations/retail/baseproducts/import/row',   [BaseproductsController::class, 'importBaseproductRow'])->name('retail.operations.baseproducts.import.row');
     Route::post('operations/retail/baseproducts/bulktax',      [BaseproductsController::class, 'bulkTaxBaseproducts'])->name('retail.operations.baseproducts.bulktax');
     Route::post('operations/retail/baseproducts/bulktype',     [BaseproductsController::class, 'bulkTypeBaseproducts'])->name('retail.operations.baseproducts.bulktype');
@@ -354,6 +355,15 @@ Route::post('/operations/retail/fullstocktaking/seed-session', [RetailFullstockt
 Route::post('/operations/retail/fullstocktaking/device-sync', [RetailFullstocktakingController::class, 'reportDeviceSync'])->name('retail.operations.fullstocktaking.device-sync');
 Route::get('/operations/retail/fullstocktaking/sync-status', [RetailFullstocktakingController::class, 'getSyncStatus'])->name('retail.operations.fullstocktaking.sync-status');
  
+
+
+
+Route::get('/operations/retail/sales/today',          [OperationSalesController::class, 'showTodaysSalesView'])->name('retail.operations.sales.today');
+Route::post('/operations/retail/sales/update',         [OperationSalesController::class, 'updateSale'])->name('retail.operations.sales.update');
+Route::post('/operations/retail/sales/reverse',        [OperationSalesController::class, 'reverseSales'])->name('retail.operations.sales.reverse');
+Route::post('/operations/retail/sales/change-date',    [OperationSalesController::class, 'changeSalesDate'])->name('retail.operations.sales.change-date');
+Route::post('/operations/retail/sales/interval/update',[OperationSalesController::class, 'updateIntervalSale'])->name('retail.operations.sales.interval.update');
+Route::post('/operations/retail/sales/interval/delete',[OperationSalesController::class, 'deleteIntervalSale'])->name('retail.operations.sales.interval.delete');
 
 });
 
@@ -537,12 +547,18 @@ Route::group(['prefix' => 'master', 'middleware' => 'master.admin'], function ()
     Route::post('/tenant/invoices/cancel/{id}',      [MasterTenantInvoicesController::class, 'tenantInvoiceCancel'])->name('master.tenant.invoices.cancel');
     Route::post('/tenant/invoices/send/{id}',        [MasterTenantInvoicesController::class, 'tenantSendInvoiceFromInvoicesTable'])->name('master.tenant.invoices.send');
 
+
     // Tenant Migrations
-    Route::get('/tenant/migrations',                          [TenantMigrationController::class, 'showTenantMigrationView'])->name('master.tenant.migrations');
-    Route::get('/tenant/migrations/{tenant}/actions',         [TenantMigrationController::class, 'showTenantMigrationActionsView'])->name('master.tenant.migrations.actions');
-    Route::post('/tenant/migrations/{tenant}/run',            [TenantMigrationController::class, 'executePendingMigrations'])->name('master.tenant.migrations.run');
-    Route::post('/tenant/migrations/{tenant}/reset',          [TenantMigrationController::class, 'resetTenantDatabaseCompletely'])->name('master.tenant.migrations.reset');
-    Route::get('/tenant/global-migrations',                   [TenantMigrationController::class, 'showGlobalMigrations'])->name('master.global.migrations');
-    Route::post('/tenant/global-migrations/run-pending-all',  [TenantMigrationController::class, 'runPendingForAll'])->name('master.global.migrations.run-pending-all');
+Route::get('/tenant/migrations',                          [TenantMigrationController::class, 'showTenantMigrationView'])->name('master.tenant.migrations');
+Route::get('/tenant/migrations/{tenant}/actions',         [TenantMigrationController::class, 'showTenantMigrationActionsView'])->name('master.tenant.migrations.actions');
+Route::post('/tenant/migrations/{tenant}/run',            [TenantMigrationController::class, 'executePendingMigrations'])->name('master.tenant.migrations.run');
+Route::post('/tenant/migrations/{tenant}/reset',          [TenantMigrationController::class, 'resetTenantDatabaseCompletely'])->name('master.tenant.migrations.reset');
+Route::get('/tenant/migrations/{tenant}/pending',         [TenantMigrationController::class, 'getPendingMigrationsList'])->name('master.tenant.migrations.pending');
+Route::post('/tenant/migrations/{tenant}/next',           [TenantMigrationController::class, 'runNextMigration'])->name('master.tenant.migrations.next');
+Route::get('/tenant/global-migrations',                   [TenantMigrationController::class, 'showGlobalMigrations'])->name('master.global.migrations');
+Route::post('/tenant/global-migrations/run-pending-all',  [TenantMigrationController::class, 'runPendingForAll'])->name('master.global.migrations.run-pending-all');
+
+Route::get('/tenant/global-migrations/pending-list',         [TenantMigrationController::class, 'getGlobalPendingList'])->name('master.global.migrations.pending-list');
+Route::post('/tenant/global-migrations/next/{tenantId}',     [TenantMigrationController::class, 'runNextMigrationForTenant'])->name('master.global.migrations.next');
 
 });

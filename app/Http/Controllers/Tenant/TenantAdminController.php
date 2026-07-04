@@ -902,40 +902,50 @@ public function updateEmployeeDetails(Request $request)
         ], 203);
     }
 }
- 
+
+
 public function deleteEmployee(Request $request)
 {
     $validator = Validator::make($request->all(), [
-        'id' => 'required|exists:tenant.users,id'
+        'id' => 'required|exists:tenant.users,id',
     ]);
- 
+
     if ($validator->fails()) {
         return response()->json([
             'status' => 422,
-            'errors' => $validator->errors()
+            'error'  => 'The employee could not be found. Please refresh the page and try again.',
         ], 422);
     }
- 
-    DB::connection('tenant')->table('users')->where('id', $request->id)->delete();
- 
-    return response()->json([
-        'status'  => 201,
-        'success' => 'Employee deleted successfully!'
-    ], 201);
+
+    // Prevent the logged-in user from deleting their own account.
+    if ((int) $request->id === (int) Auth::id()) {
+        return response()->json([
+            'status' => 403,
+            'error'  => 'You cannot delete your own account.',
+        ], 403);
+    }
+
+    try {
+        DB::connection('tenant')->statement('SET FOREIGN_KEY_CHECKS=0');
+        DB::connection('tenant')->table('users')->where('id', $request->id)->delete();
+
+        return response()->json([
+            'status'  => 201,
+            'success' => 'The employee record has been removed successfully.',
+        ], 201);
+
+    } catch (\Exception $e) {
+        \Log::error('Employee delete failed for ID ' . $request->id . ': ' . $e->getMessage());
+
+        return response()->json([
+            'status' => 500,
+            'error'  => 'Something went wrong while removing the employee. Please try again or contact support.',
+        ], 500);
+
+    } finally {
+        DB::connection('tenant')->statement('SET FOREIGN_KEY_CHECKS=1');
+    }
 }
- 
-
-
-
-
-
-
-
-
-
-
-
-
 
     public function insertPaymentMethod(Request $request)
     {

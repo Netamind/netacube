@@ -1,4 +1,5 @@
 <?php
+
 //branch products new system 
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
@@ -25,29 +26,25 @@ return new class extends Migration
             // ── Barcode ───────────────────────────────────────────────────
             $table->string('primary_barcode')->nullable();
 
-            // ── Batch / Expiry ───
-            // ─────────────────────────────────────────
+            // ── Batch / Expiry ────────────────────────────────────────────
             $table->date('expiry_date')->nullable();
             $table->string('batch_number')->nullable();
 
             // ── Pricing ───────────────────────────────────────────────────
             $table->decimal('selling_price',   15, 2)->nullable();
             $table->decimal('cost_price',      15, 2)->nullable();
-     
-
 
             // ── Stock ─────────────────────────────────────────────────────
-            $table->decimal('stock_quantity',   12, 3)->default(0);
-            $table->decimal('reorder_point',    12, 3)->default(0);
-            $table->decimal('reorder_quantity', 12, 3)->nullable();
-            $table->decimal('max_stock',        12, 3)->nullable();
+            $table->decimal('stock_quantity',   12, 2)->default(0);
+            $table->decimal('reorder_point',    12, 2)->default(0);
+            $table->decimal('reorder_quantity', 12, 2)->nullable();
+            $table->decimal('max_stock',        12, 2)->nullable();
             $table->boolean('track_stock')->default(true);
 
             // ── Status ────────────────────────────────────────────────────
             $table->boolean('is_active')->default(true);
             $table->boolean('allow_negative_stock')->default(false);
 
-       
             $table->timestamps();
 
             $table->unique(['branch_id', 'base_product_id'], 'rbp_branch_product_unique');

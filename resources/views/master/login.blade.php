@@ -21,6 +21,22 @@
 
     <!-- Toastr -->
     <link href="{{ asset('library/toastr/toastr.min.css') }}" rel="stylesheet" type="text/css" />
+
+    <!-- Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) -->
+    <style>
+        .auth-card-wrap {
+            width: 100%;
+            max-width: 380px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        @media (max-width: 575.98px) {
+            .auth-card-wrap {
+                max-width: 100%;
+            }
+        }
+    </style>
 </head>
 <body class="authentication-bg position-relative">
     <div class="position-absolute start-0 end-0 start-0 bottom-0 w-100 h-100">
@@ -51,7 +67,9 @@
     <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
         <div class="container">
             <div class="row justify-content-center">
-                <div class="col-xxl-4 col-lg-5">
+                <!-- Narrowed column so the card stays a sane, standard size on every screen -->
+                <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
+                    <div class="auth-card-wrap">
                     <div class="card">
                         <!-- Logo -->
                         <div class="card-header pt-4 text-center">
@@ -70,15 +88,25 @@
                         </div>
 
                         <div class="card-body">
-                            <form action="{{route('master.login')}}" method="post" id="dataForm">
+                            <form action="{{route('master.login')}}" method="post" id="dataForm" autocomplete="off">
                                 @csrf
                                 <div class="mb-3">
                                     <label for="emailaddress" class="form-label">Email address</label>
-                                    <input class="form-control" type="email" name="email" placeholder="Enter your email">
+                                    <input class="form-control" type="email" id="emailaddress" name="email" placeholder="Enter your email">
                                 </div>
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
-                                    <input class="form-control" type="password" name="password" placeholder="Enter your password" autocomplete="off">
+                                    <!--
+                                        Browser-autofill-save prevention technique:
+                                        the visible field is type="text" and never holds the real
+                                        password — keystrokes are tracked in JS and the field just
+                                        displays asterisks. The real value only ever lives in the
+                                        hidden #password-actual input, which is the one actually
+                                        submitted as name="password". Browsers never see a genuine
+                                        password field, so they don't offer to save credentials.
+                                    -->
+                                    <input class="form-control" type="text" id="password" placeholder="Enter your password" autocomplete="off">
+                                    <input type="hidden" id="password-actual" name="password">
                                 </div>
                                 <div class="mt-2 mb-3">
                                     <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
@@ -94,6 +122,7 @@
                         </div> <!-- end card-body -->
                     </div>
                     <!-- end card -->
+                    </div><!-- end auth-card-wrap -->
                 </div> <!-- end col -->
             </div>
             <!-- end row -->
@@ -107,16 +136,10 @@
     </footer>-->
    
     <!-- Vendor js -->
-    <script src="{{asset('dashbaord/assets/js/vendor.min.js')}}"></script>
+    <script src="{{asset('dashboard/assets/js/vendor.min.js')}}"></script>
     
     <!-- App js -->
-    <script src="{{asset('dashbaord/assets/js/app.min.js')}}"></script>
-    
-    <script>
-        $('#cancelDataBtn2').click(function() {
-            document.getElementById('dataForm').reset();
-        });
-    </script>
+    <script src="{{asset('dashboard/assets/js/app.min.js')}}"></script>
 
     <!-- jQuery -->
     <script src="{{ asset('library/jquery/jquery.min.js') }}"></script>
@@ -124,6 +147,30 @@
     <script src="{{ asset('library/toastr/toastr.min.js') }}"></script>
     <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
     <script src="{{ asset('library/cropper/cropper.js') }}"></script>
+
+    <!-- Password masking: keeps browsers from detecting a real password field to autosave -->
+    <script>
+        const passwordInput = document.getElementById('password');
+        const passwordActualInput = document.getElementById('password-actual');
+        let actualPasswordValue = '';
+        passwordInput.addEventListener('input', (e) => {
+            if (e.inputType === 'deleteContentBackward') {
+                actualPasswordValue = actualPasswordValue.slice(0, -1);
+            } else if (e.data && e.inputType !== 'insertCompositionText') {
+                actualPasswordValue += e.data;
+            }
+            const maskedValue = '*'.repeat(actualPasswordValue.length);
+            e.target.value = maskedValue;
+            passwordActualInput.value = actualPasswordValue;
+        });
+    </script>
+
+    <script>
+        $('#cancelDataBtn2').click(function() {
+            document.getElementById('dataForm').reset();
+        });
+    </script>
+
     <script>
         @if(Session::has('message'))
             var type = "{{ Session::get('alert-type', 'info') }}";

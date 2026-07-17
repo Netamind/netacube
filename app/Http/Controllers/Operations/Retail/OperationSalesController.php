@@ -20,6 +20,12 @@ class OperationSalesController extends Controller
         return view('operations.retail.sales.today');
     }
 
+    
+    public function showSalesHistoryView()
+    {
+        return view('operations.retail.sales.history');
+    }
+
     // ── Update single sale ────────────────────────────────────────────────
     // Quantity may only be REDUCED (or set to 0 for full reversal).
     // The difference between the currently active qty (quantity - rquantity)
@@ -78,6 +84,27 @@ class OperationSalesController extends Controller
 
             DB::connection('tenant')->beginTransaction();
 
+            if ($stockRestored > 0) {
+                // DB::raw avoids PHP float drift accumulating in MySQL
+                DB::connection('tenant')
+                    ->table('retail_branch_products')
+                    ->where('id', $sale->rbp_id)
+                    ->update([
+                        'stock_quantity' => DB::raw('ROUND(stock_quantity + ' . $stockRestored . ', 2)'),
+                    ]);
+            }
+
+            if ($newQty <= 0) {
+                // Reduced to zero = full reversal via the edit modal.
+                // Same outcome as the bulk Reverse action: delete outright
+                // rather than leaving a zeroed-out audit row.
+                DB::connection('tenant')->table('retail_system_sales')->where('id', $sale->id)->delete();
+
+                DB::connection('tenant')->commit();
+
+                return response()->json(['status' => 201, 'deleted' => true, 'id' => $sale->id]);
+            }
+
             // Keep quantity (original sold) as the audit record — only touch
             // rquantity and price. New rquantity = everything not being kept.
             $newRqty = round((float)$sale->quantity - $newQty, 2);
@@ -88,16 +115,6 @@ class OperationSalesController extends Controller
                 'qty_after'  => round((float)$sale->qty_after + $stockRestored, 2),
                 'updated_at' => now(),
             ]);
-
-            if ($stockRestored > 0) {
-                // DB::raw avoids PHP float drift accumulating in MySQL
-                DB::connection('tenant')
-                    ->table('retail_branch_products')
-                    ->where('id', $sale->rbp_id)
-                    ->update([
-                        'stock_quantity' => DB::raw('ROUND(stock_quantity + ' . $stockRestored . ', 2)'),
-                    ]);
-            }
 
             DB::connection('tenant')->commit();
 
@@ -160,16 +177,18 @@ class OperationSalesController extends Controller
             foreach ($sales as $sale) {
                 // Only restore what is still active (not yet reversed)
                 $reverseQty = round((float)$sale->quantity - (float)$sale->rquantity, 2);
-                if ($reverseQty <= 0) continue;
 
-                DB::connection('tenant')->table('retail_system_sales')->where('id', $sale->id)
-                    ->update(['rquantity' => $sale->quantity, 'updated_at' => now()]);
+                if ($reverseQty > 0) {
+                    DB::connection('tenant')->table('retail_branch_products')
+                        ->where('id', $sale->rbp_id)
+                        ->update([
+                            'stock_quantity' => DB::raw('ROUND(stock_quantity + ' . $reverseQty . ', 2)'),
+                        ]);
+                }
 
-                DB::connection('tenant')->table('retail_branch_products')
-                    ->where('id', $sale->rbp_id)
-                    ->update([
-                        'stock_quantity' => DB::raw('ROUND(stock_quantity + ' . $reverseQty . ', 2)'),
-                    ]);
+                // Reversal is final — remove the sale outright rather than
+                // keeping a zeroed-out audit row via rquantity.
+                DB::connection('tenant')->table('retail_system_sales')->where('id', $sale->id)->delete();
             }
 
             DB::connection('tenant')->commit();

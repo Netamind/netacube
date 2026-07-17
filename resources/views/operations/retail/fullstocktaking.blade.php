@@ -201,7 +201,6 @@
     text-decoration: none;
 }
 .fst-hdr-btn:hover { color: #333333; }
-.fst-hdr-divider { width: 1px; height: 16px; background: #8a8a8a; margin: 0 6px; opacity: .6; }
 
 /* ══ Blue branch bar ══ */
 .fst-branch-row {
@@ -384,6 +383,26 @@
 .fst-cart-label .cart-pipe { color: rgba(255,255,255,.4); margin: 0 7px; font-size: 16px; line-height: 1; }
 .fst-cart-label .cart-currency { font-size: 11px; font-weight: 700; color: rgba(255,255,255,.7); letter-spacing: .5px; margin-right: 2px; }
 #fstCartTotal { color: #f2f2f2; font-weight: bold; font-size: 17px; }
+
+/* ── MERGE PROGRESS ── */
+.fst-merge-progress-wrap { display: none; }
+.fst-merge-progress-wrap.active { display: block; }
+.fst-merge-bar-track { width: 100%; height: 10px; border-radius: 6px; background: #e5e7eb; overflow: hidden; }
+.fst-merge-bar-fill { height: 100%; background: linear-gradient(90deg,#4B5EBD,#6b7fd7); width: 0%; transition: width .18s ease; border-radius: 6px; }
+.fst-merge-status-line { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: #475569; }
+.fst-merge-current-item { font-weight: 600; color: #1e293b; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.fst-merge-counts { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; }
+.fst-merge-counts span { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.fst-merge-ok { color: #059669; }
+.fst-merge-bad { color: #dc2626; }
+.fst-merge-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.fst-merge-dot.fst-merge-ok { background: #059669; }
+.fst-merge-dot.fst-merge-bad { background: #dc2626; }
+.fst-merge-summary { display: none; }
+.fst-merge-summary.active { display: block; }
+.fst-merge-summary-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.fst-merge-fail-list { max-height: 140px; overflow-y: auto; border: 1px solid #fecaca; background: #fef2f2; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 11.5px; color: #991b1b; }
+.fst-merge-fail-list div { padding: 2px 0; }
 
 #fst-merge-btn {
     border: 2px solid silver; background: transparent; color: silver; font-weight: bold;
@@ -613,21 +632,16 @@ input[type=number] { -moz-appearance: textfield; }
             </button>
         </div>
 
-        {{-- Right-side icons: History | Info | Refresh --}}
+        {{-- Right-side icons: History | Info --}}
         <div class="fst-hdr-actions">
             <a href="{{ route('retail.operations.fullstocktaking.history') }}"
                class="fst-hdr-btn" title="History">
                 <i class="ri-history-line"></i>
             </a>
-            <span class="fst-hdr-divider"></span>
             <button type="button" class="fst-hdr-btn" id="fstInfoBtn"
                     title="About Full Stocktaking"
                     onclick="$('#fstInfoModal').modal('show')">
                 <i class="ri-information-line"></i>
-            </button>
-            <span class="fst-hdr-divider"></span>
-            <button type="button" class="fst-hdr-btn" title="Refresh" onclick="location.reload()">
-                <i class="ri-refresh-line"></i>
             </button>
         </div>
     </div>
@@ -635,7 +649,7 @@ input[type=number] { -moz-appearance: textfield; }
     {{-- ── Blue branch bar: branch select (left) + Fullstocktaking label (far right) ── --}}
     <div class="fst-branch-row">
         <div class="fst-branch-left">
-            <form method="POST" action="{{ route('tenant.admin.update.filters') }}" id="fstBranchForm">
+            <form method="POST" action="{{ route('retail.operations.update.filters') }}" id="fstBranchForm">
                 @csrf
                 <input type="hidden" name="user_id" value="{{ Auth::id() }}">
                 <select name="branch_id" id="fstBranchSelect"
@@ -654,7 +668,7 @@ input[type=number] { -moz-appearance: textfield; }
         </div>
 
         <div class="fst-branch-right">
-            <span class="fst-page-label">Fullstocktaking</span>
+            <span class="fst-page-label" role="button" title="Refresh" onclick="location.reload()" style="cursor:pointer;">Fullstocktaking</span>
         </div>
     </div>
 
@@ -750,27 +764,51 @@ input[type=number] { -moz-appearance: textfield; }
                 <h5 class="modal-title mh-pos-title">
                     <i class="ri-upload-cloud-2-line"></i> Merge Counted Data
                 </h5>
-                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
+                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal" id="fstMergeCloseX"></button>
             </div>
             <div class="modal-body" style="padding:18px 20px;">
-                <p style="font-size:13px;color:#475569;">
-                    You are about to merge <strong id="mergeLineCount">0</strong> counted product line(s)
-                    into the stocktake for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong>.
-                </p>
-                <label class="form-label fw-semibold" style="font-size:12px;">Enter your password to confirm</label>
-                <input type="password" class="form-control" id="fstMergePassword"
-                       placeholder="Password" autocomplete="off">
-                <div class="alert alert-info border-0 mt-3 py-2 px-3"
-                     style="font-size:11.5px;border-radius:6px;">
-                    <i class="ri-information-line me-1"></i>
-                    Counting can keep happening on other devices while sales continue — the system reconciles them safely at rectification time.
+                <div id="fstMergeFormArea">
+                    <p style="font-size:13px;color:#475569;">
+                        You are about to merge <strong id="mergeLineCount">0</strong> counted product line(s)
+                        into the stocktake for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong>.
+                    </p>
+                    <label class="form-label fw-semibold" style="font-size:12px;">Enter your password to confirm</label>
+                    <input type="password" class="form-control" id="fstMergePassword"
+                           placeholder="Password" autocomplete="off">
+                    <div class="alert alert-info border-0 mt-3 py-2 px-3"
+                         style="font-size:11.5px;border-radius:6px;">
+                        <i class="ri-information-line me-1"></i>
+                        Counting can keep happening on other devices while sales continue — the system reconciles them safely at rectification time.
+                    </div>
+                </div>
+
+                {{-- Progress — shown while lines are being merged one by one --}}
+                <div class="fst-merge-progress-wrap" id="fstMergeProgressWrap">
+                    <div class="fst-merge-bar-track"><div class="fst-merge-bar-fill" id="fstMergeBarFill"></div></div>
+                    <div class="fst-merge-status-line">
+                        <span class="fst-merge-current-item" id="fstMergeCurrentItem">Starting…</span>
+                        <span id="fstMergeCountLabel">0 / 0</span>
+                    </div>
+                    <div class="fst-merge-counts">
+                        <span class="fst-merge-ok"><i class="fst-merge-dot fst-merge-ok"></i><span id="fstMergeOkCount">0</span> merged</span>
+                        <span class="fst-merge-bad"><i class="fst-merge-dot fst-merge-bad"></i><span id="fstMergeBadCount">0</span> failed</span>
+                    </div>
+                </div>
+
+                {{-- Final summary — shown once the run finishes --}}
+                <div class="fst-merge-summary" id="fstMergeSummary">
+                    <div class="fst-merge-summary-title" id="fstMergeSummaryTitle">Done</div>
+                    <div style="font-size:12.5px;color:#475569;" id="fstMergeSummarySub"></div>
+                    <div class="fst-merge-fail-list" id="fstMergeFailList" style="display:none;"></div>
                 </div>
             </div>
-            <div class="modal-footer" style="padding:10px 18px 14px;">
+            <div class="modal-footer" style="padding:10px 18px 14px;" id="fstMergeFooter">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" id="fstMergeSubmitBtn">
                     <i class="ri-check-line"></i> Merge Now
                 </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="fstDownloadFailedBtn" style="display:none;"><i class="ri-file-excel-2-line"></i> Download Failed Items (Excel)</button>
+                <button type="button" class="btn btn-primary btn-sm" id="fstMergeDoneBtn" style="display:none;" data-bs-dismiss="modal">Done</button>
             </div>
         </div>
     </div>
@@ -930,7 +968,7 @@ input[type=number] { -moz-appearance: textfield; }
                         <div class="dmc-val" id="fstDmcCustomVal">{{ $isCustom ? $displayDate : 'Pick a date' }}</div>
                     </div>
                 </div>
-                <form method="POST" action="{{ route('tenant.admin.update.filters') }}" id="fstDateForm">
+                <form method="POST" action="{{ route('retail.operations.update.filters') }}" id="fstDateForm">
                     @csrf
                     <input type="hidden" name="user_id" value="{{ Auth::id() }}">
                     <input type="hidden" name="fst_custom_date" id="fstDateFormValue" value="">
@@ -952,6 +990,7 @@ input[type=number] { -moz-appearance: textfield; }
 
 @endsection
 @section('scripts')
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
 <script>
 'use strict';
 
@@ -1060,10 +1099,7 @@ $(document).ready(function () {
         const exactCodeMatch = fstAllProducts.some(p => p.code && p.code.toLowerCase() === q);
         if (exactCodeMatch) { clearFstDisplay(); return; }
 
-        renderRows(fstAllProducts.filter(p =>
-            p.name.toLowerCase().includes(q) ||
-            (p.code && p.code.toLowerCase().includes(q))
-        ));
+        renderRows(fstFilterProducts(q));
     });
 
     const searchInput = document.getElementById('fst-search');
@@ -1078,6 +1114,91 @@ $(document).ready(function () {
 
 function fstFindProduct(id) { return fstAllProducts.find(p => p.id === id); }
 function fstRowClick(id)    { const input = document.getElementById('fstq_' + id); if (input) input.focus(); }
+
+// Token-based ("smart") search — same behaviour as DataTables' default
+// "smart" filtering: the query is split on whitespace and EVERY token must
+// be found somewhere in the searchable text (name + code), not necessarily
+// adjacent or in order. This is what lets "para 500" match a product named
+// "Paracetamol Tabs 500mg".
+function fstTokenizeQuery(q) {
+    return (q || '').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+// Fuzzy subsequence match: true if every character of `needle` appears
+// in `haystack`, in order, but not necessarily next to each other.
+// e.g. "pra" matches "paracetamol" (p...r...a...) even though "pra"
+// isn't a literal substring of it.
+function fstIsSubsequence(needle, haystack) {
+    var hi = 0;
+    for (var i = 0; i < haystack.length && hi < needle.length; i++) {
+        if (haystack[i] === needle[hi]) hi++;
+    }
+    return hi === needle.length;
+}
+
+// Does this token match the product's searchable text? Checked in order:
+// (1) literal substring within a single word — fast, covers most typing,
+//     e.g. "500" in "500mg" or "ceta" in "paracetamol";
+// (2) fuzzy subsequence within a single word — for partial/skipped-letter
+//     typing, e.g. "pra" in "paracetamol";
+// (3) fuzzy subsequence across the whole run-together text — for queries
+//     typed with no space, e.g. "para500" spanning "paracetamol" and
+//     "500mg" as separate words.
+function fstTokenMatchesWords(token, words, joined) {
+    return words.some(function (w) {
+        return w.indexOf(token) !== -1 || fstIsSubsequence(token, w);
+    }) || fstIsSubsequence(token, joined);
+}
+
+// Ranks how good a match is so the closest matches float to the top.
+// Higher = better. Per token, the best word-level match wins:
+// exact word > word starts with token > literal substring > fuzzy subsequence.
+// Then a bonus is added if the whole typed query lines up with the product
+// name itself (so "lofnac 100" ranks "Lofnac 100mg" above "Lofnac Plus 100mg"),
+// and a tiny penalty for longer names breaks remaining ties toward the more
+// specific/shorter match.
+function fstTokenScore(token, words, joined) {
+    var best = 0;
+    for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        if (w === token)                { if (100 > best) best = 100; continue; }
+        if (w.indexOf(token) === 0)     { if (80  > best) best = 80;  continue; }
+        if (w.indexOf(token) !== -1)    { if (50  > best) best = 50;  continue; }
+        if (fstIsSubsequence(token, w)) { if (20  > best) best = 20;  continue; }
+    }
+    if (best === 0 && fstIsSubsequence(token, joined)) best = 5;
+    return best;
+}
+
+function fstScoreProduct(tokens, name, code) {
+    const nameLower = (name || '').toLowerCase();
+    const words = (nameLower + ' ' + (code || '').toLowerCase()).split(/\s+/).filter(Boolean);
+    const joined = words.join('');
+    let score = 0;
+    for (let i = 0; i < tokens.length; i++) score += fstTokenScore(tokens[i], words, joined);
+
+    const queryJoined = tokens.join(' ');
+    if (nameLower === queryJoined) score += 1000;
+    else if (nameLower.indexOf(queryJoined) === 0) score += 400;
+    else if (nameLower.indexOf(queryJoined) !== -1) score += 150;
+
+    score -= nameLower.length * 0.01;
+    return score;
+}
+
+function fstFilterProducts(q) {
+    const tokens = fstTokenizeQuery(q);
+    if (!tokens.length) return [];
+    return fstAllProducts
+        .filter(p => {
+            const words = ((p.name||'') + ' ' + (p.code||'')).toLowerCase().split(/\s+/).filter(Boolean);
+            const joined = words.join('');
+            return tokens.every(t => fstTokenMatchesWords(t, words, joined));
+        })
+        .map(p => ({ p, s: fstScoreProduct(tokens, p.name, p.code) }))
+        .sort((a, b) => b.s - a.s)
+        .map(x => x.p);
+}
 
 function fstQtyChange(id) {
     const p = fstFindProduct(id); if (!p) return;
@@ -1155,14 +1276,51 @@ function renderFstCart() {
     if (table) table.classList.remove('fst-cart-empty');
 }
 
+function fstResetMergeModalUI() {
+    document.getElementById('fstMergeFormArea').style.display = '';
+    document.getElementById('fstMergeProgressWrap').classList.remove('active');
+    document.getElementById('fstMergeSummary').classList.remove('active');
+    const failList = document.getElementById('fstMergeFailList');
+    failList.style.display = 'none';
+    failList.innerHTML = '';
+    document.getElementById('fstMergeBarFill').style.width = '0%';
+    document.getElementById('fstMergeOkCount').textContent = '0';
+    document.getElementById('fstMergeBadCount').textContent = '0';
+    document.getElementById('fstMergeCountLabel').textContent = '0 / 0';
+    document.getElementById('fstMergeCurrentItem').textContent = 'Starting…';
+    document.getElementById('fstDownloadFailedBtn').style.display = 'none';
+    document.getElementById('fstMergeDoneBtn').style.display = 'none';
+    document.getElementById('fstMergeCloseX').style.display = '';
+    const cancelBtn = document.querySelector('#fstMergeFooter .btn-secondary');
+    if (cancelBtn) cancelBtn.style.display = '';
+    const submitBtn = document.getElementById('fstMergeSubmitBtn');
+    submitBtn.style.display = '';
+    submitBtn.disabled = false;
+    submitBtn.innerHTML = '<i class="ri-check-line"></i> Merge Now';
+}
+
+let fstMergeRunning     = false;
+let fstMergeReloadOnHide = false;
+let fstLastFailedLines  = [];
+
 function openMergeModal() {
     if (!fstCart.length) return;
+    if (fstMergeRunning) { $('#fstMergeModal').modal('show'); return; }
+    fstResetMergeModalUI();
     document.getElementById('mergeLineCount').textContent = fstCart.length;
     document.getElementById('fstMergePassword').value = '';
     $('#fstMergeModal').modal('show');
 }
 
-document.getElementById('fstMergeSubmitBtn')?.addEventListener('click', function () {
+$('#fstMergeModal').on('hidden.bs.modal', function () {
+    if (fstMergeReloadOnHide) {
+        fstMergeReloadOnHide = false;
+        location.reload();
+    }
+});
+
+document.getElementById('fstMergeSubmitBtn')?.addEventListener('click', async function () {
+    if (fstMergeRunning) return;
     const password = document.getElementById('fstMergePassword').value;
     if (!password) { toastr.warning('Please enter your password.'); return; }
 
@@ -1174,48 +1332,136 @@ document.getElementById('fstMergeSubmitBtn')?.addEventListener('click', function
         client_uuid:     c.client_uuid,
     }));
 
-    const btn = this;
-    btn.disabled = true;
-    const originalHtml = btn.innerHTML;
-    btn.innerHTML = '<i class="ri-loader-4-line"></i> Merging...';
+    fstMergeRunning    = true;
+    fstLastFailedLines = [];
 
-    fetch('{{ route("retail.operations.fullstocktaking.merge") }}', {
-        method:  'POST',
-        headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': fstCsrf(), 'Accept': 'application/json' },
-        body:    JSON.stringify({
-            password:     password,
-            branch_id:    FST_BRANCH_ID,
-            date:         FST_DATE,
-            device_id:    fstDeviceId(),
-            device_label: fstDeviceLabel(),
-            lines:        lines,
-        }),
-    })
-    .then(r => r.json().then(d => ({ status: r.status, d })))
-    .then(({ status, d }) => {
-        btn.disabled  = false;
-        btn.innerHTML = originalHtml;
-        if (status === 200) {
-            toastr.success(d.message, 'Merged');
-            fstCart = [];
-            saveFstCart();
-            renderFstCart();
-            fstReportDeviceSync(0);
-            $('#fstMergeModal').modal('hide');
-            setTimeout(() => location.reload(), 800);
-        } else if (status === 401) {
-            toastr.error(d.message, 'Incorrect Password');
-        } else if (status === 409) {
-            toastr.error(d.message, 'Locked');
-        } else {
-            toastr.error(d.message || 'Merge failed.', 'Error');
+    // Switch the modal into progress mode — one line is merged at a time so
+    // a bad line never blocks the rest, and the bar reflects real progress
+    // (and each request stays small, well under any server time limit).
+    document.getElementById('fstMergeFormArea').style.display = 'none';
+    document.getElementById('fstMergeProgressWrap').classList.add('active');
+    document.getElementById('fstMergeCloseX').style.display = 'none';
+    const cancelBtn = document.querySelector('#fstMergeFooter .btn-secondary');
+    if (cancelBtn) cancelBtn.style.display = 'none';
+    const submitBtn = this;
+    submitBtn.style.display = 'none';
+
+    const total = lines.length;
+    let done = 0, ok = 0, bad = 0;
+    const succeededUuids = new Set();
+    let aborted = false;
+    let abortReason = '';
+
+    for (const line of lines) {
+        document.getElementById('fstMergeCurrentItem').textContent = line.product_name || 'Product';
+        document.getElementById('fstMergeCountLabel').textContent = `${done} / ${total}`;
+
+        const cartLine = fstCart.find(c => c.client_uuid === line.client_uuid) || {};
+
+        try {
+            const resp = await fetch('{{ route("retail.operations.fullstocktaking.merge") }}', {
+                method:  'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': fstCsrf(), 'Accept': 'application/json' },
+                body:    JSON.stringify({
+                    password:     password,
+                    branch_id:    FST_BRANCH_ID,
+                    date:         FST_DATE,
+                    device_id:    fstDeviceId(),
+                    device_label: fstDeviceLabel(),
+                    lines:        [line],
+                }),
+            });
+            const d = await resp.json();
+
+            if (resp.status === 401) {
+                aborted = true; abortReason = d.message || 'Incorrect password.'; break;
+            }
+            if (resp.status === 409) {
+                aborted = true; abortReason = d.message || 'This date has already been rectified.'; break;
+            }
+
+            const lineResult = resp.status === 200 && Array.isArray(d.results) ? d.results[0] : null;
+            if (lineResult && lineResult.status === 'success') {
+                ok++; succeededUuids.add(line.client_uuid);
+            } else {
+                bad++;
+                fstLastFailedLines.push({
+                    name:  line.product_name,
+                    unit:  line.unit || '',
+                    price: cartLine.price || 0,
+                    qty:   line.quantity,
+                    error: (lineResult && lineResult.error) || d.message || 'Failed to merge this item.',
+                });
+            }
+        } catch (e) {
+            bad++;
+            fstLastFailedLines.push({
+                name: line.product_name, unit: line.unit || '', price: cartLine.price || 0,
+                qty: line.quantity, error: 'Network error — could not reach the server.',
+            });
         }
-    })
-    .catch(() => {
-        btn.disabled  = false;
-        btn.innerHTML = originalHtml;
-        toastr.error('Could not reach the server. Counts remain saved offline.', 'Network Error');
-    });
+
+        done++;
+        document.getElementById('fstMergeOkCount').textContent  = ok;
+        document.getElementById('fstMergeBadCount').textContent = bad;
+        document.getElementById('fstMergeBarFill').style.width  = Math.round((done / total) * 100) + '%';
+        document.getElementById('fstMergeCountLabel').textContent = `${done} / ${total}`;
+    }
+
+    fstMergeRunning = false;
+
+    // Drop only the lines that actually merged — failures (and anything never
+    // attempted because of an abort) stay in the cart so nothing is lost.
+    fstCart = fstCart.filter(c => !succeededUuids.has(c.client_uuid));
+    saveFstCart();
+    renderFstCart();
+    fstReportDeviceSync(fstCart.length);
+
+    document.getElementById('fstMergeProgressWrap').classList.remove('active');
+    document.getElementById('fstMergeSummary').classList.add('active');
+
+    if (aborted) {
+        const notAttempted = total - done;
+        document.getElementById('fstMergeSummaryTitle').textContent = ok > 0 ? 'Stopped early' : 'Could not merge';
+        document.getElementById('fstMergeSummarySub').textContent =
+            `${abortReason} ${ok} product(s) were merged before this happened${notAttempted > 0 ? `; ${notAttempted} were not attempted and are still in your cart.` : '.'}`;
+        toastr.error(abortReason, 'Merge Stopped');
+    } else if (bad === 0) {
+        document.getElementById('fstMergeSummaryTitle').textContent = 'All done';
+        document.getElementById('fstMergeSummarySub').textContent = `${ok} product(s) merged successfully.`;
+        toastr.success(`${ok} product(s) merged successfully.`, 'Merged');
+    } else {
+        document.getElementById('fstMergeSummaryTitle').textContent = 'Finished with some failures';
+        document.getElementById('fstMergeSummarySub').textContent = `${ok} succeeded, ${bad} failed. The failed items are still in your cart — retry, or download them below.`;
+        toastr.warning(`${ok} merged, ${bad} failed.`, 'Merge Complete');
+    }
+
+    if (fstLastFailedLines.length) {
+        const failList = document.getElementById('fstMergeFailList');
+        failList.style.display = 'block';
+        failList.innerHTML = fstLastFailedLines.map(f => `<div>${fstEsc(f.name)} — ${fstEsc(f.error)}</div>`).join('');
+        document.getElementById('fstDownloadFailedBtn').style.display = '';
+    }
+
+    document.getElementById('fstMergeDoneBtn').style.display = '';
+    fstMergeReloadOnHide = ok > 0;
+});
+
+document.getElementById('fstDownloadFailedBtn')?.addEventListener('click', function () {
+    if (!fstLastFailedLines.length) { toastr.error('Nothing to export.'); return; }
+    if (typeof XLSX === 'undefined') { toastr.error('Excel export library did not load — check your connection and try again.'); return; }
+
+    const rows = fstLastFailedLines.map(f => ({
+        Product:  f.name,
+        Unit:     f.unit,
+        Price:    f.price,
+        Quantity: f.qty,
+        Error:    f.error,
+    }));
+    const ws = XLSX.utils.json_to_sheet(rows);
+    const wb = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(wb, ws, 'Failed Items');
+    XLSX.writeFile(wb, `full-stocktaking-failed_${FST_BRANCH_ID}_${FST_DATE}.xlsx`);
 });
 
 /* ── Date modal helpers ── */

@@ -73,7 +73,7 @@
 .card-header {
     padding: 0 !important;
     background: #4B5EBD;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 0 !important;
     border: none;
 }
 .ch-inner {
@@ -164,15 +164,6 @@
 /* ── Table wrapper ────────────────────────────────────────────────────── */
 .dn-table-wrap { padding: 20px 20px 36px; background: #fff; position: relative; }
 
-/* ── Loading overlay ──────────────────────────────────────────────────── */
-#tableLoadingOverlay {
-    display: none; position: absolute; inset: 0;
-    background: rgba(255,255,255,0.72); z-index: 10;
-    align-items: center; justify-content: center;
-    border-radius: 0 0 10px 10px;
-}
-#tableLoadingOverlay .spinner-border { color: #4B5EBD; }
-
 /* ── DataTable buttons ────────────────────────────────────────────────── */
 .dt-buttons .btn {
     background: transparent !important;
@@ -183,12 +174,20 @@
 }
 .dt-buttons .btn:hover { background: #5bc0de !important; color: #fff; }
 
-/* ── Row checkbox ─────────────────────────────────────────────────────── */
-.dn-row-check { width: 16px; height: 16px; cursor: pointer; accent-color: #4B5EBD; }
+/* ── Submission badge ─────────────────────────────────────────────────── */
+.dn-submit-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 90px; height: 24px; border-radius: 20px;
+    font-size: 11px; font-weight: 700; padding: 0 10px;
+    border: 1px solid; cursor: pointer; white-space: nowrap;
+    transition: background .15s, color .15s;
+}
+.dn-submit-badge.is-pending  { background: #eff3ff; color: #4B5EBD; border-color: #c5caec; }
+.dn-submit-badge.is-pending:hover { background: #4B5EBD; color: #fff; }
+.dn-submit-badge.is-complete { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
+.dn-submit-badge.is-disabled { cursor: default; pointer-events: none; opacity: .9; }
 
 /* ── Error pill ───────────────────────────────────────────────────────── */
-/* ▼ CHANGED: both has-errors and no-errors are now clickable pills.
-   no-errors is muted/grey but still opens the modal (shows "No discrepancies found"). */
 .dn-err-count {
     display: inline-flex; align-items: center; justify-content: center;
     min-width: 28px; height: 22px; border-radius: 5px;
@@ -205,26 +204,43 @@
 }
 .dn-err-count.no-errors:hover { background: #e2e8f0; color: #64748b; }
 
-/* ── Selected button ──────────────────────────────────────────────────── */
-.dn-sel-btn {
-    display: inline-flex; align-items: center; gap: 5px;
-    border-radius: 6px; padding: 5px 13px;
-    font-size: 12px; font-weight: 600; line-height: 1;
-    border: 1.5px solid; cursor: default;
-    transition: background .15s, border-color .15s, color .15s, box-shadow .15s;
-    white-space: nowrap; user-select: none;
+/* ── Stats modal — 2x2 grid reusing .dn-strip-label / .dn-strip-val ───── */
+.stats-modal-grid {
+    display: flex; flex-wrap: wrap; gap: 12px; padding: 18px;
 }
-.dn-sel-btn.is-disabled {
-    background: #f1f3f9; border-color: #c9cee8; color: #a0a8cc;
-    pointer-events: none;
+.stats-modal-cell {
+    flex: 1 1 calc(50% - 6px); min-width: 140px;
+    display: flex; flex-direction: column; align-items: center; justify-content: center;
+    background: #f4f6ff; border: 1px solid #e4e7f5; border-radius: 10px; padding: 16px 10px;
 }
-.dn-sel-btn.is-active {
-    background: linear-gradient(135deg, #4B5EBD, #576CC0);
-    border-color: transparent; color: #fff;
-    cursor: pointer; box-shadow: 0 2px 8px rgba(75,94,189,0.35);
-    pointer-events: auto;
+.stats-modal-cell.accent { background: #eff3ff; border-color: #dbe2fb; }
+.stats-modal-cell .dn-strip-label { margin-bottom: 6px; }
+.stats-modal-cell .dn-strip-val { font-size: 18px; }
+
+/* ── Insights modal tabs (Totals / Distribution / Download) ───────────── */
+.ins-modal-tabs {
+    display: flex; flex-wrap: nowrap; margin: 0; padding: 0 10px;
+    background: #fff; border-bottom: 1px solid #e5e7eb;
 }
-.dn-sel-btn.is-active:hover { opacity: .88; }
+.ins-modal-tabs .nav-link {
+    display: flex; align-items: center; gap: 5px;
+    border: none; border-bottom: 3px solid transparent; border-radius: 0 !important;
+    padding: 10px 14px; font-size: 12.5px; font-weight: 600; color: #6c757d;
+    background: transparent; transition: color .15s, border-color .15s;
+}
+.ins-modal-tabs .nav-link i { font-size: 14px; }
+.ins-modal-tabs .nav-link:hover { color: #4B5EBD; }
+.ins-modal-tabs .nav-link.active { color: #4B5EBD !important; border-bottom-color: #4B5EBD; background: transparent; }
+
+#insightsTabsContent { max-height: 65vh; overflow-y: auto; }
+#insTabDownload { padding: 18px; }
+
+.ins-dist-footnote {
+    display: flex; align-items: flex-start; gap: 6px;
+    font-size: 10.5px; color: #94a3b8; line-height: 1.5;
+    padding: 10px 18px 14px; border-top: 1px solid #e8eaf5; background: #f8f9ff;
+}
+.ins-dist-footnote i { font-size: 12px; margin-top: 1px; flex-shrink: 0; }
 
 /* ── No-category placeholder ──────────────────────────────────────────── */
 .no-category-wrap { padding: 60px 16px; text-align: center; }
@@ -446,14 +462,11 @@
 
         <div class="ch-right">
             @if($selectedCategory)
-            <a href="#" class="ch-btn" id="catSummaryBtn" title="View distribution summary for {{ $displayDate }}">
-                <i class="ri-bar-chart-grouped-line"></i>
+            <a href="#" class="ch-btn" id="globalActionsBtn" title="Global actions for {{ $displayDate }}">
+                <i class="ri-settings-3-line"></i>
             </a>
-            <a href="#" class="ch-btn" id="downloadBtn" title="Download table">
-                <i class="ri-download-line"></i>
-            </a>
-            <a href="#" class="ch-btn" id="refreshBtn" title="Refresh table">
-                <i class="ri-refresh-line"></i>
+            <a href="#" class="ch-btn" id="insightsBtn" title="View totals, distribution &amp; downloads for {{ $displayDate }}">
+                <i class="ri-bar-chart-2-line"></i>
             </a>
             @endif
             <a href="#" class="ch-btn" id="infoBtn" title="About Delivery Notes">
@@ -492,59 +505,15 @@
     </div>
 @else
 
-{{-- ══ Summary strip ════════════════════════════════════════════════════ --}}
-<div class="dn-summary-strip" id="summaryStrip">
-    <div class="dn-strip-seg">
-        <span class="dn-strip-label">Selected</span>
-        <span class="dn-strip-val" style="line-height:1;">
-            <button type="button" class="dn-sel-btn is-disabled" id="selActiveBtn">
-                <i class="ri-checkbox-multiple-line" style="font-size:13px;"></i>
-                <span id="selActiveCount">0</span>
-            </button>
-        </span>
-    </div>
-    <div class="dn-strip-divider"></div>
-    <div class="dn-strip-seg">
-        <span class="dn-strip-label">Total Cost</span>
-        <span class="dn-strip-val" id="stripCost">—</span>
-    </div>
-    <div class="dn-strip-divider"></div>
-    <div class="dn-strip-seg">
-        <span class="dn-strip-label">Total Value</span>
-        <span class="dn-strip-val" id="stripValue">—</span>
-    </div>
-    <div class="dn-strip-divider"></div>
-    <div class="dn-strip-seg">
-        <span class="dn-strip-label">Submitted</span>
-        <span class="dn-strip-val" id="stripSubmitted">—</span>
-    </div>
-    <div class="dn-strip-divider"></div>
-    <div class="dn-strip-seg accent">
-        <span class="dn-strip-label">Pending</span>
-        <span class="dn-strip-val" id="stripPending">—</span>
-    </div>
-</div>
-
 {{-- ══ Table ══════════════════════════════════════════════════════════════ --}}
 <div class="dn-table-wrap">
-    <div id="tableLoadingOverlay">
-        <div class="spinner-border" role="status" style="width:2.5rem;height:2.5rem;">
-            <span class="visually-hidden">Loading…</span>
-        </div>
-    </div>
-
     <table id="dnTable" class="table table-sm table-striped row-border order-column w-100">
         <thead style="background-color:#e2e2e9">
             <tr>
-                <th>
-                    <input type="checkbox" id="selectAllRows" class="dn-row-check" title="Select all">
-                    &nbsp;Branch Name
-                </th>
-                <th style="text-align:center">Items</th>
+                <th>&nbsp;Branch Name</th>
                 <th style="text-align:center">Cost (MWK)</th>
                 <th style="text-align:center">Value (MWK)</th>
-                <th style="text-align:center">Submitted</th>
-                <th style="text-align:center">Pending</th>
+                <th style="text-align:center">Submission</th>
                 <th style="text-align:center">Errors</th>
                 <th style="text-align:center">Actions</th>
             </tr>
@@ -559,77 +528,126 @@
 </div></div></div>
 
 
-{{-- ══ CATEGORY DISTRIBUTION SUMMARY MODAL ════════════════════════════ --}}
-<div class="modal fade" id="catSummaryModal" tabindex="-1">
-    <div class="modal-dialog" style="max-width:520px;">
+{{-- ══ INSIGHTS MODAL (Totals / Distribution / Download) ══════════════ --}}
+<div class="modal fade" id="statsModal" tabindex="-1">
+    <div class="modal-dialog" style="max-width:560px;">
         <div class="modal-content">
             <div class="modal-header mh-blue" style="display:flex;align-items:center;justify-content:space-between;">
-                <h5 class="modal-title mh-title">Distribution Summary</h5>
+                <h5 class="modal-title mh-title"><i class="ri-bar-chart-2-line"></i> Insights — {{ $displayDate }}</h5>
                 <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" style="margin:0;"></button>
             </div>
-            <div class="modal-body" style="padding:0;">
-                @if($selectedCategory)
-                @if($branchSummary->isNotEmpty())
-                <div class="sum-totals-strip">
-                    <div class="sum-strip-seg">
-                        <span class="sum-strip-label">Date</span>
-                        <span class="sum-strip-val" style="font-size:13px;font-weight:700;color:#3b4fa0;">{{ \Carbon\Carbon::parse($date)->format('d M Y') }}</span>
-                    </div>
-                    <div class="sum-strip-divider"></div>
-                    <div class="sum-strip-seg">
-                        <span class="sum-strip-label">Total Cost</span>
-                        <span class="sum-strip-val">{{ number_format($grandTotalCost, 2) }}</span>
-                    </div>
-                    <div class="sum-strip-divider"></div>
-                    <div class="sum-strip-seg accent">
-                        <span class="sum-strip-label">Total Amount</span>
-                        <span class="sum-strip-val">{{ number_format($grandTotalValue, 2) }}</span>
+
+            <ul class="nav nav-tabs ins-modal-tabs" id="insightsTabs" role="tablist">
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link active" id="insTabTotals-tab" data-bs-toggle="tab" data-bs-target="#insTabTotals" type="button" role="tab" aria-controls="insTabTotals" aria-selected="true">
+                        <i class="ri-bar-chart-2-line"></i> Totals
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="insTabDist-tab" data-bs-toggle="tab" data-bs-target="#insTabDist" type="button" role="tab" aria-controls="insTabDist" aria-selected="false">
+                        <i class="ri-bar-chart-grouped-line"></i> Distribution
+                    </button>
+                </li>
+                <li class="nav-item" role="presentation">
+                    <button class="nav-link" id="insTabDownload-tab" data-bs-toggle="tab" data-bs-target="#insTabDownload" type="button" role="tab" aria-controls="insTabDownload" aria-selected="false">
+                        <i class="ri-download-line"></i> Download
+                    </button>
+                </li>
+            </ul>
+
+            <div class="tab-content" id="insightsTabsContent">
+
+                {{-- ── Tab 1: Totals ── --}}
+                <div class="tab-pane fade show active" id="insTabTotals" role="tabpanel" aria-labelledby="insTabTotals-tab">
+                    <div class="stats-modal-grid">
+                        <div class="stats-modal-cell">
+                            <span class="dn-strip-label">Total Cost</span>
+                            <span class="dn-strip-val" id="stripCost">—</span>
+                        </div>
+                        <div class="stats-modal-cell">
+                            <span class="dn-strip-label">Total Value</span>
+                            <span class="dn-strip-val" id="stripValue">—</span>
+                        </div>
+                        <div class="stats-modal-cell">
+                            <span class="dn-strip-label">Submitted</span>
+                            <span class="dn-strip-val" id="stripSubmitted">—</span>
+                        </div>
+                        <div class="stats-modal-cell accent">
+                            <span class="dn-strip-label">Pending</span>
+                            <span class="dn-strip-val" id="stripPending">—</span>
+                        </div>
                     </div>
                 </div>
-                <div style="padding:0 0 4px;">
-                    <table class="sum-table">
-                        <thead>
-                            <tr>
-                                <th class="sum-th-name">#&nbsp;&nbsp;Branch Name</th>
-                                <th class="sum-th-c">Total Cost (MWK)</th>
-                                <th class="sum-th-c">Amount (MWK)</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @foreach($branchSummary as $i => $row)
-                            <tr class="sum-tr">
-                                <td class="sum-td-name">
-                                    <span class="sum-row-num">{{ $i + 1 }}</span>
-                                    {{ $row->branch_name }}
-                                </td>
-                                <td class="sum-td-c sum-cost">{{ number_format($row->total_cost, 2) }}</td>
-                                <td class="sum-td-c sum-amount">{{ number_format($row->total_value, 2) }}</td>
-                            </tr>
-                            @endforeach
-                        </tbody>
-                        <tfoot>
-                            <tr class="sum-tfoot-tr">
-                                <td class="sum-tfoot-label">Grand Total</td>
-                                <td class="sum-td-c sum-tfoot-num">{{ number_format($grandTotalCost, 2) }}</td>
-                                <td class="sum-td-c sum-tfoot-num accent">{{ number_format($grandTotalValue, 2) }}</td>
-                            </tr>
-                        </tfoot>
-                    </table>
+
+                {{-- ── Tab 2: Distribution Summary ── --}}
+                <div class="tab-pane fade" id="insTabDist" role="tabpanel" aria-labelledby="insTabDist-tab">
+                    @if($selectedCategory)
+                    @if($branchSummary->isNotEmpty())
+                    <div class="sum-totals-strip">
+                        <div class="sum-strip-seg">
+                            <span class="sum-strip-label">Date</span>
+                            <span class="sum-strip-val" style="font-size:13px;font-weight:700;color:#3b4fa0;">{{ \Carbon\Carbon::parse($date)->format('d M Y') }}</span>
+                        </div>
+                        <div class="sum-strip-divider"></div>
+                        <div class="sum-strip-seg">
+                            <span class="sum-strip-label">Total Cost</span>
+                            <span class="sum-strip-val">{{ number_format($grandTotalCost, 2) }}</span>
+                        </div>
+                        <div class="sum-strip-divider"></div>
+                        <div class="sum-strip-seg accent">
+                            <span class="sum-strip-label">Total Amount</span>
+                            <span class="sum-strip-val">{{ number_format($grandTotalValue, 2) }}</span>
+                        </div>
+                    </div>
+                    <div style="padding:0 0 4px;">
+                        <table class="sum-table">
+                            <thead>
+                                <tr>
+                                    <th class="sum-th-name">#&nbsp;&nbsp;Branch Name</th>
+                                    <th class="sum-th-c">Total Cost (MWK)</th>
+                                    <th class="sum-th-c">Amount (MWK)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @foreach($branchSummary as $i => $row)
+                                <tr class="sum-tr">
+                                    <td class="sum-td-name">
+                                        <span class="sum-row-num">{{ $i + 1 }}</span>
+                                        {{ $row->branch_name }}
+                                    </td>
+                                    <td class="sum-td-c sum-cost">{{ number_format($row->total_cost, 2) }}</td>
+                                    <td class="sum-td-c sum-amount">{{ number_format($row->total_value, 2) }}</td>
+                                </tr>
+                                @endforeach
+                            </tbody>
+                            <tfoot>
+                                <tr class="sum-tfoot-tr">
+                                    <td class="sum-tfoot-label">Grand Total</td>
+                                    <td class="sum-td-c sum-tfoot-num">{{ number_format($grandTotalCost, 2) }}</td>
+                                    <td class="sum-td-c sum-tfoot-num accent">{{ number_format($grandTotalValue, 2) }}</td>
+                                </tr>
+                            </tfoot>
+                        </table>
+                    </div>
+                    <div class="ins-dist-footnote">
+                        <i class="ri-information-line"></i>
+                        All delivery notes for {{ $selectedCategory->category ?? '' }} on {{ $displayDate }}. Includes both submitted and pending notes.
+                    </div>
+                    @else
+                    <div class="sum-empty">
+                        <i class="ri-inbox-2-line"></i>
+                        <p>No delivery notes found for <strong>{{ $selectedCategory->category }}</strong> on {{ $displayDate }}.</p>
+                    </div>
+                    @endif
+                    @endif
                 </div>
-                @else
-                <div class="sum-empty">
-                    <i class="ri-inbox-2-line"></i>
-                    <p>No delivery notes found for <strong>{{ $selectedCategory->category }}</strong> on {{ $displayDate }}.</p>
+
+                {{-- ── Tab 3: Download ── --}}
+                <div class="tab-pane fade" id="insTabDownload" role="tabpanel" aria-labelledby="insTabDownload-tab">
+                    <p class="mb-2" style="font-size:13px;">Click a button to export the delivery notes table.</p>
+                    <div class="buttons"></div>
                 </div>
-                @endif
-                @endif
-            </div>
-            <div class="modal-footer" style="padding:10px 18px 14px;background:#f8f9ff;border-top:1px solid #e8eaf5;display:flex;align-items:center;">
-                <span style="font-size:10px;color:#94a3b8;flex:1;">{{ $selectedCategory->category ?? '' }}</span>
-                <span style="position:relative;display:inline-flex;align-items:center;margin-right:10px;" class="sum-footer-info-wrap">
-                    <i class="ri-information-line sum-footer-info-icon"></i>
-                    <span class="sum-footer-tooltip">All delivery notes for {{ $selectedCategory->category ?? '' }} on {{ $displayDate }}. Includes both submitted and pending notes.</span>
-                </span>
+
             </div>
         </div>
     </div>
@@ -719,14 +737,14 @@
 </div>
 
 
-{{-- ══ BULK ACTIONS MODAL ═══════════════════════════════════════════════ --}}
+{{-- ══ GLOBAL ACTIONS MODAL (was BULK ACTIONS — now scoped to whole category+date) ═══ --}}
 <div class="modal fade" id="bulkActionsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog" style="max-width:440px;">
         <div class="modal-content">
             <div class="modal-header mh-blue">
                 <h5 class="modal-title mh-title">
-                    <i class="ri-checkbox-multiple-line"></i>
-                    Bulk Actions — <span id="bulkActionsCount">0</span> branch<span id="bulkBranchPlural">es</span> selected
+                    <i class="ri-settings-3-line"></i>
+                    Global Actions
                 </h5>
                 <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
             </div>
@@ -756,7 +774,7 @@
                     <i class="ri-delete-bin-5-line"></i>
                     <div>
                         <div class="bab-title">Delete all notes</div>
-                        <div class="bab-desc">Permanently removes all notes for selected branches · cannot be undone</div>
+                        <div class="bab-desc">Permanently removes all notes for every branch · cannot be undone</div>
                     </div>
                 </button>
             </div>
@@ -836,23 +854,6 @@
 </div>
 
 
-{{-- ══ DOWNLOAD MODAL ══════════════════════════════════════════════════ --}}
-<div class="modal fade" id="downloadModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header mh-blue">
-                <h5 class="modal-title mh-title"><i class="ri-download-line"></i> Download Table</h5>
-                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body">
-                <p class="mb-2" style="font-size:13px;">Click a button to export the delivery notes table.</p>
-                <div class="buttons"></div>
-            </div>
-        </div>
-    </div>
-</div>
-
-
 {{-- ══ INFO MODAL ══════════════════════════════════════════════════════ --}}
 <div class="modal fade" id="infoModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
     <div class="modal-dialog modal-lg">
@@ -865,14 +866,12 @@
                 <table style="width:100%;font-size:13px;border-collapse:collapse;">
                     <tbody>
                         @foreach([
-                            ['Table view',      'Shows a per-branch summary of all delivery notes for the selected date and category.'],
-                            ['Checkboxes',      'Select one or more branch rows to perform bulk operations via the Selected button in the summary strip.'],
-                            ['Errors column',   'Shows the number of discrepancies detected for that branch. Click the badge (even at 0) to review, approve, or reject each discrepancy.'],
-                            ['Submit Pending',  'Marks unsubmitted notes for that branch as submitted and updates branch stock.'],
-                            ['Unsubmit',        'Reverses a submitted note — sets it back to pending and decrements stock.'],
-                            ['Delete',          'Permanently removes all delivery notes for the selected branches on the selected date.'],
-                            ['Download PDF',    'Downloads a PDF of all delivery notes for the branch on the selected date.'],
-                            ['Note Details',    'Opens the full delivery note details for the branch — view, edit, unsubmit, or delete individual lines.'],
+                            ['Table view',        'Shows a per-branch summary of all delivery notes for the selected date and category.'],
+                            ['Submission badge',  'Shows how many lines are submitted, e.g. "20 of 30 Submitted". Click it to submit that branch\'s pending notes — a confirmation prompt appears first. It is disabled once every line is submitted.'],
+                            ['Errors column',     'Shows the number of discrepancies detected for that branch. Click the badge (even at 0) to review, approve, or reject each discrepancy.'],
+                            ['Global actions',    'Click the settings icon in the header to submit, unsubmit, or delete delivery notes for every branch in this category and date at once.'],
+                            ['Download PDF',      'Downloads a PDF of all delivery notes for the branch on the selected date.'],
+                            ['Note Details',      'Opens the full delivery note details for the branch — view, edit, unsubmit, or delete individual lines.'],
                             ['Distribution Summary', 'Shows the total cost and selling value across all branches for the selected category and date.'],
                         ] as [$k,$v])
                         <tr>
@@ -896,14 +895,15 @@
 $(document).ready(function () {
 
     /* ── CSRF ─────────────────────────────────────────────────────────── */
-    var csrfToken = $('meta[name="csrf-token"]').attr('content');
-    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': csrfToken } });
+    var _token = '{{ csrf_token() }}';
+    $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': _token } });
 
     toastr.options = { timeOut: 5000, progressBar: true, positionClass: 'toast-top-end', closeButton: true };
 
     /* ── State ────────────────────────────────────────────────────────── */
     var activeDate        = '{{ $date }}';
     var activeCategoryId  = '{{ $pref->category_id ?? "" }}';
+    var categoryName      = @json($selectedCategory->category ?? '');
     var pendingBranchId   = null;
     var pendingBulkAction = null;
     var dtTable           = null;
@@ -931,96 +931,65 @@ $(document).ready(function () {
         toastr.error((json && (json.message || json.error)) || 'Unexpected error (HTTP ' + xhr.status + ').', 'Error');
     }
 
-    /* ── Initialise DataTable once on page load with empty tbody ────────── */
+    /* ── Initialise DataTable once on page load with empty tbody ──────────
+       ▼ FIX: wrapped in try/catch. If DataTable init throws (e.g. the
+       Buttons extension failing to load), the exception was synchronous
+       and killed the REST of this $(document).ready() callback — which is
+       exactly where the #globalActionsBtn, #bulkSubmitBtn/#bulkUnsubmitBtn
+       /#bulkDeleteBtn, and .dn-submit-badge click handlers are registered
+       further down. That is why clicking the gear icon or the submission
+       badge did nothing at all and never even reached toastr — the
+       handlers were simply never bound. Catching the error here guarantees
+       every handler below always binds, and surfaces the real problem via
+       toastr/console instead of failing silently. ── */
     @if($selectedCategory)
-    dtTable = $('#dnTable').DataTable({
-        dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>Brt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
-        lengthChange: true,
-        lengthMenu:   [[25, 50, 100, -1], [25, 50, 100, 'All']],
-        pageLength:   25,
-        fixedColumns: { left: 1 },
-        scrollX:      true,
-        order:        [[0, 'asc']],
-        columnDefs:   [
-            { orderable: false, targets: [7] },
-            { className: 'text-center', targets: [1, 2, 3, 4, 5, 6, 7] },
-        ],
-        buttons: [
-            { extend: 'excelHtml5', title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'csvHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
-            { extend: 'pdfHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' },
-              customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
+    try {
+        dtTable = $('#dnTable').DataTable({
+            dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>Brt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
+            lengthChange: true,
+            lengthMenu:   [[25, 50, 100, -1], [25, 50, 100, 'All']],
+            pageLength:   25,
+            fixedColumns: { left: 1 },
+            scrollX:      true,
+            order:        [[0, 'asc']],
+            columnDefs:   [
+                { orderable: false, targets: [5] },
+                { className: 'text-center', targets: [1, 2, 3, 4, 5] },
+            ],
+            buttons: [
+                { extend: 'excelHtml5', title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
+                { extend: 'csvHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' } },
+                { extend: 'pdfHtml5',   title: 'Delivery Notes - ' + activeDate, exportOptions: { columns: ':visible:not(:last-child)' },
+                  customize: function (doc) { doc.content[1].table.widths = Array(doc.content[1].table.body[0].length + 1).join('*').split(''); }
+                },
+            ],
+            language: {
+                search: '',
+                searchPlaceholder: 'Search branches…',
+                emptyTable:  'No delivery notes found for this date.',
+                zeroRecords: 'No branches match your search.',
             },
-        ],
-        language: {
-            search: '',
-            searchPlaceholder: 'Search branches…',
-            emptyTable:  'No delivery notes found for this date.',
-            zeroRecords: 'No branches match your search.',
-        },
-    });
+        });
 
-    /* Move DataTable buttons into download modal once on init */
-    dtTable.buttons().container().appendTo($('#downloadModal .buttons'));
+        /* Move DataTable buttons into download modal once on init */
+        dtTable.buttons().container().appendTo($('#insTabDownload .buttons'));
+    } catch (initErr) {
+        console.error('dnTable DataTable init failed:', initErr);
+        toastr.error('Table failed to initialise properly. Some export/download options may be unavailable.', 'Warning');
+    }
     @endif
-
-    /* ── Selection state ─────────────────────────────────────────────── */
-    function getSelectedBranchIds() {
-        var ids = [];
-        $('.dn-row-check:checked').not('#selectAllRows').each(function () { ids.push($(this).val()); });
-        return ids;
-    }
-    function getSelectedBranchNames() {
-        var names = [];
-        $('.dn-row-check:checked').not('#selectAllRows').each(function () { names.push($(this).data('branch-name')); });
-        return names;
-    }
-
-    function updateSelectionUI() {
-        var count = $('.dn-row-check:checked').not('#selectAllRows').length;
-        $('#selActiveCount').text(count);
-        if (count > 0) {
-            $('#selActiveBtn').removeClass('is-disabled').addClass('is-active');
-        } else {
-            $('#selActiveBtn').removeClass('is-active').addClass('is-disabled');
-            $('#selectAllRows').prop('checked', false);
-        }
-    }
-
-    /* ── Select all ───────────────────────────────────────────────────── */
-    $(document).on('click', '#selectAllRows', function () {
-        $('.dn-row-check').not('#selectAllRows').prop('checked', this.checked);
-        updateSelectionUI();
-    });
-    $(document).on('change', '.dn-row-check', function () {
-        if (!this.checked) $('#selectAllRows').prop('checked', false);
-        updateSelectionUI();
-    });
-
-    /* ── Open bulk actions from Selected button ───────────────────────── */
-    $('#selActiveBtn').on('click', function () {
-        var count = getSelectedBranchIds().length;
-        if (!count) return;
-        $('#bulkActionsCount').text(count);
-        $('#bulkBranchPlural').text(count === 1 ? '' : 'es');
-        $('#bulkDateLabel').text(activeDate);
-        $('#bulkActionsModal').modal('show');
-    });
 
     /* ── Load table data ──────────────────────────────────────────────── */
     function loadTable() {
         if (!activeCategoryId || !dtTable) return;
 
         showProgress();
-        $('#tableLoadingOverlay').css('display', 'flex');
-        $('#selectAllRows').prop('checked', false);
-        updateSelectionUI();
 
         $.ajax({
             type: 'GET',
             url:  '{{ route("retail.operations.deliverynotes.branch-summary") }}',
             data: { delivery_date: activeDate, category_id: activeCategoryId },
-            complete: function () { hideProgress(); $('#tableLoadingOverlay').hide(); },
+            complete: function () { hideProgress(); },
             success: function (data) {
                 if (data.status !== 200) { toastr.error('Failed to load data.'); return; }
 
@@ -1043,39 +1012,33 @@ $(document).ready(function () {
                         var branchErrors = dummyErrors[String(r.branch_id)] || [];
                         var errCount     = branchErrors.length; // always 0 until errors are implemented
 
-                        /* ▼ CHANGED: errBadge is ALWAYS a clickable dn-err-pill,
-                           regardless of count. Styling differs (grey vs red)
-                           but both open the discrepancies modal. */
                         var errBadge = '<span class="dn-err-count dn-err-pill ' + (errCount > 0 ? 'has-errors' : 'no-errors') + '" '
                             + 'data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" '
                             + 'title="Click to review discrepancies">' + errCount + '</span>';
 
-                        /* ▼ CHANGED: better "submit" icon — paper-plane instead of the back-arrow look */
-                        var submitBtn = r.has_pending_notes
-                            ? '<a href="#" class="dn-action-btn btn-submit dn-submit-btn" data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" title="Submit pending notes"><i class="ri-send-plane-2-line"></i></a>'
-                            : '<span class="dn-action-btn btn-disabled" title="No pending notes"><i class="ri-send-plane-2-line"></i></span>';
+                        var total     = r.total_product_lines;
+                        var submitted = r.submitted_note_count;
+                        var pending   = r.pending_note_count;
+                        var complete  = (pending === 0);
+
+                        var submitBadge = '<span class="dn-submit-badge ' + (complete ? 'is-complete is-disabled' : 'is-pending') + '" '
+                            + 'data-branch-id="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" '
+                            + (complete ? 'title="All notes submitted"' : 'title="Click to submit pending notes"')
+                            + '>' + submitted + ' of ' + total + ' Submitted</span>';
 
                         var pdfUrl     = pdfBase     + '?branch_id=' + r.branch_id + '&date=' + activeDate;
                         var detailsUrl = detailsBase + '?branch_id=' + r.branch_id + '&date=' + activeDate;
 
                         var pdfBtn     = '<a href="' + pdfUrl + '" class="dn-action-btn btn-pdf dn-pdf-btn" title="Download PDF" data-url="' + pdfUrl + '"><i class="ri-file-pdf-2-line"></i></a>';
-                        var detailsBtn = '<a href="' + detailsUrl + '" class="dn-action-btn btn-details" title="View delivery note details"><i class="ri-receipt-line"></i></a>';
-
-                        var submittedVal = r.submitted_note_count > 0 ? r.submitted_note_count : '—';
-                        var pendingVal   = r.pending_note_count   > 0 ? r.pending_note_count   : '—';
+                        var detailsBtn = '<a href="' + detailsUrl + '" class="dn-action-btn btn-details" title="View delivery note details"><i class="ri-eye-line"></i></a>';
 
                         var rowHtml = '<tr>'
-                            + '<td>'
-                            +   '<input type="checkbox" class="dn-row-check" value="' + r.branch_id + '" data-branch-name="' + r.branch_name + '" style="margin-right:8px;vertical-align:middle;">'
-                            +   '<strong>' + r.branch_name + '</strong>'
-                            + '</td>'
-                            + '<td style="text-align:center">' + r.total_product_lines + '</td>'
+                            + '<td><strong>' + r.branch_name + '</strong></td>'
                             + '<td style="text-align:center">' + fmt(r.total_cost_value) + '</td>'
                             + '<td style="text-align:center">' + fmt(r.total_selling_value) + '</td>'
-                            + '<td style="text-align:center">' + submittedVal + '</td>'
-                            + '<td style="text-align:center">' + pendingVal + '</td>'
+                            + '<td style="text-align:center">' + submitBadge + '</td>'
                             + '<td style="text-align:center">' + errBadge + '</td>'
-                            + '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px;">' + submitBtn + pdfBtn + detailsBtn + '</div></td>'
+                            + '<td style="text-align:center"><div style="display:flex;align-items:center;justify-content:center;gap:5px;">' + pdfBtn + detailsBtn + '</div></td>'
                             + '</tr>';
 
                         dtTable.row.add($(rowHtml));
@@ -1083,7 +1046,6 @@ $(document).ready(function () {
                 }
 
                 dtTable.draw();
-                updateSelectionUI();
             },
             error: handleAjaxError,
         });
@@ -1171,12 +1133,14 @@ $(document).ready(function () {
         loadTable();
     });
 
-    /* ── Bulk actions ─────────────────────────────────────────────────── */
-    function openBulkConfirm(action) {
-        var ids   = getSelectedBranchIds();
-        var names = getSelectedBranchNames();
-        var count = ids.length;
+    /* ── Global actions (settings icon in header) ─────────────────────── */
+    $('#globalActionsBtn').on('click', function (e) {
+        e.preventDefault();
+        $('#bulkDateLabel').text(activeDate);
+        $('#bulkActionsModal').modal('show');
+    });
 
+    function openBulkConfirm(action) {
         $('#bulkActionsModal').modal('hide');
         pendingBulkAction = action;
 
@@ -1185,8 +1149,8 @@ $(document).ready(function () {
                 headerClass: 'mh-blue',
                 iconClass: 'ri-send-plane-2-line', iconColor: '#4B5EBD', wrapBg: '#eff3ff',
                 title:   '<i class="ri-send-plane-2-line"></i> Submit Pending Notes',
-                heading: 'Submit pending notes for ' + count + ' branch' + (count > 1 ? 'es' : '') + '?',
-                body:    'All unsubmitted delivery notes for <strong>' + names.join(', ') + '</strong> on <strong>' + activeDate + '</strong> will be marked submitted and branch stock updated.',
+                heading: 'Submit all pending notes for ' + categoryName + '?',
+                body:    'All unsubmitted delivery notes for every branch in <strong>' + categoryName + '</strong> on <strong>' + activeDate + '</strong> will be marked submitted and branch stock updated.',
                 noteStyle: 'background:#eff3ff;color:#3b4fa0;border-color:#4B5EBD;',
                 noteText:  '<i class="ri-information-line me-1"></i> Stock will be incremented. This cannot be undone.',
                 btnClass: 'btn-primary', btnText: '<i class="ri-send-plane-2-line me-1"></i> Yes, Submit',
@@ -1195,8 +1159,8 @@ $(document).ready(function () {
                 headerClass: 'mh-amber',
                 iconClass: 'ri-arrow-go-back-line', iconColor: '#d97706', wrapBg: '#fff8e1',
                 title:   '<i class="ri-arrow-go-back-line"></i> Unsubmit Notes',
-                heading: 'Unsubmit notes for ' + count + ' branch' + (count > 1 ? 'es' : '') + '?',
-                body:    'Submitted delivery notes for <strong>' + names.join(', ') + '</strong> on <strong>' + activeDate + '</strong> will be reverted to pending and branch stock will be decremented.',
+                heading: 'Unsubmit all submitted notes for ' + categoryName + '?',
+                body:    'Submitted delivery notes for every branch in <strong>' + categoryName + '</strong> on <strong>' + activeDate + '</strong> will be reverted to pending and branch stock will be decremented.',
                 noteStyle: 'background:#fff8e1;color:#92400e;border-color:#f59e0b;',
                 noteText:  '<i class="ri-alert-line me-1"></i> Stock will be reversed. Use with caution.',
                 btnClass: 'btn-warning text-white', btnText: '<i class="ri-arrow-go-back-line me-1"></i> Yes, Unsubmit',
@@ -1205,8 +1169,8 @@ $(document).ready(function () {
                 headerClass: 'mh-danger',
                 iconClass: 'ri-delete-bin-5-line', iconColor: '#dc2626', wrapBg: '#fef2f2',
                 title:   '<i class="ri-delete-bin-5-line"></i> Delete Notes',
-                heading: 'Delete all notes for ' + count + ' branch' + (count > 1 ? 'es' : '') + '?',
-                body:    'All delivery notes (submitted and pending) for <strong>' + names.join(', ') + '</strong> on <strong>' + activeDate + '</strong> will be permanently deleted.',
+                heading: 'Delete all notes for ' + categoryName + '?',
+                body:    'All delivery notes (submitted and pending) for every branch in <strong>' + categoryName + '</strong> on <strong>' + activeDate + '</strong> will be permanently deleted.',
                 noteStyle: 'background:#fef2f2;color:#7f1d1d;border-color:#dc2626;',
                 noteText:  '<i class="ri-alert-line me-1"></i> This is irreversible. Stock is NOT reversed for submitted notes.',
                 btnClass: 'btn-danger', btnText: '<i class="ri-delete-bin-5-line me-1"></i> Yes, Delete',
@@ -1230,39 +1194,35 @@ $(document).ready(function () {
     $('#bulkUnsubmitBtn').on('click', function () { openBulkConfirm('unsubmit'); });
     $('#bulkDeleteBtn').on('click',   function () { openBulkConfirm('delete');   });
 
-    $('#bulkConfirmExecuteBtn').on('click', function () {
-        var ids = getSelectedBranchIds();
-        if (!ids.length) { toastr.warning('No branches selected.'); return; }
-
+    function executeGlobalBulkAction() {
         var urlMap = {
-            submit:   '{{ route("retail.operations.deliverynotes.bulk.submit-selected") }}',
-            unsubmit: '{{ route("retail.operations.deliverynotes.bulk.unsubmit-selected") }}',
-            delete:   '{{ route("retail.operations.deliverynotes.bulk.delete-selected") }}',
+            submit:   '{{ route("retail.operations.deliverynotes.global.submit") }}',
+            unsubmit: '{{ route("retail.operations.deliverynotes.global.unsubmit") }}',
+            delete:   '{{ route("retail.operations.deliverynotes.global.delete") }}',
         };
 
         var url = urlMap[pendingBulkAction];
         if (!url) return;
 
         $('#bulkConfirmModal').modal('hide');
-        var $btn = $(this).prop('disabled', true);
         showProgress();
 
-        var postData = { delivery_date: activeDate };
-        ids.forEach(function (id, idx) { postData['branch_ids[' + idx + ']'] = id; });
-
         $.ajax({
-            type: 'POST', url: url, data: postData,
-            complete: function () { hideProgress(); $btn.prop('disabled', false); },
+            type: 'POST', url: url,
+            data: { delivery_date: activeDate, category_id: activeCategoryId, _token: _token },
+            complete: function () { hideProgress(); },
             success: function (data) {
                 if (data.success) { toastr.success(data.success); loadTable(); }
                 if (data.info)    { toastr.info(data.info); }
             },
             error: handleAjaxError,
         });
-    });
+    }
 
-    /* ── Submit single branch ─────────────────────────────────────────── */
-    $(document).on('click', '.dn-submit-btn', function (e) {
+    $('#bulkConfirmExecuteBtn').off('click').on('click', executeGlobalBulkAction);
+
+    /* ── Submit single branch — triggered by clicking the submission badge ── */
+    $(document).on('click', '.dn-submit-badge:not(.is-disabled)', function (e) {
         e.preventDefault();
         pendingBranchId = $(this).data('branch-id');
         $('#submitBranchName').text($(this).data('branch-name'));
@@ -1270,15 +1230,14 @@ $(document).ready(function () {
         $('#submitBranchModal').modal('show');
     });
 
-    $('#submitBranchConfirmBtn').on('click', function () {
+    $('#submitBranchConfirmBtn').off('click').on('click', function () {
         $('#submitBranchModal').modal('hide');
-        var $btn = $(this).prop('disabled', true);
         showProgress();
         $.ajax({
             type: 'POST',
             url:  '{{ route("retail.operations.deliverynotes.branch.submit-pending") }}',
-            data: { branch_id: pendingBranchId, delivery_date: activeDate },
-            complete: function () { hideProgress(); $btn.prop('disabled', false); },
+            data: { branch_id: pendingBranchId, delivery_date: activeDate, _token: _token },
+            complete: function () { hideProgress(); },
             success: function (data) {
                 if (data.success) { toastr.success(data.success); loadTable(); }
                 if (data.info)    { toastr.info(data.info); }
@@ -1287,14 +1246,8 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Summary modal ────────────────────────────────────────────────── */
-    $('#catSummaryBtn').on('click', function (e) { e.preventDefault(); $('#catSummaryModal').modal('show'); });
-
-    /* ── Download button ──────────────────────────────────────────────── */
-    $('#downloadBtn').on('click', function (e) { e.preventDefault(); $('#downloadModal').modal('show'); });
-
-    /* ── Refresh ──────────────────────────────────────────────────────── */
-    $('#refreshBtn').on('click', function (e) { e.preventDefault(); loadTable(); });
+    /* ── Insights modal (Totals / Distribution / Download tabs) ────────── */
+    $('#insightsBtn').on('click', function (e) { e.preventDefault(); $('#statsModal').modal('show'); });
 
     /* ── Info modal ───────────────────────────────────────────────────── */
     $('#infoBtn').on('click', function (e) { e.preventDefault(); $('#infoModal').modal('show'); });

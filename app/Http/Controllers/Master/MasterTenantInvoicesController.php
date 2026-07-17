@@ -22,7 +22,10 @@ class MasterTenantInvoicesController extends Controller
         $request->validate([
             'tenant_id'      => 'required|exists:tenants,id',
             'payment_method' => 'required|exists:payment_methods,id',
+            'send_email'     => 'nullable|boolean',
         ]);
+
+        $sendEmail = $request->boolean('send_email');
 
         $tenant = DB::table('tenants')->where('id', $request->tenant_id)->first();
         if (!$tenant) {
@@ -55,16 +58,35 @@ class MasterTenantInvoicesController extends Controller
             return response()->json(['error' => 'Subscription plan not found.'], 404);
         }
 
-        $amount   = (float) $plan->plan_amount;
-        $currency = strtoupper($plan->plan_currency);
+        // Custom-pricing tenants are invoiced using their own amount/currency
+        // instead of the plan's. The plan name/description shown on the
+        // invoice always still comes from the subscription plan - we only
+        // ever override the money, never the plan identity, so the tenant
+        // details view keeps showing "subscription plan only, no amounts".
+        if ($tenant->custom_pricing_enabled) {
+            if (!$tenant->custom_amount || !$tenant->custom_currency) {
+                return response()->json([
+                    'error' => 'Custom pricing is enabled for this tenant but no custom amount/currency has been set. Set it first from Tenant Actions.'
+                ], 422);
+            }
+            $amount   = (float) $tenant->custom_amount;
+            $currency = strtoupper($tenant->custom_currency);
+        } else {
+            $amount   = (float) $plan->plan_amount;
+            $currency = strtoupper($plan->plan_currency);
+        }
 
         $planJson = [
             'plan_name'          => $plan->plan_name,
-            'plan_period'        => $plan->plan_period,
-            'plan_period_name'   => $plan->plan_period_name,
-            'plan_amount'        => $plan->plan_amount,
-            'plan_currency'      => $plan->plan_currency,
-            'plan_currency_name' => $plan->plan_currency_name ?? $plan->plan_currency,
+            'plan_period'        => ($tenant->custom_pricing_enabled && $tenant->custom_period_days)
+                ? $tenant->custom_period_days . ' days'
+                : $plan->plan_period,
+            'plan_period_name'   => ($tenant->custom_pricing_enabled && $tenant->custom_period_name)
+                ? $tenant->custom_period_name
+                : $plan->plan_period_name,
+            'plan_amount'        => (string) $amount,
+            'plan_currency'      => $currency,
+            'plan_currency_name' => $plan->plan_currency_name ?? $currency,
             'plan_description'   => $plan->plan_description ?? 'Netacube Subscription',
         ];
 
@@ -104,14 +126,20 @@ class MasterTenantInvoicesController extends Controller
 
             // FIX: Only use next_payment_date if it is strictly in the future.
             // If the stored date is today or already past, it would immediately
-            // land in the Overdue bucket. Always fall back to now + 14 days.
+            // land in the Overdue bucket. Fall back to a billing-cycle length:
+            // the tenant's own custom_period_days if custom pricing set one,
+            // otherwise the subscription plan's plan_days, otherwise 14 days.
             $parsedNextPayment = $tenant->next_payment_date
                 ? Carbon::parse($tenant->next_payment_date)
                 : null;
 
+            $fallbackDays = ($tenant->custom_pricing_enabled && $tenant->custom_period_days)
+                ? (int) $tenant->custom_period_days
+                : ((int) ($plan->plan_days ?? 0) ?: 14);
+
             $dueDate = ($parsedNextPayment && $parsedNextPayment->isFuture())
                 ? $parsedNextPayment
-                : now()->addDays(14);
+                : now()->addDays($fallbackDays);
 
             $invoiceData = [
                 'tenant_id'      => $tenant->id,
@@ -132,6 +160,14 @@ class MasterTenantInvoicesController extends Controller
             $invoice = (object) array_merge($invoiceData, [
                 'id' => DB::getPdo()->lastInsertId(),
             ]);
+
+            // Invoice is now generated and recorded regardless of whether it gets emailed.
+            if (!$sendEmail) {
+                return response()->json([
+                    'success'        => 'Invoice generated successfully. It has not been emailed to the tenant.',
+                    'invoice_number' => $invoiceNumber
+                ], 201);
+            }
 
             $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', [
                 'tenant'  => $tenant,
@@ -165,19 +201,19 @@ class MasterTenantInvoicesController extends Controller
             } catch (\Exception $mailException) {
                 \Log::error('Invoice email failed: ' . $mailException->getMessage());
                 return response()->json([
-                    'success'        => 'Invoice created but email failed to send.',
+                    'success'        => 'Invoice generated but email failed to send.',
                     'invoice_number' => $invoiceNumber
                 ], 201);
             }
 
             return response()->json([
-                'success'        => 'Invoice created and sent successfully!',
+                'success'        => 'Invoice generated and sent successfully!',
                 'invoice_number' => $invoiceNumber
             ], 201);
 
         } catch (\Exception $e) {
             \Log::error('Invoice creation/send failed: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to create and send invoice.'], 500);
+            return response()->json(['error' => 'Failed to generate invoice.'], 500);
         }
     }
 
@@ -285,6 +321,9 @@ class MasterTenantInvoicesController extends Controller
         }
 
         try {
+            $planData = is_string($invoice->plan) ? json_decode($invoice->plan, true) : null;
+            $planName = $planData['plan_name'] ?? '';
+
             $pdfData = [
                 'tenant'         => $tenant,
                 'invoice'        => $invoice,
@@ -299,15 +338,25 @@ class MasterTenantInvoicesController extends Controller
                 'due_date'       => $invoice->due_date ? Carbon::parse($invoice->due_date)->format('d M Y') : 'N/A',
                 'status'         => $invoice->status,
                 'description'    => $invoice->description ?? '',
-                'plan'           => $invoice->plan ? json_decode($invoice->plan, true) : null,
+                'plan'           => $planData,
                 'payment_method' => $invoice->payment_method ? json_decode($invoice->payment_method, true) : null,
             ];
 
-            $pdf = Pdf::loadView('master.tenants.invoices.tenant-invoice-pdf', $pdfData)
+            // Route this generated-but-unsent invoice through the correct template,
+            // matching the same Custom/System check used for preview & download.
+            $view = ($planName === 'Custom')
+                ? 'master.tenants.invoices.custom-tenant-invoice-pdf'
+                : 'master.tenants.invoices.tenant-invoice-pdf';
+
+            $emailView = ($planName === 'Custom')
+                ? 'master.tenants.invoices.custom-tenant-invoice-email'
+                : 'master.tenants.invoices.tenant-invoice-email';
+
+            $pdf = Pdf::loadView($view, $pdfData)
                       ->setPaper('a4')
                       ->setOptions(['defaultFont' => 'DejaVu Sans']);
 
-            Mail::send('master.tenants.invoices.tenant-invoice-email', $pdfData, function ($message) use ($tenant, $pdf, $invoice) {
+            Mail::send($emailView, $pdfData, function ($message) use ($tenant, $pdf, $invoice) {
                 $message->to($tenant->email)
                         ->subject('Invoice #' . $invoice->invoice_number . ' - ' . config('app.name'))
                         ->attachData($pdf->output(), "Invoice-{$invoice->invoice_number}.pdf", [
@@ -325,7 +374,7 @@ class MasterTenantInvoicesController extends Controller
 
 
     /**
-     * Send CUSTOM Invoice Only (Separate method)
+     * Generate CUSTOM Invoice, optionally emailing it (Separate method)
      */
     public function masterSendCustomInvoice(Request $request)
     {
@@ -336,7 +385,10 @@ class MasterTenantInvoicesController extends Controller
             'amount'         => 'required|numeric|min:0.01',
             'currency'       => 'required|exists:currency,code',
             'due_date'       => 'nullable|date|after_or_equal:today',
+            'send_email'     => 'nullable|boolean',
         ]);
+
+        $sendEmail = $request->boolean('send_email');
 
         $tenant = DB::table('tenants')->where('id', $request->tenant_id)->first();
         if (!$tenant) {
@@ -431,6 +483,14 @@ class MasterTenantInvoicesController extends Controller
                 'id' => DB::getPdo()->lastInsertId(),
             ]);
 
+            // Invoice is now generated and recorded regardless of whether it gets emailed.
+            if (!$sendEmail) {
+                return response()->json([
+                    'success'        => 'Custom invoice generated successfully. It has not been emailed to the tenant.',
+                    'invoice_number' => $invoiceNumber
+                ], 201);
+            }
+
             $data = [
                 'tenant'         => $tenant,
                 'invoice'        => $invoice,
@@ -451,22 +511,30 @@ class MasterTenantInvoicesController extends Controller
                       ->setPaper('a4')
                       ->setOptions(['defaultFont' => 'DejaVu Sans']);
 
-            Mail::send('master.tenants.invoices.custom-tenant-invoice-email', $data, function ($message) use ($tenant, $pdf, $invoiceNumber) {
-                $message->to($tenant->email)
-                        ->subject('Invoice ' . $invoiceNumber . ' - Netamind Technology')
-                        ->attachData($pdf->output(), "Invoice-{$invoiceNumber}.pdf", [
-                            'mime' => 'application/pdf',
-                        ]);
-            });
+            try {
+                Mail::send('master.tenants.invoices.custom-tenant-invoice-email', $data, function ($message) use ($tenant, $pdf, $invoiceNumber) {
+                    $message->to($tenant->email)
+                            ->subject('Invoice ' . $invoiceNumber . ' - Netamind Technology')
+                            ->attachData($pdf->output(), "Invoice-{$invoiceNumber}.pdf", [
+                                'mime' => 'application/pdf',
+                            ]);
+                });
+            } catch (\Exception $mailException) {
+                \Log::error('Custom invoice email failed: ' . $mailException->getMessage());
+                return response()->json([
+                    'success'        => 'Custom invoice generated but email failed to send.',
+                    'invoice_number' => $invoiceNumber
+                ], 201);
+            }
 
             return response()->json([
-                'success'        => 'Custom invoice created and sent successfully!',
+                'success'        => 'Custom invoice generated and sent successfully!',
                 'invoice_number' => $invoiceNumber
             ], 201);
 
         } catch (\Exception $e) {
             \Log::error('Custom Invoice failed: ' . $e->getMessage());
-            return response()->json(['error' => 'Failed to create and send custom invoice.'], 500);
+            return response()->json(['error' => 'Failed to generate custom invoice.'], 500);
         }
     }
 }

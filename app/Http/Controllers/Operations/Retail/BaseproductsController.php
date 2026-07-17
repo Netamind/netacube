@@ -17,6 +17,85 @@ class BaseproductsController extends Controller
      */
     private const CHUNK_SIZE = 200;
 
+    // ── NEW: keep delivery note prices in sync with the catalogue ──────────
+    // Whenever a base product's price or a branch's price override changes,
+    // every delivery note row for that product ON THE MATCHING DATE needs to
+    // pick up the new price too — otherwise a price set after the note was
+    // first added never reaches it. Each row is recomputed exactly the way
+    // the Action Centre's saveDeliveryNote() derives it: branch override
+    // wins, else base price. Both pending AND already-submitted rows are
+    // touched, as long as the delivery date matches — a submitted note is
+    // only "locked" against this resync if it's dated differently.
+    //
+    // $branchId = null → resync this product's rows across every branch
+    //                     (used after a base catalogue price change).
+    // $branchId = X     → resync only that branch's rows (used after a
+    //                     branch-level price override change here).
+    // $date             → only touches delivery notes dated exactly this day.
+    //                     Base/Branch Products edits have no date context of
+    //                     their own, so callers pass today's date; when this
+    //                     same update was triggered from the Action Centre
+    //                     (which always works against one specific delivery
+    //                     date) callers pass that date through instead.
+    private function syncDeliveryNotePrices(int $baseProductId, ?int $branchId, string $date): int
+    {
+        $base = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $baseProductId)
+            ->first(['selling_price', 'cost_price']);
+
+        if (! $base) return 0;
+
+        $query = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->where('base_product_id', $baseProductId)
+            ->where('delivery_date', $date);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $notesToSync = $query->get(['id', 'branch_id']);
+        if ($notesToSync->isEmpty()) return 0;
+
+        $branchIds = $notesToSync->pluck('branch_id')->unique()->values()->all();
+
+        $overrides = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('base_product_id', $baseProductId)
+            ->whereIn('branch_id', $branchIds)
+            ->get(['branch_id', 'selling_price', 'cost_price'])
+            ->keyBy('branch_id');
+
+        $now     = now();
+        $updated = 0;
+
+        foreach ($notesToSync as $note) {
+            $override = $overrides->get($note->branch_id);
+
+            $effectiveSell = ($override && $override->selling_price !== null)
+                ? (float) $override->selling_price
+                : (float) ($base->selling_price ?? 0);
+
+            $effectiveCost = ($override && $override->cost_price !== null)
+                ? (float) $override->cost_price
+                : (float) ($base->cost_price ?? 0);
+
+            DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('id', $note->id)
+                ->update([
+                    'selling_price' => $effectiveSell,
+                    'cost_price'    => $effectiveCost,
+                    'updated_at'    => $now,
+                ]);
+
+            $updated++;
+        }
+
+        return $updated;
+    }
+
     public function showBaseproductsView()
     {
         return view('operations.retail.baseproducts');
@@ -50,6 +129,44 @@ class BaseproductsController extends Controller
     {
         if (!$supplierId) return null;
         return DB::connection('tenant')->table('suppliers')->where('id', $supplierId)->value('name');
+    }
+
+    /**
+     * retail_base_products.supplier is not consistently a supplier ID —
+     * rows added on this page store the real ID (FK-backed), but rows
+     * added via the branch-products CSV import or older flows store a
+     * plain supplier name string (no FK). Resolves what to actually save:
+     * keeps a real ID when one was given and still exists, otherwise
+     * stores the provided text as-is, matching how those older flows
+     * already save this column. Never hard-fails on a non-ID value.
+     */
+    private function resolveSupplierForSave($rawInput)
+    {
+        $value = trim((string) $rawInput);
+        if ($value === '') return null;
+
+        if (ctype_digit($value) && DB::connection('tenant')->table('suppliers')->where('id', (int) $value)->exists()) {
+            return (int) $value;
+        }
+
+        return $value;
+    }
+
+    /**
+     * Mirrors resolveSupplierForSave() for display: resolves a stored
+     * supplier value (real ID or legacy name string) to a human-readable
+     * name either way.
+     */
+    private function supplierDisplayName($storedSupplierValue): ?string
+    {
+        if ($storedSupplierValue === null || $storedSupplierValue === '') return null;
+
+        if (ctype_digit((string) $storedSupplierValue)) {
+            $name = DB::connection('tenant')->table('suppliers')->where('id', (int) $storedSupplierValue)->value('name');
+            if ($name !== null) return $name;
+        }
+
+        return (string) $storedSupplierValue;
     }
 
     /**
@@ -91,7 +208,11 @@ class BaseproductsController extends Controller
             'name'          => 'required|string|max:255|unique:tenant.retail_base_products,name',
             'description'   => 'nullable|string|max:2000',
             'code'          => 'nullable|string|max:100|unique:tenant.retail_base_products,code',
-            'supplier'      => 'required|integer|exists:tenant.suppliers,id',
+            // Not a strict FK id: accepts either a real supplier id (from a
+            // proper supplier picker) or a plain supplier name (from simpler
+            // dropdowns, like the Action Centre's) — resolveSupplierForSave()
+            // below sorts out which, same as updateBaseproduct() does.
+            'supplier'      => 'required|string|max:255',
             'unit'          => 'required|string|max:50',
             'cost_price'    => 'nullable|numeric|min:0',
             'selling_price' => 'nullable|numeric|min:0',
@@ -99,14 +220,15 @@ class BaseproductsController extends Controller
             'name.unique'        => 'A product with this name already exists in the base catalogue.',
             'code.unique'        => 'This code (SKU) is already used by another product.',
             'supplier.required'  => 'A supplier is required.',
-            'supplier.exists'    => 'Selected supplier was not found.',
         ]);
+
+        $supplierToSave = $this->resolveSupplierForSave($request->supplier);
 
         $data = [
             'name'          => trim($request->name),
             'description'   => $request->description ? trim($request->description) : null,
             'code'          => $request->code         ? trim($request->code)        : null,
-            'supplier'      => (int) $request->supplier, // supplier ID only — never a name
+            'supplier'      => $supplierToSave,
             'unit'          => trim($request->unit ?? 'Each'),
             'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
             'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
@@ -126,7 +248,7 @@ class BaseproductsController extends Controller
             return response()->json([
                 'success' => 'Product created successfully.',
                 'status'  => 201,
-                'product' => $this->formatProduct($product, $this->fetchSupplierName((int) $request->supplier)),
+                'product' => $this->formatProduct($product, $this->supplierDisplayName($supplierToSave)),
             ]);
         }
 
@@ -140,38 +262,66 @@ class BaseproductsController extends Controller
     public function updateBaseproduct(Request $request)
     {
         $request->validate([
-            'id'                   => 'required|integer|exists:tenant.retail_base_products,id',
-            'name'                 => 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id,
-            'description'          => 'nullable|string|max:2000',
-            'code'                 => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
-            'supplier'             => 'required|integer|exists:tenant.suppliers,id',
-            'unit'                 => 'required|string|max:50',
-            'cost_price'           => 'nullable|numeric|min:0',
-            'selling_price'        => 'nullable|numeric|min:0',
-            'is_product'           => 'nullable|boolean',
-            'price_change_reason'  => 'nullable|string|max:255',
-        ], [
-            'name.unique'       => 'A product with this name already exists in the base catalogue.',
-            'code.unique'       => 'This code (SKU) is already used by another product.',
-            'supplier.required' => 'A supplier is required.',
-            'supplier.exists'   => 'Selected supplier was not found.',
+            'id' => 'required|integer|exists:tenant.retail_base_products,id',
         ]);
 
-        $userId = auth()->id();
-        $reason = $request->price_change_reason ? trim($request->price_change_reason) : null;
-        $today  = now()->toDateString();
-
-        // Snapshot the existing product so we can detect a base price change after the update runs.
+        // Snapshot the existing product BEFORE validating the rest — needed
+        // both to detect a base price change after the update runs, and to
+        // decide below whether the name is actually being changed.
         $existingProduct = DB::connection('tenant')
             ->table('retail_base_products')
             ->where('id', $request->id)
             ->first();
 
+        if (! $existingProduct) {
+            return response()->json(['error' => 'Product not found.', 'status' => 404]);
+        }
+
+        // Only re-check name uniqueness when the name is actually changing.
+        // Legacy rows with pre-existing duplicate names (from before the
+        // unique constraint existed) would otherwise block edits to
+        // completely unrelated fields — like price — just because some
+        // OTHER row happens to already share this exact name.
+        $nameChanging = trim(strtolower((string) $request->name)) !== trim(strtolower($existingProduct->name));
+
+        $request->validate([
+            'name'                 => $nameChanging
+                ? 'required|string|max:255|unique:tenant.retail_base_products,name,' . $request->id
+                : 'required|string|max:255',
+            'description'          => 'nullable|string|max:2000',
+            'code'                 => 'nullable|string|max:100|unique:tenant.retail_base_products,code,' . $request->id,
+            // Not a strict FK id: this column holds a real supplier id for
+            // rows added on the Base Products page, but a plain supplier
+            // name for rows added via the branch-products CSV import /
+            // older flows. resolveSupplierForSave() below sorts out which.
+            'supplier'             => 'nullable|string|max:255',
+            'unit'                 => 'required|string|max:50',
+            'cost_price'           => 'nullable|numeric|min:0',
+            'selling_price'        => 'nullable|numeric|min:0',
+            'is_product'           => 'nullable|boolean',
+            'price_change_reason'  => 'nullable|string|max:255',
+            // Present only when this edit was submitted from the Action
+            // Centre's Edit Product modal, which always has a working
+            // delivery date. Absent from the standalone Base Products page,
+            // where there's no such date — that case falls back to today.
+            'delivery_date'        => 'nullable|date',
+        ], [
+            'name.unique' => 'A product with this name already exists in the base catalogue.',
+            'code.unique' => 'This code (SKU) is already used by another product.',
+        ]);
+
+        $userId   = auth()->id();
+        $reason   = $request->price_change_reason ? trim($request->price_change_reason) : null;
+        $today    = now()->toDateString();
+        $syncDate = $request->filled('delivery_date') ? $request->delivery_date : $today;
+
+        $supplierValue = $this->resolveSupplierForSave($request->supplier);
+
         $data = [
             'name'          => trim($request->name),
             'description'   => $request->description ? trim($request->description) : null,
             'code'          => $request->code         ? trim($request->code)        : null,
-            'supplier'      => (int) $request->supplier, // supplier ID only — never a name
+            'supplier'      => $supplierValue,
             'unit'          => trim($request->unit ?? 'Each'),
             'cost_price'    => ($request->cost_price    !== null && $request->cost_price    !== '') ? $request->cost_price    : null,
             'selling_price' => ($request->selling_price !== null && $request->selling_price !== '') ? $request->selling_price : null,
@@ -183,6 +333,14 @@ class BaseproductsController extends Controller
             ->table('retail_base_products')
             ->where('id', $request->id)
             ->update($data);
+
+        // Push the (possibly new) base price into every branch's PENDING
+        // delivery notes for this product — branches with their own price
+        // override are recomputed too but keep their override, since
+        // syncDeliveryNotePrices() always lets an override win.
+        if ($updated !== false) {
+            $this->syncDeliveryNotePrices((int) $request->id, null, $syncDate);
+        }
 
         $priceChangeRows = [];
 
@@ -239,6 +397,10 @@ class BaseproductsController extends Controller
                 if ($affected) {
                     $overridesUpdated++;
 
+                    if ($branchProduct) {
+                        $this->syncDeliveryNotePrices((int) $request->id, (int) $branchProduct->branch_id, $syncDate);
+                    }
+
                     if ($branchProduct
                         && $branchProduct->old_price !== null
                         && round((float) $branchProduct->old_price, 2) !== round($price, 2)) {
@@ -284,7 +446,7 @@ class BaseproductsController extends Controller
             return response()->json([
                 'success'           => $message,
                 'status'            => 201,
-                'product'           => $this->formatProduct($product, $this->fetchSupplierName((int) $request->supplier)),
+                'product'           => $this->formatProduct($product, $this->supplierDisplayName($supplierValue)),
                 'overrides_updated' => $overridesUpdated,
             ]);
         }

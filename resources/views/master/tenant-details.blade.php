@@ -238,15 +238,26 @@
                                     <label class="col-4 col-form-label">Subscription Plan</label>
                                     <div class="col-8">
                                         <input type="text" class="form-control" id="subscriptionPlanDisplay" disabled
-                                               value="{{ optional($plan)->plan_name }} {{ optional($plan)->plan_period }}">
+                                               value="{{ optional($tenantData)->custom_pricing_enabled
+                                                    ? 'Custom (' . (optional($tenantData)->custom_period_name ?? optional($plan)->plan_period) . ')'
+                                                    : optional($plan)->plan_name . ' ' . optional($plan)->plan_period }}">
                                     </div>
                                 </div>
 
                                 <div class="row mb-3">
                                     <label class="col-4 col-form-label">Payment Amount</label>
                                     <div class="col-8">
-                                        <input type="text" class="form-control" disabled
-                                               value="{{ optional($plan)->plan_amount }} {{ optional($plan)->plan_currency }}">
+                                        <div class="input-group">
+                                            <input type="text" class="form-control" id="paymentAmountDisplay" disabled
+                                                   value="{{ optional($tenantData)->custom_pricing_enabled
+                                                        ? number_format(optional($tenantData)->custom_amount, 2) . ' ' . strtoupper(optional($tenantData)->custom_currency)
+                                                        : optional($plan)->plan_amount . ' ' . optional($plan)->plan_currency }}">
+                                            @if(optional($tenantData)->custom_pricing_enabled)
+                                                <span class="input-group-text bg-success text-white" title="This tenant has custom pricing enabled — this overrides the subscription plan's amount/currency.">
+                                                    <i class="ri-price-tag-3-line"></i> Custom
+                                                </span>
+                                            @endif
+                                        </div>
                                     </div>
                                 </div>
 
@@ -351,12 +362,19 @@
                     <i class="ri-exchange-dollar-line"></i> Change subscription plan
                 </a>
 
+                <a href="#" class="btn {{ optional($tenantData)->custom_pricing_enabled ? 'btn-success' : 'btn-outline-secondary' }} form-control btn-sm mb-2 me-2" id="customPricingBtn">
+                    <i class="ri-money-dollar-circle-line"></i> Custom pricing
+                    @if(optional($tenantData)->custom_pricing_enabled)
+                        <span class="badge bg-light text-dark ms-1">ON</span>
+                    @endif
+                </a>
+
                 <a href="#" class="btn btn-success form-control btn-sm mb-2 me-2 send-invoice-trigger" data-type="system">
-                    <i class="ri-file-pdf-2-line"></i> Send system invoice
+                    <i class="ri-file-pdf-2-line"></i> Generate system invoice
                 </a>
 
                 <a href="#" class="btn btn-info form-control btn-sm mb-2 me-2 send-invoice-trigger" data-type="custom">
-                    <i class="ri-file-pdf-2-line"></i> Send custom invoice
+                    <i class="ri-file-pdf-2-line"></i> Generate custom invoice
                 </a>
 
                 <a href="#" class="btn btn-danger form-control btn-sm mb-2 me-2" id="deleteBtnFromActions">
@@ -497,6 +515,15 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
+                @if(optional($tenantData)->custom_pricing_enabled)
+                    <div class="alert alert-info py-2 mb-3">
+                        <i class="ri-information-line"></i> This tenant has <strong>custom pricing</strong> enabled.
+                        Changing the plan below only changes the plan name/description used for reference — the
+                        tenant will keep being invoiced with their custom amount/currency
+                        (<strong>{{ number_format(optional($tenantData)->custom_amount, 2) }} {{ strtoupper(optional($tenantData)->custom_currency) }}</strong>)
+                        until custom pricing is disabled.
+                    </div>
+                @endif
                 <form id="subscriptionPlanForm">
                     @csrf
                     <input type="hidden" name="id" value="{{ optional($tenantData)->id }}">
@@ -509,7 +536,9 @@
                     <div class="mb-3">
                         <label class="form-label">Current Plan</label>
                         <input type="text" class="form-control" disabled
-                               value="{{ optional($plan)->plan_name }} {{ optional($plan)->plan_period }} — {{ optional($plan)->plan_amount }} {{ optional($plan)->plan_currency }}">
+                               value="{{ optional($tenantData)->custom_pricing_enabled
+                                    ? optional($plan)->plan_name . ' (Custom — ' . number_format(optional($tenantData)->custom_amount, 2) . ' ' . strtoupper(optional($tenantData)->custom_currency) . ')'
+                                    : optional($plan)->plan_name . ' ' . optional($plan)->plan_period . ' — ' . optional($plan)->plan_amount . ' ' . optional($plan)->plan_currency }}">
                     </div>
                     <div class="mb-3">
                         <label class="form-label">New Plan <span class="text-danger">*</span></label>
@@ -535,13 +564,108 @@
     </div>
 </div>
 
-<!-- Send Invoice Modal -->
+<!-- Custom Pricing Modal -->
+<div class="modal fade" id="customPricingModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title"><i class="ri-money-dollar-circle-line me-1"></i> Custom Pricing</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <form id="customPricingForm">
+                    @csrf
+                    <input type="hidden" name="id" value="{{ optional($tenantData)->id }}">
+                    <input type="hidden" name="custom_pricing_enabled" id="custom_pricing_enabled_input"
+                           value="{{ optional($tenantData)->custom_pricing_enabled ? 1 : 0 }}">
+
+                    <div class="mb-3">
+                        <label class="form-label">Tenant</label>
+                        <input type="text" class="form-control" disabled
+                               value="{{ optional($tenantData)->full_name }} ({{ optional($tenantData)->business_name }})">
+                    </div>
+
+                    <div class="mb-3">
+                        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 bg-light">
+                            <label class="form-check-label mb-0" for="customPricingToggle">
+                                <i class="ri-toggle-line me-1"></i> Enable custom pricing for this tenant
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="customPricingToggle"
+                                       {{ optional($tenantData)->custom_pricing_enabled ? 'checked' : '' }}
+                                       style="width:2.5em; height:1.3em;">
+                            </div>
+                        </div>
+                        <small class="text-muted">
+                            When enabled, this tenant will always be invoiced with the custom amount &amp; currency
+                            below instead of the subscription plan's amount/currency. The subscription plan itself
+                            is unaffected — it's still shown as-is everywhere and still used for the plan name/description.
+                        </small>
+                    </div>
+
+                    <div id="customPricingFields" style="{{ optional($tenantData)->custom_pricing_enabled ? '' : 'display:none;' }}">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Currency <span class="text-danger">*</span></label>
+                                <select class="form-select" name="custom_currency" id="custom_currency">
+                                    <option value="">-- Select Currency --</option>
+                                    @foreach(DB::table('currency')->orderBy('name')->get() as $curr)
+                                        <option value="{{ $curr->code }}"
+                                            {{ strtoupper(optional($tenantData)->custom_currency) === $curr->code ? 'selected' : '' }}>
+                                            {{ $curr->name }} ({{ $curr->code }})
+                                        </option>
+                                    @endforeach
+                                </select>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                <input type="number" step="0.01" min="0.01" class="form-control"
+                                       name="custom_amount" id="custom_amount" placeholder="0.00"
+                                       value="{{ optional($tenantData)->custom_amount }}">
+                            </div>
+                        </div>
+
+                        <hr class="my-2">
+                        <small class="text-muted d-block mb-2">
+                            <i class="ri-information-line"></i> Optional — only fill this in if this tenant is also on
+                            a non-standard billing cycle. Leave blank to keep the subscription plan's period
+                            (e.g. Monthly, Yearly) and only override the amount/currency above.
+                        </small>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Custom Billing Period (days)</label>
+                                <input type="number" step="1" min="1" max="3650" class="form-control"
+                                       name="custom_period_days" id="custom_period_days" placeholder="e.g. 45"
+                                       value="{{ optional($tenantData)->custom_period_days }}">
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Period Label</label>
+                                <input type="text" class="form-control"
+                                       name="custom_period_name" id="custom_period_name" placeholder="e.g. 45-Day Cycle"
+                                       value="{{ optional($tenantData)->custom_period_name }}">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="text-end">
+                        <button type="button" class="btn btn-secondary me-2" data-bs-dismiss="modal">Cancel</button>
+                        <button type="button" class="btn btn-success" id="submitCustomPricingBtn">
+                            <i class="ri-save-line"></i> Save Pricing
+                        </button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Generate / Send Invoice Modal -->
 <div class="modal fade" id="sendInvoiceModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header">
                 <h5 class="modal-title" id="modalTitle">
-                    <i class="ri-file-pdf-2-line"></i> Send Invoice
+                    <i class="ri-file-pdf-2-line"></i> Generate Invoice
                 </h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
@@ -565,12 +689,24 @@
                             <div class="col-md-12 mb-2">
                                 <label class="form-label">Plan</label>
                                 <input type="text" class="form-control" disabled
-                                       value="{{ optional($plan)->plan_name }} {{ optional($plan)->plan_period_name ?? optional($plan)->plan_period }}">
+                                       value="{{ optional($tenantData)->custom_pricing_enabled
+                                            ? optional($plan)->plan_name . ' — Custom (' . (optional($tenantData)->custom_period_name ?? optional($plan)->plan_period) . ')'
+                                            : optional($plan)->plan_name . ' ' . (optional($plan)->plan_period_name ?? optional($plan)->plan_period) }}">
                             </div>
                             <div class="col-md-12">
-                                <label class="form-label">Amount</label>
+                                <label class="form-label">
+                                    Amount
+                                    @if(optional($tenantData)->custom_pricing_enabled)
+                                        <span class="badge bg-success ms-1">Custom Pricing</span>
+                                    @endif
+                                </label>
                                 <input type="text" class="form-control" disabled
-                                       value="{{ optional($plan)->plan_amount }} {{ strtoupper(optional($plan)->plan_currency) }}">
+                                       value="{{ optional($tenantData)->custom_pricing_enabled
+                                            ? number_format(optional($tenantData)->custom_amount, 2) . ' ' . strtoupper(optional($tenantData)->custom_currency)
+                                            : optional($plan)->plan_amount . ' ' . strtoupper(optional($plan)->plan_currency) }}">
+                                @if(optional($tenantData)->custom_pricing_enabled)
+                                    <small class="text-muted">This tenant has custom pricing — this amount/currency overrides the plan's, the plan name above is still used for reference.</small>
+                                @endif
                             </div>
                         </div>
                     </div>
@@ -583,14 +719,6 @@
                                           placeholder="Enter invoice description" required></textarea>
                             </div>
                             <div class="col-md-6">
-                                <label class="form-label">Amount <span class="text-danger">*</span></label>
-                                <div class="input-group">
-                                    <span class="input-group-text">USD</span>
-                                    <input type="number" step="0.01" min="0.01" class="form-control"
-                                           name="amount" id="amount" placeholder="0.00" required>
-                                </div>
-                            </div>
-                            <div class="col-md-6">
                                 <label class="form-label">Currency <span class="text-danger">*</span></label>
                                 <select class="form-select" name="currency" id="currency" required>
                                     <option value="">-- Select Currency --</option>
@@ -598,6 +726,14 @@
                                         <option value="{{ $curr->code }}">{{ $curr->name }} ({{ $curr->code }})</option>
                                     @endforeach
                                 </select>
+                            </div>
+                            <div class="col-md-6">
+                                <label class="form-label">Amount <span class="text-danger">*</span></label>
+                                <div class="input-group">
+                                    <span class="input-group-text" id="amountCurrencyLabel">Amt</span>
+                                    <input type="number" step="0.01" min="0.01" class="form-control"
+                                           name="amount" id="amount" placeholder="0.00" required>
+                                </div>
                             </div>
                             <div class="col-12 mt-3">
                                 <label class="form-label">Due Date</label>
@@ -625,12 +761,25 @@
                             @endforeach
                         </select>
                     </div>
+
+                    <div class="mb-2">
+                        <div class="d-flex align-items-center justify-content-between border rounded px-3 py-2 bg-light">
+                            <label class="form-check-label mb-0" for="sendEmailToggle">
+                                <i class="ri-mail-send-line me-1"></i> Also email this invoice to the tenant
+                            </label>
+                            <div class="form-check form-switch mb-0">
+                                <input class="form-check-input" type="checkbox" role="switch" id="sendEmailToggle"
+                                       name="send_email" value="1" checked style="width:2.5em; height:1.3em;">
+                            </div>
+                        </div>
+                        <small class="text-muted">If unticked, the invoice is only generated and recorded — it won't be sent by email yet.</small>
+                    </div>
                 </div>
 
                 <div class="modal-footer">
                     <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
                     <button type="submit" class="btn btn-primary" id="sendInvoiceBtn">
-                        <i class="ri-send-plane-line"></i> Send Invoice
+                        <i class="ri-file-add-line"></i> Generate & Send Invoice
                     </button>
                 </div>
             </form>
@@ -693,6 +842,14 @@ $(document).ready(function() {
         timeOut: 5000,
         allowHtml: true
     };
+
+    // Server-provided custom pricing state — used so JS success handlers
+    // never accidentally strip the "Custom" label after unrelated updates
+    // (e.g. changing the underlying subscription plan while custom pricing
+    // stays enabled).
+    var isCustomPricingEnabled = {{ optional($tenantData)->custom_pricing_enabled ? 'true' : 'false' }};
+    var customAmountDisplay = "{{ optional($tenantData)->custom_pricing_enabled ? number_format(optional($tenantData)->custom_amount, 2) . ' ' . strtoupper(optional($tenantData)->custom_currency) : '' }}";
+    var customPeriodDisplay = "{{ optional($tenantData)->custom_period_name }}";
 
     // ==================== ACTIONS MODAL ====================
     $('#actionsBtn').click(e => {
@@ -850,9 +1007,17 @@ $(document).ready(function() {
                 if (data.status === 201) {
                     toastr.success(data.success, 'Success');
                     $('#subscriptionPlanModal').modal('hide');
-                    // Update the display field with the selected plan text
-                    var selectedText = $('#selectNewPlan option:selected').text().trim();
-                    $('#subscriptionPlanDisplay').val(selectedText);
+
+                    // Changing the plan never touches custom pricing fields — so if
+                    // custom pricing is on, keep showing "Custom (period)" instead
+                    // of overwriting it with the newly-selected plan's own name/period.
+                    var selectedPlanName = $('#selectNewPlan option:selected').text().trim().split(' — ')[0];
+
+                    if (isCustomPricingEnabled) {
+                        $('#subscriptionPlanDisplay').val('Custom (' + (customPeriodDisplay || selectedPlanName) + ')');
+                    } else {
+                        $('#subscriptionPlanDisplay').val($('#selectNewPlan option:selected').text().trim());
+                    }
                 } else if (data.status === 409) {
                     toastr.info(data.error, 'No Changes');
                     $('#subscriptionPlanModal').modal('hide');
@@ -870,7 +1035,77 @@ $(document).ready(function() {
         });
     });
 
-    // ==================== SEND INVOICE ====================
+    // ==================== CUSTOM PRICING ====================
+    $('#customPricingBtn').click(function(e) {
+        e.preventDefault();
+        $('#actionsModal').modal('hide');
+        setTimeout(() => $('#customPricingModal').modal('show'), 300);
+    });
+
+    $('#customPricingToggle').on('change', function() {
+        var enabled = $(this).is(':checked');
+        $('#custom_pricing_enabled_input').val(enabled ? 1 : 0);
+        $('#customPricingFields').toggle(enabled);
+    });
+
+    $('#submitCustomPricingBtn').click(function(e) {
+        e.preventDefault();
+        var self = $(this);
+
+        var enabled = $('#customPricingToggle').is(':checked');
+        if (enabled && (!$('#custom_currency').val() || !$('#custom_amount').val())) {
+            toastr.error('Please select a currency and enter an amount.', 'Validation Error');
+            return;
+        }
+
+        self.prop('disabled', true);
+
+        $.ajax({
+            type: 'POST',
+            url: '{{ route("master.tenant.update_custom_pricing") }}',
+            data: $('#customPricingForm').serialize(),
+            timeout: 60000,
+            beforeSend: function() { $('#progressBar').show(); },
+            complete: function() { $('#progressBar').hide(); self.prop('disabled', false); },
+            success: function(data) {
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $('#customPricingModal').modal('hide');
+                    // Custom pricing (amount/currency/period) affects display everywhere
+                    // on this page — simplest correct approach is a full reload so every
+                    // field (plan display, payment amount, invoice modal, etc.) re-renders
+                    // from the freshly saved tenant record.
+                    setTimeout(() => location.reload(), 1200);
+                }
+            },
+            error: function(xhr) {
+                if (xhr.status === 422) {
+                    let msg = '';
+                    $.each(xhr.responseJSON.errors || {}, (k, v) => msg += v + '<br>');
+                    toastr.error(msg, 'Validation Error');
+                } else {
+                    toastr.error('An error occurred.', 'Error');
+                }
+            }
+        });
+    });
+
+    // ==================== GENERATE / SEND INVOICE ====================
+
+    function updateGenerateBtnLabel() {
+        var willSend = $('#sendEmailToggle').is(':checked');
+        $('#sendInvoiceBtn').html(
+            '<i class="ri-file-add-line"></i> ' + (willSend ? 'Generate & Send Invoice' : 'Generate Invoice')
+        );
+    }
+
+    $('#sendEmailToggle').on('change', updateGenerateBtnLabel);
+
+    $('#currency').on('change', function() {
+        var code = $(this).val();
+        $('#amountCurrencyLabel').text(code ? code : 'Amt');
+    });
+
     $('.send-invoice-trigger').on('click', function(e) {
         e.preventDefault();
         $('#actionsModal').modal('hide');
@@ -878,8 +1113,8 @@ $(document).ready(function() {
         const type = $(this).data('type');
         $('#is_custom').val(type === 'custom' ? 1 : 0);
         $('#modalTitle').html(type === 'custom'
-            ? '<i class="ri-file-pdf-2-line"></i> Send Custom Invoice'
-            : '<i class="ri-file-pdf-2-line"></i> Send System Invoice'
+            ? '<i class="ri-file-pdf-2-line"></i> Generate Custom Invoice'
+            : '<i class="ri-file-pdf-2-line"></i> Generate System Invoice'
         );
 
         if (type === 'custom') {
@@ -890,12 +1125,17 @@ $(document).ready(function() {
             $('#customSection').hide();
         }
 
+        // Reset toggle + currency label to defaults each time the modal opens
+        $('#sendEmailToggle').prop('checked', true);
+        $('#amountCurrencyLabel').text('Amt');
+        updateGenerateBtnLabel();
+
         setTimeout(() => $('#sendInvoiceModal').modal('show'), 350);
     });
 
-    $('#sendInvoiceBtn').on('click', function(e) {
+    $('#sendInvoiceForm').on('submit', function(e) {
         e.preventDefault();
-        var $btn = $(this);
+        var $btn = $('#sendInvoiceBtn');
         $btn.prop('disabled', true);
 
         var isCustom = $('#is_custom').val() == "1";
@@ -911,13 +1151,14 @@ $(document).ready(function() {
             beforeSend: function() { $('#progressBar').show(); },
             complete: function() { $('#progressBar').hide(); $btn.prop('disabled', false); },
             success: function(data) {
-                var msg = data.success || 'Invoice created and sent successfully!';
+                var msg = data.success || 'Invoice generated successfully!';
                 if (data.invoice_number) {
                     msg += '<br><small><strong>Invoice #:</strong> ' + data.invoice_number + '</small>';
                 }
                 toastr.success(msg, 'Success', { timeOut: 10000, escapeHtml: false });
                 $('#sendInvoiceModal').modal('hide');
                 $('#sendInvoiceForm')[0].reset();
+                $('#amountCurrencyLabel').text('Amt');
             },
             error: function(xhr) {
                 var errorMessage = 'An unexpected error occurred.';

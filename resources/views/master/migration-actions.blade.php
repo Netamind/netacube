@@ -70,7 +70,16 @@
 
                 $intendedDbName  = $tenant->data ?? 'tenant_' . $tenant->id;
                 $migrationPath   = database_path('migrations/tenant');
-                $totalMigrations = is_dir($migrationPath) ? count(File::files($migrationPath)) : 0;
+
+                // File names on disk right now — this is the single source of truth
+                // for "what migrations exist". Everything else is compared against it.
+                $allFileNames = collect();
+                if (is_dir($migrationPath)) {
+                    $allFileNames = collect(File::files($migrationPath))
+                        ->map(fn($f) => $f->getFilenameWithoutExtension())
+                        ->values();
+                }
+                $totalMigrations = $allFileNames->count();
                 $isLocal         = app()->environment('local');
 
                 $dbExists = false; $dbNameToShow = 'N/A'; $migrated = 0; $pending = $totalMigrations;
@@ -96,10 +105,21 @@
                     DB::connection('tenant')->getPdo();
                     $dbExists     = true;
                     $dbNameToShow = $intendedDbName;
+
+                    // ✅ FIX: "Migrated" used to be a raw COUNT(*) on the migrations table,
+                    // which can include rows for migration files that were later renamed
+                    // or deleted from disk (or rows inserted by self-healing against a
+                    // stale/wrong migration name). That let Migrated exceed Total Migrations,
+                    // producing a negative Pending. We now only count rows whose migration
+                    // name still matches a file that actually exists on disk right now —
+                    // this can never exceed Total Migrations, so Pending can never go negative.
                     if (DB::connection('tenant')->getSchemaBuilder()->hasTable('migrations')) {
-                        $migrated = DB::connection('tenant')->table('migrations')->count();
+                        $ranNames = DB::connection('tenant')->table('migrations')->pluck('migration');
+                        $migrated = $allFileNames->intersect($ranNames)->count();
+                    } else {
+                        $migrated = 0;
                     }
-                    $pending = $totalMigrations - $migrated;
+                    $pending = max(0, $totalMigrations - $migrated);
                 } catch (\Exception $e) {
                     $dbExists = false; $migrated = 0; $pending = $totalMigrations;
                 }

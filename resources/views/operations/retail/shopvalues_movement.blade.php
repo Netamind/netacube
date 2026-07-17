@@ -252,7 +252,7 @@ table.dataTable tfoot tr td,
   <div class="card-header d-flex justify-content-between align-items-center">
     <h4 class="header-title mb-0">
       <i class="ri-line-chart-line"></i>&nbsp;
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+      <form method="POST" action="{{ route('retail.operations.update.filters') }}"
             id="headerCategoryForm" style="margin:0;display:inline;">
         @csrf
         <input type="hidden" name="user_id" value="{{ Auth::id() }}">
@@ -299,7 +299,7 @@ table.dataTable tfoot tr td,
 
     {{-- Branch picker + date range --}}
     <div class="mv-controls-bar">
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+      <form method="POST" action="{{ route('retail.operations.update.filters') }}"
             id="headerBranchForm" style="margin:0;display:inline;">
         @csrf
         <input type="hidden" name="user_id" value="{{ Auth::id() }}">

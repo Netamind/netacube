@@ -2,318 +2,259 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Full Stocktaking Report – {{ $branchName }} – {{ $displayDate }}</title>
 <style>
-* { box-sizing: border-box; margin: 0; padding: 0; }
+*{margin:0;padding:0;box-sizing:border-box;}
+body{
+    font-family:DejaVu Sans,sans-serif;
+    font-size:9.5pt;color:#333;line-height:1.35;
+    background:#fff;padding:16px;
+}
+.container{width:100%;max-width:800px;margin:0 auto;}
 
-@page {
-    size: A4;
-    margin-top: 0;
-    margin-right: 0;
-    margin-bottom: 60px;
-    margin-left: 0;
+/* ---------- HEADER ---------- */
+.header-table{width:100%;border-collapse:collapse;margin-bottom:8px;
+    border-bottom:1.5px solid #4B5EBD;padding-bottom:6px;}
+.header-table td{vertical-align:top;padding:0;font-size:9pt;line-height:1.3;}
+.company-details h1{font-size:14pt;font-weight:700;color:#4B5EBD;margin:0 0 2px;}
+.company-details p{margin:1px 0;font-size:8.5pt;}
+.doc-details{width:45%;text-align:right;}
+.doc-details strong{font-size:12pt;font-weight:700;color:#4B5EBD;}
+.doc-details p{margin:1px 0;}
+
+.status-chip{
+    display:inline-block;margin-top:6px;padding:3px 9px;border-radius:10px;
+    font-size:8pt;font-weight:700;text-transform:uppercase;letter-spacing:.6px;
+}
+.status-rectified{background:#d1fae5;color:#059669;}
+.status-open{background:#fef3c7;color:#b45309;}
+
+/* ---------- BRANCH + SNAPSHOT / BREAKDOWN BOXES ---------- */
+.address-table{width:100%;border-collapse:collapse;margin:10px 0 12px;font-size:8.8pt;}
+.address-table td{width:50%;padding:8px 10px;background:#f8f9fa;
+    border:1px solid #e0e0e0;border-radius:5px;vertical-align:top;}
+.address-table h3{
+    font-size:11pt;font-weight:700;color:#4B5EBD;
+    margin-bottom:6px;text-transform:uppercase;letter-spacing:0.5px;
+}
+.address-table p{margin:1.5px 0;line-height:1.3;padding-bottom:3px;border-bottom:1px dotted #e2e5ea;}
+.address-table p:last-child{border-bottom:none;padding-bottom:0;}
+.address-table strong{color:#2c3e50;}
+.pos-val{color:#059669;}
+.neg-val{color:#dc2626;}
+
+/* ---------- REMARKS ---------- */
+.remarks-box{background:#fffbea;border:1px solid #fde68a;border-radius:6px;
+    padding:10px 12px;font-size:9pt;color:#334155;line-height:1.5;
+    white-space:pre-wrap;margin:0 0 12px;}
+
+/* ---------- SECTION TITLES ---------- */
+.section-title{
+    font-size:9.5pt;font-weight:800;text-transform:uppercase;letter-spacing:1px;
+    color:#7a7a85;margin:14px 0 6px;padding-bottom:3px;
+    border-bottom:1.5px solid #c4c4c8;display:inline-block;
 }
 
-html, body {
-    font-family: 'DejaVu Sans', sans-serif;
-    font-size: 11px;
-    color: #111;
-    background: #fff;
+/* ---------- ITEMS TABLES ---------- */
+table.items{width:100%;border-collapse:collapse;margin:0 0 4px;font-size:8.8pt;table-layout:fixed;}
+table.items thead{display:table-header-group;} /* repeat header across pages — lists can run long */
+table.items thead th{
+    background:#4B5EBD;color:#fff;font-weight:800;font-size:9.5pt;
+    text-align:center;padding:6px 5px;border:1px solid #999;
 }
+table.items thead th.l{text-align:left;}
+table.items tbody td{padding:6px 5px;border:1px solid #ddd;vertical-align:middle;
+    font-size:8.5pt;text-align:center;line-height:1;}
+table.items tbody td.l{text-align:left;}
+table.items tbody tr:nth-child(even){background:#f9f9fb;}
 
-/* ── HEADER ── */
-table.hdr-t {
-    width: 100%;
-    border-collapse: collapse;
-    background: #f5f5f6;
-    border-bottom: 1px solid #e4e4e4;
-}
-table.hdr-t td { padding: 16px 32px 12px 32px; vertical-align: top; }
-table.hdr-t td.hdr-right { text-align: right; }
+.diff-pos{font-weight:700;}
+.diff-neg{font-weight:700;}
+.diff-zero{font-weight:400;color:#94a3b8;}
+.missing-val{color:#dc2626;font-weight:700;}
 
-table.hdr-divider { width: 100%; border-collapse: collapse; }
-table.hdr-divider td { height: 1px; padding: 0; line-height: 0; font-size: 0; background: #4B5EBD; }
+/* ---------- NOTES ---------- */
+.notes{clear:both;margin-top:14px;padding-top:12px;
+    border-top:1px dashed #ccc;font-size:8.5pt;}
+.notes h4{color:#4B5EBD;margin-bottom:4px;font-size:9.5pt;}
 
-.co-name { font-size: 19px; font-weight: 700; color: #111; margin-bottom: 3px; line-height: 1; }
-.co-meta { font-size: 10px; color: #666; line-height: 1.6; }
+/* ---------- FOOTER ---------- */
+.footer{position:fixed;bottom:0;left:0;right:0;text-align:center;font-size:7.5pt;
+    color:#777;border-top:1px solid #eee;padding-top:10px;padding-bottom:12px;background:#fff;}
 
-.doc-word {
-    font-size: 15px; font-weight: 700; color: #4B5EBD;
-    letter-spacing: 1.6px; text-transform: uppercase; margin-bottom: 8px;
-}
-.d-item { margin-bottom: 3px; }
-.d-item label {
-    font-size: 8px; text-transform: uppercase; letter-spacing: 1.1px;
-    color: #999; font-weight: 700; margin-right: 6px;
-}
-.d-item span { font-size: 11px; font-weight: 700; color: #111; }
-
-/* ── SECTION TITLES ── */
-.section-wrap { padding: 0 24px; margin-top: 10px; }
-.section-title {
-    font-size: 9.5px; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;
-    color: #7a7a85; margin-top: 16px; margin-bottom: 7px; padding-bottom: 3px;
-    border-bottom: 1.5px solid #c4c4c8; display: inline-block;
-}
-.section-title:first-child { margin-top: 0; }
-
-/* ── SUMMARY CARDS ── */
-table.summary-grid {
-    width: 100%;
-    border-collapse: collapse;
-    margin-bottom: 18px;
-}
-table.summary-grid td.sum-card-l {
-    vertical-align: top;
-    width: 50%;
-    padding-right: 8px;
-}
-table.summary-grid td.sum-card-r {
-    vertical-align: top;
-    width: 50%;
-    padding-left: 8px;
-}
-
-.sum-card {
-    background: #f1f1f3;
-    border: 1px solid #e0e0e2;
-    border-radius: 6px;
-    padding: 10px 10px 6px;
-}
-
-/* Single sum-t style used in both cards */
-table.sum-t { width: 100%; border-collapse: collapse; }
-table.sum-t thead th {
-    color: #4B5EBD; font-size: 8.5px; text-transform: uppercase; letter-spacing: .5px;
-    font-weight: 700; padding: 5px 6px; text-align: left; border-bottom: 1.5px solid #4B5EBD;
-}
-table.sum-t thead th.c { text-align: center; }
-table.sum-t tbody tr { border-bottom: 1px solid #e2e2e6; }
-table.sum-t tbody tr:last-child { border-bottom: none; }
-table.sum-t tbody td { padding: 4.5px 6px; font-size: 10.5px; color: #1e293b; text-align: left; }
-table.sum-t tbody td.c { text-align: center; }
-table.sum-t tbody td.sum-val { font-weight: 700; white-space: nowrap; }
-table.sum-t tbody td.sum-pct { color: #94a3b8; }
-
-/* Full difference row — visually separated at the bottom of the right card */
-table.sum-t tbody tr.sum-total-sep td {
-    font-weight: 800;
-    background: #e6e9f7;
-    border-top: 2px solid #b8bfe8;
-    padding-top: 6px;
-    padding-bottom: 6px;
-}
-
-.pos-val { color: #059669; }
-.neg-val { color: #dc2626; }
-
-/* ── DATA TABLES ── */
-table.data { width: 100%; border-collapse: collapse; margin-bottom: 18px; table-layout: fixed; }
-table.data thead { display: table-header-group; }
-table.data thead th {
-    color: #2d2d3a; font-size: 9px; text-transform: uppercase; letter-spacing: .5px;
-    font-weight: 700; padding: 6px 7px; text-align: center;
-    background: #d4d4d8; border-bottom: 1.5px solid #b0b0b8;
-}
-table.data thead th.l { text-align: left; }
-table.data tbody tr { border-bottom: 1px solid #eef0f7; page-break-inside: avoid; }
-table.data tbody tr:nth-child(even) { background: #fafafa; }
-table.data tbody td { padding: 4.5px 7px; font-size: 13px; color: #1e293b; overflow: hidden; text-align: center; }
-table.data tbody td.l { text-align: left; }
-
-table.data tfoot td { padding: 5px 7px; font-size: 10.5px; }
-table.data tfoot td.gt-label { text-align: center; font-weight: 700; color: #111; background: #d7d7da; border-top: 1.5px solid #b0b0b8; border-bottom: 2px solid #4B5EBD; }
-table.data tfoot td.gt-value { text-align: center; font-weight: 800; color: #4B5EBD; font-size: 11.5px; background: #d7d7da; border-top: 1.5px solid #b0b0b8; border-bottom: 2px solid #4B5EBD; }
-
-.diff-pos { color: #059669; font-weight: 700; }
-.diff-neg { color: #dc2626; font-weight: 700; }
-.diff-zero { color: #94a3b8; }
-
-/* ── FOOTER ── */
-.footer-fixed { position: fixed; bottom: 0; left: 0; right: 0; }
-table.pg-foot { width: 100%; border-collapse: collapse; border-top: 2px solid #4B5EBD; background: #f5f5f6; }
-table.pg-foot td { padding: 6px 32px; font-size: 9.5px; color: #555; vertical-align: middle; }
-table.pg-foot td.pg-right { text-align: right; }
+@page{margin-top:0.6cm;margin-right:0.6cm;margin-bottom:2cm;margin-left:0.6cm;size:A4;}
 </style>
 </head>
 <body>
 
-@php
-    $companyName    = $companyName    ?? 'Netamind Technology';
-    $companyAddress = $companyAddress ?? null;
+<div class="container">
+    @php
+        $companyProfile = DB::connection('tenant')->table('company_info')->first();
+        $companyName    = $companyProfile->business_name    ?? 'Netamind Technology';
+        $companyAddress = $companyProfile->physical_address ?? null;
+        $companyPhone   = $companyProfile->primary_number   ?? null;
+        $companyEmail   = $companyProfile->email_address    ?? null;
+        $missingRows    = $missingRows ?? collect();
+        $isRectified    = isset($summary) && $summary && $summary->status === 'completed';
 
-    $expectedTotal  = $countedRows->sum(fn($r) => ($r->expected_final ?? $r->expected_at_count) * $r->price);
-    $foundTotal     = $countedRows->sum(fn($r) => $r->found * $r->price);
-    $missingTotal   = $missingRows->sum(fn($r) => $r->quantity * $r->price);
-    $difference     = $foundTotal - $expectedTotal;
-    $fullDifference = $difference - $missingTotal;
+        // Live figures are always recomputed from the current rows so the PDF
+        // matches what's on screen, whether or not this date has been
+        // rectified yet.
+        $expectedTotal  = $countedRows->sum(fn($r) => ($r->expected_final ?? $r->expected_at_count) * $r->price);
+        $foundTotal     = $countedRows->sum(fn($r) => $r->found * $r->price);
+        $missingTotal   = $missingRows->sum(fn($r) => $r->quantity * $r->price);
+        $difference     = $foundTotal - $expectedTotal;
+        // Final difference brings missing products into the picture: what
+        // should have been on the shelf (expected + what's now missing)
+        // versus what was actually found.
+        $finalDifference = $foundTotal - ($expectedTotal + $missingTotal);
 
-    $totalCounted  = $countedRows->count();
-    $noAnomaly     = $countedRows->filter(fn($r) => abs($r->found - ($r->expected_final ?? $r->expected_at_count)) < 0.0001)->count();
-    $overageCount  = $countedRows->filter(fn($r) => $r->found > ($r->expected_final ?? $r->expected_at_count) + 0.0001)->count();
-    $shortageCount = $countedRows->filter(fn($r) => $r->found < ($r->expected_final ?? $r->expected_at_count) - 0.0001)->count();
-    $overageVal    = $countedRows->filter(fn($r) => $r->found > ($r->expected_final ?? $r->expected_at_count) + 0.0001)
-                        ->sum(fn($r) => ($r->found - ($r->expected_final ?? $r->expected_at_count)) * $r->price);
-    $shortageVal   = $countedRows->filter(fn($r) => $r->found < ($r->expected_final ?? $r->expected_at_count) - 0.0001)
-                        ->sum(fn($r) => (($r->expected_final ?? $r->expected_at_count) - $r->found) * $r->price);
-    $missingCount  = $missingRows->count();
-    $safeCounted   = max($totalCounted, 1);
-    $safeAll       = max($totalCounted + $missingCount, 1);
+        $totalCounted  = $countedRows->count();
+        $noAnomaly     = $countedRows->filter(fn($r) => abs($r->found - ($r->expected_final ?? $r->expected_at_count)) < 0.0001)->count();
+        $overageCount  = $countedRows->filter(fn($r) => $r->found > ($r->expected_final ?? $r->expected_at_count) + 0.0001)->count();
+        $shortageCount = $countedRows->filter(fn($r) => $r->found < ($r->expected_final ?? $r->expected_at_count) - 0.0001)->count();
+        $overageVal    = $countedRows->filter(fn($r) => $r->found > ($r->expected_final ?? $r->expected_at_count) + 0.0001)
+                            ->sum(fn($r) => ($r->found - ($r->expected_final ?? $r->expected_at_count)) * $r->price);
+        $shortageVal   = $countedRows->filter(fn($r) => $r->found < ($r->expected_final ?? $r->expected_at_count) - 0.0001)
+                            ->sum(fn($r) => (($r->expected_final ?? $r->expected_at_count) - $r->found) * $r->price);
+        $missingCount  = $missingRows->count();
+        $safeCounted   = max($totalCounted, 1);
 
-    $zeroPct    = round(($noAnomaly    / $safeCounted) * 100, 2);
-    $posPct     = round(($overageCount / $safeCounted) * 100, 2);
-    $negPct     = round(($shortageCount/ $safeCounted) * 100, 2);
-    $missingPct = round(($missingCount / $safeAll)     * 100, 2);
-@endphp
+        $zeroPct = round(($noAnomaly / $safeCounted) * 100, 2);
+        $posPct  = round(($overageCount / $safeCounted) * 100, 2);
+        $negPct  = round(($shortageCount / $safeCounted) * 100, 2);
 
-<!-- HEADER -->
-<table class="hdr-t">
-    <tr>
-        <td>
-            <div class="co-name">{{ $companyName }}</div>
-            @if($companyAddress)
-                <div class="co-meta">{{ $companyAddress }}</div>
-            @endif
-        </td>
-        <td class="hdr-right">
-            <div class="doc-word">Full Stocktaking Report</div>
-            <div class="d-item"><label>Branch</label><span>{{ $branchName }}</span></div>
-            <div class="d-item"><label>Date</label><span>{{ $displayDate }}</span></div>
-        </td>
-    </tr>
-</table>
-<table class="hdr-divider"><tr><td></td></tr></table>
+        // Document number: first 3 letters of the branch name (uppercased,
+        // padded with X if short) + FSR (Full Stocktaking Report) + date.
+        $branchPrefix = strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $branchName ?: 'BR'), 0, 3));
+        $branchPrefix = str_pad($branchPrefix, 3, 'X');
+        $docNumber    = $branchPrefix . 'FSR' . \Carbon\Carbon::parse($date ?? $displayDate)->format('Ymd');
 
-<!-- SUMMARY -->
-<div class="section-wrap">
-    <div class="section-title">Full Stocktaking Summary</div>
+        $footerParts = collect([$companyName, $companyAddress, $companyPhone, $companyEmail])
+            ->filter(fn ($v) => ! empty($v));
+    @endphp
 
-    <table class="summary-grid">
+    <!-- HEADER -->
+    <table class="header-table">
         <tr>
-            {{-- LEFT CARD --}}
-            <td class="sum-card-l">
-                <div class="sum-card">
-                    <table class="sum-t">
-                        <thead>
-                            <tr><th>Description</th><th class="c">Value</th><th class="c">%</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>Products counted</td><td class="c sum-val">{{ $totalCounted }}</td><td class="c sum-pct">100.00</td></tr>
-                            <tr><td>No anomalies</td><td class="c sum-val">{{ $noAnomaly }}</td><td class="c sum-pct">{{ $zeroPct }}</td></tr>
-                            <tr><td>Products with overages</td><td class="c sum-val pos-val">{{ $overageCount }}</td><td class="c sum-pct">{{ $posPct }}</td></tr>
-                            <tr><td>Overage value</td><td class="c sum-val pos-val">{{ number_format($overageVal, 2) }}</td><td class="c sum-pct">—</td></tr>
-                            <tr><td>Products with shortages</td><td class="c sum-val neg-val">{{ $shortageCount }}</td><td class="c sum-pct">{{ $negPct }}</td></tr>
-                            <tr><td>Shortage value</td><td class="c sum-val neg-val">{{ number_format($shortageVal, 2) }}</td><td class="c sum-pct">—</td></tr>
-                        </tbody>
-                    </table>
-                </div>
+            <td class="company-details">
+                <h1>{{ $companyName }}</h1>
+                @if($companyAddress)<p>{{ $companyAddress }}</p>@endif
+                @if($companyPhone)<p>Phone: {{ $companyPhone }}</p>@endif
+                @if($companyEmail)<p>Email: {{ $companyEmail }}</p>@endif
             </td>
-
-            {{-- RIGHT CARD — Full difference separated by a top border at the bottom --}}
-            <td class="sum-card-r">
-                <div class="sum-card">
-                    <table class="sum-t">
-                        <thead>
-                            <tr><th>Description</th><th class="c">Value</th><th class="c">%</th></tr>
-                        </thead>
-                        <tbody>
-                            <tr><td>Expected value (EV)</td><td class="c sum-val">{{ number_format($expectedTotal, 2) }}</td><td class="c sum-pct">—</td></tr>
-                            <tr><td>Found value (FV)</td><td class="c sum-val">{{ number_format($foundTotal, 2) }}</td><td class="c sum-pct">—</td></tr>
-                            <tr><td>Difference (FV - EV)</td><td class="c sum-val {{ $difference >= 0 ? 'pos-val' : 'neg-val' }}">{{ number_format($difference, 2) }}</td><td class="c sum-pct">—</td></tr>
-                            <tr><td>Missing items</td><td class="c sum-val">{{ $missingCount }}</td><td class="c sum-pct">{{ $missingPct }}</td></tr>
-                            <tr><td>Missing value (MV)</td><td class="c sum-val neg-val">{{ number_format($missingTotal, 2) }}</td><td class="c sum-pct">—</td></tr>
-                            <tr class="sum-total-sep">
-                                <td>Full difference (FV - (EV + MV))</td>
-                                <td class="c sum-val {{ $fullDifference >= 0 ? 'pos-val' : 'neg-val' }}">{{ number_format($fullDifference, 2) }}</td>
-                                <td class="c sum-pct">—</td>
-                            </tr>
-                        </tbody>
-                    </table>
+            <td class="doc-details">
+                <p><strong>Full Stocktaking Report</strong></p>
+                <p><strong>{{ ucwords(strtolower($branchName)) }}</strong></p>
+                <p>Date: {{ $displayDate }}</p>
+                <div class="status-chip {{ $isRectified ? 'status-rectified' : 'status-open' }}">
+                    {{ $isRectified ? 'Rectified' : 'Not Yet Rectified' }}
                 </div>
             </td>
         </tr>
     </table>
 
+    <!-- SUMMARY: COUNT + VALUE BREAKDOWN -->
+    <table class="address-table">
+        <tr>
+            <td>
+                <h3>Count Breakdown</h3>
+                <p>Products counted: <strong>{{ $totalCounted }}</strong> (100.00%)</p>
+                <p>No anomalies: <strong>{{ $noAnomaly }}</strong> ({{ $zeroPct }}%)</p>
+                <p>Overages: <strong class="pos-val">{{ $overageCount }}</strong> ({{ $posPct }}%) — MWK {{ number_format($overageVal, 2) }}</p>
+                <p>Shortages: <strong class="neg-val">{{ $shortageCount }}</strong> ({{ $negPct }}%) — MWK {{ number_format($shortageVal, 2) }}</p>
+            </td>
+            <td>
+                <h3>Value Breakdown</h3>
+                <p>Expected value (EV): <strong>MWK {{ number_format($expectedTotal, 2) }}</strong></p>
+                <p>Found value (FV): <strong>MWK {{ number_format($foundTotal, 2) }}</strong></p>
+                <p>Difference (FV − EV): <strong class="{{ $difference >= 0 ? 'pos-val' : 'neg-val' }}">MWK {{ number_format($difference, 2) }}</strong></p>
+                <p>Missing items: <strong>{{ $missingCount }}</strong> — Missing value (MV): <strong class="neg-val">MWK {{ number_format($missingTotal, 2) }}</strong></p>
+                <p>Final Difference (FV − (EV + MV)): <strong style="color:#dc2626;">MWK {{ number_format($finalDifference, 2) }}</strong></p>
+            </td>
+        </tr>
+    </table>
+
     <!-- COUNTED PRODUCTS -->
-    <div class="section-title">Counted Products ({{ $countedRows->count() }})</div>
-    <table class="data">
+    <div class="section-title">Counted Products ({{ $totalCounted }})</div>
+    <table class="items">
         <thead>
             <tr>
-                <th class="l" style="width:30%">Product</th>
-                <th style="width:12%">Unit</th>
-                <th style="width:15%">Price</th>
-                <th style="width:15%">Expected</th>
-                <th style="width:14%">Found</th>
-                <th style="width:14%">Diff</th>
+                <th style="width:5%;">#</th>
+                <th class="l" style="width:27%;">Product</th>
+                <th style="width:10%;">Unit</th>
+                <th style="width:13%;">Price</th>
+                <th style="width:14%;">Expected</th>
+                <th style="width:13%;">Found</th>
+                <th style="width:18%;">Diff</th>
             </tr>
         </thead>
         <tbody>
-            @forelse($countedRows->sortBy('product_name') as $row)
+            @php $num = 1; @endphp
+            @forelse($countedRows->sortBy(fn($r) => $r->found - ($r->expected_final ?? $r->expected_at_count)) as $row)
                 @php
                     $exp  = $row->expected_final ?? $row->expected_at_count;
                     $diff = $row->found - $exp;
                     $cls  = abs($diff) < 0.0001 ? 'diff-zero' : ($diff > 0 ? 'diff-pos' : 'diff-neg');
                 @endphp
                 <tr>
-                    <td class="l" style="font-weight:600;">{{ $row->product_name }}</td>
-                    <td style="color:#64748b;">{{ $row->unit }}</td>
-                    <td style="color:#64748b;">{{ number_format($row->price, 2) }}</td>
+                    <td>{{ $num++ }}</td>
+                    <td class="l">{{ $row->product_name }}</td>
+                    <td>{{ $row->unit }}</td>
+                    <td>{{ number_format($row->price, 2) }}</td>
                     <td>{{ number_format($exp, 2) }}</td>
                     <td>{{ number_format($row->found, 2) }}</td>
-                    <td class="{{ $cls }}">{{ abs($diff) < 0.0001 ? '—' : (($diff > 0 ? '+' : '') . number_format($diff, 2)) }}</td>
+                    <td class="{{ $cls }}">{{ number_format($diff, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8;font-style:italic;">No products counted for this date.</td></tr>
+                <tr><td colspan="7" style="text-align:center;padding:16px;color:#94a3b8;font-style:italic;">No products counted for this date.</td></tr>
             @endforelse
         </tbody>
     </table>
 
     <!-- MISSING PRODUCTS -->
-    <div class="section-title">Missing Products ({{ $missingRows->count() }})</div>
-    <table class="data">
+    <div class="section-title">Missing Products ({{ $missingCount }})</div>
+    <table class="items">
         <thead>
             <tr>
-                <th class="l" style="width:32%">Product</th>
-                <th style="width:13%">Unit</th>
-                <th style="width:17%">Price</th>
-                <th style="width:17%">Quantity</th>
-                <th style="width:21%">Total</th>
+                <th style="width:5%;">#</th>
+                <th class="l" style="width:35%;">Product</th>
+                <th style="width:12%;">Unit</th>
+                <th style="width:16%;">Price</th>
+                <th style="width:14%;">Quantity</th>
+                <th style="width:18%;">Total</th>
             </tr>
         </thead>
         <tbody>
+            @php $mnum = 1; @endphp
             @forelse($missingRows->sortByDesc(fn($r) => $r->quantity * $r->price) as $m)
                 <tr>
-                    <td class="l" style="font-weight:600;">{{ $m->product_name }}</td>
-                    <td style="color:#64748b;">{{ $m->unit }}</td>
-                    <td style="color:#64748b;">{{ number_format($m->price, 2) }}</td>
+                    <td>{{ $mnum++ }}</td>
+                    <td class="l">{{ $m->product_name }}</td>
+                    <td>{{ $m->unit }}</td>
+                    <td>{{ number_format($m->price, 2) }}</td>
                     <td>{{ number_format($m->quantity, 2) }}</td>
-                    <td style="font-weight:700;color:#dc2626;">{{ number_format($m->quantity * $m->price, 2) }}</td>
+                    <td class="missing-val">{{ number_format($m->quantity * $m->price, 2) }}</td>
                 </tr>
             @empty
-                <tr><td colspan="5" style="text-align:center;padding:16px;color:#94a3b8;font-style:italic;">No missing products for this date.</td></tr>
+                <tr><td colspan="6" style="text-align:center;padding:16px;color:#94a3b8;font-style:italic;">No missing products for this date.</td></tr>
             @endforelse
         </tbody>
-        @if($missingRows->isNotEmpty())
-        <tfoot>
-            <tr>
-                <td colspan="3" style="border:none;"></td>
-                <td class="gt-label">Total missing value</td>
-                <td class="gt-value">{{ number_format($missingTotal, 2) }}</td>
-            </tr>
-        </tfoot>
-        @endif
     </table>
-</div>
 
-<!-- FOOTER -->
-<div class="footer-fixed">
-    <table class="pg-foot">
-        <tr>
-            <td>{{ $branchName }} &nbsp;&middot;&nbsp; Full Stocktaking Report &nbsp;&middot;&nbsp; {{ $displayDate }}</td>
-            <td class="pg-right">Generated {{ now()->format('d M Y, H:i') }}</td>
-        </tr>
-    </table>
-</div>
+    <!-- NOTES -->
+    <div class="notes">
+        <h4>Important Notice</h4>
+        <p>Figures shown reflect live stock at the time this report was generated. Any sales made after a product was counted have already been netted off automatically.</p>
+    </div>
 
+    <!-- FOOTER -->
+    <div class="footer">
+        <p>{{ $footerParts->implode(' | ') }}</p>
+        <p>{{ $branchName }} &middot; Full Stocktaking Report &middot; {{ $displayDate }} &middot; Generated {{ now()->format('d M Y, H:i') }}</p>
+    </div>
+
+</div>
 </body>
 </html>

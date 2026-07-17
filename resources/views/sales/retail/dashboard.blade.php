@@ -267,7 +267,7 @@
                         </div>
                     </li>
 
-                    <!-- Orders: emergency and regular stock replenishment requests -->
+          
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#sidebarOrders" aria-expanded="false" class="side-nav-link">
                             <i class="ri-shopping-cart-2-line"></i>
@@ -276,8 +276,9 @@
                         </a>
                         <div class="collapse" id="sidebarOrders">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Emergency</a></li>
-                                <li><a href="#">Regular</a></li>
+                                <li><a href="{{ route('retail.orders.regular') }}">Regular</a></li>
+                                <li><a href="{{ route('retail.orders.emergency') }}">Emergency</a></li>
+                                <li><a href="{{ route('retail.orders.rare') }}">Rare</a></li>
                             </ul>
                         </div>
                     </li>
@@ -320,22 +321,22 @@
                     </li>
 
                                         
-                        <li class="side-nav-item">
+                    <!--    <li class="side-nav-item">
                             <a href="#" class="side-nav-link">
                                 <i class="ri-group-line"></i>
                                 <span>Customers</span>
                             </a>
-                        </li>
+                        </li>-->
 
 
                     <!-- ==================== SYSTEM ==================== -->
-                    <li class="side-nav-title mt-2">System</li>
+                    <li class="side-nav-title mt-2">Settings</li>
 
                     <!-- Branch/account configuration -->
                     <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
+                        <a href="{{ route('retail.sales.dashboard.settings') }}" class="side-nav-link">
                             <i class="ri-settings-3-line"></i>
-                            <span>Settings</span>
+                            <span>Dashboard</span>
                         </a>
                     </li>
 
@@ -485,6 +486,217 @@
     <!-- Fullcalendar -->
     <script src="{{ asset('dashboard/assets/vendor/fullcalendar/main.min.js') }}"></script>
     <script src="{{ asset('dashboard/assets/js/pages/demo.calendar.js') }}"></script>
+
+    {{--
+        ══ IDLE TIMEOUT / SESSION LIFETIME WARNING MODALS ══
+        Same client-side-mirror pattern as operations/dashboard.blade.php
+        and the admin layout. Sales settings are PER-USER (one row per
+        user_id in sales_dashboard_settings) — same as Operations, unlike
+        Admin's tenant-wide singleton — so this filters by Auth::id() just
+        like the operations version does.
+
+        SESSION_STARTED_AT_KEY: EnforceSessionLifetime deliberately keeps the
+        literal key 'operations_session_started_at' for every enforced role
+        (Sales included) rather than a per-role key — see that middleware's
+        header comment, and SalesDashboardSettingsController::updateSettings()
+        already resets this same key on save.
+    --}}
+    <style>
+        .mh-blue   { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
+        .mh-danger { background:linear-gradient(135deg,#c0392b,#e74c3c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
+        .mh-title  { color:#fff; font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; }
+        .mh-close  { filter:brightness(0) invert(1); opacity:.8; }
+        .mh-close:hover { opacity:1; }
+    </style>
+    @php
+        $__userSettings = \Illuminate\Support\Facades\DB::connection('tenant')
+            ->table('sales_dashboard_settings')
+            ->where('user_id', \Illuminate\Support\Facades\Auth::id())
+            ->first();
+
+        if (!$__userSettings) {
+            $__userSettings = \App\Http\Controllers\Tenant\SalesDashboardSettingsController::defaultsObject();
+        }
+
+        // ── Branch admin settings win when set. A null value on
+        // branch_sales_settings means "not enforced by admin", so we fall
+        // back to the user's own preference in that case. ──
+        $__branchSettings = \Illuminate\Support\Facades\DB::connection('tenant')
+            ->table('branch_sales_settings')
+            ->where('branch_id', \Illuminate\Support\Facades\Auth::user()->branch)
+            ->first();
+
+        $__idleSettings = new \stdClass();
+
+        if ($__branchSettings && !is_null($__branchSettings->idle_timeout_minutes)) {
+            $__idleSettings->idle_timeout_enabled = true;
+            $__idleSettings->idle_timeout_minutes = $__branchSettings->idle_timeout_minutes;
+        } else {
+            $__idleSettings->idle_timeout_enabled = (bool) $__userSettings->idle_timeout_enabled;
+            $__idleSettings->idle_timeout_minutes = $__userSettings->idle_timeout_minutes;
+        }
+
+        if ($__branchSettings && !is_null($__branchSettings->session_lifetime_minutes)) {
+            $__idleSettings->session_lifetime_minutes = $__branchSettings->session_lifetime_minutes;
+        } else {
+            $__idleSettings->session_lifetime_minutes = $__userSettings->session_lifetime_minutes;
+        }
+
+        // ── Session-lifetime clock ──
+        // Stamped once per login (or on explicit ?resetSessionClock=1), same
+        // literal session key the middleware reads — NOT reset on every
+        // page load, otherwise it would never actually expire.
+        if (request()->boolean('resetSessionClock') || !session()->has('operations_session_started_at')) {
+            session()->put('operations_session_started_at', time());
+        }
+
+        $__sessionStartedAt = session('operations_session_started_at');
+    @endphp
+
+    <div class="modal fade" id="idleTimeoutWarningModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+        <div class="modal-header mh-danger"><h5 class="modal-title mh-title"><i class="ri-time-line"></i> Session About to Expire</h5><button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body text-center py-4">
+          <i class="ri-time-line text-danger" style="font-size:60px"></i>
+          <h5 class="mt-2 mb-1">Logging out in <span id="idleCountdownDisplay" class="text-danger">60</span>s</h5>
+          <p style="font-size:13px;color:#6c757d;margin-bottom:0;">You've been inactive for a while. For your security, your session is about to end.</p>
+        </div>
+        <div class="modal-footer justify-content-center gap-2" style="padding:10px 20px 18px;"><button type="button" class="btn btn-secondary btn-sm px-4" id="idleStayLoggedInBtn">Stay Signed In</button><button type="button" class="btn btn-danger btn-sm px-4" onclick="document.getElementById('logout-form').submit();">Log Out Now</button></div>
+      </div></div>
+    </div>
+
+    <div class="modal fade" id="sessionTimeoutWarningModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
+      <div class="modal-dialog"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+        <div class="modal-header mh-danger"><h5 class="modal-title mh-title"><i class="ri-time-line"></i> Session Time Limit Reached</h5><button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button></div>
+        <div class="modal-body text-center py-4">
+          <i class="ri-time-line text-danger" style="font-size:60px"></i>
+          <h5 class="mt-2 mb-1">Logging out in <span id="sessionCountdownDisplay" class="text-danger">60</span>s</h5>
+          <p style="font-size:13px;color:#6c757d;margin-bottom:0;">You've reached your session's time limit. For your security, you'll be signed out shortly.</p>
+        </div>
+        <div class="modal-footer justify-content-center gap-2" style="padding:10px 20px 18px;"><button type="button" class="btn btn-secondary btn-sm px-4" id="sessionStayLoggedInBtn">Stay Signed In</button><button type="button" class="btn btn-danger btn-sm px-4" onclick="document.getElementById('logout-form').submit();">Log Out Now</button></div>
+      </div></div>
+    </div>
+
+    <script>
+    (function () {
+        var idleEnabled     = @json((bool) $__idleSettings->idle_timeout_enabled);
+        var idleTimeoutSecs = {{ (float) $__idleSettings->idle_timeout_minutes }} * 60;
+        var warnThreshold   = Math.min(60, idleTimeoutSecs); // show the modal once <=60s (or the whole budget, if shorter) remain
+
+        if (!idleEnabled || !idleTimeoutSecs) return;
+
+        var pageLoadedAt = Date.now();
+        var $modal       = $('#idleTimeoutWarningModal');
+        var $countdown   = $('#idleCountdownDisplay');
+        var $stayBtn     = $('#idleStayLoggedInBtn');
+        var warningShown = false;
+        var refreshing   = false;
+
+        function tick() {
+            if (refreshing) return;
+
+            var elapsedSecs   = Math.floor((Date.now() - pageLoadedAt) / 1000);
+            var remainingSecs = idleTimeoutSecs - elapsedSecs;
+
+            if (remainingSecs <= 0) {
+                // Next request hits EnforceIdleTimeout and gets redirected
+                // to login with the "logged out due to inactivity" message.
+                window.location.reload();
+                return;
+            }
+
+            if (remainingSecs <= warnThreshold) {
+                $countdown.text(Math.ceil(remainingSecs));
+                if (!warningShown) {
+                    warningShown = true;
+                    $modal.modal('show');
+                }
+            }
+        }
+
+        $stayBtn.on('click', function () {
+            if (refreshing) return;
+            refreshing = true;
+            $stayBtn.prop('disabled', true);
+            $stayBtn.html('<i class="ri-loader-4-line me-1"></i> Refreshing session...');
+
+            $.ajax({
+                url: window.location.href,
+                method: 'GET',
+                timeout: 15000,
+                complete: function () { window.location.reload(); }
+            });
+        });
+
+        setInterval(tick, 1000);
+    })();
+    </script>
+
+    <script>
+    (function () {
+        var sessionLifetimeSecs = {{ (float) $__idleSettings->session_lifetime_minutes }} * 60;
+        var warnThreshold       = Math.min(60, sessionLifetimeSecs); // show the modal once <=60s (or the whole budget, if shorter) remain
+
+        if (!sessionLifetimeSecs) return;
+
+        // Elapsed since actual login (server clock, at the time this page
+        // rendered), not since this page load.
+        var elapsedAtLoadSecs = {{ (float) (time() - $__sessionStartedAt) }};
+        var pageLoadedAt      = Date.now();
+        var $modal            = $('#sessionTimeoutWarningModal');
+        var $countdown        = $('#sessionCountdownDisplay');
+        var $stayBtn          = $('#sessionStayLoggedInBtn');
+        var warningShown      = false;
+        var refreshing        = false;
+        var tickInterval;
+
+        var expired = false;
+
+        function tick() {
+            if (refreshing || expired) return;
+
+            var clientElapsedSecs = Math.floor((Date.now() - pageLoadedAt) / 1000);
+            var remainingSecs     = sessionLifetimeSecs - elapsedAtLoadSecs - clientElapsedSecs;
+
+            if (remainingSecs <= 0) {
+                expired = true;
+                clearInterval(tickInterval);
+                $countdown.text(0);
+                $modal.modal('show');
+                return;
+            }
+
+            if (remainingSecs <= warnThreshold) {
+                $countdown.text(Math.ceil(remainingSecs));
+                if (!warningShown) {
+                    warningShown = true;
+                    $modal.modal('show');
+                }
+            }
+        }
+
+        $stayBtn.on('click', function () {
+            if (refreshing) return;
+            refreshing = true;
+            $stayBtn.prop('disabled', true);
+            $stayBtn.html('<i class="ri-loader-4-line me-1"></i> Refreshing session...');
+
+            var originalHref = window.location.href;
+            var resetUrl = originalHref
+                + (originalHref.indexOf('?') === -1 ? '?' : '&')
+                + 'resetSessionClock=1';
+
+            $.ajax({
+                url: resetUrl,
+                method: 'GET',
+                timeout: 15000,
+                complete: function () { window.location.href = originalHref; }
+            });
+        });
+
+        tickInterval = setInterval(tick, 1000);
+    })();
+    </script>
 
     <script>
         var Toast = Swal.mixin({

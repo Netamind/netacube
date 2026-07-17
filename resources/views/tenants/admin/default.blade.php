@@ -17,17 +17,12 @@ use Carbon\Carbon;
  |                                                    stock_change > 0 = added)
  |
  | NOTE ON EXPENDITURE:
- |   The expenditure module does not exist yet. Every $expenditure* /
- |   $expCategories* value below is intentionally 0 — not an estimate —
- |   because there is no real data to show. Once the module ships,
- |   replace the block marked "EXPENDITURE — MODULE NOT YET IMPLEMENTED"
- |   with real DB::connection('tenant') queries; nothing else on the
- |   page needs to change.
- |
- |   The ONE exception is the Sales vs Expenditure graph below: it uses
- |   a DUMMY expenditure series (clearly marked) purely so the chart has
- |   something to show for demos / tutorial recordings. Swap that block
- |   out for real data at the same time as the rest of the module.
+ |   Now backed by retail_expenditure_types + retail_expenditures. Each
+ |   expenditure row references an expenditure_type_id; the dashboard
+ |   groups amounts by type name (`retail_expenditure_types.name`) for
+ |   Today / This Month / Last Month, and the 4-month Performance
+ |   Overview graph uses real monthly totals as well (no more dummy
+ |   ratio series).
  |
  | NOTE ON THE GRAPH'S "VALUE ADDED" SERIES:
  |   Value Added can legitimately mean two different things in this app:
@@ -46,8 +41,7 @@ use Carbon\Carbon;
  |   there. The only edge case handled explicitly is when an entire
  |   series (or the whole chart) has nothing at all across all 4
  |   months, in which case a plain empty-state message is shown instead
- |   of a blank axis (e.g. before the Expenditure module ships and the
- |   dummy-ratio block below is removed).
+ |   of a blank axis.
  |--------------------------------------------------------------------------
  */
 
@@ -273,12 +267,25 @@ foreach ($branches as $branch) {
     ];
 }
 
-// ── Sales / Value Added / Direct Gain — last 4 months, computed together ──
-// (single loop so we don't re-derive month cursors three separate times)
+// ── Branches ranked highest → lowest sales, one order per tab ────────────
+// (Grand Total table rows are now a leaderboard rather than an
+// alphabetical list — Today and Yesterday each get their own ranking
+// since a branch's rank can differ day to day.)
+$branchesByToday = $branches
+    ->sortByDesc(fn ($b) => $branchStats[$b->id]['sys_today'])
+    ->values();
+
+$branchesByYesterday = $branches
+    ->sortByDesc(fn ($b) => $branchStats[$b->id]['sys_yesterday'])
+    ->values();
+
+// ── Sales / Value Added / Direct Gain / Expenditure — last 4 months ──────
+// (single loop so we don't re-derive month cursors separately for each)
 $threeMonthLabels       = [];
 $threeMonthSalesSeries  = [];
 $threeMonthDnotesSeries = []; // Value Added — Submitted Delivery Notes (default graph source)
 $threeMonthGainSeries   = []; // Value Added — Direct (Inventory Movement / stock_change > 0)
+$threeMonthExpSeries    = []; // Expenditure — real retail_expenditures totals
 
 for ($i = 3; $i >= 0; $i--) {
     $cursor = Carbon::today()->subMonthsNoOverflow($i)->startOfMonth();
@@ -304,47 +311,164 @@ for ($i = 3; $i >= 0; $i--) {
         ->selectRaw('COALESCE(SUM(stock_change * selling_price), 0) as total')
         ->value('total');
 
+    $monthExp = (float) DB::connection('tenant')
+        ->table('retail_expenditures')
+        ->whereMonth('expenditure_date', $cursor->month)
+        ->whereYear('expenditure_date', $cursor->year)
+        ->sum('amount');
+
     $threeMonthLabels[]       = $cursor->format('M Y');
     $threeMonthSalesSeries[]  = round($monthSales, 2);
     $threeMonthDnotesSeries[] = round($monthDnotes, 2);
     $threeMonthGainSeries[]   = round((float) $monthGain, 2);
+    $threeMonthExpSeries[]    = round($monthExp, 2);
 }
 
-// ═══════════════════ EXPENDITURE — MODULE NOT YET IMPLEMENTED ═══════════
-// No real data exists yet, so every figure below is 0 rather than an
-// estimate. Replace with real DB::connection('tenant') queries once the
-// expenditure module ships — the Blade markup will not need to change.
-$expenditureToday     = 0.0;
-$expenditureThisMonth = 0.0;
-$expenditureLastMonth = 0.0;
+// ═══════════════════ EXPENDITURE — retail_expenditures / retail_expenditure_types ═══════
+// Fully dynamic: the category list is driven by whatever expenditure
+// types are configured (active) in retail_expenditure_types — not a
+// fixed PHP array, and not limited to types that happen to have a
+// spend row for the period. Each active type is left-joined to its
+// spend for the period (COALESCE to 0 when nothing was logged), so
+// admins always see the complete, current set of categories with
+// real amounts (or 0), highest amount first. Adding/renaming/retiring
+// a type in retail_expenditure_types automatically reflects here with
+// no code change.
+$expTodayRows = DB::connection('tenant')
+    ->table('retail_expenditure_types as ret')
+    ->leftJoin('retail_expenditures as re', function ($join) use ($today) {
+        $join->on('re.expenditure_type_id', '=', 'ret.id')
+             ->where('re.expenditure_date', '=', $today);
+    })
+    ->where('ret.status', 'active')
+    ->groupBy('ret.id', 'ret.name')
+    ->orderByDesc('total')
+    ->selectRaw('ret.name as name, COALESCE(SUM(re.amount), 0) as total')
+    ->get();
 
-$expCategoryLabels = [
-    'Salaries & Wages',
-    'Rent & Utilities',
-    'Transport & Fuel',
-    'Maintenance',
-    'Marketing',
-    'Miscellaneous',
+$expThisMonthRows = DB::connection('tenant')
+    ->table('retail_expenditure_types as ret')
+    ->leftJoin('retail_expenditures as re', function ($join) {
+        $join->on('re.expenditure_type_id', '=', 'ret.id')
+             ->whereMonth('re.expenditure_date', Carbon::today()->month)
+             ->whereYear('re.expenditure_date', Carbon::today()->year);
+    })
+    ->where('ret.status', 'active')
+    ->groupBy('ret.id', 'ret.name')
+    ->orderByDesc('total')
+    ->selectRaw('ret.name as name, COALESCE(SUM(re.amount), 0) as total')
+    ->get();
+
+$expLastMonthRows = DB::connection('tenant')
+    ->table('retail_expenditure_types as ret')
+    ->leftJoin('retail_expenditures as re', function ($join) use ($lastMonthCursor) {
+        $join->on('re.expenditure_type_id', '=', 'ret.id')
+             ->whereMonth('re.expenditure_date', $lastMonthCursor->month)
+             ->whereYear('re.expenditure_date', $lastMonthCursor->year);
+    })
+    ->where('ret.status', 'active')
+    ->groupBy('ret.id', 'ret.name')
+    ->orderByDesc('total')
+    ->selectRaw('ret.name as name, COALESCE(SUM(re.amount), 0) as total')
+    ->get();
+
+// Grand totals still come straight from retail_expenditures (not the
+// per-type rows) so a type that's since been deactivated doesn't drop
+// out of the headline figure even though it no longer appears in the
+// category list below.
+$expenditureToday = (float) DB::connection('tenant')
+    ->table('retail_expenditures')->where('expenditure_date', $today)->sum('amount');
+
+$expenditureThisMonth = (float) DB::connection('tenant')
+    ->table('retail_expenditures')
+    ->whereMonth('expenditure_date', Carbon::today()->month)
+    ->whereYear('expenditure_date', Carbon::today()->year)
+    ->sum('amount');
+
+$expenditureLastMonth = (float) DB::connection('tenant')
+    ->table('retail_expenditures')
+    ->whereMonth('expenditure_date', $lastMonthCursor->month)
+    ->whereYear('expenditure_date', $lastMonthCursor->year)
+    ->sum('amount');
+
+$expCategoriesToday     = $expTodayRows->mapWithKeys(fn ($r) => [$r->name => (float) $r->total]);
+$expCategoriesThisMonth = $expThisMonthRows->mapWithKeys(fn ($r) => [$r->name => (float) $r->total]);
+$expCategoriesLastMonth = $expLastMonthRows->mapWithKeys(fn ($r) => [$r->name => (float) $r->total]);
+
+// ═══════════════════ INCOME & EXPENDITURE — scope-aware (All Branches / per-branch) ═══════
+// "Income" = Sales revenue from retail_system_sales (same figure as the
+// Sales card above), for This Month / Last Month / the month before that.
+//
+// Expenditure honours retail_expenditures.scope_type:
+//   - All Branches view    -> every expenditure row regardless of scope
+//     (matches the existing Expenditure card totals above).
+//   - Specific Branch view -> rows scoped directly to that branch
+//     (scope_type = 'branch' + matching branch_id) PLUS rows scoped
+//     'all' (sector-wide overhead, attributed to every branch). Rows
+//     scoped 'category' aren't tied to a single branch, so they only
+//     surface in the All Branches view — same as they do today.
+//
+// Every scope × period combination is computed once, server-side, and
+// shipped down as JSON. Flipping the scope dropdown just swaps the
+// numbers on screen client-side — no page reload, no extra requests.
+$ieIncomeForPeriod = function (Carbon $cursor, $branchId = null) {
+    $q = DB::connection('tenant')
+        ->table('retail_system_sales')
+        ->whereRaw('MONTH(STR_TO_DATE(date, "%Y-%m-%d")) = ?', [$cursor->month])
+        ->whereRaw('YEAR(STR_TO_DATE(date, "%Y-%m-%d")) = ?',  [$cursor->year]);
+    if ($branchId !== null) {
+        $q->where('branch', (string) (int) $branchId);
+    }
+    return (float) $q->sum(DB::raw('quantity * price'));
+};
+
+$ieExpenditureForPeriod = function (Carbon $cursor, $branchId = null) {
+    $q = DB::connection('tenant')
+        ->table('retail_expenditures')
+        ->whereMonth('expenditure_date', $cursor->month)
+        ->whereYear('expenditure_date', $cursor->year);
+    if ($branchId !== null) {
+        $q->where(function ($w) use ($branchId) {
+            $w->where('scope_type', 'all')
+              ->orWhere(function ($w2) use ($branchId) {
+                  $w2->where('scope_type', 'branch')->where('branch_id', $branchId);
+              });
+        });
+    }
+    return (float) $q->sum('amount');
+};
+
+$iePeriods = [
+    'this_month'     => ['cursor' => Carbon::today(),    'name' => $thisMonthName],
+    'last_month'     => ['cursor' => $lastMonthCursor,   'name' => $lastMonthName],
+    'two_months_ago' => ['cursor' => $twoMonthsAgoCursor,'name' => $lastMonthMinusOneName],
 ];
-$expCategoriesToday     = array_fill_keys($expCategoryLabels, 0);
-$expCategoriesThisMonth = array_fill_keys($expCategoryLabels, 0);
-$expCategoriesLastMonth = array_fill_keys($expCategoryLabels, 0);
 
-// ── DUMMY expenditure series for the 3-month graph ───────────────────────
-// The expenditure module has no real data yet. This series exists ONLY so
-// the Sales vs Expenditure chart has something to render for demos /
-// tutorial recordings. Delete this block and query real data once the
-// expenditure module ships — nothing else in the chart needs to change.
-// (If you delete this block without replacing it, $threeMonthExpSeries
-// becomes all zeros and the chart will correctly render Expenditure as a
-// flat line instead of bars — see the "NO DATA" note above.)
-$dummyExpenditureRatios = [0.58, 0.66, 0.61];
-$threeMonthExpSeries    = [];
-foreach ($threeMonthSalesSeries as $idx => $monthSalesValue) {
-    $ratio                  = $dummyExpenditureRatios[$idx % count($dummyExpenditureRatios)];
-    $threeMonthExpSeries[]  = round($monthSalesValue * $ratio, 2);
+$ieScopeList = collect([(object) ['id' => 'all', 'name' => 'All Branches']])
+    ->concat($branches->map(fn ($b) => (object) ['id' => (string) $b->id, 'name' => $b->name]));
+
+$incomeExpenditure = [];
+foreach ($ieScopeList as $scope) {
+    $branchId = $scope->id === 'all' ? null : $scope->id;
+    $periods  = [];
+
+    foreach ($iePeriods as $key => $p) {
+        $income  = $ieIncomeForPeriod($p['cursor'], $branchId);
+        $expense = $ieExpenditureForPeriod($p['cursor'], $branchId);
+
+        $periods[$key] = [
+            'label'       => $p['name'],
+            'income'      => round($income, 2),
+            'expenditure' => round($expense, 2),
+            'diff'        => round($income - $expense, 2),
+        ];
+    }
+
+    $incomeExpenditure[$scope->id] = [
+        'label'   => $scope->name,
+        'periods' => $periods,
+    ];
 }
-// ══════════════════════════════════════════════════════════════════════
 ?>
 <style>
 /* ══════════════════════════════════════════════════════════════════
@@ -370,19 +494,28 @@ foreach ($threeMonthSalesSeries as $idx => $monthSalesValue) {
 
 /* ── Card chrome ─────────────────────────────────────────────────── */
 .rod-card {
-  border: none; border-top: 4px solid #4B5EBD;
+  --rod-accent: #4B5EBD;
+  border: none; border-top: 4px solid var(--rod-accent);
   box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-radius: 12px;
   background: #fff; height: 100%; display: flex; flex-direction: column;
   overflow: hidden; max-width: 100%; transition: box-shadow .2s ease;
 }
 .rod-card:hover { box-shadow: 0 6px 20px rgba(0,0,0,0.10); }
-.rod-card.accent-green { border-top-color: #059669; }
-.rod-card.accent-red   { border-top-color: #dc2626; }
-.rod-card.accent-amber { border-top-color: #d97706; }
-.rod-card.accent-teal  { border-top-color: #0ea5e9; }
+.rod-card.accent-green { --rod-accent: #059669; }
+.rod-card.accent-red   { --rod-accent: #dc2626; }
+.rod-card.accent-amber { --rod-accent: #d97706; }
+.rod-card.accent-teal  { --rod-accent: #0ea5e9; }
 
-/* ── Tab strip — light title bar shared by every card, tabs optional ── */
-.rod-tab-strip { background: #eef1f6; border-bottom: 1px solid #e3e6ee; overflow-x: auto; }
+/* ── Tab strip — light title bar shared by every card, tabs optional ──
+   Background intensity toned down ~30% (was #eef1f6). Bottom border now
+   tracks each card's own accent color (via --rod-accent) at ~70%
+   intensity — i.e. mixed 30% toward white — instead of one flat grey
+   for every card. */
+.rod-tab-strip {
+  background: #f4f6fa;
+  border-bottom: 1px solid color-mix(in srgb, var(--rod-accent, #4B5EBD) 45%, white 55%);
+  overflow-x: auto;
+}
 .rod-tab-strip .nav-pills { flex-wrap: nowrap; }
 .rod-tab-strip .nav-link {
   border-radius: 0 !important; padding: .5rem 1rem; font-weight: 500; font-size: 12px; color: #6c757d;
@@ -397,12 +530,21 @@ foreach ($threeMonthSalesSeries as $idx => $monthSalesValue) {
    below — so title/tabs/legend/dropdown never overlap on narrow
    screens. ────────── */
 .rod-tab-strip.has-title {
-  display: flex; align-items: center; justify-content: space-between;
+  display: flex !important; align-items: center !important; justify-content: flex-start !important;
   height: 48px; padding: 0 18px; gap: 12px; flex-wrap: nowrap; overflow-x: visible;
 }
-.rod-tab-strip.has-title .rod-plain-title { display: flex; align-items: center; flex-shrink: 0; }
+.rod-tab-strip.has-title .rod-plain-title { display: flex; align-items: center; flex-shrink: 0; margin-right: 0 !important; }
 .rod-tab-strip.has-title .rod-plain-title h4 { margin: 0; font-size: 14.5px; font-weight: 700; color: #1e293b; letter-spacing: .1px; }
-.rod-tab-strip.has-title .nav-pills { flex-wrap: nowrap; overflow-x: auto; height: 100%; align-items: center; }
+/* margin-left: auto pushes tabs to the far right whether they're sharing
+   the row with the title or, on narrow screens, sitting alone on their
+   own wrapped line — either way they hug the right edge, never drift
+   toward the middle/left. !important guards against any global
+   .nav / .nav-pills centering rule defined elsewhere in the shared
+   layout (e.g. a card-header-tabs style reset). */
+.rod-tab-strip.has-title .nav-pills {
+  flex: 0 0 auto !important; flex-wrap: nowrap; overflow-x: auto; height: 100%; align-items: center;
+  margin: 0 0 0 auto !important; justify-content: flex-end !important; width: auto !important;
+}
 .rod-tab-strip.has-title .nav-pills .nav-item,
 .rod-tab-strip.has-title .nav-pills .nav-link { display: flex; align-items: center; height: 100%; }
 
@@ -434,25 +576,31 @@ table.rod-table tbody tr:hover { background: #fafbff; }
 table.rod-table td.center { text-align: center; }
 table.rod-table .col-sales { width: 100px; }
 
+/* Footer value column is intentionally the same width (100px / 80px on
+   mobile) and same right-edge offset as table.rod-table .col-sales, so
+   the Grand Total figure sits on the exact same vertical line as the
+   per-branch sales figures above it. */
 .rod-table-footer {
   display: flex; align-items: center; border-top: 1px solid #e6e6e9;
-  padding: 12px 4px 2px; margin-top: 4px;
+  padding: 12px 0 2px; margin-top: 4px;
 }
-.rod-table-footer .rtf-label { flex: 1; font-size: 12.5px; color: #8a8d98; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; text-align: left; }
+.rod-table-footer .rtf-label { flex: 1; font-size: 12.5px; color: #8a8d98; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; text-align: left; padding-left: 8px; }
 .rod-table-footer .rtf-value {
   flex: 0 0 100px; min-width: 100px; text-align: center; font-size: 16px; font-weight: 800; color: #4B5EBD;
   display: flex; align-items: center; justify-content: center;
 }
 
 .rod-link-btn { background: none; border: none; padding: 0; margin: 0; cursor: pointer; font: inherit; text-decoration: none; }
-.rod-branch-name { font-size: 13px; font-weight: 600; color: #1e293b; }
-.rod-branch-name:hover { color: #4B5EBD; }
+.rod-branch-name { font-size: 13px; font-weight: 400; color: #1e293b; }
 .rod-branch-idx { font-size: 11px; color: #b3b5bd; font-weight: 600; margin-right: 8px; }
 
 .rod-sales-amount { font-size: 13px; font-weight: 700; color: #4B5EBD; text-align: center; display: inline-block; width: 100%; }
 .rod-sales-amount:hover { color: #2d3a8c; text-decoration: underline; }
-.rod-sales-amount.zero { color: #ccc; cursor: default; }
-.rod-sales-amount.zero:hover { color: #ccc; text-decoration: none; }
+/* Zero-value sales are still clickable (the modal can show interval/cash
+   detail even when system sales are 0), so they get a light-blue tint
+   instead of the greyed-out "disabled" look they had before. */
+.rod-sales-amount.zero { color: #93c5fd; }
+.rod-sales-amount.zero:hover { color: #3b82f6; text-decoration: underline; }
 
 .rod-diff-tag { font-size: 10.5px; font-weight: 700; margin-left: 6px; }
 .rod-diff-tag.pos  { color: #059669; }
@@ -496,18 +644,73 @@ table.rod-table .col-sales { width: 100px; }
 .rod-chip-grid.is-deducted .rms-label { color: #dc2626; }
 
 /* ── Expenditure card — tabbed, flat content ───────────────────────── */
-.exp-hero { text-align: center; padding: 16px 10px 18px; border-bottom: 1px solid #f0f0f2; margin-bottom: 16px; }
-.exp-hero .exp-currency { display: block; font-size: 12px; font-weight: 700; color: #94a3b8; letter-spacing: .5px; margin-bottom: 4px; text-transform: uppercase; }
-.exp-hero .exp-amount { margin: 0; font-weight: 800; color: #111; font-size: 27px; letter-spacing: -.4px; }
-.exp-hero .exp-label { margin: 8px 0 0; color: #9a9da6; font-size: 11.5px; font-weight: 600; }
+.exp-hero {
+  text-align: center; padding: 18px 10px 20px; margin-bottom: 16px; border-radius: 12px;
+  background: linear-gradient(135deg, #fff7ec, #fef3e2);
+  border: 1px solid #fde8c8;
+}
+.exp-hero .exp-currency { display: block; font-size: 12px; font-weight: 700; color: #b8792f; letter-spacing: .5px; margin-bottom: 4px; text-transform: uppercase; }
+.exp-hero .exp-amount { margin: 0; font-weight: 800; color: #92400e; font-size: 28px; letter-spacing: -.4px; }
+.exp-hero .exp-label { margin: 8px 0 0; color: #b8792f; font-size: 11.5px; font-weight: 600; opacity: .85; }
 
 .exp-cat-list { list-style: none; margin: 0; padding: 0; flex: 1; }
-.exp-cat-list li { display: flex; align-items: center; justify-content: space-between; padding: 10px 2px; border-top: 1px solid #f5f5f6; font-size: 13px; gap: 8px; }
+.exp-cat-list li { display: flex; flex-direction: column; gap: 7px; padding: 12px 4px; border-top: 1px solid #f5f5f6; font-size: 13px; border-radius: 8px; transition: background .15s ease; }
 .exp-cat-list li:first-child { border-top: none; }
+.exp-cat-list li:hover { background: #fafbff; }
+.exp-cat-list .ecl-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
 .exp-cat-list .ecl-left { display: flex; align-items: center; gap: 10px; min-width: 0; }
-.exp-cat-list .ecl-dot { width: 8px; height: 8px; border-radius: 50%; background: #c3c6d1; flex-shrink: 0; }
-.exp-cat-list .ecl-label { color: #444; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.exp-cat-list .ecl-value { font-weight: 700; color: #111; flex-shrink: 0; }
+.exp-cat-list .ecl-avatar {
+  width: 26px; height: 26px; border-radius: 8px; flex-shrink: 0;
+  display: flex; align-items: center; justify-content: center;
+  font-size: 11px; font-weight: 800; color: #fff; letter-spacing: .2px;
+  box-shadow: 0 2px 5px rgba(0,0,0,0.12);
+}
+.exp-cat-list .ecl-label { color: #333; font-weight: 700; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.exp-cat-list .ecl-value { font-weight: 800; color: #111; flex-shrink: 0; font-size: 13.5px; }
+.exp-cat-list .ecl-right { display: flex; align-items: center; gap: 8px; flex-shrink: 0; }
+.exp-cat-list .ecl-pct-badge {
+  font-size: 10.5px; font-weight: 800; letter-spacing: .2px;
+  color: #4B5EBD; background: #eff3ff; border: 1px solid #c5caec;
+  padding: 2px 7px; border-radius: 20px; flex-shrink: 0; min-width: 38px; text-align: center;
+}
+.exp-cat-list .ecl-bar-track { height: 5px; border-radius: 3px; background: #f1f2f5; overflow: hidden; margin-left: 36px; }
+.exp-cat-list .ecl-bar-fill { height: 100%; border-radius: 3px; transition: width .6s ease; }
+
+/* ── Income & Expenditure card — scope-aware, 3 stat panels per tab ── */
+.rod-card.accent-purple { --rod-accent: #7c3aed; }
+
+.ie-scope-row { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; flex-wrap: wrap; }
+.ie-scope-label { font-size: 11px; font-weight: 700; color: #8a8d98; text-transform: uppercase; letter-spacing: .4px; }
+.ie-scope-select { min-width: 200px; }
+
+.ie-stat-grid { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 14px; }
+.ie-stat {
+  border-radius: 12px; padding: 18px 16px; text-align: center; border: 1px solid;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 4px; min-height: 96px; transition: background .2s ease, border-color .2s ease;
+}
+.ie-stat-label { font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .4px; }
+.ie-stat-amount { font-size: 21px; font-weight: 800; letter-spacing: -.3px; word-break: break-word; }
+.ie-stat-tag { font-size: 10.5px; font-weight: 700; margin-top: 2px; }
+
+.ie-stat-income { background: #eff6ff; border-color: #bfdbfe; }
+.ie-stat-income .ie-stat-label { color: #2563eb; }
+.ie-stat-income .ie-stat-amount { color: #1d4ed8; }
+
+.ie-stat-expenditure { background: #fff7ec; border-color: #fde8c8; }
+.ie-stat-expenditure .ie-stat-label { color: #b8792f; }
+.ie-stat-expenditure .ie-stat-amount { color: #92400e; }
+
+.ie-stat-diff { background: #f8fafc; border-color: #e2e8f0; }
+.ie-stat-diff .ie-stat-label { color: #64748b; }
+.ie-stat-diff .ie-stat-amount { color: #334155; }
+.ie-stat-diff .ie-stat-amount.is-positive { color: #059669; }
+.ie-stat-diff .ie-stat-amount.is-negative { color: #dc2626; }
+.ie-stat-diff .ie-stat-tag.is-positive { color: #059669; }
+.ie-stat-diff .ie-stat-tag.is-negative { color: #dc2626; }
+.ie-stat-diff .ie-stat-tag.is-zero { color: #94a3b8; }
+.ie-stat-diff.has-positive { background: #ecfdf5; border-color: #bbf7d0; }
+.ie-stat-diff.has-negative { background: #fef2f2; border-color: #fecaca; }
 
 /* ── Graph card ──────────────────────────────────────────────────── */
 .rod-graph-legend { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
@@ -515,7 +718,7 @@ table.rod-table .col-sales { width: 100px; }
 .rod-graph-legend i.dot { width: 9px; height: 9px; border-radius: 2px; display: inline-block; flex-shrink: 0; }
 .rod-va-source {
   font-size: 12px; font-weight: 600; color: #4B5EBD; border: 1px solid #d8dbe3;
-  border-radius: 6px; padding: 3px 8px; background: #fff; cursor: pointer; flex-shrink: 0;
+  border-radius: 6px; padding: 3px 8px; background: transparent; cursor: pointer; flex-shrink: 0;
 }
 .rod-va-source:focus { outline: none; border-color: #4B5EBD; }
 #rodSalesExpChart { max-width: 100%; overflow: hidden; }
@@ -550,27 +753,43 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
   .rod-card-body { padding: 14px !important; }
   table.rod-table, table.rod-iv-table { font-size: 12px; }
   table.rod-table .col-sales { width: 80px; }
+  .rod-table-footer .rtf-value { flex-basis: 80px; min-width: 80px; }
   .rod-month-strip .rod-chip { min-width: 100%; }
   .rod-chip-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
   .rod-chip-grid .rod-chip { padding: 8px 8px; }
   .rod-chip-grid .rms-value { font-size: 11.5px; }
   .rod-chip-grid .rms-label { font-size: 9.5px; }
-  .rod-hero .rh-amount { font-size: 24px; }
+
+  /* Hero figures (Deliverynotes / Inventory Movement) — on mobile show
+     currency + amount as a single inline line ("MWK700,000.00") instead
+     of stacking currency above the number, even though there's enough
+     width to do so. */
+  .rod-hero { flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center; padding: 12px 10px; }
+  .rod-hero .rh-currency { display: inline; margin-bottom: 0; font-size: 15px; }
+  .rod-hero .rh-amount { display: inline; font-size: 22px; }
+  .rod-hero .rh-desc { width: 100%; margin-top: 6px; }
+
+  /* Expenditure hero — same inline currency+amount treatment */
+  .exp-hero { display: flex; flex-direction: row; flex-wrap: wrap; align-items: baseline; justify-content: center; padding: 12px 10px 14px; }
+  .exp-hero .exp-currency { display: inline; margin-bottom: 0; font-size: 14px; }
+  .exp-hero .exp-amount { display: inline; font-size: 20px; }
+  .exp-hero .exp-label { width: 100%; margin-top: 6px; }
 
   /* Card headers (Sales, Deliverynotes, Inventory Movement, Expenditure,
-     graph): stop forcing a fixed 48px row and instead let title stack
-     above tabs/legend/dropdown. This is what was causing things to
-     overlap on narrow screens. */
+     graph): title and tabs only wrap onto their own line when they
+     genuinely don't fit — the title keeps its natural width instead of
+     being forced to 100%, and the tabs flex into the remaining space
+     first (scrolling horizontally if needed) before ever wrapping. */
   .rod-tab-strip.has-title {
     height: auto;
-    flex-wrap: wrap;
-    align-items: flex-start;
+    flex-wrap: wrap !important;
+    align-items: center;
     padding: 10px 14px;
-    gap: 6px;
+    gap: 6px 10px;
   }
-  .rod-tab-strip.has-title .rod-plain-title { width: 100%; }
+  .rod-tab-strip.has-title .rod-plain-title { flex-shrink: 0; }
   .rod-tab-strip.has-title .nav-pills {
-    width: 100%; height: auto; overflow-x: auto; -webkit-overflow-scrolling: touch;
+    flex: 0 0 auto !important; max-width: 100%; margin: 0 0 0 auto !important; height: auto; overflow-x: auto; -webkit-overflow-scrolling: touch;
   }
   .rod-tab-strip.has-title .nav-link { padding: .4rem .7rem; font-size: 11.5px; }
 
@@ -581,15 +800,23 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
   .rod-graph-legend span { font-size: 11px; }
   .rod-va-source { width: 100%; margin-top: 2px; }
 
+  /* Interval reconciliation modals — let the modal grow with its
+     content instead of scrolling internally; the page itself scrolls
+     if the modal is taller than the viewport. */
   .modal-dialog { margin: 1rem auto !important; max-width: calc(100% - 24px) !important; }
-  .modal-content { border-radius: 10px !important; max-height: calc(100vh - 2rem); overflow-y: auto; }
-  .modal-body { max-height: 70vh; overflow-y: auto; }
+  .modal-content { border-radius: 10px !important; }
   table.rod-iv-table { font-size: 11px; }
   table.rod-iv-table thead th, table.rod-iv-table tbody td { padding: 6px 4px; }
 
   .rod-chart-empty { height: 260px; font-size: 12px; text-align: center; padding: 0 16px; }
   .exp-cat-list li { font-size: 12px; padding: 8px 2px; }
-  .exp-hero .exp-amount { font-size: 23px; }
+
+  /* Income & Expenditure — stack the 3 stat panels, scope select goes full width */
+  .ie-scope-row { width: 100%; }
+  .ie-scope-select { flex: 1; min-width: 0; }
+  .ie-stat-grid { grid-template-columns: 1fr; gap: 10px; }
+  .ie-stat { padding: 14px; min-height: auto; flex-direction: row; flex-wrap: wrap; justify-content: space-between; text-align: left; }
+  .ie-stat-amount { font-size: 18px; }
 }
 @media (max-width: 420px) {
   .rod-chip-grid { grid-template-columns: 1fr; }
@@ -622,27 +849,21 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
         <div class="card-body rod-card-body">
           <div class="tab-content">
 
-            {{-- ── TODAY ── --}}
+            {{-- ── TODAY — ranked highest → lowest sales ── --}}
             <div class="tab-pane fade show active" id="rodToday" role="tabpanel">
               <table class="rod-table">
-                <thead><tr><th>Branch</th><th class="center col-sales">Sales (MWK)</th></tr></thead>
+                <thead><tr><th>Branch</th><th class="center col-sales">Sales</th></tr></thead>
                 <tbody>
-                  @forelse($branches as $i => $branch)
+                  @forelse($branchesByToday as $i => $branch)
                     <tr>
                       <td>
                         <span class="rod-branch-idx">{{ $i + 1 }}</span>
-                        <button type="button" class="rod-link-btn rod-branch-name" data-bs-toggle="modal" data-bs-target="#rodTodayModal{{ $branch->id }}">
-                          {{ $branch->name }}
-                        </button>
+                        <span class="rod-branch-name">{{ $branch->name }}</span>
                       </td>
                       <td class="center col-sales">
-                        @if($branchStats[$branch->id]['sys_today'] > 0)
-                          <button type="button" class="rod-link-btn rod-sales-amount" data-bs-toggle="modal" data-bs-target="#rodTodayModal{{ $branch->id }}">
-                            {{ number_format($branchStats[$branch->id]['sys_today'], 0) }}
-                          </button>
-                        @else
-                          <span class="rod-sales-amount zero">0</span>
-                        @endif
+                        <button type="button" class="rod-link-btn rod-sales-amount {{ $branchStats[$branch->id]['sys_today'] > 0 ? '' : 'zero' }}" data-bs-toggle="modal" data-bs-target="#rodTodayModal{{ $branch->id }}">
+                          {{ number_format($branchStats[$branch->id]['sys_today'], 0) }}
+                        </button>
                       </td>
                     </tr>
                   @empty
@@ -652,35 +873,29 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
               </table>
               <div class="rod-table-footer">
                 <span class="rtf-label">Grand Total</span>
-                <span class="rtf-value">{{ number_format($todaysSales, 0) }}</span>
+                <span class="rtf-value">MWK {{ number_format($todaysSales, 0) }}</span>
               </div>
             </div>
 
-            {{-- ── YESTERDAY ── --}}
+            {{-- ── YESTERDAY — ranked highest → lowest sales ── --}}
             <div class="tab-pane fade" id="rodYesterday" role="tabpanel">
               <table class="rod-table">
-                <thead><tr><th>Branch</th><th class="center col-sales">Sales (MWK)</th></tr></thead>
+                <thead><tr><th>Branch</th><th class="center col-sales">Sales</th></tr></thead>
                 <tbody>
-                  @forelse($branches as $i => $branch)
+                  @forelse($branchesByYesterday as $i => $branch)
                     <?php $sd = $branchStats[$branch->id]['diff_yesterday']; ?>
                     <tr>
                       <td>
                         <span class="rod-branch-idx">{{ $i + 1 }}</span>
-                        <button type="button" class="rod-link-btn rod-branch-name" data-bs-toggle="modal" data-bs-target="#rodYesterdayModal{{ $branch->id }}">
-                          {{ $branch->name }}
-                        </button>
+                        <span class="rod-branch-name">{{ $branch->name }}</span>
                         <span class="rod-diff-tag {{ $sd > 0 ? 'pos' : ($sd < 0 ? 'neg' : 'zero') }}">
                           [{{ $sd > 0 ? '+' : '' }}{{ number_format($sd, 0) }}]
                         </span>
                       </td>
                       <td class="center col-sales">
-                        @if($branchStats[$branch->id]['sys_yesterday'] > 0)
-                          <button type="button" class="rod-link-btn rod-sales-amount" data-bs-toggle="modal" data-bs-target="#rodYesterdayModal{{ $branch->id }}">
-                            {{ number_format($branchStats[$branch->id]['sys_yesterday'], 0) }}
-                          </button>
-                        @else
-                          <span class="rod-sales-amount zero">—</span>
-                        @endif
+                        <button type="button" class="rod-link-btn rod-sales-amount {{ $branchStats[$branch->id]['sys_yesterday'] > 0 ? '' : 'zero' }}" data-bs-toggle="modal" data-bs-target="#rodYesterdayModal{{ $branch->id }}">
+                          {{ number_format($branchStats[$branch->id]['sys_yesterday'], 0) }}
+                        </button>
                       </td>
                     </tr>
                   @empty
@@ -690,7 +905,7 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
               </table>
               <div class="rod-table-footer">
                 <span class="rtf-label">Grand Total</span>
-                <span class="rtf-value">{{ number_format($yesterdaysSales, 0) }}</span>
+                <span class="rtf-value">MWK {{ number_format($yesterdaysSales, 0) }}</span>
               </div>
             </div>
 
@@ -845,7 +1060,7 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
         <div class="card-body rod-card-body">
           <div class="tab-content">
 
-            {{-- ── TODAY ── --}}
+            {{-- ── TODAY — real spend, grouped by expenditure type name ── --}}
             <div class="tab-pane fade show active" id="rodExpToday" role="tabpanel">
               <div class="exp-hero">
                 <span class="exp-currency">MWK</span>
@@ -853,12 +1068,27 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
                 <p class="exp-label">Expenditure today</p>
               </div>
               <ul class="exp-cat-list">
-                @foreach($expCategoriesToday as $label => $amount)
+                @php($rodExpPalette = ['#4B5EBD','#059669','#d97706','#dc2626','#0ea5e9','#7c3aed','#db2777','#0d9488'])
+                @forelse($expCategoriesToday as $label => $amount)
+                  <?php $rodPct = $expenditureToday > 0 ? round($amount / $expenditureToday * 100, 1) : 0; ?>
                   <li>
-                    <span class="ecl-left"><span class="ecl-dot"></span><span class="ecl-label">{{ $label }}</span></span>
-                    <span class="ecl-value">MWK {{ number_format($amount, 0) }}</span>
+                    <div class="ecl-row">
+                      <span class="ecl-left">
+                        <span class="ecl-avatar" style="background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }}">{{ strtoupper(substr($label, 0, 1)) }}</span>
+                        <span class="ecl-label">{{ $label }}</span>
+                      </span>
+                      <span class="ecl-right">
+                        <span class="ecl-value">MWK{{ number_format($amount, 0) }}</span>
+                        <span class="ecl-pct-badge">{{ $rodPct }}%</span>
+                      </span>
+                    </div>
+                    <div class="ecl-bar-track">
+                      <div class="ecl-bar-fill" style="width:{{ $rodPct }}%; background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }};"></div>
+                    </div>
                   </li>
-                @endforeach
+                @empty
+                  <li class="recon-empty-row" style="width:100%;">No expenditure types configured yet.</li>
+                @endforelse
               </ul>
             </div>
 
@@ -870,12 +1100,26 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
                 <p class="exp-label">Expenditure this month</p>
               </div>
               <ul class="exp-cat-list">
-                @foreach($expCategoriesThisMonth as $label => $amount)
+                @forelse($expCategoriesThisMonth as $label => $amount)
+                  <?php $rodPct = $expenditureThisMonth > 0 ? round($amount / $expenditureThisMonth * 100, 1) : 0; ?>
                   <li>
-                    <span class="ecl-left"><span class="ecl-dot"></span><span class="ecl-label">{{ $label }}</span></span>
-                    <span class="ecl-value">MWK {{ number_format($amount, 0) }}</span>
+                    <div class="ecl-row">
+                      <span class="ecl-left">
+                        <span class="ecl-avatar" style="background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }}">{{ strtoupper(substr($label, 0, 1)) }}</span>
+                        <span class="ecl-label">{{ $label }}</span>
+                      </span>
+                      <span class="ecl-right">
+                        <span class="ecl-value">MWK{{ number_format($amount, 0) }}</span>
+                        <span class="ecl-pct-badge">{{ $rodPct }}%</span>
+                      </span>
+                    </div>
+                    <div class="ecl-bar-track">
+                      <div class="ecl-bar-fill" style="width:{{ $rodPct }}%; background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }};"></div>
+                    </div>
                   </li>
-                @endforeach
+                @empty
+                  <li class="recon-empty-row" style="width:100%;">No expenditure types configured yet.</li>
+                @endforelse
               </ul>
             </div>
 
@@ -887,16 +1131,98 @@ table.rod-iv-table tfoot td:first-child { text-align: left; }
                 <p class="exp-label">Expenditure last month</p>
               </div>
               <ul class="exp-cat-list">
-                @foreach($expCategoriesLastMonth as $label => $amount)
+                @forelse($expCategoriesLastMonth as $label => $amount)
+                  <?php $rodPct = $expenditureLastMonth > 0 ? round($amount / $expenditureLastMonth * 100, 1) : 0; ?>
                   <li>
-                    <span class="ecl-left"><span class="ecl-dot"></span><span class="ecl-label">{{ $label }}</span></span>
-                    <span class="ecl-value">MWK {{ number_format($amount, 0) }}</span>
+                    <div class="ecl-row">
+                      <span class="ecl-left">
+                        <span class="ecl-avatar" style="background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }}">{{ strtoupper(substr($label, 0, 1)) }}</span>
+                        <span class="ecl-label">{{ $label }}</span>
+                      </span>
+                      <span class="ecl-right">
+                        <span class="ecl-value">MWK{{ number_format($amount, 0) }}</span>
+                        <span class="ecl-pct-badge">{{ $rodPct }}%</span>
+                      </span>
+                    </div>
+                    <div class="ecl-bar-track">
+                      <div class="ecl-bar-fill" style="width:{{ $rodPct }}%; background:{{ $rodExpPalette[$loop->index % count($rodExpPalette)] }};"></div>
+                    </div>
                   </li>
-                @endforeach
+                @empty
+                  <li class="recon-empty-row" style="width:100%;">No expenditure types configured yet.</li>
+                @endforelse
               </ul>
             </div>
 
           </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+
+  {{-- ════════════════ ROW 2.5 — Income & Expenditure (col-12, scope-aware) ════════════════
+       Scope selector (All Branches / a specific branch) swaps the numbers
+       shown in all three tabs client-side — every scope × period figure
+       was already computed server-side into $incomeExpenditure, so there's
+       no reload and no extra request when the scope changes. --}}
+  <div class="row g-3 mt-1">
+
+    <div class="col-12">
+      <div class="card rod-card accent-purple" id="ieCard">
+        <div class="rod-tab-strip has-title">
+          <div class="rod-plain-title">
+            <h4>Income &amp; Expenditure</h4>
+          </div>
+          <ul class="nav nav-pills mb-0" role="tablist">
+            <li class="nav-item" role="presentation">
+              <a class="nav-link active" data-bs-toggle="pill" href="#ieThisMonth" role="tab">This Month</a>
+            </li>
+            <li class="nav-item" role="presentation">
+              <a class="nav-link" data-bs-toggle="pill" href="#ieLastMonth" role="tab">Last Month</a>
+            </li>
+            <li class="nav-item" role="presentation">
+              <a class="nav-link" data-bs-toggle="pill" href="#ieTwoMonthsAgo" role="tab">{{ $lastMonthMinusOneName }}</a>
+            </li>
+          </ul>
+        </div>
+        <div class="card-body rod-card-body">
+
+          <div class="ie-scope-row">
+            <label for="ieScopeSelect" class="ie-scope-label">Scope</label>
+            <select id="ieScopeSelect" class="rod-va-source ie-scope-select">
+              @foreach($incomeExpenditure as $scopeId => $scopeData)
+                <option value="{{ $scopeId }}">{{ $scopeData['label'] }}</option>
+              @endforeach
+            </select>
+          </div>
+
+          <div class="tab-content">
+            @foreach([
+              'this_month'     => 'ieThisMonth',
+              'last_month'     => 'ieLastMonth',
+              'two_months_ago' => 'ieTwoMonthsAgo',
+            ] as $periodKey => $paneId)
+              <div class="tab-pane fade {{ $periodKey === 'this_month' ? 'show active' : '' }}" id="{{ $paneId }}" role="tabpanel">
+                <div class="ie-stat-grid">
+                  <div class="ie-stat ie-stat-income">
+                    <span class="ie-stat-label">Income</span>
+                    <div class="ie-stat-amount" data-ie-field="income" data-ie-period="{{ $periodKey }}">MWK 0.00</div>
+                  </div>
+                  <div class="ie-stat ie-stat-expenditure">
+                    <span class="ie-stat-label">Expenditure</span>
+                    <div class="ie-stat-amount" data-ie-field="expenditure" data-ie-period="{{ $periodKey }}">MWK 0.00</div>
+                  </div>
+                  <div class="ie-stat ie-stat-diff">
+                    <span class="ie-stat-label">Net Difference</span>
+                    <div class="ie-stat-amount" data-ie-field="diff" data-ie-period="{{ $periodKey }}">MWK 0.00</div>
+                    <span class="ie-stat-tag" data-ie-field="diff-tag" data-ie-period="{{ $periodKey }}"></span>
+                  </div>
+                </div>
+              </div>
+            @endforeach
+          </div>
+
         </div>
       </div>
     </div>
@@ -1149,6 +1475,75 @@ document.addEventListener('DOMContentLoaded', function () {
   if (rodVASelect) {
     rodVASelect.addEventListener('change', function () {
       rodRender(this.value);
+    });
+  }
+});
+</script>
+
+{{-- ══════════════════════════════════════════════════════════════════
+     Income & Expenditure — scope switcher (client-side, no reload)
+     All scope × period figures are already computed server-side into
+     $incomeExpenditure; the dropdown just swaps which scope's numbers
+     are shown across all three (This Month / Last Month / N-2) tabs.
+══════════════════════════════════════════════════════════════════ --}}
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  var ieData   = @json($incomeExpenditure);
+  var ieCard   = document.querySelector('#ieCard');
+  var ieSelect = document.querySelector('#ieScopeSelect');
+  var iePeriodKeys = ['this_month', 'last_month', 'two_months_ago'];
+
+  function ieFormatMoney(v) {
+    var n = Number(v) || 0;
+    var sign = n < 0 ? '-' : '';
+    return sign + 'MWK ' + Math.abs(n).toLocaleString(undefined, {
+      minimumFractionDigits: 2, maximumFractionDigits: 2
+    });
+  }
+
+  function ieRender(scopeId) {
+    if (!ieCard) return;
+    var scope = ieData[scopeId];
+    if (!scope) return;
+
+    iePeriodKeys.forEach(function (periodKey) {
+      var p = scope.periods[periodKey] || { income: 0, expenditure: 0, diff: 0 };
+
+      var incomeEl = ieCard.querySelector('[data-ie-field="income"][data-ie-period="' + periodKey + '"]');
+      var expEl    = ieCard.querySelector('[data-ie-field="expenditure"][data-ie-period="' + periodKey + '"]');
+      var diffEl   = ieCard.querySelector('[data-ie-field="diff"][data-ie-period="' + periodKey + '"]');
+      var tagEl    = ieCard.querySelector('[data-ie-field="diff-tag"][data-ie-period="' + periodKey + '"]');
+
+      if (incomeEl) incomeEl.textContent = ieFormatMoney(p.income);
+      if (expEl)    expEl.textContent = ieFormatMoney(p.expenditure);
+
+      if (diffEl) {
+        diffEl.textContent = (p.diff > 0 ? '+' : '') + ieFormatMoney(p.diff);
+        diffEl.classList.remove('is-positive', 'is-negative', 'is-zero');
+
+        var diffBox = diffEl.closest('.ie-stat-diff');
+        if (diffBox) diffBox.classList.remove('has-positive', 'has-negative');
+
+        if (p.diff > 0) {
+          diffEl.classList.add('is-positive');
+          if (diffBox) diffBox.classList.add('has-positive');
+          if (tagEl) { tagEl.textContent = '▲ Surplus'; tagEl.className = 'ie-stat-tag is-positive'; }
+        } else if (p.diff < 0) {
+          diffEl.classList.add('is-negative');
+          if (diffBox) diffBox.classList.add('has-negative');
+          if (tagEl) { tagEl.textContent = '▼ Deficit'; tagEl.className = 'ie-stat-tag is-negative'; }
+        } else {
+          diffEl.classList.add('is-zero');
+          if (tagEl) { tagEl.textContent = 'Break-even'; tagEl.className = 'ie-stat-tag is-zero'; }
+        }
+      }
+    });
+  }
+
+  if (ieSelect) {
+    ieRender(ieSelect.value);
+    ieSelect.addEventListener('change', function () {
+      ieRender(this.value);
     });
   }
 });

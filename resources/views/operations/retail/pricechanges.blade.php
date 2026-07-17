@@ -57,7 +57,7 @@
 .card      { border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.08); border-radius: 12px; }
 .card-header {
     padding: 0 !important; background: #4B5EBD;
-    border-radius: 12px 12px 0 0 !important; border: none;
+    border-radius: 0 !important; border: none;
 }
 .ch-inner {
     display: flex; align-items: center;
@@ -136,6 +136,15 @@
 .stat-chip-val.base-clr    { color: #4B5EBD; }
 .stat-chip-val.branch-clr  { color: #d97706; }
 .stat-chip-val.distinct-clr { color: #059669; }
+
+/* ── Stats modal (Base / Branch / Branches affected) ──────────────────── */
+.stats-modal-grid { display: flex; flex-wrap: wrap; gap: 12px; padding: 18px; }
+.stats-modal-cell {
+    flex: 1 1 140px; display: flex; flex-direction: column; align-items: center;
+    justify-content: center; gap: 6px;
+    background: #f4f6ff; border: 1px solid #e4e7f5; border-radius: 10px; padding: 16px 10px;
+}
+.stats-modal-cell .stat-chip-val { font-size: 20px; }
 
 /* ── DataTable export buttons — same as delivery note details view ──── */
 .dt-buttons .btn {
@@ -236,6 +245,9 @@ table.dataTable tbody td.dataTables_empty { text-align: center !important; }
         </div>
 
         <div class="ch-right">
+            <a href="#" class="ch-btn" id="statsBtn" title="View price change totals for {{ $displayDate }}">
+                <i class="ri-bar-chart-2-line"></i>
+            </a>
             <a href="#" class="ch-btn" id="tableButtonsBtn" title="Download">
                 <i class="ri-download-line"></i>
             </a>
@@ -273,22 +285,6 @@ table.dataTable tbody td.dataTables_empty { text-align: center !important; }
         <p>Select a category from the header to get started.</p>
     </div>
 @else
-
-{{-- ── Stat chips ── --}}
-<div class="stat-chips-row">
-    <div class="stat-chip">
-        <span class="stat-chip-label">Base price changes</span>
-        <span class="stat-chip-val base-clr">{{ $baseCount }}</span>
-    </div>
-    <div class="stat-chip">
-        <span class="stat-chip-label">Branch price changes</span>
-        <span class="stat-chip-val branch-clr">{{ $branchCount }}</span>
-    </div>
-    <div class="stat-chip">
-        <span class="stat-chip-label">Branches affected</span>
-        <span class="stat-chip-val distinct-clr">{{ $distinctBranches }}</span>
-    </div>
-</div>
 
 {{-- ── Table — identical structure/options to delivery note details view ── --}}
 <div class="pc-table-wrap">
@@ -353,6 +349,32 @@ table.dataTable tbody td.dataTables_empty { text-align: center !important; }
 
 </div>
 </div></div></div>
+
+{{-- ── Stats modal ── --}}
+<div class="modal fade" id="statsModal" tabindex="-1">
+    <div class="modal-dialog" style="max-width:480px;"><div class="modal-content">
+        <div class="modal-header mh-blue" style="display:flex;align-items:center;justify-content:space-between;">
+            <h5 class="modal-title mh-title"><i class="ri-bar-chart-2-line"></i> Price Change Totals — {{ $displayDate }}</h5>
+            <button type="button" class="btn-close mh-close" data-bs-dismiss="modal" style="margin:0;"></button>
+        </div>
+        <div class="modal-body" style="padding:0;">
+            <div class="stats-modal-grid">
+                <div class="stats-modal-cell">
+                    <span class="stat-chip-label">Base price changes</span>
+                    <span class="stat-chip-val base-clr">{{ $baseCount }}</span>
+                </div>
+                <div class="stats-modal-cell">
+                    <span class="stat-chip-label">Branch price changes</span>
+                    <span class="stat-chip-val branch-clr">{{ $branchCount }}</span>
+                </div>
+                <div class="stats-modal-cell">
+                    <span class="stat-chip-label">Branches affected</span>
+                    <span class="stat-chip-val distinct-clr">{{ $distinctBranches }}</span>
+                </div>
+            </div>
+        </div>
+    </div></div>
+</div>
 
 {{-- ── Download modal ── --}}
 <div class="modal fade" id="buttonsModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1">
@@ -442,6 +464,8 @@ $(document).ready(function () {
 
     $('#tableButtonsBtn').on('click', function(e) { e.preventDefault(); $('#buttonsModal').modal('show'); });
     @endif
+
+    $('#statsBtn').on('click', function(e) { e.preventDefault(); $('#statsModal').modal('show'); });
 
     $('#infoBtn').on('click', function(e) { e.preventDefault(); $('#infoModal').modal('show'); });
 

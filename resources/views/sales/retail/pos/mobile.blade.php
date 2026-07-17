@@ -12,6 +12,18 @@
     $userId     = Auth::id();
     $branchName = DB::connection('tenant')->table('branches')->where('id', $branchId)->value('name');
 
+    // ── Branch-level admin settings (set from the tenant admin side) ──
+    $branchSalesSettings = DB::connection('tenant')
+        ->table('branch_sales_settings')
+        ->where('branch_id', $branchId)
+        ->first();
+
+    $adminAutoUploadEnabled   = (bool) ($branchSalesSettings->auto_upload_cloud_sales ?? false);
+    $adminAutoUploadInterval  = $branchSalesSettings->auto_upload_cloud_sales_interval_minutes ?? null;
+    $adminAllowClearCloud     = (bool) ($branchSalesSettings->allow_to_clear_cloud_sales ?? false);
+    $adminAutoRefreshEnabled  = (bool) ($branchSalesSettings->auto_refresh_page ?? false);
+    $adminAutoRefreshInterval = $branchSalesSettings->auto_refresh_interval_minutes ?? 240;
+
     $makeTransSuffix = function (int $n = 6): string {
         $chars = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
         $rand  = '';
@@ -53,7 +65,7 @@
         ->where('branch', $branchId)
         ->where('date', $today)
         ->orderByDesc('id')
-        ->limit(20)
+        ->limit(30)
         ->get();
 
     $allIntervals = DB::connection('tenant')
@@ -411,6 +423,13 @@
 .mh-close-w { filter: brightness(0) invert(1); opacity: .8; }
 .mh-close-w:hover { opacity: 1; }
 
+/* ══ Silver modal header (touches the blue bar directly below, no gap) ══ */
+.mh-pos-silver {
+    background-color: silver;
+    padding: 10px 16px !important; border-bottom: none;
+}
+.mh-pos-title-silver { color: #333333; font-size: 15px; font-weight: 700; display: flex; align-items: center; gap: 6px; }
+
 .mh-white {
     background-color: #fff; padding: 10px 16px !important;
     border-bottom: 1px solid #e3e3e3;
@@ -492,6 +511,22 @@
 }
 #clearCloudDataBtn:hover { background: #fee2e2; }
 
+/* — Sales Data modal tabs (Cloud Data / Recently Sold) — */
+.sd-tabs { display: flex; background: silver; border-bottom: 1px solid #8a8a8a; }
+.sd-tab {
+    flex: 1 1 0; border: none; background: transparent; color: #595959; font-weight: 700;
+    font-size: 13px; padding: 10px 8px; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; gap: 6px; border-bottom: 3px solid transparent;
+}
+.sd-tab.active { color: #1e2a5e; border-bottom-color: #1e2a5e; }
+.sd-pane-subbar {
+    padding: 8px 12px; background: #f2f2f2; border-bottom: 1px solid #d9d9d9;
+    font-size: 12px; color: #595959; display: flex; align-items: center;
+    justify-content: space-between; gap: 10px; flex-wrap: wrap;
+}
+.sd-pane-subbar-note { font-size: 11px; color: #8a8a8a; font-style: italic; }
+#sdRecentListWrap { max-height: 60vh; overflow-x: auto; overflow-y: auto; }
+
 /* — Clear Cloud Data warning / captcha modal — */
 #clearCloudWarnModal .modal-body { text-align: center; padding: 24px 22px 8px; }
 #clearCloudWarnModal i.warn-icon { font-size: 56px; color: #dc2626; }
@@ -521,6 +556,109 @@
 .calc-zero { grid-column: span 2; }
 .calc-eq { background: linear-gradient(to bottom, #576CC0, #4B5EBD); color: #fff; border: 1px solid silver; }
 .calc-eq:hover { background: linear-gradient(to bottom, #4B5EBD, #3d4fa0); }
+
+/* ══ SETTINGS ══════════════════════════════════════════════════ */
+.pos-setting-row {
+    display: flex; align-items: center; justify-content: space-between; gap: 14px;
+    padding: 12px 0; border-bottom: 1px solid #eee;
+}
+.pos-setting-row:last-child { border-bottom: none; }
+.pos-setting-title { font-size: 13px; font-weight: 700; color: #1e293b; }
+.pos-setting-desc { font-size: 11.5px; color: #6c757d; margin-top: 3px; line-height: 1.4; }
+.pos-switch { position: relative; display: inline-block; width: 44px; height: 24px; flex: 0 0 auto; }
+.pos-switch input { opacity: 0; width: 0; height: 0; }
+.pos-switch-slider {
+    position: absolute; cursor: pointer; top: 0; left: 0; right: 0; bottom: 0;
+    background-color: #c7c7c7; transition: .2s; border-radius: 24px;
+}
+.pos-switch-slider:before {
+    position: absolute; content: ""; height: 18px; width: 18px; left: 3px; bottom: 3px;
+    background-color: #fff; transition: .2s; border-radius: 50%;
+}
+.pos-switch input:checked + .pos-switch-slider { background: linear-gradient(to right, #4B5EBD, #576CC0); }
+.pos-switch input:checked + .pos-switch-slider:before { transform: translateX(20px); }
+.pos-setting-row.pos-setting-disabled { opacity: .8; }
+.pos-switch-disabled { cursor: not-allowed; }
+.pos-switch-disabled .pos-switch-slider { cursor: not-allowed; }
+.pos-setting-admin-note {
+    display: inline-block; font-size: 10.5px; font-weight: 700; color: #92600a;
+    background: #fff7e0; border: 1px solid #f5dd9c; border-radius: 10px;
+    padding: 2px 8px; margin-top: 6px;
+}
+.pos-setting-admin-note-active {
+    display: inline-flex; align-items: center; gap: 4px; font-size: 10.5px; font-weight: 700; color: #14532d;
+    background: #e7f8ec; border: 1px solid #b7e4c7; border-radius: 10px;
+    padding: 2px 8px; margin-top: 6px;
+}
+.pos-autorefresh-countdown {
+    font-size: 12.5px; font-weight: 700; color: #344ba0; background: #eef0fb;
+    border: 1px solid #d7dbf5; border-radius: 6px; padding: 8px 10px; text-align: center;
+}
+
+/* ══ BYPASS POS ════════════════════════════════════════════════ */
+#bypass-pos-search-row { background: linear-gradient(to right, #4B5EBD, #576CC0); padding: 8px; }
+#bypass-pos-search-wrap { position: relative; }
+#bypass-pos-search-wrap i {
+    position: absolute; left: 10px; top: 50%; transform: translateY(-50%);
+    color: #595959; font-size: 16px; pointer-events: none;
+}
+#bypass-pos-search {
+    background-color: silver; text-transform: uppercase; font-weight: bold;
+    border: 1px solid rgba(255,255,255,.35); width: 100%; height: 36px;
+    border-radius: 4px; padding: 0 10px 0 32px; outline: none; color: #1a1a1a; box-sizing: border-box;
+}
+#bypass-pos-search::placeholder { color: #595959; font-weight: bold; text-transform: none; }
+#bypass-pos-search:focus { background-color: #d9d9d9; border-color: rgba(255,255,255,.65); outline: none; box-shadow: none; }
+#bypass-pos-product-display { max-height: 0; overflow: hidden; background: transparent; transition: max-height .1s; }
+#bypass-pos-product-display.has-results { max-height: 34vh; overflow-y: auto; }
+#bypass-pos-cart-bar {
+    background: linear-gradient(to right, #4B5EBD, #576CC0); padding: 6px 8px;
+    display: flex; align-items: center; justify-content: space-between;
+}
+#bypass-pos-cart-table-wrap { max-height: 24vh; overflow-y: auto; }
+#bypass-pos-cart-table { width: 100%; font-size: 11px; border-collapse: collapse; background-color: transparent; }
+#bypass-pos-cart-table.pos-cart-empty { border: none; }
+#bypass-pos-cart-table thead th {
+    color: #3d5c5c; border-bottom: 2px solid #a6a6a6; border-top: 1px solid #a6a6a6;
+    padding: 6px 4px; text-align: center; position: sticky; top: 0; background-color: silver; z-index: 2;
+}
+#bypass-pos-cart-table thead th:first-child { text-align: left; padding-left: 6px; }
+#bypass-pos-cart-table thead th.pcr-qty-col,
+#bypass-pos-cart-table tbody td.pcr-qty-col { min-width: 64px; }
+#bypass-pos-cart-table tbody td {
+    border-bottom: 1px solid #b3b3b3; padding: 6px 4px; text-align: center; color: black; background-color: silver;
+}
+#bypass-pos-cart-table tbody td:first-child { text-align: left; padding-left: 6px; }
+#bypass-pos-cart-empty-row td#bypass-pos-cart-empty {
+    text-align: center; color: #595959; font-size: 13px; background-color: silver; padding: 18px 8px; border-bottom: none;
+}
+#bypass-checkout-change-row {
+    background: #e6f5ea; border: 1px solid #a6a6a6; padding: 8px 12px;
+    display: none; justify-content: space-between; align-items: center;
+}
+#bypass-checkout-change-row.show { display: flex; }
+#bypass-checkout-change-row.negative { background: #fbe6e6; }
+#bypass-checkout-change-label { font-size: 12px; font-weight: 600; color: #065f46; }
+#bypass-checkout-change-row.negative #bypass-checkout-change-label { color: #7f1d1d; }
+#bypass-checkout-change-value { font-size: 16px; font-weight: 800; color: #16a34a; }
+#bypass-checkout-change-row.negative #bypass-checkout-change-value { color: #dc2626; }
+#bypassConfirmSaleBtn {
+    width: 100%; height: 44px; border: 2px solid #4B5EBD; border-radius: 6px;
+    background: linear-gradient(to right, #4B5EBD, #576CC0); color: #fff; font-size: 14px; font-weight: 700;
+    cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px;
+}
+#bypassConfirmSaleBtn:disabled { opacity: .5; cursor: not-allowed; }
+#bypassClearAllBtn {
+    border: 2px solid silver; background: transparent; color: silver; font-weight: bold;
+    height: 32px; padding: 0 12px; display: flex; align-items: center; gap: 6px;
+    font-size: 13px; cursor: pointer; border-radius: 3px;
+}
+#bypassClearAllBtn:hover:not(:disabled) { color: #fff; border-color: #fff; }
+#bypassClearAllBtn:disabled { opacity: .45; cursor: not-allowed; }
+.bypass-section-label {
+    font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+    color: #6c757d; margin: 12px 18px 8px;
+}
 
 /* — Scrollbars — */
 #pos-product-display::-webkit-scrollbar,
@@ -605,7 +743,8 @@ input[type=number] { -moz-appearance: textfield; }
     .pos-card-body { overflow: hidden; flex: 0 0 auto; }
 
     #posUploadBtn, #posIntervalBtn,
-    #posCalcBtn, #posRecentBtn, #posViewIntervalBtn { display: inline-flex !important; }
+    #posCalcBtn, #posViewIntervalBtn,
+    #posBypassBtn, #posSettingsBtn { display: inline-flex !important; }
     .pos-hdr-btn { width: 26px; height: 26px; font-size: 17px; }
 
     .prd-row { padding: 9px 8px; }
@@ -613,8 +752,7 @@ input[type=number] { -moz-appearance: textfield; }
     .prd-qty-input { height: 40px; }
 
     .modal-dialog { margin: 1.25rem auto !important; max-width: calc(100% - 24px) !important; }
-    .modal-content { border-radius: 10px !important; max-height: calc(100vh - 2.5rem); overflow-y: auto; }
-    .modal-body { max-height: 70vh; overflow-y: auto; }
+    .modal-content { border-radius: 10px !important; }
 
     #pos-cart-table { font-size: 10px; }
     /* FIX 3 (mobile): no max-width override here anymore — name keeps using
@@ -662,17 +800,27 @@ input[type=number] { -moz-appearance: textfield; }
 
     {{-- ── Header ─────────────────────────────────────────────────────── --}}
     <div class="pos-card-header">
-        <button type="button" id="posDateBtn" title="Refresh page"
-                onclick="window.location.href='{{ url()->current() }}'">
-            <i class="ri-calendar-line"></i> {{ $displayDate }}
+        <div class="d-flex align-items-center" style="gap:0;">
+            <button type="button" class="pos-hdr-btn" id="posSettingsBtn" title="Settings">
+                
+            <i class="ri-settings-3-line"></i>
+        
         </button>
+           
+           
+           
+            <button type="button" id="posDateBtn" title="Refresh page"
+                    onclick="window.location.href='{{ url()->current() }}'">
+                {{ $displayDate }}
+            </button>
+        </div>
         <div class="d-flex align-items-center" style="gap:2px;">
-            <button type="button" class="pos-hdr-btn" id="posUploadBtn" title="Pending sales — view &amp; upload">
+            <button type="button" class="pos-hdr-btn" id="posUploadBtn" title="Sales data — cloud &amp; recent items">
                 <i class="ri-cloud-line"></i>
                 <span class="pos-badge" id="posPendingBadge"></span>
             </button>
             <button type="button" class="pos-hdr-btn" id="posCalcBtn"         title="Calculator"><i class="ri-calculator-line"></i></button>
-            <button type="button" class="pos-hdr-btn" id="posRecentBtn"       title="Recently sold items"><i class="ri-list-check"></i></button>
+            <button type="button" class="pos-hdr-btn" id="posBypassBtn"       title="Serve another customer (Bypass POS)"><i class="ri-user-add-line"></i></button>
             <button type="button" class="pos-hdr-btn" id="posViewIntervalBtn" title="View interval sales"><i class="ri-eye-line"></i></button>
             <button type="button" class="pos-hdr-btn" id="posIntervalBtn"     title="Add interval sales"><i class="ri-add-circle-line"></i></button>
         </div>
@@ -774,7 +922,6 @@ input[type=number] { -moz-appearance: textfield; }
                     <label>Amount Tendered (MWK)</label>
                     <input type="number" class="checkout-amount-input" id="amountPaidInput"
                            placeholder="Amount tendered" min="0" oninput="calcChange()">
-                    <div class="checkout-amount-hint">Leave blank to charge the exact total.</div>
                 </div>
                 <div id="checkout-change-row">
                     <span id="checkout-change-label">Change</span>
@@ -790,50 +937,104 @@ input[type=number] { -moz-appearance: textfield; }
     </div>
 </div>
 
-{{-- ══ PENDING / UPLOAD MODAL ═════════════════════════════════════════════ --}}
+{{-- ══ SALES DATA MODAL — Cloud Data + Recently Sold (tabbed) ═════════════ --}}
 <div class="modal fade" id="pendingModal" tabindex="-1">
-    <div class="modal-dialog">
+    <div class="modal-dialog modal-lg">
         <div class="modal-content" style="border:1px solid #a6a6a6;">
             <div class="modal-header mh-pos">
-                <h5 class="modal-title mh-pos-title">
-                    <i class="ri-archive-line"></i> Pending Sales
-                    <span style="font-size:12px;font-weight:400;opacity:.75;">— MWK <span id="pendingTotalLabel">0</span></span>
-                </h5>
+                <h5 class="modal-title mh-pos-title"><i class="ri-cloud-line"></i> Sales Data</h5>
                 <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body" style="padding:0;">
-                <div id="pendingListWrap">
-                    <table class="table table-sm mb-0" id="pendingTable">
-                        <thead>
-                            <tr>
-                                <th>Trans ID</th>
-                                <th>Product</th>
-                                <th class="text-center">Unit</th>
-                                <th class="text-center">Price</th>
-                                <th class="text-center">Time</th>
-                            </tr>
-                        </thead>
-                        <tbody id="pendingTbody">
-                            <tr>
-                                <td colspan="5" style="text-align:center;color:#595959;padding:30px;font-size:13px;">
-                                    No pending sales.
-                                </td>
-                            </tr>
-                        </tbody>
-                    </table>
-                </div>
+            <div class="sd-tabs">
+                <button type="button" class="sd-tab active" id="sdCloudTabBtn" onclick="switchSalesDataTab('cloud')">
+                    <i class="ri-archive-line"></i> Cloud Data
+                </button>
+                <button type="button" class="sd-tab" id="sdRecentTabBtn" onclick="switchSalesDataTab('recent')">
+                    <i class="ri-list-check"></i> Recently Sold
+                </button>
             </div>
-            <div class="modal-footer">
+            <div class="modal-body" style="padding:0;">
+
+                {{-- Cloud Data pane --}}
+                <div id="sdCloudPane">
+                    <div class="sd-pane-subbar">
+                        <span>Total: MWK <b id="pendingTotalLabel">0</b></span>
+                    </div>
+                    <div id="pendingListWrap">
+                        <table class="table table-sm mb-0" id="pendingTable">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Unit</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-center">Price</th>
+                                    <th>Trans ID</th>
+                                    <th class="text-center">Time</th>
+                                </tr>
+                            </thead>
+                            <tbody id="pendingTbody">
+                                <tr>
+                                    <td colspan="6" style="text-align:center;color:#595959;padding:30px;font-size:13px;">
+                                        No pending sales.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Recently Sold pane --}}
+                <div id="sdRecentPane" style="display:none;">
+                    <div class="sd-pane-subbar">
+                        <span>Last synced: <b id="sdLastSyncLabel">—</b></span>
+                        <span class="sd-pane-subbar-note">Showing the last 30 items sold today</span>
+                    </div>
+                    <div id="sdRecentListWrap">
+                        <table class="table table-sm mb-0" style="font-size:12px;min-width:500px;">
+                            <thead style="position:sticky;top:0;background:silver;">
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Unit</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-center">Price</th>
+                                    <th class="text-center">Total</th>
+                                    <th class="text-center">Payment</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                @forelse($recentSales as $rs)
+                                <tr>
+                                    <td>{{ $rs->product }}</td>
+                                    <td class="text-center">{{ $rs->unit }}</td>
+                                    <td class="text-center">{{ number_format($rs->quantity, 2) }}</td>
+                                    <td class="text-center">{{ number_format($rs->price, 0) }}</td>
+                                    <td class="text-center">{{ number_format($rs->quantity * $rs->price, 0) }}</td>
+                                    <td class="text-center">{{ $rs->payment_method ?? 'cash' }}</td>
+                                </tr>
+                                @empty
+                                <tr><td colspan="6" class="text-center py-4 text-muted">No sales recorded yet today.</td></tr>
+                                @endforelse
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div>
+            <div class="modal-footer" id="sdCloudFooter">
+                {{-- Shown only when the branch admin has enabled clearing of cloud data. --}}
+                @if($adminAllowClearCloud)
                 <button class="btn btn-outline-secondary btn-sm" id="clearCloudDataBtn" onclick="openClearCloudWarning()">
                     <i class="ri-delete-bin-line"></i> Clear Cloud Data
                 </button>
-                <button class="btn btn-primary btn-sm" onclick="posUpload()" id="pendingUploadBtn">
+                @endif
+                <button class="btn btn-primary btn-sm" onclick="posUpload()" id="pendingUploadBtn" style="margin-left:auto;">
                     <i class="ri-cloud-line me-1"></i> Upload All
                 </button>
             </div>
         </div>
     </div>
 </div>
+
 
 {{-- ══ CLEAR CLOUD DATA — SERIOUS WARNING + MATH CAPTCHA MODAL ═══════════ --}}
 <div class="modal fade" id="clearCloudWarnModal" data-bs-backdrop="static" tabindex="-1">
@@ -994,7 +1195,7 @@ input[type=number] { -moz-appearance: textfield; }
             </div>
             <div class="modal-body" style="padding:16px 18px;">
                 <div id="iv-intervals-pane">
-                    <div style="max-height:42vh;overflow-y:auto;">
+                    <div>
                         <table class="table table-sm mb-0" style="font-size:13px;" id="ivIntervalTable">
                             <thead style="position:sticky;top:0;background:#fff;">
                                 <tr>
@@ -1050,48 +1251,6 @@ input[type=number] { -moz-appearance: textfield; }
     </div>
 </div>
 
-{{-- ══ RECENTLY SOLD MODAL ═══════════════════════════════════════════════ --}}
-<div class="modal fade" id="recentModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content" style="border:1px solid #a6a6a6;">
-            <div class="modal-header mh-pos">
-                <h5 class="modal-title mh-pos-title"><i class="ri-list-check"></i> Recently Sold Items — {{ $displayDate }}</h5>
-                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body p-0">
-                <div style="max-height:60vh;overflow:auto;">
-                    <table class="table table-sm mb-0" style="font-size:12px;min-width:500px;">
-                        <thead style="position:sticky;top:0;background:silver;">
-                            <tr>
-                                <th>Product</th>
-                                <th class="text-center">Unit</th>
-                                <th class="text-center">Price</th>
-                                <th class="text-center">Qty</th>
-                                <th class="text-center">Total</th>
-                                <th class="text-center">Payment</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            @forelse($recentSales as $rs)
-                            <tr>
-                                <td>{{ $rs->product }}</td>
-                                <td class="text-center">{{ $rs->unit }}</td>
-                                <td class="text-center">{{ number_format($rs->price, 0) }}</td>
-                                <td class="text-center">{{ number_format($rs->quantity, 2) }}</td>
-                                <td class="text-center">{{ number_format($rs->quantity * $rs->price, 0) }}</td>
-                                <td class="text-center">{{ $rs->payment_method ?? 'cash' }}</td>
-                            </tr>
-                            @empty
-                            <tr><td colspan="6" class="text-center py-4 text-muted">No sales recorded yet today.</td></tr>
-                            @endforelse
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
-    </div>
-</div>
-
 {{-- ══ CALCULATOR MODAL ══════════════════════════════════════════════════ --}}
 <div class="modal fade" id="calculatorModal" tabindex="-1">
     <div class="modal-dialog" style="max-width:360px;">
@@ -1131,6 +1290,181 @@ input[type=number] { -moz-appearance: textfield; }
     </div>
 </div>
 
+{{-- ══ SETTINGS MODAL ════════════════════════════════════════════════════ --}}
+<div class="modal fade" id="settingsModal" tabindex="-1">
+    <div class="modal-dialog" style="max-width:380px;">
+        <div class="modal-content" style="border:1px solid #a6a6a6;">
+            <div class="modal-header mh-pos">
+                <h5 class="modal-title mh-pos-title"><i class="ri-settings-3-line"></i> POS Settings</h5>
+                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:6px 20px 18px;">
+                <div class="pos-setting-row">
+                    <div class="pos-setting-text">
+                        <div class="pos-setting-title">Auto-hide search results</div>
+                        <div class="pos-setting-desc">
+                            When you tap a product or enter a quantity, automatically hide the
+                            search results list so you can search for the next item.
+                        </div>
+                    </div>
+                    <label class="pos-switch">
+                        <input type="checkbox" id="settingAutoHideSearch" onchange="onToggleAutoHideSearch(this.checked)">
+                        <span class="pos-switch-slider"></span>
+                    </label>
+                </div>
+
+                <div class="pos-setting-row @if(!$adminAutoUploadEnabled) pos-setting-disabled @endif">
+                    <div class="pos-setting-text">
+                        <div class="pos-setting-title">Auto Upload Cloud Sales</div>
+                        <div class="pos-setting-desc">
+                            Automatically upload pending cloud sales in the background as they come in.
+                        </div>
+                        @if($adminAutoUploadEnabled)
+                            <div class="pos-setting-admin-note-active">
+                                <i class="ri-checkbox-circle-fill"></i>
+                                Enabled by admin — uploads every {{ $adminAutoUploadInterval ?? '—' }} minute(s).
+                            </div>
+                        @else
+                            <div class="pos-setting-admin-note">Not enabled — can be set by admin.</div>
+                        @endif
+                    </div>
+                    <label class="pos-switch pos-switch-disabled">
+                        <input type="checkbox" disabled {{ $adminAutoUploadEnabled ? 'checked' : '' }}>
+                        <span class="pos-switch-slider"></span>
+                    </label>
+                </div>
+
+                <div class="pos-setting-row @if(!$adminAllowClearCloud) pos-setting-disabled @endif">
+                    <div class="pos-setting-text">
+                        <div class="pos-setting-title">Clear Cloud Data</div>
+                        <div class="pos-setting-desc">
+                            Allow clearing pending (not yet uploaded) cloud sales from this device.
+                        </div>
+                        @if($adminAllowClearCloud)
+                            <div class="pos-setting-admin-note-active">
+                                <i class="ri-checkbox-circle-fill"></i>
+                                Enabled by admin — the "Clear Cloud Data" button is available in Sales Data.
+                            </div>
+                        @else
+                            <div class="pos-setting-admin-note">Not enabled — can be set by admin.</div>
+                        @endif
+                    </div>
+                    <label class="pos-switch pos-switch-disabled">
+                        <input type="checkbox" disabled {{ $adminAllowClearCloud ? 'checked' : '' }}>
+                        <span class="pos-switch-slider"></span>
+                    </label>
+                </div>
+
+                <div class="pos-setting-row" style="flex-direction:column;align-items:stretch;gap:8px;">
+                    <div class="pos-setting-text">
+                        <div class="pos-setting-title">Auto-Refresh</div>
+                        @if($adminAutoRefreshEnabled)
+                            <div class="pos-setting-desc">
+                                The system automatically refreshes this page every {{ $adminAutoRefreshInterval }} minute(s), once the
+                                cart is empty, to keep things running smoothly.
+                            </div>
+                            <div class="pos-setting-admin-note-active">
+                                <i class="ri-checkbox-circle-fill"></i>
+                                Set by admin — every {{ $adminAutoRefreshInterval }} minute(s).
+                            </div>
+                        @else
+                            <div class="pos-setting-desc">
+                                Auto-refresh is currently disabled by admin.
+                            </div>
+                            <div class="pos-setting-admin-note">Not enabled — can be set by admin.</div>
+                        @endif
+                    </div>
+                    @if($adminAutoRefreshEnabled)
+                    <div class="pos-autorefresh-countdown">
+                        Page will refresh in <span id="autoRefreshCountdown">--:--:--</span>
+                    </div>
+                    @endif
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+{{-- ══ BYPASS POS MODAL ══════════════════════════════════════════════════
+     Lets a cashier serve a second customer without disturbing the main
+     cart. Its own search/cart/checkout, but confirmed sales are pushed
+     into the SAME cloudData/POS_CLOUD_KEY as the main cart, so pending
+     uploads are unified regardless of which cart recorded the sale. ═══ --}}
+<div class="modal fade" id="bypassPosModal" data-bs-backdrop="static" tabindex="-1">
+    <div class="modal-dialog modal-lg" style="max-width:640px;">
+        <div class="modal-content" style="border:1px solid #a6a6a6;">
+            <div class="modal-header mh-pos-silver">
+                <h5 class="modal-title mh-pos-title-silver"><i class="ri-user-add-line"></i> Bypass POS — Serve Another Customer</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:0;">
+                <div id="bypass-pos-search-row">
+                    <div id="bypass-pos-search-wrap">
+                        <i class="ri-smartphone-line"></i>
+                        <input type="text" id="bypass-pos-search"
+                               placeholder="Search product name or code"
+                               autocomplete="off"
+                               onclick="clearBypassSearch()">
+                    </div>
+                </div>
+                <div id="bypass-pos-product-display"></div>
+
+                <div id="bypass-pos-cart-bar">
+                    <button type="button" id="bypassClearAllBtn" onclick="bypassClearCart()" disabled>
+                        <i class="ri-delete-bin-line"></i> Clear All
+                    </button>
+                    <div class="pos-cart-label">
+                        <i class="ri-receipt-line cart-icon"></i>
+                        <span class="cart-pipe">|</span>
+                        <span class="cart-currency">MWK</span>
+                        <span id="bypassCartTotalPill">0.00</span>
+                    </div>
+                </div>
+                <div id="bypass-pos-cart-table-wrap">
+                    <table id="bypass-pos-cart-table" class="pos-cart-empty">
+                        <thead>
+                            <tr>
+                                <th>Item</th><th>Unit</th><th>Price</th><th class="pcr-qty-col">Qty</th><th>Total</th><th>Del</th>
+                            </tr>
+                        </thead>
+                        <tbody id="bypass-pos-cart-tbody">
+                            <tr id="bypass-pos-cart-empty-row">
+                                <td colspan="6" id="bypass-pos-cart-empty">No items in cart</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="bypass-section-label">Payment Method</div>
+                <div class="pm-grid" id="bypassPmGrid" style="margin:0 18px 12px;">
+                    @foreach($paymentMethods as $pm)
+                    <div class="pm-card {{ $loop->first ? 'active' : '' }}"
+                         data-pm="{{ $pm['id'] }}"
+                         onclick="bypassSelectPaymentMethod('{{ $pm['id'] }}', this)">
+                        <i class="{{ $pm['icon'] }}"></i>
+                        <span class="pm-label">{{ $pm['label'] }}</span>
+                    </div>
+                    @endforeach
+                </div>
+                <div class="checkout-amount-wrap" id="bypassAmountPaidWrap" style="margin:0 18px 8px;">
+                    <label>Amount Tendered (MWK)</label>
+                    <input type="number" class="checkout-amount-input" id="bypassAmountPaidInput"
+                           placeholder="Amount tendered" min="0" oninput="bypassCalcChange()">
+                </div>
+                <div id="bypass-checkout-change-row" style="margin:0 18px 14px;">
+                    <span id="bypass-checkout-change-label">Change</span>
+                    <span id="bypass-checkout-change-value">MWK 0</span>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:10px 18px 14px;">
+                <button type="button" id="bypassConfirmSaleBtn" onclick="bypassConfirmSale()" disabled>
+                    <i class="ri-check-double-line"></i> Record Sale
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
 @endsection
 
 @section('scripts')
@@ -1142,10 +1476,20 @@ input[type=number] { -moz-appearance: textfield; }
 ══════════════════════════════════════════════════════════════ */
 const _BRANCH = document.getElementById('posBranchId').value;
 const _DATE   = document.getElementById('posDate').value;
+const PAGE_LOADED_AT = new Date();
 
 const POS_CART_KEY   = 'npos_cart_b'   + _BRANCH + '_v2';
 const POS_CLOUD_KEY  = 'npos_cloud_b'  + _BRANCH + '_v2';
 const POS_FAILED_KEY = 'npos_failed_b' + _BRANCH + '_d' + _DATE.replace(/-/g,'') + '_v2';
+const POS_SETTINGS_KEY     = 'npos_settings_v1';
+const POS_BYPASS_CART_KEY  = 'npos_bypass_cart_b' + _BRANCH + '_v1';
+
+/* ── Admin-controlled settings (from branch_sales_settings) ── */
+const ADMIN_AUTO_UPLOAD_ENABLED       = @json($adminAutoUploadEnabled);
+const ADMIN_AUTO_UPLOAD_INTERVAL_MIN  = {{ (int) ($adminAutoUploadInterval ?? 0) }};
+const ADMIN_ALLOW_CLEAR_CLOUD         = @json($adminAllowClearCloud);
+const ADMIN_AUTO_REFRESH_ENABLED      = @json($adminAutoRefreshEnabled);
+const ADMIN_AUTO_REFRESH_INTERVAL_MIN = {{ (int) $adminAutoRefreshInterval }};
 
 /* ══════════════════════════════════════════════════════════════
    SINGLE-TAB LOCK
@@ -1329,6 +1673,35 @@ function scheduleAutoRefresh() {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   AUTO-UPLOAD CLOUD SALES — admin-controlled. Runs in the background
+   at the configured interval: shows the pending-sales modal first so
+   the cashier can see what's about to go up, waits 20s, then uploads
+   and closes the modal once done.
+══════════════════════════════════════════════════════════════ */
+const AUTO_UPLOAD_MODAL_DELAY_MS = 20000;
+
+function scheduleAutoCloudUpload() {
+    if (!ADMIN_AUTO_UPLOAD_ENABLED || !ADMIN_AUTO_UPLOAD_INTERVAL_MIN) return;
+    setInterval(() => {
+        if (!cloudData.length) return;
+        // Don't interrupt the cashier if some other modal is already open
+        // (mid-sale, bypass POS, settings, etc.) — try again next cycle.
+        if (document.querySelector('.modal.show')) return;
+
+        switchSalesDataTab('cloud');
+        renderPendingModal();
+        updateLastSyncLabel();
+        $('#pendingModal').modal('show');
+
+        setTimeout(() => {
+            posUpload(true).finally(() => {
+                $('#pendingModal').modal('hide');
+            });
+        }, AUTO_UPLOAD_MODAL_DELAY_MS);
+    }, ADMIN_AUTO_UPLOAD_INTERVAL_MIN * 60 * 1000);
+}
+
+/* ══════════════════════════════════════════════════════════════
    DESKTOP HEIGHT — fill remaining viewport below the card's top.
 ══════════════════════════════════════════════════════════════ */
 function setPosCardHeight() {
@@ -1365,6 +1738,58 @@ let cart      = [];
 let cloudData = [];
 let allProducts = [];
 let activePaymentMethod = 'cash';
+
+let bypassCart = [];
+let bypassActivePaymentMethod = 'cash';
+let bypassTransId = '';
+
+let posSettings = { autoHideSearchOnAdd: true };
+
+/* ══════════════════════════════════════════════════════════════
+   AUTO-REFRESH — driven by the branch admin setting. Only ever
+   fires once both carts (main + bypass) are empty, so no
+   in-progress sale is ever lost. The settings modal shows a live
+   countdown when enabled.
+══════════════════════════════════════════════════════════════ */
+const AUTO_REFRESH_INTERVAL_MS = ADMIN_AUTO_REFRESH_ENABLED
+    ? ADMIN_AUTO_REFRESH_INTERVAL_MIN * 60 * 1000
+    : null;
+const AUTO_REFRESH_AT = AUTO_REFRESH_INTERVAL_MS
+    ? (PAGE_LOADED_AT.getTime() + AUTO_REFRESH_INTERVAL_MS)
+    : null;
+
+function formatCountdown(ms) {
+    if (ms <= 0) return '00:00:00';
+    const totalSeconds = Math.floor(ms / 1000);
+    const hh = String(Math.floor(totalSeconds / 3600)).padStart(2, '0');
+    const mm = String(Math.floor((totalSeconds % 3600) / 60)).padStart(2, '0');
+    const ss = String(totalSeconds % 60).padStart(2, '0');
+    return `${hh}:${mm}:${ss}`;
+}
+
+function tickAutoRefresh() {
+    const label = document.getElementById('autoRefreshCountdown');
+    if (!AUTO_REFRESH_AT) return; // admin has auto-refresh disabled
+
+    const remaining  = AUTO_REFRESH_AT - Date.now();
+    const cartsEmpty = !cart.length && !bypassCart.length;
+
+    if (label) {
+        if (remaining > 0) {
+            label.textContent = formatCountdown(remaining);
+        } else {
+            label.textContent = cartsEmpty ? 'Refreshing…' : 'Waiting for cart to be empty…';
+        }
+    }
+
+    if (remaining <= 0 && cartsEmpty) {
+        window.location.reload();
+    }
+}
+if (AUTO_REFRESH_AT) {
+    setInterval(tickAutoRefresh, 1000);
+    tickAutoRefresh();
+}
 
 let currentIvId    = null;
 let currentIvSlot  = null;
@@ -1433,6 +1858,37 @@ function clearSearch() {
     if (leftCol) leftCol.classList.remove('has-products');
     s.focus();
 }
+/* Called after a product is added to the MAIN cart. Whether the search
+   results actually get hidden depends on the user's "Auto-hide search
+   results" setting — either way the search box is refocused so the
+   next item can be typed straight away. */
+function afterAddToCart() {
+    if (posSettings.autoHideSearchOnAdd) {
+        clearSearch();
+    } else {
+        document.getElementById('pos-search').focus();
+    }
+}
+function clearBypassSearch() {
+    const s = document.getElementById('bypass-pos-search');
+    if (s && s.value) {
+        s.value = '';
+        const display = document.getElementById('bypass-pos-product-display');
+        display.innerHTML = '';
+        display.classList.remove('has-results');
+    }
+}
+/* Same idea as afterAddToCart() but for the Bypass POS cart. */
+function bypassAfterAddToCart() {
+    if (posSettings.autoHideSearchOnAdd) {
+        const s = document.getElementById('bypass-pos-search');
+        s.value = '';
+        const display = document.getElementById('bypass-pos-product-display');
+        display.innerHTML = '';
+        display.classList.remove('has-results');
+    }
+    document.getElementById('bypass-pos-search').focus();
+}
 
 /* ══════════════════════════════════════════════════════════════
    CSV EXPORT
@@ -1482,6 +1938,23 @@ function loadCart() {
     }
     if (!Array.isArray(cart)) cart = [];
 }
+function saveBypassCart() {
+    try {
+        localStorage.setItem(POS_BYPASS_CART_KEY, JSON.stringify({ date: _DATE, items: bypassCart }));
+    }
+    catch(e) { console.error('saveBypassCart failed', e); }
+}
+function loadBypassCart() {
+    let raw = null;
+    try { raw = JSON.parse(localStorage.getItem(POS_BYPASS_CART_KEY) || 'null'); }
+    catch(e) { raw = null; }
+    if (raw && Array.isArray(raw.items) && raw.date === _DATE) {
+        bypassCart = raw.items;
+    } else {
+        bypassCart = [];
+        if (raw) { try { localStorage.removeItem(POS_BYPASS_CART_KEY); } catch(e) {} }
+    }
+}
 function saveCloud() {
     try { localStorage.setItem(POS_CLOUD_KEY, JSON.stringify(cloudData)); }
     catch(e) { console.error('saveCloud failed', e); }
@@ -1504,11 +1977,29 @@ function appendToFailedLog(row, reason) {
         localStorage.setItem(POS_FAILED_KEY, JSON.stringify(existing));
     } catch(e) { console.error('appendToFailedLog', e); }
 }
+function loadSettings() {
+    try {
+        const raw = JSON.parse(localStorage.getItem(POS_SETTINGS_KEY) || 'null');
+        if (raw && typeof raw === 'object') posSettings = Object.assign({}, posSettings, raw);
+    } catch(e) { /* keep defaults */ }
+}
+function saveSettings() {
+    try { localStorage.setItem(POS_SETTINGS_KEY, JSON.stringify(posSettings)); }
+    catch(e) { console.error('saveSettings failed', e); }
+}
+function onToggleAutoHideSearch(checked) {
+    posSettings.autoHideSearchOnAdd = !!checked;
+    saveSettings();
+    toastr.info(checked
+        ? 'Search results will hide automatically after adding a product.'
+        : 'Search results will stay open after adding a product.');
+}
 
 /* ══════════════════════════════════════════════════════════════
    CLEAR CLOUD DATA
 ══════════════════════════════════════════════════════════════ */
 function openClearCloudWarning() {
+    if (!ADMIN_ALLOW_CLEAR_CLOUD) { toastr.warning('Clearing cloud data is not enabled for this branch.'); return; }
     if (!cloudData.length) { toastr.info('There is no pending data to clear.'); return; }
     ccwGenerateCaptcha();
     document.getElementById('ccwCaptchaInput').value = '';
@@ -1558,6 +2049,7 @@ function initPosApp() {
     _posAppInitialised = true;
 
     initPosCardHeightWatcher();
+    loadSettings();
 
     try {
         allProducts = JSON.parse(document.getElementById('pos-products-json').textContent || '[]');
@@ -1566,39 +2058,8 @@ function initPosApp() {
     const display = document.getElementById('pos-product-display');
     const leftCol = document.getElementById('pos-left-col');
 
-    function filterProducts(q) {
-        q = q.toLowerCase();
-        return allProducts.filter(p =>
-            (p.name||'').toLowerCase().includes(q) ||
-            (p.code||'').toLowerCase().includes(q)
-        );
-    }
-
     function renderRows(products) {
-        if (!products.length) {
-            display.innerHTML = '<div style="padding:10px 12px 6px;color:#595959;font-size:12px;text-align:center;">No products matched.</div>';
-            display.classList.add('has-results');
-            leftCol.classList.add('has-products');
-            return;
-        }
-        let html = '';
-        products.forEach(p => {
-            const oos = p.stock <= 0;
-            html += `
-            <div class="prd-row${oos?' prd-oos':''}" data-id="${p.id}">
-                <a href="#" class="prd-link" onclick="event.preventDefault();${oos?'':'prdRowClick('+p.id+')'}">
-                    <span class="prd-name">${escHtml(p.name)}</span>
-                    <span class="prd-code">${p.code?'(<span class="val">'+escHtml(p.code)+'</span>)':''}</span>
-                    <span class="prd-meta">${fmtNum(p.price)}/${escHtml(p.unit)}</span>
-                    <span class="prd-stock-tag">[<span class="val">${oos?'0':fmtQty(p.stock)}</span>]</span>
-                </a>
-                <input type="number" class="prd-qty-input" id="qinput_${p.id}"
-                       min="0" max="${p.stock}" step="0.01" autocomplete="off"
-                       ${oos?'disabled':''}
-                       onchange="prdQtyChange(${p.id})">
-            </div>`;
-        });
-        display.innerHTML = html;
+        display.innerHTML = buildProductRowsHtml(products, 'main');
         display.classList.add('has-results');
         leftCol.classList.add('has-products');
     }
@@ -1612,7 +2073,19 @@ function initPosApp() {
     $('#pos-search').on('keyup', function () {
         const q = $(this).val().trim();
         if (q.length < 2) { clearProductDisplay(); return; }
-        renderRows(filterProducts(q));
+        renderRows(filterProductList(q));
+    });
+
+    const bypassDisplay = document.getElementById('bypass-pos-product-display');
+    $('#bypass-pos-search').on('keyup', function () {
+        const q = $(this).val().trim();
+        if (q.length < 2) {
+            bypassDisplay.innerHTML = '';
+            bypassDisplay.classList.remove('has-results');
+            return;
+        }
+        bypassDisplay.innerHTML = buildProductRowsHtml(filterProductList(q), 'bypass');
+        bypassDisplay.classList.add('has-results');
     });
 
     loadCart(); loadCloud(); renderCart(); updatePendingBadge();
@@ -1628,13 +2101,14 @@ function initPosApp() {
     });
 
     document.getElementById('posUploadBtn').addEventListener('click', function(e) {
-        e.preventDefault(); renderPendingModal(); $('#pendingModal').modal('show');
+        e.preventDefault();
+        switchSalesDataTab('cloud');
+        renderPendingModal();
+        updateLastSyncLabel();
+        $('#pendingModal').modal('show');
     });
     document.getElementById('posCalcBtn').addEventListener('click', function(e) {
         e.preventDefault(); calcExpr=''; calcRender(); $('#calculatorModal').modal('show');
-    });
-    document.getElementById('posRecentBtn').addEventListener('click', function(e) {
-        e.preventDefault(); $('#recentModal').modal('show');
     });
     document.getElementById('posViewIntervalBtn').addEventListener('click', function(e) {
         e.preventDefault(); resetIntervalView(); $('#viewIntervalModal').modal('show');
@@ -1643,8 +2117,18 @@ function initPosApp() {
         e.preventDefault(); $('#intervalModal').modal('show');
         setTimeout(() => { const i=document.getElementById('intervalSalesInput'); if(i) i.focus(); }, 400);
     });
+    document.getElementById('posSettingsBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        document.getElementById('settingAutoHideSearch').checked = !!posSettings.autoHideSearchOnAdd;
+        $('#settingsModal').modal('show');
+    });
+    document.getElementById('posBypassBtn').addEventListener('click', function(e) {
+        e.preventDefault();
+        openBypassPos();
+    });
 
     scheduleAutoRefresh();
+    scheduleAutoCloudUpload();
 }
 
 /* Entry point: tab lock → app init */
@@ -1658,14 +2142,146 @@ $(document).ready(async function () {
 ══════════════════════════════════════════════════════════════ */
 function findProduct(id) { return allProducts.find(p => p.id === id); }
 
+/* Smart/token search — same behaviour as DataTables' default "smart"
+   filtering: the query is split on whitespace and EVERY token must be
+   found somewhere in the searchable text (name + code), not necessarily
+   adjacent or in order. This is what lets "para 500" match a product
+   named "Paracetamol Tabs 500mg". */
+function tokenizeQuery(q) {
+    return (q || '').toLowerCase().split(/\s+/).filter(Boolean);
+}
+
+// Fuzzy subsequence match: true if every character of `needle` appears
+// in `haystack`, in order, but not necessarily next to each other.
+// e.g. "pra" matches "paracetamol" (p...r...a...) even though "pra"
+// isn't a literal substring of it.
+function isSubsequence(needle, haystack) {
+    var hi = 0;
+    for (var i = 0; i < haystack.length && hi < needle.length; i++) {
+        if (haystack[i] === needle[hi]) hi++;
+    }
+    return hi === needle.length;
+}
+
+// Does this token match the product's searchable text? Checked in order:
+// (1) literal substring within a single word — fast, covers most typing,
+//     e.g. "500" in "500mg" or "ceta" in "paracetamol";
+// (2) fuzzy subsequence within a single word — for partial/skipped-letter
+//     typing, e.g. "pra" in "paracetamol";
+// (3) fuzzy subsequence across the whole run-together text — for queries
+//     typed with no space, e.g. "para500" spanning "paracetamol" and
+//     "500mg" as separate words.
+function tokenMatchesWords(token, words, joined) {
+    return words.some(function (w) {
+        return w.indexOf(token) !== -1 || isSubsequence(token, w);
+    }) || isSubsequence(token, joined);
+}
+
+// Ranks how good a match is so the closest matches float to the top.
+// Higher = better. Per token, the best word-level match wins:
+// exact word > word starts with token > literal substring > fuzzy subsequence.
+// Then a bonus is added if the whole typed query lines up with the product
+// name itself (so "lofnac 100" ranks "Lofnac 100mg" above "Lofnac Plus 100mg"),
+// and a tiny penalty for longer names breaks remaining ties toward the more
+// specific/shorter match.
+function tokenScore(token, words, joined) {
+    var best = 0;
+    for (var i = 0; i < words.length; i++) {
+        var w = words[i];
+        if (w === token)             { if (100 > best) best = 100; continue; }
+        if (w.indexOf(token) === 0)  { if (80  > best) best = 80;  continue; }
+        if (w.indexOf(token) !== -1) { if (50  > best) best = 50;  continue; }
+        if (isSubsequence(token, w)) { if (20  > best) best = 20;  continue; }
+    }
+    if (best === 0 && isSubsequence(token, joined)) best = 5;
+    return best;
+}
+
+function scoreProduct(tokens, name, code) {
+    const nameLower = (name || '').toLowerCase();
+    const words = (nameLower + ' ' + (code || '').toLowerCase()).split(/\s+/).filter(Boolean);
+    const joined = words.join('');
+    let score = 0;
+    for (let i = 0; i < tokens.length; i++) score += tokenScore(tokens[i], words, joined);
+
+    const queryJoined = tokens.join(' ');
+    if (nameLower === queryJoined) score += 1000;
+    else if (nameLower.indexOf(queryJoined) === 0) score += 400;
+    else if (nameLower.indexOf(queryJoined) !== -1) score += 150;
+
+    score -= nameLower.length * 0.01;
+    return score;
+}
+
+function filterProductList(q) {
+    const tokens = tokenizeQuery(q);
+    if (!tokens.length) return [];
+    return allProducts
+        .filter(p => {
+            const words = ((p.name||'') + ' ' + (p.code||'')).toLowerCase().split(/\s+/).filter(Boolean);
+            const joined = words.join('');
+            return tokens.every(t => tokenMatchesWords(t, words, joined));
+        })
+        .map(p => ({ p, s: scoreProduct(tokens, p.name, p.code) }))
+        .sort((a, b) => b.s - a.s)
+        .map(x => x.p);
+}
+
+/* How much of a product is actually available for a given cart, once
+   quantities already reserved in the OTHER cart (main vs bypass) are
+   accounted for — stops the same last unit being sold twice at once. */
+function qtyInCart(list, id) {
+    const item = list.find(c => c.id === id);
+    return item ? item.qty : 0;
+}
+function availableStock(id, forCart) {
+    const p = findProduct(id);
+    if (!p) return 0;
+    let reserved = 0;
+    if (forCart !== 'main')   reserved += qtyInCart(cart, id);
+    if (forCart !== 'bypass') reserved += qtyInCart(bypassCart, id);
+    return Math.max(0, p.stock - reserved);
+}
+
+/* Shared row-builder for the product search results — used by both the
+   main POS and the Bypass POS so their markup and behaviour stay identical. */
+function buildProductRowsHtml(products, forCart) {
+    if (!products.length) {
+        return '<div style="padding:10px 12px 6px;color:#595959;font-size:12px;text-align:center;">No products matched.</div>';
+    }
+    const clickFn      = forCart === 'bypass' ? 'bypassPrdRowClick'   : 'prdRowClick';
+    const changeFn      = forCart === 'bypass' ? 'bypassPrdQtyChange' : 'prdQtyChange';
+    const qtyIdPrefix    = forCart === 'bypass' ? 'bqinput_' : 'qinput_';
+    let html = '';
+    products.forEach(p => {
+        const avail = availableStock(p.id, forCart);
+        const oos = avail <= 0;
+        html += `
+        <div class="prd-row${oos?' prd-oos':''}" data-id="${p.id}">
+            <a href="#" class="prd-link" onclick="event.preventDefault();${oos?'':clickFn+'('+p.id+')'}">
+                <span class="prd-name">${escHtml(p.name)}</span>
+                <span class="prd-code">${p.code?'(<span class="val">'+escHtml(p.code)+'</span>)':''}</span>
+                <span class="prd-meta">${fmtNum(p.price)}/${escHtml(p.unit)}</span>
+                <span class="prd-stock-tag">[<span class="val">${oos?'0':fmtQty(avail)}</span>]</span>
+            </a>
+            <input type="number" class="prd-qty-input" id="${qtyIdPrefix}${p.id}"
+                   min="0" max="${avail}" step="0.01" autocomplete="off"
+                   ${oos?'disabled':''}
+                   onchange="${changeFn}(${p.id})">
+        </div>`;
+    });
+    return html;
+}
+
 function prdRowClick(id) {
     const p = findProduct(id);
     if (!p) return;
-    if (p.stock <= 0) { toastr.warning(p.name + ' is out of stock.'); return; }
+    const avail = availableStock(id, 'main');
+    if (avail <= 0) { toastr.warning(p.name + ' is out of stock or fully reserved in the bypass cart.'); return; }
     addToCart({ id:p.id, name:p.name, unit:p.unit, price:p.price, stock:p.stock, qty:1 });
     const q = document.getElementById('qinput_' + id);
     if (q) q.value = '';
-    clearSearch();
+    afterAddToCart();
 }
 
 function prdQtyChange(id) {
@@ -1674,13 +2290,14 @@ function prdQtyChange(id) {
     const input = document.getElementById('qinput_' + id);
     const qty   = parseFloat(input.value);
     if (!qty || qty <= 0) { input.value=''; return; }
-    if (qty > p.stock) {
-        toastr.error('Quantity for ' + p.name + ' must be ≤ ' + fmtQty(p.stock));
+    const avail = availableStock(id, 'main');
+    if (qty > avail) {
+        toastr.error('Quantity for ' + p.name + ' must be ≤ ' + fmtQty(avail));
         input.value=''; return;
     }
     addToCart({ id:p.id, name:p.name, unit:p.unit, price:p.price, stock:p.stock, qty });
     input.value='';
-    clearSearch();
+    afterAddToCart();
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -1709,8 +2326,9 @@ function updateCartQtyInput(id, val) {
     if (!item) return;
     const newQty = parseFloat(val) || 1;
     if (newQty <= 0) { removeFromCart(id); return; }
-    if (newQty > item.stock) {
-        toastr.warning('Only ' + fmtQty(item.stock) + ' in stock.');
+    const maxAllowed = Math.max(0, item.stock - qtyInCart(bypassCart, id));
+    if (newQty > maxAllowed) {
+        toastr.warning('Only ' + fmtQty(maxAllowed) + ' available (some is reserved in the bypass cart).');
         document.getElementById('cqty_' + id).value = fmtQty(item.qty);
         return;
     }
@@ -1863,6 +2481,222 @@ function confirmSale() {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   BYPASS POS — serve a second customer without touching the main
+   cart. Confirmed sales are pushed into the SAME `cloudData` array
+   (and therefore the same POS_CLOUD_KEY) as the main cart, so
+   pending-upload totals stay unified no matter which cart rang up
+   the sale.
+══════════════════════════════════════════════════════════════ */
+function generateBypassTransId() {
+    const chars  = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    const prefix = _DATE.replace(/-/g,'');
+    let rand = '';
+    for (let i=0; i<6; i++) rand += chars[Math.floor(Math.random()*chars.length)];
+    bypassTransId = prefix + rand;
+}
+
+function bypassPrdRowClick(id) {
+    const p = findProduct(id);
+    if (!p) return;
+    const avail = availableStock(id, 'bypass');
+    if (avail <= 0) { toastr.warning(p.name + ' is out of stock or fully reserved in the main cart.'); return; }
+    bypassAddToCart({ id:p.id, name:p.name, unit:p.unit, price:p.price, stock:p.stock, qty:1 });
+    const q = document.getElementById('bqinput_' + id);
+    if (q) q.value = '';
+    bypassAfterAddToCart();
+}
+
+function bypassPrdQtyChange(id) {
+    const p = findProduct(id);
+    if (!p) return;
+    const input = document.getElementById('bqinput_' + id);
+    const qty   = parseFloat(input.value);
+    if (!qty || qty <= 0) { input.value=''; return; }
+    const avail = availableStock(id, 'bypass');
+    if (qty > avail) {
+        toastr.error('Quantity for ' + p.name + ' must be ≤ ' + fmtQty(avail));
+        input.value=''; return;
+    }
+    bypassAddToCart({ id:p.id, name:p.name, unit:p.unit, price:p.price, stock:p.stock, qty });
+    input.value='';
+    bypassAfterAddToCart();
+}
+
+function bypassAddToCart(item) {
+    const existing = bypassCart.find(c => c.id === item.id);
+    if (existing) {
+        toastr.error(
+            '<strong>' + escHtml(item.name) + '</strong> is already in the bypass cart.<br>Edit the quantity in the cart if needed.',
+            'Already Added', { timeOut:3000, escapeHtml:false }
+        );
+        return;
+    }
+    bypassCart.push({ ...item });
+    saveBypassCart(); bypassRenderCart();
+}
+
+function bypassRemoveFromCart(id) {
+    bypassCart = bypassCart.filter(c => c.id !== id);
+    saveBypassCart(); bypassRenderCart();
+}
+
+function bypassUpdateCartQtyInput(id, val) {
+    const item = bypassCart.find(c => c.id === id);
+    if (!item) return;
+    const newQty = parseFloat(val) || 1;
+    if (newQty <= 0) { bypassRemoveFromCart(id); return; }
+    const maxAllowed = Math.max(0, item.stock - qtyInCart(cart, id));
+    if (newQty > maxAllowed) {
+        toastr.warning('Only ' + fmtQty(maxAllowed) + ' available (some is reserved in the main cart).');
+        document.getElementById('bcqty_' + id).value = fmtQty(item.qty);
+        return;
+    }
+    item.qty = newQty;
+    const tEl = document.getElementById('bctot_' + id);
+    if (tEl) tEl.textContent = fmtNum(item.qty * item.price);
+    saveBypassCart(); bypassRenderCartTotals();
+}
+
+function bypassCartTotal() { return bypassCart.reduce((s,c) => s + c.qty * c.price, 0); }
+
+function bypassRenderCartTotals() {
+    document.getElementById('bypassCartTotalPill').textContent = fmtMoney(bypassCartTotal());
+    document.getElementById('bypassConfirmSaleBtn').disabled = !bypassCart.length;
+    document.getElementById('bypassClearAllBtn').disabled = !bypassCart.length;
+}
+
+function bypassClearCart() {
+    if (!bypassCart.length) return;
+    bypassCart = [];
+    saveBypassCart();
+    bypassRenderCart();
+    document.getElementById('bypassAmountPaidInput').value = '';
+    document.getElementById('bypass-checkout-change-row').classList.remove('show', 'negative');
+}
+
+function bypassRenderCart() {
+    const tbody = document.getElementById('bypass-pos-cart-tbody');
+    const table = document.getElementById('bypass-pos-cart-table');
+
+    if (!bypassCart.length) {
+        tbody.innerHTML = '<tr id="bypass-pos-cart-empty-row"><td colspan="6" id="bypass-pos-cart-empty">No items in cart</td></tr>';
+        table.classList.add('pos-cart-empty');
+        bypassRenderCartTotals();
+        return;
+    }
+
+    let html = '';
+    bypassCart.forEach(item => {
+        html += `
+        <tr id="brow_${item.id}">
+            <td><span class="pcr-name" title="${escHtml(item.name)}">${escHtml(item.name)}</span></td>
+            <td>${escHtml(item.unit)}</td>
+            <td>${fmtNum(item.price)}</td>
+            <td class="pcr-qty-col"><input class="pcr-qinput" id="bcqty_${item.id}" type="number"
+                   value="${item.qty.toFixed(2)}" min="0.01" max="${item.stock}" step="0.01"
+                   onchange="bypassUpdateCartQtyInput(${item.id}, this.value)"></td>
+            <td id="bctot_${item.id}">${fmtNum(item.qty * item.price)}</td>
+            <td><a href="#" class="pcr-remove" onclick="event.preventDefault();bypassRemoveFromCart(${item.id})">✕</a></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+    table.classList.remove('pos-cart-empty');
+    bypassRenderCartTotals();
+}
+
+function bypassSelectPaymentMethod(pm, el) {
+    bypassActivePaymentMethod = pm;
+    document.querySelectorAll('#bypassPmGrid .pm-card').forEach(c => c.classList.remove('active'));
+    if (el) el.classList.add('active');
+    const wrap = document.getElementById('bypassAmountPaidWrap');
+    wrap.style.display = pm === 'cash' ? 'block' : 'none';
+    if (pm !== 'cash') document.getElementById('bypass-checkout-change-row').classList.remove('show');
+}
+
+function bypassCalcChange() {
+    const total  = bypassCartTotal();
+    const paid   = parseFloat(document.getElementById('bypassAmountPaidInput').value) || 0;
+    const change = paid - total;
+    const row    = document.getElementById('bypass-checkout-change-row');
+    if (paid <= 0) { row.classList.remove('show'); return; }
+    row.classList.add('show');
+    row.classList.toggle('negative', change < 0);
+    document.getElementById('bypass-checkout-change-label').textContent = change < 0 ? 'Short by' : 'Change';
+    document.getElementById('bypass-checkout-change-value').textContent = 'MWK ' + fmtNum(Math.abs(change));
+}
+
+function bypassConfirmSale() {
+    if (!bypassCart.length) return;
+    const total = bypassCartTotal();
+    let paid;
+
+    if (bypassActivePaymentMethod === 'cash') {
+        const raw     = document.getElementById('bypassAmountPaidInput').value;
+        const entered = parseFloat(raw);
+        paid = (raw==='' || isNaN(entered) || entered<=0) ? total : entered;
+        if (paid < total) { toastr.warning('Amount tendered is less than the total.'); return; }
+    } else {
+        paid = total;
+    }
+
+    const date       = _DATE;
+    const userName   = document.getElementById('posUserName').value;
+    const branchId   = _BRANCH;
+    const time       = new Date().toTimeString().slice(0,8);
+    const deviceName = getDeviceName();
+    const userAgent  = navigator.userAgent;
+
+    const snapshot = bypassCart.map(c => ({
+        branch_product_id: c.id,
+        product:           c.name,
+        unit:              c.unit,
+        price:              c.price,
+        transid:           bypassTransId,
+        date,
+        time,
+        user:              userName,
+        branch:            branchId,
+        quantity:          c.qty,
+        qty_before:        c.stock,
+        qty_sold:          c.qty,
+        qty_after:         Math.max(0, c.stock - c.qty),
+        payment_method:    bypassActivePaymentMethod,
+        amount_paid:       paid,
+        slot:              '0',
+        device_name:       deviceName,
+        user_agent:        userAgent,
+        bypass:            1,
+    }));
+
+    /* Same cloudData array / same POS_CLOUD_KEY as the main cart —
+       pending sales from either cart show up together in one list. */
+    cloudData = cloudData.concat(snapshot);
+    saveCloud(); updatePendingBadge();
+
+    bypassCart = []; saveBypassCart(); bypassRenderCart(); generateBypassTransId();
+    toastr.success('Bypass sale recorded locally. Upload when online.', 'Done');
+    document.getElementById('bypass-pos-search').focus();
+}
+
+function openBypassPos() {
+    generateBypassTransId();
+    loadBypassCart();
+    bypassRenderCart();
+
+    document.getElementById('bypassAmountPaidInput').value = '';
+    document.getElementById('bypass-checkout-change-row').classList.remove('show','negative');
+    document.querySelectorAll('#bypassPmGrid .pm-card').forEach(c => c.classList.remove('active'));
+    const cashCard = document.querySelector('#bypassPmGrid .pm-card[data-pm="cash"]');
+    if (cashCard) cashCard.classList.add('active');
+    bypassActivePaymentMethod = 'cash';
+    document.getElementById('bypassAmountPaidWrap').style.display = 'block';
+
+    clearBypassSearch();
+    $('#bypassPosModal').modal('show');
+    setTimeout(() => document.getElementById('bypass-pos-search').focus(), 400);
+}
+
+/* ══════════════════════════════════════════════════════════════
    UPLOAD
 ══════════════════════════════════════════════════════════════ */
 function updatePendingBadge() {
@@ -1881,23 +2715,60 @@ function renderPendingModal() {
     document.getElementById('pendingTotalLabel').textContent = fmtNum(total);
 
     if (!cloudData.length) {
-        tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:#595959;padding:30px;font-size:13px;">No pending sales.</td></tr>';
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;color:#595959;padding:30px;font-size:13px;">No pending sales.</td></tr>';
         return;
     }
     let html = '';
     cloudData.forEach(e => {
         html += `<tr>
-            <td style="font-family:monospace;font-size:11px;">${escHtml(e.transid||'')}</td>
             <td>${escHtml(e.product)}</td>
             <td class="text-center">${escHtml(e.unit)}</td>
+            <td class="text-center">${fmtQty(e.quantity)}</td>
             <td class="text-center">${fmtNum(e.price)}</td>
+            <td style="font-family:monospace;font-size:11px;">${escHtml(e.transid||'')}</td>
             <td class="text-center" style="font-family:monospace;">${escHtml(e.time||'')}</td>
         </tr>`;
     });
     tbody.innerHTML = html;
 }
 
-async function posUpload() {
+/* ══════════════════════════════════════════════════════════════
+   SALES DATA MODAL — tab switching + last-sync label
+══════════════════════════════════════════════════════════════ */
+function formatLastSync(d) {
+    const months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const day   = String(d.getDate()).padStart(2, '0');
+    const month = months[d.getMonth()];
+    const year  = d.getFullYear();
+    const hh    = String(d.getHours()).padStart(2, '0');
+    const mm    = String(d.getMinutes()).padStart(2, '0');
+    const ss    = String(d.getSeconds()).padStart(2, '0');
+    return `${day} ${month} ${year}, ${hh}:${mm}:${ss}`;
+}
+
+function updateLastSyncLabel() {
+    const el = document.getElementById('sdLastSyncLabel');
+    if (el) el.textContent = formatLastSync(PAGE_LOADED_AT);
+}
+
+function switchSalesDataTab(tab) {
+    const cloudTabBtn  = document.getElementById('sdCloudTabBtn');
+    const recentTabBtn = document.getElementById('sdRecentTabBtn');
+    const cloudPane    = document.getElementById('sdCloudPane');
+    const recentPane   = document.getElementById('sdRecentPane');
+    const footer       = document.getElementById('sdCloudFooter');
+    const showCloud    = tab === 'cloud';
+
+    cloudTabBtn.classList.toggle('active', showCloud);
+    recentTabBtn.classList.toggle('active', !showCloud);
+    cloudPane.style.display  = showCloud ? '' : 'none';
+    recentPane.style.display = showCloud ? 'none' : '';
+    footer.style.display     = showCloud ? '' : 'none';
+
+    if (!showCloud) updateLastSyncLabel();
+}
+
+async function posUpload(isAuto = false) {
     if (!cloudData.length) { toastr.info('Nothing to upload.'); return; }
 
     posLoaderShow();
@@ -1938,7 +2809,7 @@ async function posUpload() {
             cloudData = [];
             saveCloud(); updatePendingBadge();
             toastr.success('All ' + toUpload.length + ' sales uploaded successfully.', 'Done');
-            $('#pendingModal').modal('hide');
+            if (!isAuto) { $('#pendingModal').modal('hide'); }
             refreshPaymentSummaryPane();
         } else {
             const failedTransids = new Set(failed.map(r => r.transid + '|' + r.branch_product_id + '|' + r.date + '|' + r.time));

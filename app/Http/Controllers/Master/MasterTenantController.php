@@ -376,4 +376,64 @@ class MasterTenantController extends Controller
             return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
         }
     }
+
+    /**
+     * Toggle custom pricing for a tenant, and/or update the custom amount/currency.
+     *
+     * When custom_pricing_enabled = 1, this tenant's invoices (system-generated
+     * from their subscription plan) will use custom_amount + custom_currency
+     * instead of the plan's amount/currency. The subscription plan name itself
+     * is still shown and still used everywhere else - only the money changes.
+     *
+     * When custom_pricing_enabled = 0, custom_amount/custom_currency are
+     * cleared so the tenant falls back to plain subscription-plan pricing.
+     */
+    public function updateCustomPricing(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'id'                      => 'required|integer|exists:tenants,id',
+            'custom_pricing_enabled'  => 'required|boolean',
+            'custom_amount'           => 'required_if:custom_pricing_enabled,1|nullable|numeric|min:0.01',
+            'custom_currency'         => 'required_if:custom_pricing_enabled,1|nullable|string|exists:currency,code',
+            // Optional — a custom-pricing tenant can also run a non-standard
+            // billing cycle. If left blank, they simply keep the plan's period.
+            'custom_period_days'      => 'nullable|integer|min:1|max:3650',
+            'custom_period_name'      => 'nullable|string|max:255',
+        ], [
+            'custom_amount.required_if'   => 'Please enter a custom amount.',
+            'custom_currency.required_if' => 'Please select a custom currency.',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['errors' => $validator->errors()->all(), 'status' => 422]);
+        }
+
+        $tenant = DB::table('tenants')->where('id', $request->id)->first();
+        if (!$tenant) {
+            return response()->json(['errors' => ['Tenant not found.'], 'status' => 404]);
+        }
+
+        $enabled = $request->boolean('custom_pricing_enabled');
+
+        $data = [
+            'custom_pricing_enabled' => $enabled,
+            'custom_amount'          => $enabled ? $request->custom_amount : null,
+            'custom_currency'        => $enabled ? strtoupper($request->custom_currency) : null,
+            // Period fields only make sense alongside custom pricing, and
+            // only if the user actually filled them in.
+            'custom_period_days'     => $enabled ? ($request->custom_period_days ?: null) : null,
+            'custom_period_name'     => $enabled ? ($request->custom_period_name ?: null) : null,
+        ];
+
+        DB::table('tenants')->where('id', $request->id)->update($data);
+
+        return response()->json([
+            'success' => $enabled
+                ? 'Custom pricing enabled. This tenant will now be invoiced using their own amount, currency'
+                    . ($data['custom_period_days'] ? ' and billing cycle' : '') . ' instead of the subscription plan pricing.'
+                : 'Custom pricing disabled. This tenant will now be invoiced using standard subscription plan pricing.',
+            'status'  => 201,
+            'data'    => $data,
+        ]);
+    }
 }

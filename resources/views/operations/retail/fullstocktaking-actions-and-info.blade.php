@@ -132,8 +132,10 @@
         $salesAfterCounting = $salesAfterCounting->sortByDesc('qty_sold')->values();
     }
 
-    $rectifyUrl    = route('retail.operations.fullstocktaking.rectify');
-    $syncStatusUrl = route('retail.operations.fullstocktaking.sync-status');
+    $rectifyStartUrl  = route('retail.operations.fullstocktaking.rectify.start');
+    $rectifyRowUrl    = route('retail.operations.fullstocktaking.rectify.row');
+    $rectifyFinishUrl = route('retail.operations.fullstocktaking.rectify.finish');
+    $syncStatusUrl    = route('retail.operations.fullstocktaking.sync-status');
 @endphp
 
 <meta name="csrf-token" content="{{ csrf_token() }}">
@@ -368,6 +370,26 @@
 .ai-rect-body { font-size: 12px; color: #7f1d1d; line-height: 1.55; margin-bottom: 12px; }
 .ai-rect-card.locked .ai-rect-body       { color: #4b5563; margin-bottom: 0; }
 .ai-rect-card.sync-blocked .ai-rect-body { color: #78350f; }
+
+/* Rectify progress — mirrors the merge-progress UI in
+   fullstocktaking.blade.php (see fst-merge-* there) so both one-row-at-
+   a-time flows look and feel the same. */
+.rf-progress-wrap { display: none; }
+.rf-progress-wrap.active { display: block; }
+.rf-bar-track { width: 100%; height: 10px; border-radius: 6px; background: #e5e7eb; overflow: hidden; }
+.rf-bar-fill { height: 100%; background: linear-gradient(90deg,#4B5EBD,#6b7fd7); width: 0%; transition: width .18s ease; border-radius: 6px; }
+.rf-status-line { display: flex; justify-content: space-between; align-items: center; margin-top: 8px; font-size: 12px; color: #475569; }
+.rf-current-item { font-weight: 600; color: #1e293b; max-width: 220px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.rf-counts { display: flex; gap: 14px; margin-top: 10px; font-size: 12px; }
+.rf-counts span { display: flex; align-items: center; gap: 5px; font-weight: 600; }
+.rf-ok { color: #059669; } .rf-bad { color: #dc2626; }
+.rf-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; }
+.rf-dot.rf-ok { background: #059669; } .rf-dot.rf-bad { background: #dc2626; }
+.rf-summary { display: none; }
+.rf-summary.active { display: block; }
+.rf-summary-title { font-size: 14px; font-weight: 700; color: #1e293b; margin-bottom: 4px; }
+.rf-fail-list { max-height: 140px; overflow-y: auto; border: 1px solid #fecaca; background: #fef2f2; border-radius: 6px; padding: 8px 10px; margin-top: 8px; font-size: 11.5px; color: #991b1b; }
+.rf-fail-list div { padding: 2px 0; }
 
 /* Device history card (rectified state) */
 .ai-devhist-card {
@@ -778,23 +800,47 @@
                 <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body" style="padding:18px 20px;">
-                <div class="alert alert-danger border-0 py-2 px-3 mb-3" style="font-size:12px;border-radius:6px;">
-                    <i class="ri-error-warning-line me-1"></i>
-                    <strong>This action is permanent and cannot be undone.</strong> Live stock at <strong>{{ $branchName }}</strong> will be overwritten with counted figures for <strong>{{ $displayDate }}</strong>.
+                <div id="rectifyFormArea">
+                    <div class="alert alert-danger border-0 py-2 px-3 mb-3" style="font-size:12px;border-radius:6px;">
+                        <i class="ri-error-warning-line me-1"></i>
+                        <strong>This action is permanent and cannot be undone.</strong> Live stock at <strong>{{ $branchName }}</strong> will be overwritten with counted figures for <strong>{{ $displayDate }}</strong>.
+                    </div>
+                    <p style="font-size:13px;color:#475569;margin-bottom:14px;">Any sales made after a product was counted have already been deducted automatically. Rows are processed one at a time, so a single bad row never blocks the rest.</p>
+                    <div class="alert alert-success border-0 py-2 px-3 mb-3" id="syncConfirmBanner" style="font-size:12px;border-radius:6px;display:none;">
+                        <i class="ri-shield-check-line me-1"></i> All devices are synced — safe to proceed.
+                    </div>
+                    <label class="form-label fw-semibold" style="font-size:12px;">Enter your password to confirm</label>
+                    <input type="password" class="form-control" id="rectifyPassword" placeholder="Password" autocomplete="off">
                 </div>
-                <p style="font-size:13px;color:#475569;margin-bottom:14px;">Any sales made after a product was counted have already been deducted automatically.</p>
-                <div class="alert alert-success border-0 py-2 px-3 mb-3" id="syncConfirmBanner" style="font-size:12px;border-radius:6px;display:none;">
-                    <i class="ri-shield-check-line me-1"></i> All devices are synced — safe to proceed.
+
+                {{-- Progress — rows are rectified one at a time --}}
+                <div class="rf-progress-wrap" id="rfProgressWrap">
+                    <div class="rf-bar-track"><div class="rf-bar-fill" id="rfBarFill"></div></div>
+                    <div class="rf-status-line">
+                        <span class="rf-current-item" id="rfCurrentItem">Starting…</span>
+                        <span id="rfCountLabel">0 / 0</span>
+                    </div>
+                    <div class="rf-counts">
+                        <span class="rf-ok"><i class="rf-dot rf-ok"></i><span id="rfOkCount">0</span> rectified</span>
+                        <span class="rf-bad"><i class="rf-dot rf-bad"></i><span id="rfBadCount">0</span> failed</span>
+                    </div>
                 </div>
-                <label class="form-label fw-semibold" style="font-size:12px;">Enter your password to confirm</label>
-                <input type="password" class="form-control" id="rectifyPassword" placeholder="Password" autocomplete="off">
-                <div id="rectifyError" style="display:none;margin-top:10px;" class="alert alert-danger border-0 py-2 px-3"></div>
+
+                {{-- Final summary --}}
+                <div class="rf-summary" id="rfSummary">
+                    <div class="rf-summary-title" id="rfSummaryTitle">Done</div>
+                    <div style="font-size:12.5px;color:#475569;" id="rfSummarySub"></div>
+                    <div class="rf-fail-list" id="rfFailList" style="display:none;"></div>
+                </div>
             </div>
-            <div class="modal-footer" style="padding:10px 18px 14px;">
+            <div class="modal-footer" style="padding:10px 18px 14px;" id="rectifyFooter">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-danger btn-sm" id="rectifySubmitBtn">
                     <i class="ri-check-line"></i> Rectify Now
                 </button>
+                <button type="button" class="btn btn-outline-danger btn-sm" id="rfDownloadFailedBtn" style="display:none;"><i class="ri-file-excel-2-line"></i> Download Failed Rows</button>
+                <button type="button" class="btn btn-outline-warning btn-sm" id="rfRetryFailedBtn" style="display:none;"><i class="ri-refresh-line"></i> Retry Failed</button>
+                <button type="button" class="btn btn-primary btn-sm" id="rfDoneBtn" style="display:none;" data-bs-dismiss="modal">Done</button>
             </div>
         </div>
     </div>
@@ -909,8 +955,10 @@
 <script>
 'use strict';
 
-var AI_RECTIFY_URL  = '{{ $rectifyUrl }}';
-var AI_SYNC_URL     = '{{ $syncStatusUrl }}';
+var AI_RECTIFY_START_URL  = '{{ $rectifyStartUrl }}';
+var AI_RECTIFY_ROW_URL    = '{{ $rectifyRowUrl }}';
+var AI_RECTIFY_FINISH_URL = '{{ $rectifyFinishUrl }}';
+var AI_SYNC_URL           = '{{ $syncStatusUrl }}';
 var AI_BRANCH_ID    = '{{ $branchId }}';
 var AI_DATE         = '{{ $date }}';
 var AI_IS_RECTIFIED = {{ $isRectified ? 'true' : 'false' }};
@@ -1025,6 +1073,30 @@ if (AI_IS_RECTIFIED) {
 }
 
 // ── OPEN RECTIFY MODAL ────────────────────────────────────────────────
+function rfResetModal() {
+    document.getElementById('rectifyPassword').value = '';
+    document.getElementById('rectifyFormArea').style.display = '';
+    document.getElementById('rfProgressWrap').classList.remove('active');
+    document.getElementById('rfSummary').style.display = 'none';
+    document.getElementById('rfBarFill').style.width = '0%';
+    document.getElementById('rfCurrentItem').textContent = 'Starting…';
+    document.getElementById('rfCountLabel').textContent = '0 / 0';
+    document.getElementById('rfOkCount').textContent = '0';
+    document.getElementById('rfBadCount').textContent = '0';
+    document.getElementById('rfFailList').style.display = 'none';
+    document.getElementById('rfFailList').innerHTML = '';
+    document.getElementById('rectifySubmitBtn').style.display = '';
+    document.getElementById('rectifySubmitBtn').disabled = false;
+    document.getElementById('rectifySubmitBtn').innerHTML = '<i class="ri-check-line"></i> Rectify Now';
+    document.querySelector('#rectifyModal .btn-secondary[data-bs-dismiss="modal"]').style.display = '';
+    document.getElementById('rfDownloadFailedBtn').style.display = 'none';
+    document.getElementById('rfRetryFailedBtn').style.display = 'none';
+    document.getElementById('rfDoneBtn').style.display = 'none';
+    rfState = { summaryId: null, okCount: 0, badCount: 0, failedRows: [] };
+}
+
+var rfState = { summaryId: null, okCount: 0, badCount: 0, failedRows: [] };
+
 var rectifyOpenBtn = document.getElementById('rectifyOpenBtn');
 if (rectifyOpenBtn) {
     rectifyOpenBtn.addEventListener('click', function (e) {
@@ -1033,109 +1105,267 @@ if (rectifyOpenBtn) {
             toastr.warning('Check sync status first.', 'Sync Required');
             return;
         }
-        document.getElementById('rectifyPassword').value = '';
-        document.getElementById('rectifyError').style.display = 'none';
+        rfResetModal();
         var banner = document.getElementById('syncConfirmBanner');
         if (banner) banner.style.display = '';
         $('#rectifyModal').modal('show');
     });
 }
 
+// ── PROGRESS UI HELPERS ─────────────────────────────────────────────
+function rfUpdateProgress(done, total, currentName) {
+    var pct = total > 0 ? Math.round((done / total) * 100) : 0;
+    document.getElementById('rfBarFill').style.width = pct + '%';
+    document.getElementById('rfCountLabel').textContent = done + ' / ' + total;
+    document.getElementById('rfCurrentItem').textContent = currentName
+        ? ('Rectifying: ' + currentName)
+        : 'Finishing up…';
+    document.getElementById('rfOkCount').textContent = rfState.okCount;
+    document.getElementById('rfBadCount').textContent = rfState.badCount;
+}
+
+function rfRenderFailList() {
+    var listEl = document.getElementById('rfFailList');
+    if (!rfState.failedRows.length) {
+        listEl.style.display = 'none';
+        listEl.innerHTML = '';
+        return;
+    }
+    listEl.style.display = '';
+    listEl.innerHTML = rfState.failedRows.map(function (r) {
+        return '<div class="rf-fail-row"><strong>' + (r.product_name || ('Row #' + r.id)) + '</strong> — ' + (r.error || 'Failed') + '</div>';
+    }).join('');
+}
+
+// ── ROW-BY-ROW WALK ─────────────────────────────────────────────────
+// Rows are sent to rectifyRow one at a time (not in parallel) so the
+// progress bar reflects real progress and a bad row never blocks the rest.
+async function rfProcessRows(rows, branchId, date) {
+    var total = rows.length;
+    rfUpdateProgress(0, total, rows[0] ? rows[0].product_name : null);
+
+    for (var i = 0; i < rows.length; i++) {
+        var row = rows[i];
+        rfUpdateProgress(i, total, row.product_name);
+
+        try {
+            var res = await fetch(AI_RECTIFY_ROW_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': aiCsrf(),
+                    'Accept': 'application/json',
+                },
+                body: new URLSearchParams({
+                    summary_id: rfState.summaryId,
+                    branch_id: branchId,
+                    date: date,
+                    row_id: row.id,
+                }).toString(),
+            });
+            var d = await res.json();
+            var result = d.result || {};
+
+            if (result.status === 'success') {
+                rfState.okCount++;
+            } else {
+                rfState.badCount++;
+                rfState.failedRows.push(result);
+            }
+        } catch (e) {
+            console.error('[Rectify] Row failed to reach server', row.id, e);
+            rfState.badCount++;
+            rfState.failedRows.push({ id: row.id, product_name: row.product_name, error: 'Network error — could not reach the server.' });
+        }
+
+        rfUpdateProgress(i + 1, total, i + 1 < rows.length ? rows[i + 1].product_name : null);
+    }
+}
+
+async function rfFinish(branchId, date) {
+    var res = await fetch(AI_RECTIFY_FINISH_URL, {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/x-www-form-urlencoded',
+            'X-CSRF-TOKEN': aiCsrf(),
+            'Accept': 'application/json',
+        },
+        body: new URLSearchParams({
+            summary_id: rfState.summaryId,
+            branch_id: branchId,
+            date: date,
+        }).toString(),
+    });
+    return res.json();
+}
+
+function rfShowSummary(finishData) {
+    document.getElementById('rfProgressWrap').classList.remove('active');
+    document.getElementById('rectifySubmitBtn').style.display = 'none';
+    document.querySelector('#rectifyModal .btn-secondary[data-bs-dismiss="modal"]').style.display = 'none';
+
+    var summaryEl = document.getElementById('rfSummary');
+    summaryEl.style.display = '';
+
+    var hasFailures = rfState.failedRows.length > 0;
+    document.getElementById('rfSummaryTitle').textContent = hasFailures
+        ? 'Rectification finished with issues'
+        : 'Rectification complete';
+    document.getElementById('rfSummarySub').textContent =
+        rfState.okCount + ' rectified, ' + rfState.badCount + ' failed.' +
+        (finishData && finishData.success ? (' ' + finishData.success) : '');
+
+    rfRenderFailList();
+
+    if (hasFailures) {
+        toastr.warning(rfState.badCount + ' row(s) could not be rectified. Retry or download the list.', 'Rectified with issues');
+        document.getElementById('rfDownloadFailedBtn').style.display = '';
+        document.getElementById('rfRetryFailedBtn').style.display = '';
+    } else {
+        toastr.success('Full stocktaking rectified successfully.', 'Rectified!');
+    }
+    document.getElementById('rfDoneBtn').style.display = '';
+}
+
 // ── SUBMIT RECTIFICATION ──────────────────────────────────────────────
 var rectifySubmitBtn = document.getElementById('rectifySubmitBtn');
 if (rectifySubmitBtn) {
-    rectifySubmitBtn.addEventListener('click', function () {
+    rectifySubmitBtn.addEventListener('click', async function () {
         var btn      = this;
-        var errorBox = document.getElementById('rectifyError');
         var password = document.getElementById('rectifyPassword').value.trim();
 
         if (!password) {
-            errorBox.textContent = 'Please enter your password.';
-            errorBox.style.display = 'block';
+            toastr.error('Please enter your password.', 'Password Required');
             return;
         }
 
-        errorBox.style.display = 'none';
         btn.disabled = true;
         var originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="ri-loader-4-line"></i> Rectifying...';
+        btn.innerHTML = '<i class="ri-loader-4-line"></i> Starting...';
 
-        var xhr = new XMLHttpRequest();
-        xhr.open('POST', AI_RECTIFY_URL, true);
-        xhr.setRequestHeader('Content-Type', 'application/x-www-form-urlencoded');
-        xhr.setRequestHeader('X-CSRF-TOKEN', aiCsrf());
-        xhr.setRequestHeader('Accept', 'application/json');
-        xhr.timeout = 120000;
-
-        xhr.onload = function () {
-            var status = xhr.status;
-            var raw    = xhr.responseText;
-            console.log('[Rectify] HTTP ' + status);
-            console.log('[Rectify] raw response:', raw);
-
+        try {
+            var res = await fetch(AI_RECTIFY_START_URL, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                    'X-CSRF-TOKEN': aiCsrf(),
+                    'Accept': 'application/json',
+                },
+                body: new URLSearchParams({ branch_id: AI_BRANCH_ID, date: AI_DATE, password: password }).toString(),
+            });
+            var status = res.status;
             var d = {};
-            try { d = JSON.parse(raw); } catch (e) {
-                console.warn('[Rectify] Response is not JSON. Raw:', raw);
-            }
+            try { d = await res.json(); } catch (e) { /* non-JSON response */ }
 
-            if (status === 201) {
-                $('#rectifyModal').modal('hide');
-                toastr.success('Stocktaking rectified successfully. Page will reload.', 'Rectified!', { timeOut: 2500 });
-                setTimeout(function () { window.location.reload(); }, 2000);
+            if (status !== 200) {
+                btn.disabled = false;
+                btn.innerHTML = originalHtml;
+
+                if (status === 401) {
+                    toastr.error(d.error || 'The password you entered is incorrect.', 'Incorrect Password');
+                } else if (status === 409) {
+                    $('#rectifyModal').modal('hide');
+                    toastr.info('This date has already been rectified.', 'Already Done');
+                    setTimeout(function () { window.location.reload(); }, 1800);
+                } else if (status === 423) {
+                    $('#rectifyModal').modal('hide');
+                    toastr.warning('A device reported pending work after the sync check. Re-check sync and try again.', 'Sync Changed');
+                    syncAllClear = false;
+                    var rb = document.getElementById('rectifyOpenBtn');
+                    if (rb) { rb.style.pointerEvents = 'none'; rb.style.opacity = '.45'; rb.innerHTML = '<i class="ri-lock-line me-1"></i> Check Device Sync First'; }
+                    var gc = document.getElementById('syncGateCard');
+                    if (gc) { gc.classList.remove('all-clear'); gc.querySelector('.ai-sync-title').innerHTML = '<i class="ri-wifi-line"></i> Device Sync Status'; }
+                } else if (status === 422) {
+                    var msg422 = 'Validation error.';
+                    if (d.errors) { msg422 = Object.values(d.errors).map(function (e) { return Array.isArray(e) ? e[0] : e; }).join(' '); }
+                    toastr.error(msg422, 'Validation Error');
+                } else {
+                    var msg = (d && (d.error || d.message)) || ('Unexpected server response (HTTP ' + status + ').');
+                    toastr.error(msg, 'Error');
+                    console.error('[Rectify] Unhandled status ' + status + ':', d);
+                }
                 return;
             }
 
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
+            // ── Start succeeded — walk the rows with the progress bar ──
+            rfState.summaryId = d.summary_id;
+            document.getElementById('rectifyFormArea').style.display = 'none';
+            document.getElementById('rfProgressWrap').classList.add('active');
 
-            if (status === 401) {
-                errorBox.textContent = d.error || 'The password you entered is incorrect.';
-                errorBox.style.display = 'block';
-            } else if (status === 409) {
-                $('#rectifyModal').modal('hide');
-                toastr.info('This date has already been rectified.', 'Already Done');
-                setTimeout(function () { window.location.reload(); }, 1800);
-            } else if (status === 423) {
-                $('#rectifyModal').modal('hide');
-                toastr.warning('A device reported pending work after the sync check. Re-check sync and try again.', 'Sync Changed');
-                syncAllClear = false;
-                var rb = document.getElementById('rectifyOpenBtn');
-                if (rb) { rb.style.pointerEvents = 'none'; rb.style.opacity = '.45'; rb.innerHTML = '<i class="ri-lock-line me-1"></i> Check Device Sync First'; }
-                var gc = document.getElementById('syncGateCard');
-                if (gc) { gc.classList.remove('all-clear'); gc.querySelector('.ai-sync-title').innerHTML = '<i class="ri-wifi-line"></i> Device Sync Status'; }
-            } else if (status === 422) {
-                var msg422 = 'Validation error.';
-                if (d.errors) { msg422 = Object.values(d.errors).map(function (e) { return Array.isArray(e) ? e[0] : e; }).join(' '); }
-                errorBox.textContent = msg422;
-                errorBox.style.display = 'block';
-            } else if (status === 0) {
-                toastr.error('Request did not complete. Check your network and try again.', 'Network Error');
+            if (!d.rows.length) {
+                rfUpdateProgress(0, 0, null);
             } else {
-                var msg = (d && (d.error || d.message)) || ('Unexpected server response (HTTP ' + status + '). Check server logs.');
-                errorBox.textContent = msg;
-                errorBox.style.display = 'block';
-                console.error('[Rectify] Unhandled status ' + status + ':', d);
+                await rfProcessRows(d.rows, AI_BRANCH_ID, AI_DATE);
             }
-        };
 
-        xhr.onerror = function () {
+            rfUpdateProgress(d.total, d.total, null);
+            var finishData = await rfFinish(AI_BRANCH_ID, AI_DATE);
+            rfShowSummary(finishData);
+
+        } catch (e) {
+            console.error('[Rectify] Network error', e);
             btn.disabled = false;
             btn.innerHTML = originalHtml;
-            console.error('[Rectify] XHR network error');
             toastr.error('Network error — could not reach the server.', 'Network Error');
-        };
-
-        xhr.ontimeout = function () {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            console.warn('[Rectify] Request timed out after 2 minutes');
-            toastr.warning('The request timed out. Rectification may or may not have completed — please reload the page to check before retrying.', 'Timeout');
-        };
-
-        var params = new URLSearchParams({ branch_id: AI_BRANCH_ID, date: AI_DATE, password: password });
-        xhr.send(params.toString());
+        }
     });
 }
+
+// ── RETRY FAILED ROWS ───────────────────────────────────────────────
+var rfRetryFailedBtn = document.getElementById('rfRetryFailedBtn');
+if (rfRetryFailedBtn) {
+    rfRetryFailedBtn.addEventListener('click', async function () {
+        var btn = this;
+        var rowsToRetry = rfState.failedRows.map(function (r) { return { id: r.id, product_name: r.product_name }; });
+        if (!rowsToRetry.length) return;
+
+        btn.disabled = true;
+        btn.innerHTML = '<i class="ri-loader-4-line"></i> Retrying...';
+
+        rfState.failedRows = [];
+        rfState.badCount = 0;
+
+        document.getElementById('rfSummary').style.display = 'none';
+        document.getElementById('rfProgressWrap').classList.add('active');
+
+        await rfProcessRows(rowsToRetry, AI_BRANCH_ID, AI_DATE);
+        var finishData = await rfFinish(AI_BRANCH_ID, AI_DATE);
+
+        btn.disabled = false;
+        btn.innerHTML = '<i class="ri-refresh-line"></i> Retry Failed';
+        rfShowSummary(finishData);
+    });
+}
+
+// ── DOWNLOAD FAILED ROWS ────────────────────────────────────────────
+var rfDownloadFailedBtn = document.getElementById('rfDownloadFailedBtn');
+if (rfDownloadFailedBtn) {
+    rfDownloadFailedBtn.addEventListener('click', function () {
+        if (!rfState.failedRows.length) return;
+        var lines = ['Row ID,Product,Error'];
+        rfState.failedRows.forEach(function (r) {
+            var product = '"' + String(r.product_name || '').replace(/"/g, '""') + '"';
+            var error   = '"' + String(r.error || '').replace(/"/g, '""') + '"';
+            lines.push(r.id + ',' + product + ',' + error);
+        });
+        var blob = new Blob([lines.join('\n')], { type: 'text/csv' });
+        var a = document.createElement('a');
+        a.href = URL.createObjectURL(blob);
+        a.download = 'fst-rectify-failed-rows-' + AI_DATE + '.csv';
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+    });
+}
+
+// ── DONE ─────────────────────────────────────────────────────────────
+var rfDoneBtn = document.getElementById('rfDoneBtn');
+if (rfDoneBtn) {
+    rfDoneBtn.addEventListener('click', function () {
+        window.location.reload();
+    });
+}
+
 
 /* ── Date modal helpers ── */
 function fstSetDateMode(mode) {

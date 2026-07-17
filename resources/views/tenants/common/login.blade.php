@@ -7,13 +7,13 @@
     <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
     <meta content="Coderthemes" name="author" />
 
-    {{-- ✅ FIX 1: CSRF meta tag for AJAX and token refresh --}}
+    {{-- CSRF meta tag for AJAX and token refresh --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!--favicon-->
     <link rel="icon" href="{{ asset('dashboard/images/icon.png') }}" type="image/x-icon">
 
-    {{-- ✅ FIX 2: jQuery FIRST — must load before any script that uses $ --}}
+    {{-- jQuery FIRST — must load before any script that uses $ --}}
     <script src="{{ asset('library/jquery/jquery.min.js') }}"></script>
 
     <!-- Theme Config Js -->
@@ -29,18 +29,13 @@
     <link href="{{ asset('library/toastr/toastr.min.css') }}" rel="stylesheet" type="text/css" />
 
     <style>
-        #csrf-expired-notice {
-            display: none;
-            background: #fff3cd;
-            border: 1px solid #ffc107;
-            color: #856404;
-            padding: 10px 14px;
-            border-radius: 6px;
-            margin-bottom: 12px;
-            font-size: 14px;
-        }
+        /* ✅ FIX (session-expired bug): the old #csrf-expired-notice banner is
+           gone. The login page is designed to NEVER expire — see the script
+           at the bottom for how the token is kept fresh and how a genuine
+           419 on submit is now handled silently instead of locking the user
+           out. */
 
-        /* ✅ FIX 8: Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
+        /* Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
         .auth-card-wrap {
             width: 100%;
             max-width: 380px;
@@ -88,7 +83,7 @@
     <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
         <div class="container">
             <div class="row justify-content-center">
-                {{-- ✅ FIX 9: Narrowed column + fixed max-width wrapper so the card stays a sane,
+                {{-- Narrowed column + fixed max-width wrapper so the card stays a sane,
                      standard size on mobile and on smaller laptop screens instead of stretching wide --}}
                 <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
                     <div class="auth-card-wrap">
@@ -114,13 +109,8 @@
 
                         <div class="card-body">
 
-                            {{-- ✅ FIX 3: Expired session warning banner --}}
-                            <div id="csrf-expired-notice">
-                                <strong>Session expired.</strong> The page was refreshed for security. Please log in again.
-                            </div>
-
-                            {{-- ✅ FIX 4: Proper POST form with @csrf Blade directive --}}
-                            {{-- ✅ FIX 11: autocomplete="off" on the form + a masked, non-"password"-typed
+                            {{-- Proper POST form with @csrf Blade directive --}}
+                            {{-- autocomplete="off" on the form + a masked, non-"password"-typed
                                  input (same technique as the old system) so browsers don't offer to save
                                  the credentials. The real value is written into the hidden #password-actual
                                  field that actually gets submitted under name="password". --}}
@@ -129,7 +119,7 @@
 
                                 <div class="mb-3">
                                     <label for="emailaddress" class="form-label">Email address</label>
-                                    {{-- ✅ FIX 13: autocomplete left on (matches old system) so the browser
+                                    {{-- autocomplete left on (matches old system) so the browser
                                          still shows its email autosuggest dropdown here --}}
                                     <input
                                         class="form-control @error('email') is-invalid @enderror"
@@ -164,7 +154,7 @@
 
                                 <div class="mt-2 mb-3">
                                     <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
-                                    {{-- ✅ FIX 10: Forgot password no longer routes to master area; placeholder link only --}}
+                                    {{-- Forgot password no longer routes to master area; placeholder link only --}}
                                     <a href="#" class="text-muted float-end fs-15">
                                         Forgot password?
                                     </a>
@@ -191,7 +181,7 @@
         </div><!-- end container -->
     </div><!-- end page -->
 
-    {{-- ✅ FIX 5: Corrected typo  dashbaord → dashboard --}}
+    {{-- Corrected typo  dashbaord → dashboard --}}
     <script src="{{ asset('dashboard/assets/js/vendor.min.js') }}"></script>
     <script src="{{ asset('dashboard/assets/js/app.min.js') }}"></script>
 
@@ -200,7 +190,7 @@
     <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
     <script src="{{ asset('library/cropper/cropper.js') }}"></script>
 
-    {{-- ✅ FIX 12: Password masking, ported as-is from the old system. The visible field is
+    {{-- Password masking, ported as-is from the old system. The visible field is
          plain text and never holds the real password — characters are tracked manually and the
          field just displays asterisks. The real value only ever lives in the hidden #password-actual
          input, which is what actually gets posted as "password". Browsers never see a genuine
@@ -221,30 +211,54 @@
         });
     </script>
 
+    {{--
+        ✅ FIX (login page falsely showing "Session expired"):
+
+        Root cause was two-fold:
+          1. The page called GET /csrf-refresh every 25 minutes, but that
+             route never existed in web.php — every call 404'd.
+          2. ANY failure of that call (404, 500, network blip) was treated
+             as "the session died" and permanently disabled the login button.
+
+        This page must never appear expired, so the fix is:
+          - Point the refresh at the real route('csrf.refresh') endpoint
+            (added server-side), so the token embedded in this page — and
+            the underlying session — stay alive for as long as the tab is
+            open, however many hours or days that is.
+          - Treat a failed refresh as a no-op — just retry next cycle,
+            never show an error or disable the form. A transient network
+            blip or a passing 5xx should never lock a user out of login.
+
+        We deliberately do NOT intercept the actual form submit with AJAX:
+        jQuery follows redirects transparently, which makes a genuine
+        success vs. a real 419 hard to tell apart reliably and risks
+        breaking the normal login flow. As long as the interval above keeps
+        the token current, the native form submit (with @csrf's token,
+        refreshed in place every 25 min) already has what it needs.
+    --}}
     <script>
         $(document).ready(function () {
 
-            // ✅ FIX 6: Attach CSRF token to every AJAX request globally
+            // Attach CSRF token to every AJAX request globally
             $.ajaxSetup({
                 headers: {
                     'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
                 }
             });
 
-            // ✅ FIX 7: Silently refresh CSRF token every 25 minutes
-            // Prevents 419 on pages left open in the browser tab
+            // Keep the token fresh indefinitely so this page can stay open
+            // for as long as the client needs without ever going stale.
+            // A failure here is silently retried next cycle — never shown
+            // to the user, never disables the form.
             setInterval(function () {
-                $.get('/csrf-refresh', function (data) {
-                    if (data.token) {
+                $.get('{{ route('csrf.refresh') }}', function (data) {
+                    if (data && data.token) {
                         $('meta[name="csrf-token"]').attr('content', data.token);
                         $('input[name="_token"]').val(data.token);
+                        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': data.token } });
                     }
                 }).fail(function () {
-                    // Session ended while page was open — warn the user
-                    $('#csrf-expired-notice').show();
-                    $('#loginBtn')
-                        .prop('disabled', true)
-                        .html('<i class="ri-refresh-line"></i> Session expired — please refresh the page');
+                    console.warn('CSRF refresh failed this cycle; will retry next interval.');
                 });
             }, 25 * 60 * 1000);
 
@@ -253,11 +267,6 @@
                 e.preventDefault();
                 document.getElementById('dataForm').reset();
             });
-
-            // Show expired notice if server flashed it back
-            @if(session('csrf_expired'))
-                $('#csrf-expired-notice').show();
-            @endif
 
             // Flash message toasts
             @if(Session::has('message'))

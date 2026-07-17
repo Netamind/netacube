@@ -7,13 +7,13 @@
     <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
     <meta content="Coderthemes" name="author" />
 
-    {{-- ✅ FIX 1: CSRF meta tag — was missing, needed for AJAX/header use --}}
+    {{-- CSRF meta tag — needed so the refresh script below can read/update the token --}}
     <meta name="csrf-token" content="{{ csrf_token() }}">
 
     <!--favicon-->
     <link rel="icon" href="{{asset('dashboard/images/icon.png')}}" type="image/x-icon">
 
-    {{-- ✅ FIX 2: jQuery FIRST — must load before any script that uses $ (it was loaded
+    {{-- jQuery FIRST — must load before any script that uses $ (it was loaded
          near the bottom before, after a script that already called $(...).click(...)) --}}
     <script src="{{ asset('library/jquery/jquery.min.js') }}"></script>
 
@@ -31,7 +31,7 @@
     <link href="{{ asset('library/toastr/toastr.min.css') }}" rel="stylesheet" type="text/css" />
 
     <style>
-        /* ✅ FIX 3: Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
+        /* Standardize card width across screen sizes (mobile, tablet, smaller laptops, desktops) */
         .auth-card-wrap {
             width: 100%;
             max-width: 380px;
@@ -75,7 +75,7 @@
     <div class="account-pages pt-2 pt-sm-5 pb-4 pb-sm-5 position-relative">
         <div class="container">
             <div class="row justify-content-center">
-                {{-- ✅ FIX 4: Narrowed column + fixed max-width wrapper, same as the other auth pages --}}
+                {{-- Narrowed column + fixed max-width wrapper, same as the other auth pages --}}
                 <div class="col-11 col-sm-8 col-md-6 col-lg-4 col-xl-4 col-xxl-3">
                     <div class="auth-card-wrap">
                     <div class="card">
@@ -101,13 +101,13 @@
 
                                   <div class="mb-3">
                                     <label for="emailaddress" class="form-label">Email address</label>
-                                    {{-- ✅ FIX 5: autocomplete left on so the browser's email autosuggest still works --}}
+                                    {{-- autocomplete left on so the browser's email autosuggest still works --}}
                                     <input class="form-control" type="email" id="emailaddress" name="email" placeholder="Enter your email" autocomplete="email">
                                 </div>
 
                                 <div class="mb-3">
                                     <label for="password" class="form-label">Password</label>
-                                    {{-- ✅ FIX 6: Same masked-password trick as the main login page — plain text
+                                    {{-- Same masked-password trick as the main login page — plain text
                                          field with no real "password" semantics, so the browser never offers
                                          to save it. Real value lives only in the hidden #password-actual field. --}}
                                     <input class="form-control" type="text" id="password" placeholder="Enter your password" autocomplete="off">
@@ -116,7 +116,7 @@
 
                                 <div class="mt-2 mb-3">
                                     <a href="#" class="text-muted fs-15" id="cancelDataBtn2">Cancel</a>
-                                    {{-- ✅ FIX 7: Forgot password no longer routes to the master area --}}
+                                    {{-- Forgot password no longer routes to the master area --}}
                                     <a href="#" class="text-muted float-end fs-15">Forgot password?</a>
                                 </div>
 
@@ -144,7 +144,7 @@
         <span class="text-white-50"><script>document.write(new Date().getFullYear())</script> © Netamind Technology</span>
     </footer>-->
 
-    {{-- ✅ FIX 8: Corrected typo  dashbaord → dashboard --}}
+    {{-- Corrected typo  dashbaord → dashboard --}}
     <!-- Vendor js -->
     <script src="{{asset('dashboard/assets/js/vendor.min.js')}}"></script>
 
@@ -156,7 +156,7 @@
     <script src="{{ asset('library/papaparse/papaparse.min.js') }}"></script>
     <script src="{{ asset('library/cropper/cropper.js') }}"></script>
 
-    {{-- ✅ FIX 9: Password masking, ported as-is from the main login page --}}
+    {{-- Password masking, ported as-is from the main login page --}}
     <script>
         const passwordInput = document.getElementById('password');
         const passwordActualInput = document.getElementById('password-actual');
@@ -173,30 +173,63 @@
         });
     </script>
 
+    {{--
+        ✅ FIX (this login page can also sit open indefinitely, same as the
+        main tenant login page): it had no CSRF meta tag and no refresh loop
+        at all, so a token here would go stale after the app's default
+        session.lifetime with nothing to recover it — submit would just
+        419 with no graceful path back. Same non-fatal refresh pattern
+        applied here for consistency: keep the token current in the
+        background; any failure is silently retried next cycle and never
+        shown to the user or used to disable the form.
+    --}}
     <script>
-        $('#cancelDataBtn2').click(function() {
-            document.getElementById('dataForm').reset();
-        });
-    </script>
+        $(document).ready(function () {
 
-    <script>
-        @if(Session::has('message'))
-            var type = "{{ Session::get('alert-type', 'info') }}";
-            switch(type){
-                case 'info':
-                    toastr.info("{{ Session::get('message') }}", 'Info',{timeOut: 5000, progressBar: true});
-                    break;
-                case 'warning':
-                    toastr.warning("{{ Session::get('message') }}", 'Warning',{timeOut: 5000, progressBar: true});
-                    break;
-                case 'success':
-                    toastr.success("{{ Session::get('message') }}", 'Success',{timeOut: 5000, progressBar: true});
-                    break;
-                case 'error':
-                    toastr.error("{{ Session::get('message') }}", 'Error',{timeOut: 5000, progressBar: true});
-                    break;
-            }
-        @endif
+            // Attach CSRF token to every AJAX request globally
+            $.ajaxSetup({
+                headers: {
+                    'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')
+                }
+            });
+
+            // Keep the token fresh indefinitely so this page can stay open
+            // for as long as needed without ever going stale.
+            setInterval(function () {
+                $.get('{{ route('csrf.refresh') }}', function (data) {
+                    if (data && data.token) {
+                        $('meta[name="csrf-token"]').attr('content', data.token);
+                        $('input[name="_token"]').val(data.token);
+                        $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': data.token } });
+                    }
+                }).fail(function () {
+                    console.warn('CSRF refresh failed this cycle; will retry next interval.');
+                });
+            }, 25 * 60 * 1000);
+
+            $('#cancelDataBtn2').click(function() {
+                document.getElementById('dataForm').reset();
+            });
+
+            @if(Session::has('message'))
+                var type = "{{ Session::get('alert-type', 'info') }}";
+                switch(type){
+                    case 'info':
+                        toastr.info("{{ Session::get('message') }}", 'Info',{timeOut: 5000, progressBar: true});
+                        break;
+                    case 'warning':
+                        toastr.warning("{{ Session::get('message') }}", 'Warning',{timeOut: 5000, progressBar: true});
+                        break;
+                    case 'success':
+                        toastr.success("{{ Session::get('message') }}", 'Success',{timeOut: 5000, progressBar: true});
+                        break;
+                    case 'error':
+                        toastr.error("{{ Session::get('message') }}", 'Error',{timeOut: 5000, progressBar: true});
+                        break;
+                }
+            @endif
+
+        });
     </script>
     <!--js toastr notification--> 
 </body>

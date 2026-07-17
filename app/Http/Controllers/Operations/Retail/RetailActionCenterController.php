@@ -195,6 +195,81 @@ class RetailActionCenterController extends Controller
             ]);
     }
 
+    // ── NEW: keep delivery note prices in sync with the catalogue ──────────
+    // Whenever a base product's price or a branch's price override changes,
+    // every delivery note row for that product ON THE MATCHING DATE needs to
+    // pick up the new price too — otherwise a price set after the note was
+    // first added never reaches it. Each row is recomputed exactly the way
+    // saveDeliveryNote() derives it: branch override wins, else base price.
+    // Both pending AND already-submitted rows are touched, as long as the
+    // delivery date matches — a submitted note is only "locked" against
+    // this resync if it's dated differently.
+    //
+    // $branchId = null → resync this product's rows across every branch
+    //                     (used after a base catalogue price change).
+    // $branchId = X     → resync only that branch's rows (used after a
+    //                     branch-level price override change).
+    // $date             → only touches delivery notes dated exactly this day
+    //                     — the Action Centre's currently active delivery date.
+    private function syncDeliveryNotePrices(int $baseProductId, ?int $branchId, string $date): int
+    {
+        $base = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $baseProductId)
+            ->first(['selling_price', 'cost_price']);
+
+        if (! $base) return 0;
+
+        $query = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->where('base_product_id', $baseProductId)
+            ->where('delivery_date', $date);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $notesToSync = $query->get(['id', 'branch_id']);
+        if ($notesToSync->isEmpty()) return 0;
+
+        $branchIds = $notesToSync->pluck('branch_id')->unique()->values()->all();
+
+        $overrides = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('base_product_id', $baseProductId)
+            ->whereIn('branch_id', $branchIds)
+            ->get(['branch_id', 'selling_price', 'cost_price'])
+            ->keyBy('branch_id');
+
+        $now     = now();
+        $updated = 0;
+
+        foreach ($notesToSync as $note) {
+            $override = $overrides->get($note->branch_id);
+
+            $effectiveSell = ($override && $override->selling_price !== null)
+                ? (float) $override->selling_price
+                : (float) ($base->selling_price ?? 0);
+
+            $effectiveCost = ($override && $override->cost_price !== null)
+                ? (float) $override->cost_price
+                : (float) ($base->cost_price ?? 0);
+
+            DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('id', $note->id)
+                ->update([
+                    'selling_price' => $effectiveSell,
+                    'cost_price'    => $effectiveCost,
+                    'updated_at'    => $now,
+                ]);
+
+            $updated++;
+        }
+
+        return $updated;
+    }
+
     // ══════════════════════════════════════════════════════════════════════
     //  VIEWS
     // ══════════════════════════════════════════════════════════════════════
@@ -244,7 +319,7 @@ class RetailActionCenterController extends Controller
             ->where('sector',   'Retail')
             ->where('category', (string) $categoryId)
             ->where('status',   'active')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
 
         $product = $this->findBaseProduct($productId);
@@ -334,10 +409,12 @@ HTML;
             'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
             'selling_price'   => 'nullable|numeric|min:0',
             'cost_price'      => 'nullable|numeric|min:0',
+            'delivery_date'   => 'required|date',
         ]);
 
         $branchId  = (int) $request->branch_id;
         $productId = (int) $request->base_product_id;
+        $deliveryDate = $request->delivery_date;
 
         $sell = ($request->selling_price !== null && $request->selling_price !== '')
             ? (float) $request->selling_price
@@ -396,6 +473,12 @@ HTML;
             );
         }
 
+        // Push the new effective price into this branch's PENDING delivery
+        // note for the date currently active in the Action Centre — a price
+        // set/changed after a note was already added still reflects in it
+        // (only unsubmitted rows for that same date are touched).
+        $this->syncDeliveryNotePrices($productId, $branchId, $deliveryDate);
+
         return response()->json([
             'success' => $sell !== null
                 ? 'Branch price override saved.'
@@ -412,7 +495,7 @@ HTML;
         $request->validate([
             'branch_id'       => 'required|integer|exists:tenant.branches,id',
             'base_product_id' => 'required|integer|exists:tenant.retail_base_products,id',
-            'quantity'        => 'required|numeric|min:0',
+            'quantity'        => 'required|numeric',
             'delivery_date'   => 'required|date',
         ]);
 
@@ -421,8 +504,9 @@ HTML;
         $quantity      = (float) $request->quantity;
         $date          = $request->delivery_date;
 
-        // Clear the slot when quantity is zero.
-        if ($quantity <= 0) {
+        // Clear the slot only when quantity is exactly zero — negative quantities
+        // (corrections / shortages) are legitimate and must be saved, not cleared.
+        if (abs($quantity) < 0.0001) {
             DB::connection('tenant')
                 ->table('retail_deliverynotes')
                 ->where('branch_id',       $branchId)
@@ -538,7 +622,7 @@ HTML;
                 $branchId = (int)   $note->branch_id;
                 $quantity = (float) $note->quantity;
 
-                if ($quantity <= 0) continue;
+                if (abs($quantity) < 0.0001) continue;
 
                 DB::connection('tenant')
                     ->table('retail_deliverynotes')
@@ -572,8 +656,8 @@ HTML;
                         ->insert([
                             'branch_id'       => $branchId,
                             'base_product_id' => $baseProductId,
-                            'selling_price'   => $note->selling_price,
-                            'cost_price'      => $note->cost_price,
+                            'selling_price'   => null,
+                            'cost_price'      => null,
                             'stock_quantity'  => $stockAfter,
                             'created_at'      => $now,
                             'updated_at'      => $now,
@@ -643,7 +727,7 @@ HTML;
                 $baseProductId = (int)   $note->base_product_id;
                 $quantity      = (float) $note->quantity;
 
-                if ($quantity <= 0) { $skipped++; continue; }
+                if (abs($quantity) < 0.0001) { $skipped++; continue; }
 
                 $branchProduct = DB::connection('tenant')
                     ->table('retail_branch_products')
@@ -666,8 +750,8 @@ HTML;
                         ->insert([
                             'branch_id'       => $branchId,
                             'base_product_id' => $baseProductId,
-                            'selling_price'   => $note->selling_price,
-                            'cost_price'      => $note->cost_price,
+                            'selling_price'   => null,
+                            'cost_price'      => null,
                             'stock_quantity'  => $stockAfter,
                             'created_at'      => $now,
                             'updated_at'      => $now,
@@ -798,7 +882,7 @@ HTML;
     {
         $request->validate([
             'id'       => 'required|integer|exists:tenant.retail_deliverynotes,id',
-            'quantity' => 'required|numeric|min:0',
+            'quantity' => 'required|numeric',
             'notes'    => 'nullable|string|max:500',
         ]);
 
@@ -820,13 +904,32 @@ HTML;
 
         $base = $this->findBaseProduct((int) $note->base_product_id);
 
+        // Re-resolve the effective price the same way saveDeliveryNote() does:
+        // a branch price override always wins over the base catalogue price.
+        // This endpoint only touches quantity/notes — price here is a re-sync,
+        // never a manual edit, so it must respect the override rather than
+        // blindly falling back to the base product's price.
+        $branchOverride = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('branch_id',       (int) $note->branch_id)
+            ->where('base_product_id', (int) $note->base_product_id)
+            ->first(['selling_price', 'cost_price']);
+
+        $effectiveSell = ($branchOverride && $branchOverride->selling_price !== null)
+            ? (float) $branchOverride->selling_price
+            : (float) ($base->selling_price ?? $note->selling_price);
+
+        $effectiveCost = ($branchOverride && $branchOverride->cost_price !== null)
+            ? (float) $branchOverride->cost_price
+            : (float) ($base->cost_price ?? $note->cost_price);
+
         DB::connection('tenant')
             ->table('retail_deliverynotes')
             ->where('id', $request->id)
             ->update([
                 'quantity'      => (float) $request->quantity,
-                'selling_price' => $base->selling_price ?? $note->selling_price,
-                'cost_price'    => $base->cost_price    ?? $note->cost_price,
+                'selling_price' => $effectiveSell,
+                'cost_price'    => $effectiveCost,
                 'notes'         => $request->notes ?? $note->notes,
                 'updated_at'    => now(),
             ]);
@@ -920,62 +1023,23 @@ HTML;
         ]);
 
         $productId = (int) $request->base_product_id;
-        $userId    = Auth::id();
-        $user      = Auth::user();
-        $now       = now();
-        $req       = request();
-        $agent     = $req->userAgent() ?? '';
-
-        $product = $this->findBaseProduct($productId);
+        $product   = $this->findBaseProduct($productId);
 
         if (!$product) {
             return response()->json(['error' => 'Product not found.', 'status' => 404]);
         }
 
-        DB::connection('tenant')->transaction(function () use ($productId, $product, $userId, $user, $now, $req, $agent) {
-
-            $branchRows = DB::connection('tenant')
-                ->table('retail_branch_products')
-                ->where('base_product_id', $productId)
-                ->get(['branch_id', 'stock_quantity', 'selling_price', 'cost_price']);
-
-            foreach ($branchRows as $row) {
-                $stockBefore = (float) $row->stock_quantity;
-                if (abs($stockBefore) < 0.0001) continue;
-
-                DB::connection('tenant')
-                    ->table('retail_inventory_logs')
-                    ->insert([
-                        'product_id'          => $productId,
-                        'branch_id'           => $row->branch_id,
-                        'stock_before'        => $stockBefore,
-                        'stock_after'         => 0,
-                        'stock_change'        => -$stockBefore,
-                        'selling_price'       => (float) ($row->selling_price ?? 0),
-                        'cost_price'          => (float) ($row->cost_price    ?? 0),
-                        'operation_type'      => 'WriteOff',
-                        'source_type'         => 'ProductDeletion',
-                        'source_id'           => $productId,
-                        'action_reason'       => 'Base product "' . $product->name . '" permanently deleted by user',
-                        'user_id'             => $userId,
-                        'user_full_name'      => $user->name  ?? null,
-                        'user_email'          => $user->email ?? null,
-                        'user_role'           => $user->role  ?? null,
-                        'user_device_details' => $agent,
-                        'ip_address'          => $req->ip(),
-                        'device_type'         => $this->parseDeviceType($agent),
-                        'browser'             => $this->parseBrowser($agent),
-                        'operating_system'    => $this->parseOS($agent),
-                        'session_id'          => session()->getId(),
-                        'log_date'            => $now->toDateString(),
-                        'log_time'            => $now->toTimeString(),
-                        'created_at'          => $now,
-                        'updated_at'          => $now,
-                    ]);
-            }
-
+        DB::connection('tenant')->transaction(function () use ($productId) {
             DB::connection('tenant')->table('retail_branch_products')->where('base_product_id', $productId)->delete();
             DB::connection('tenant')->table('retail_deliverynotes')->where('base_product_id', $productId)->delete();
+
+            // retail_inventory_logs.product_id is ON DELETE NO ACTION — any
+            // row referencing this product (from past stock movements) must
+            // be cleared manually or the delete below fails with a foreign
+            // key violation. This is why deletion previously errored
+            // specifically when a branch had stock/history for the product.
+            DB::connection('tenant')->table('retail_inventory_logs')->where('product_id', $productId)->delete();
+
             DB::connection('tenant')->table('retail_base_products')->where('id', $productId)->delete();
         });
 

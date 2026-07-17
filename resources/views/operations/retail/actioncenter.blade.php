@@ -26,7 +26,7 @@
             ->where('sector',   'Retail')
             ->where('category', (string) $selectedCategory->id)
             ->where('status',   'active')
-            ->orderBy('name')
+            ->orderBy('id')
             ->get();
     }
 
@@ -105,7 +105,7 @@
 .card-header {
     padding: 0 !important;
     background: #4B5EBD;
-    border-radius: 12px 12px 0 0 !important;
+    border-radius: 0 !important;
     border: none;
 }
 .ch-inner {
@@ -207,7 +207,7 @@
 }
 .search-icon-left { color: #94a3b8; font-size: 15px; flex-shrink: 0; }
 #productSearch {
-    flex: 1; border: none; outline: none;
+    flex: 1; min-width: 0; border: none; outline: none;
     font-size: 12px; color: #1e293b; background: transparent; padding: 0;
 }
 #productSearch::placeholder { color: #b0baca; }
@@ -308,96 +308,71 @@
 
 .branch-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 14px;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 16px;
     padding: 20px 20px 36px;
     background: #fff;
 }
+@media (max-width: 991px) {
+    .branch-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; padding: 14px 14px 28px; }
+}
 @media (max-width: 767px) {
-    .branch-grid { grid-template-columns: 1fr 1fr; gap: 10px; padding: 12px 12px 28px; }
+    .branch-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; padding: 12px 12px 24px; }
 }
 @media (max-width: 420px) {
-    .branch-grid { grid-template-columns: 1fr; }
+    .branch-grid { grid-template-columns: minmax(0, 1fr); }
 }
 
 .branch-card {
-    background: #fff;
-    border: 1.5px solid #e4e7f5;
-    border-radius: 10px;
-    overflow: hidden;
+    text-align: center;
+    min-width: 0;
+    box-sizing: border-box;
 }
 
-.bc-header { background: #f0f2fa; border-bottom: 1.5px solid #dde1f0; }
-.bc-name-row {
-    display: flex; align-items: center; gap: 6px;
-    padding: 8px 10px 4px;
-}
+.bc-label { display: block; margin-bottom: 6px; }
 .bc-name {
-    font-size: 11px; font-weight: 700; color: #2d3a8c;
-    flex: 1; min-width: 0;
+    font-size: 15px; font-weight: bold; color: #1e293b;
+    display: block;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.bc-stats-line {
+    display: block;
+    color: gray; font-size: 12px;
+    margin-top: 2px;
 }
 
 .bc-price-badge {
     display: inline-flex; align-items: center; gap: 3px;
     background: #fef3c7; border: 1px solid #fcd34d;
     border-radius: 4px; padding: 1px 6px;
-    font-size: 9px; font-weight: 700; color: #92400e;
-    white-space: nowrap; flex-shrink: 0;
+    margin-top: 4px;
+    font-size: 10px; font-weight: 700; color: #92400e;
+    white-space: nowrap;
     line-height: 1.6;
 }
-.bc-price-badge i { font-size: 8px; }
+.bc-price-badge i { font-size: 9px; }
 
-.bc-saved-check {
-    display: none;
-    width: 15px; height: 15px; border-radius: 50%;
-    background: #10b981;
-    align-items: center; justify-content: center;
-    flex-shrink: 0;
-}
-.bc-saved-check i { font-size: 8px; color: #fff; }
-.bc-saved-check.show { display: flex; }
-
-@keyframes checkPulse {
-    0%   { transform: scale(1);   opacity: 1; }
-    40%  { transform: scale(1.5); opacity: .7; }
-    100% { transform: scale(1);   opacity: 1; }
-}
-.bc-saved-check.pulse { animation: checkPulse .35s ease; }
-
-.bc-stats-row { display: flex; align-items: center; gap: 0; padding: 0 10px 8px; }
-.bc-stat-piece { display: flex; align-items: baseline; gap: 2px; }
-.bc-stat-piece + .bc-stat-piece::before { content: '·'; color: #c5caec; font-size: 9px; margin: 0 5px; }
-.bc-stat-label { font-size: 8px; font-weight: 600; color: #b0baca; text-transform: uppercase; letter-spacing: .4px; }
-.bc-stat-val { font-size: 12px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1; }
-.bc-stat-val.v-stock     { color: #a0aec0; }
-.bc-stat-val.v-delivered { color: #93a3d4; }
-.bc-stat-val.v-order     { color: #cbd5e1; }
-
-.bc-input-row { background: #fff; }
+.bc-input-row { background: transparent; min-width: 0; }
 .bc-input {
     display: block;
     width: 100%;
+    min-width: 0;
+    box-sizing: border-box;
     text-align: center;
-    font-size: 20px;
+    font-size: 14px;
     font-weight: normal !important;
     font-family: inherit !important;
-    border: none;
-    border-top: 1px solid #e4e7f5;
-    border-radius: 0;
-    padding: 8px 8px;
+    border: 1px solid #ced4da;
+    border-radius: 4px;
+    padding: 6px 8px;
     outline: none;
     color: #1e293b;
     background: #fff;
-    font-variant-numeric: tabular-nums;
-    -moz-appearance: textfield;
-    transition: none;
+    transition: border-color .15s, box-shadow .15s, border-bottom-color .15s;
 }
-input.bc-input,
-input[type="number"].bc-input { font-weight: normal !important; font-family: inherit !important; }
-.bc-input::-webkit-outer-spin-button,
-.bc-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.bc-input::placeholder { color: #e8eaf3; font-size: 16px; font-weight: 400; }
+.bc-input:focus { border-color: #4B5EBD; box-shadow: 0 0 0 2px rgba(75,94,189,0.15); }
+input.bc-input { font-weight: normal !important; font-family: inherit !important; }
+.bc-input::placeholder { color: #adb5bd; font-size: 13px; font-weight: 400; }
 
 .no-category-wrap { padding: 60px 16px; text-align: center; }
 .no-category-wrap i { font-size: 48px; color: #dde1f0; display: block; margin-bottom: 14px; }
@@ -552,13 +527,14 @@ input[type="number"].bc-input { font-weight: normal !important; font-family: inh
     display: flex; align-items: center; gap: 8px;
     background: #f8f9ff; border: 1px solid #e4e7f5; border-radius: 7px;
     padding: 6px 10px;
+    max-width: 100%;
 }
 .ep-branch-override-row .ep-bo-name {
-    flex: 1; font-size: 12px; font-weight: 600; color: #2d3a8c;
+    flex: 1 1 auto; min-width: 0; font-size: 12px; font-weight: 600; color: #2d3a8c;
     white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
 }
 .ep-branch-override-row .ep-bo-input {
-    width: 110px; text-align: right;
+    flex: 0 0 110px; width: 110px; min-width: 0; text-align: right;
     font-size: 12px; font-weight: 700; color: #1d4ed8;
     -moz-appearance: textfield;
     transition: none !important;
@@ -575,9 +551,30 @@ input[type="number"].bc-input { font-weight: normal !important; font-family: inh
 input[type=number] { -moz-appearance: textfield; }
 input[type=number]::-webkit-outer-spin-button,
 input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+
+/* ── Mobile input fix ──────────────────────────────────────────────
+   iOS Safari auto-zooms the whole page when a focused input's font-size
+   is under 16px — that's what makes inputs appear to jump/shift outside
+   the device. Force every form control to 16px at mobile widths (desktop
+   sizing is untouched), and widen the few inputs that were sized tight
+   around a smaller font so the larger text still fits comfortably. ── */
+@media (max-width: 767px) {
+    input, select, textarea,
+    .form-control, .form-control-sm, .form-select, .form-select-sm {
+        font-size: 16px !important;
+    }
+    #productSearch          { font-size: 16px; }
+    #categorySelectHeader   { font-size: 16px; }
+    .bc-input               { font-size: 16px; }
+    .sbr-cr-unit-input      { font-size: 16px; width: 64px; height: 30px; }
+    .ep-branch-override-row .ep-bo-input { font-size: 16px; flex-basis: 100px; width: 100px; }
+}
+@media (max-width: 380px) {
+    .ep-branch-override-row .ep-bo-input { flex-basis: 92px; width: 92px; }
+}
 </style>
 
-<form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+<form method="POST" action="{{ route('retail.operations.update.filters') }}"
       id="selectProductForm" style="display:none;">
     @csrf
     <input type="hidden" name="user_id"           value="{{ Auth::id() }}">
@@ -596,7 +593,7 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 <div class="card-header">
     <div class="ch-inner">
         <div class="ch-left">
-            <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+            <form method="POST" action="{{ route('retail.operations.update.filters') }}"
                   id="headerCategoryForm" style="margin:0;display:contents;">
                 @csrf
                 <input type="hidden" name="user_id"           value="{{ Auth::id() }}">
@@ -757,43 +754,25 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
                  data-branch-id="{{ $branch->id }}"
                  data-product-id="{{ $product->id }}">
 
-                <div class="bc-header">
-                    <div class="bc-name-row">
-                        <span class="bc-name">{{ $branch->name }}</span>
+                <label class="bc-label" for="ir-input-{{ $branch->id }}">
+                    <span class="bc-name">{{ $branch->name }}</span>
+                    <span class="bc-stats-line">stock : {{ number_format((float)$bStock, 0) }} | delivered : {{ number_format((float)$bSdnote, 0) }} | order : 0</span>
 
-                        @if($branchSpecificPrice !== null)
-                        <span class="bc-price-badge" title="Branch-specific selling price (overrides base price of MWK {{ number_format((float)$product->selling_price, 2) }})">
-                            <i class="ri-price-tag-3-line"></i>
-                            MWK {{ number_format($branchSpecificPrice, 2) }}
-                        </span>
-                        @endif
-
-                        <span class="bc-saved-check {{ $bPending !== null ? 'show' : '' }}" id="check-{{ $branch->id }}" title="Saved">
-                            <i class="ri-check-line"></i>
-                        </span>
-                    </div>
-                    <div class="bc-stats-row">
-                        <div class="bc-stat-piece">
-                            <span class="bc-stat-label">Stock</span>
-                            <span class="bc-stat-val v-stock">{{ number_format((float)$bStock, 0) }}</span>
-                        </div>
-                        <div class="bc-stat-piece">
-                            <span class="bc-stat-label">Delivered</span>
-                            <span class="bc-stat-val v-delivered">{{ number_format((float)$bSdnote, 0) }}</span>
-                        </div>
-                        <div class="bc-stat-piece">
-                            <span class="bc-stat-label">Order</span>
-                            <span class="bc-stat-val v-order">0</span>
-                        </div>
-                    </div>
-                </div>
+                    @if($branchSpecificPrice !== null)
+                    <span class="bc-price-badge" title="Branch-specific selling price (overrides base price of MWK {{ number_format((float)$product->selling_price, 2) }})">
+                        <i class="ri-price-tag-3-line"></i>
+                        MWK {{ number_format($branchSpecificPrice, 2) }}
+                    </span>
+                    @endif
+                </label>
 
                 <div class="bc-input-row" id="ir-{{ $branch->id }}">
-                    <input type="number"
-                           inputmode="decimal"
-                           step="0.01"
+                    <input type="text"
+                           id="ir-input-{{ $branch->id }}"
+                           autocomplete="off"
                            class="bc-input"
                            placeholder=""
+                           style="{{ $bPending !== null ? 'border-bottom:2px solid #2563eb;' : '' }}"
                            value="{{ $bPending !== null ? rtrim(rtrim(number_format((float)$bPending, 2, '.', ''), '0'), '.') : '' }}"
                            data-branch-id="{{ $branch->id }}"
                            data-product-id="{{ $product->id }}"
@@ -976,7 +955,7 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
                         <div class="dmc-desc">Past or future deliveries</div>
                     </div>
                 </div>
-                <form method="POST" action="{{ route('tenant.admin.update.filters') }}" id="dateForm">
+                <form method="POST" action="{{ route('retail.operations.update.filters') }}" id="dateForm">
                     @csrf
                     <input type="hidden" name="user_id" value="{{ Auth::id() }}">
                     <input type="hidden" name="dnote_custom_date" id="dateFormValue" value="">
@@ -1267,41 +1246,6 @@ input[type=number]::-webkit-inner-spin-button { -webkit-appearance: none; margin
 </div>
 
 
-{{-- ══ SUBMIT ALL CONFIRMATION MODAL ═══════════════════════════════════ --}}
-<div class="modal fade" id="submitAllModal" tabindex="-1">
-    <div class="modal-dialog" style="max-width:420px;">
-        <div class="modal-content">
-            <div class="modal-header mh-blue">
-                <h5 class="modal-title mh-title"><i class="ri-send-plane-fill"></i> Submit All Pending Notes</h5>
-                <button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" style="padding:20px 22px;">
-                <div style="display:flex;align-items:flex-start;gap:14px;">
-                    <div style="width:42px;height:42px;border-radius:50%;background:#eff3ff;display:flex;align-items:center;justify-content:center;flex-shrink:0;">
-                        <i class="ri-send-plane-fill" style="font-size:20px;color:#4B5EBD;"></i>
-                    </div>
-                    <div>
-                        <p style="font-size:13px;font-weight:600;color:#1e293b;margin:0 0 6px;">Submit all pending delivery notes?</p>
-                        <p style="font-size:12px;color:#64748b;margin:0;">
-                            All unsubmitted notes for <strong id="submitAllDateLabel"></strong>
-                            across every product will be marked submitted and branch stock updated.
-                        </p>
-                    </div>
-                </div>
-                <div style="background:#fff8e1;border-left:3px solid #f59e0b;border-radius:0 5px 5px 0;padding:8px 12px;font-size:11px;color:#92400e;margin-top:14px;">
-                    <i class="ri-alert-line me-1"></i> This action cannot be undone. Notes with zero quantity will be skipped.
-                </div>
-            </div>
-            <div class="modal-footer" style="padding:10px 20px 14px;gap:8px;">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" id="submitAllConfirmBtn">
-                    <i class="ri-send-plane-fill"></i> Yes, Submit All
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
-
 @endsection
 @section('scripts')
 <script>
@@ -1313,7 +1257,7 @@ $(document).ready(function () {
     $.ajaxSetup({ headers: { 'X-CSRF-TOKEN': csrfToken } });
 
     /* ── Toastr ──────────────────────────────────────────────────────── */
-    toastr.options = { timeOut: 5000, progressBar: true, positionClass: 'toast-top-end', closeButton: true };
+    toastr.options = { timeOut: 5000, progressBar: true, positionClass: 'toast-top-right', closeButton: true };
 
     /* ── Helpers ─────────────────────────────────────────────────────── */
     function showProgress() { $('#progressBar').show(); }
@@ -1404,13 +1348,97 @@ $(document).ready(function () {
         $dropdown.html(html);
     }
 
-    $('#productSearch').on('focus', function () { renderDropdown(allProducts.slice(0, 20)); $dropdown.addClass('open'); });
+    // Click-to-clear: tapping into the search box wipes whatever was typed
+    // before, so the person can start a fresh search immediately.
+    $('#productSearch').on('click', function () {
+        if ($(this).val() !== '') { $(this).val('').trigger('input'); }
+    });
+
+    // Fuzzy subsequence match: true if every character of `needle` appears
+    // in `haystack`, in order, but not necessarily next to each other.
+    // e.g. "pra" matches "paracetamol" (p...r...a...) even though "pra"
+    // isn't a literal substring of it.
+    function isSubsequence(needle, haystack) {
+        var hi = 0;
+        for (var i = 0; i < haystack.length && hi < needle.length; i++) {
+            if (haystack[i] === needle[hi]) hi++;
+        }
+        return hi === needle.length;
+    }
+
+    // Does this token match the product's searchable text? Checked in order:
+    // (1) literal substring within a single word — fast, covers most typing,
+    //     e.g. "500" in "500mg" or "ceta" in "paracetamol";
+    // (2) fuzzy subsequence within a single word — for partial/skipped-letter
+    //     typing, e.g. "pra" in "paracetamol";
+    // (3) fuzzy subsequence across the whole run-together text — for queries
+    //     typed with no space, e.g. "para500" spanning "paracetamol" and
+    //     "500mg" as separate words.
+    function tokenMatchesWords(token, words, joined) {
+        return words.some(function (w) {
+            return w.indexOf(token) !== -1 || isSubsequence(token, w);
+        }) || isSubsequence(token, joined);
+    }
+
+    // Ranks how good a match is so the closest matches float to the top.
+    // Higher = better. Per token, the best word-level match wins:
+    // exact word > word starts with token > literal substring > fuzzy subsequence.
+    // Then a bonus is added if the whole typed query lines up with the product
+    // name itself (so "lofnac 100" ranks "Lofnac 100mg" above "Lofnac Plus 100mg"),
+    // and a tiny penalty for longer names breaks remaining ties toward the more
+    // specific/shorter match.
+    function tokenScore(token, words, joined) {
+        var best = 0;
+        for (var i = 0; i < words.length; i++) {
+            var w = words[i];
+            if (w === token)             { if (100 > best) best = 100; continue; }
+            if (w.indexOf(token) === 0)  { if (80  > best) best = 80;  continue; }
+            if (w.indexOf(token) !== -1) { if (50  > best) best = 50;  continue; }
+            if (isSubsequence(token, w)) { if (20  > best) best = 20;  continue; }
+        }
+        if (best === 0 && isSubsequence(token, joined)) best = 5;
+        return best;
+    }
+
+    function scoreProduct(tokens, name) {
+        var nameLower = (name || '').toLowerCase();
+        var words = nameLower.split(/\s+/).filter(Boolean);
+        var joined = words.join('');
+        var score = 0;
+        for (var i = 0; i < tokens.length; i++) score += tokenScore(tokens[i], words, joined);
+
+        var queryJoined = tokens.join(' ');
+        if (nameLower === queryJoined) score += 1000;
+        else if (nameLower.indexOf(queryJoined) === 0) score += 400;
+        else if (nameLower.indexOf(queryJoined) !== -1) score += 150;
+
+        score -= nameLower.length * 0.01;
+        return score;
+    }
+
     $('#productSearch').on('input', function () {
         var val = $(this).val().toLowerCase().trim();
-        if (!val) { renderDropdown(allProducts.slice(0, 20)); $dropdown.addClass('open'); return; }
+        if (!val) { $dropdown.empty().removeClass('open'); return; }
+
+        // Token-based ("smart") search: split the query into whitespace-separated
+        // tokens and require every token to match somewhere in the product's
+        // searchable words, in any order — e.g. "para 500" or "500 para" both
+        // match "Paracetamol 500mg".
+        var tokens = val.split(/\s+/).filter(Boolean);
         var filtered = allProducts.filter(function (p) {
-            return p.name.toLowerCase().includes(val) || (p.code && p.code.toLowerCase().includes(val));
+            var words = (
+                p.name + ' ' + (p.code || '') + ' ' + (p.unit || '') + ' ' + (p.supplier || '')
+            ).toLowerCase().split(/\s+/).filter(Boolean);
+            var joined = words.join('');
+            return tokens.every(function (t) { return tokenMatchesWords(t, words, joined); });
         });
+        // Rank by relevance to the product NAME (unit/supplier/code still
+        // widen what matches, but shouldn't outrank a closer name match)
+        // so typing a product's full name reliably surfaces it first.
+        filtered = filtered
+            .map(function (p) { return { p: p, s: scoreProduct(tokens, p.name) }; })
+            .sort(function (a, b) { return b.s - a.s; })
+            .map(function (x) { return x.p; });
         renderDropdown(filtered);
         $dropdown.addClass('open');
     });
@@ -1524,6 +1552,7 @@ $(document).ready(function () {
             unit:          $('#ep-unit').val(),
             code:          $('#ep-code').val(),
             supplier:      p ? p.supplier : '',
+            delivery_date: activeDate,
         };
 
         // Collect branch override rows
@@ -1610,7 +1639,7 @@ $(document).ready(function () {
                         if ($badge.length) {
                             $badge.attr('title', badgeTitle).html(badgeHtml);
                         } else {
-                            $card.find('.bc-saved-check').before(
+                            $card.find('.bc-label').append(
                                 $('<span class="bc-price-badge"></span>')
                                     .attr('title', badgeTitle)
                                     .html(badgeHtml)
@@ -1706,12 +1735,19 @@ $(document).ready(function () {
         var $input    = $(this);
         var branchId  = $input.data('branch-id');
         var productId = $input.data('product-id');
-        var quantity  = $input.val();
-        var $check    = $('#check-' + branchId);
+        var quantity  = $input.val().trim();
 
         clearTimeout(saveTimer[branchId]);
 
-        if (quantity === '' || isNaN(parseFloat(quantity))) return;
+        // Still-typing states — empty, a lone '-', or a trailing '.' (e.g. mid-way through
+        // "-3" or "3.5") — are not errors yet, just don't save until the number is complete.
+        if (quantity === '' || quantity === '-' || /\.$/.test(quantity)) return;
+
+        // Allow negative decimals, e.g. -3, -3.5, 3.5
+        if (!/^-?\d+(\.\d+)?$/.test(quantity)) {
+            toastr.error('Please enter a number.', 'Invalid Quantity');
+            return;
+        }
 
         saveTimer[branchId] = setTimeout(function () {
             $.ajax({
@@ -1719,9 +1755,7 @@ $(document).ready(function () {
                 data: { branch_id: branchId, base_product_id: productId, quantity: quantity, delivery_date: activeDate },
                 success: function (res) {
                     if (res.status === 200 || res.status === 201) {
-                        $check.removeClass('pulse');
-                        void $check[0].offsetWidth;
-                        $check.addClass('show pulse');
+                        $input.css('border-bottom', '2px solid #2563eb');
                     } else {
                         toastr.error('Failed to save for ' + $input.data('branch-name') + '.', 'Save Error');
                     }
@@ -1758,25 +1792,22 @@ $(document).ready(function () {
         });
     });
 
-    /* ── Action sheet → Submit All ───────────────────────────────────── */
+    /* ── Action sheet → Submit All (goes straight through, no confirmation) ── */
     $('#asSubmitAllBtn').on('click', function () {
         $('#actionsModal').modal('hide');
-        setTimeout(function () { $('#submitAllDateLabel').text(activeDate); $('#submitAllModal').modal('show'); }, 300);
-    });
-    $('#submitAllConfirmBtn').on('click', function () {
-        $('#submitAllModal').modal('hide');
-        showProgress();
-        var $btn = $(this).prop('disabled', true);
-        $.ajax({
-            type: 'POST', url: routes.submitAll,
-            data: { delivery_date: activeDate },
-            complete: function () { hideProgress(); $btn.prop('disabled', false); },
-            success: function (data) {
-                if (data.success) { toastr.success(data.success); setTimeout(function () { location.reload(); }, 800); }
-                if (data.info) toastr.info(data.info);
-            },
-            error: handleAjaxError,
-        });
+        setTimeout(function () {
+            showProgress();
+            $.ajax({
+                type: 'POST', url: routes.submitAll,
+                data: { delivery_date: activeDate },
+                complete: function () { hideProgress(); },
+                success: function (data) {
+                    if (data.success) { toastr.success(data.success); setTimeout(function () { location.reload(); }, 800); }
+                    if (data.info) toastr.info(data.info);
+                },
+                error: handleAjaxError,
+            });
+        }, 300);
     });
 
     /* ── Action sheet → Cancel (single product) ──────────────────────── */
@@ -1801,8 +1832,7 @@ $(document).ready(function () {
             success: function (data) {
                 if (data.success) {
                     toastr.success(data.success);
-                    $('.bc-input').val('');
-                    $('.bc-saved-check').removeClass('show');
+                    $('.bc-input').val('').css('border-bottom', '');
                     recalcDistribution();
                 }
                 if (data.info) toastr.info(data.info);
@@ -1853,4 +1883,3 @@ $(document).ready(function () {
 });
 </script>
 @endsection
-

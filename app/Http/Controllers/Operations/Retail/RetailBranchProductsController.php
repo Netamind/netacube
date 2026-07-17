@@ -146,12 +146,42 @@ class RetailBranchProductsController extends Controller
         return DB::connection('tenant')->table('branches')->where('id', $branchId)->value('category');
     }
 
+    /**
+     * retail_base_products.supplier is stored inconsistently: rows added
+     * via the Base Products page store a real supplier ID (int), while
+     * rows added via this Branch Products CSV import store the supplier's
+     * NAME (see processCsvRowsChunked() below, and resolveSupplierForSave()
+     * in BaseproductsController for the canonical explanation). Joining on
+     * `suppliers.name = retail_base_products.supplier` only ever matches
+     * the second kind of row, so it silently fails to find any product
+     * that was originally added via Base Products — even though it
+     * already exists. Returns the set of supplier IDs *and* supplier
+     * names that belong to a category, so callers can match either form.
+     */
+    private function supplierIdentifiersForCategory(int $categoryId): array
+    {
+        $suppliers = DB::connection('tenant')
+            ->table('suppliers')
+            ->where('category', $categoryId)
+            ->get(['id', 'name']);
+
+        return [
+            'ids'   => $suppliers->pluck('id')->all(),
+            'names' => $suppliers->pluck('name')->all(),
+        ];
+    }
+
     private function findBaseProductInCategory(string $name, int $categoryId)
     {
+        $identifiers = $this->supplierIdentifiersForCategory($categoryId);
+        if (empty($identifiers['ids']) && empty($identifiers['names'])) return null;
+
         return DB::connection('tenant')
             ->table('retail_base_products as bp')
-            ->join('suppliers as s', 's.name', '=', 'bp.supplier')
-            ->where('s.category', $categoryId)
+            ->where(function ($q) use ($identifiers) {
+                $q->whereIn('bp.supplier', $identifiers['ids'])
+                  ->orWhereIn('bp.supplier', $identifiers['names']);
+            })
             ->whereRaw('LOWER(TRIM(bp.name)) = ?', [strtolower(trim($name))])
             ->select('bp.*')
             ->first();
@@ -161,14 +191,19 @@ class RetailBranchProductsController extends Controller
     {
         if (empty($names)) return [];
 
+        $identifiers = $this->supplierIdentifiersForCategory($categoryId);
+        if (empty($identifiers['ids']) && empty($identifiers['names'])) return [];
+
         $lookup = [];
         foreach (array_chunk(array_unique($names), self::CHUNK_SIZE) as $namesChunk) {
             $loweredChunk = array_map(fn($n) => strtolower(trim($n)), $namesChunk);
 
             $rows = DB::connection('tenant')
                 ->table('retail_base_products as bp')
-                ->join('suppliers as s', 's.name', '=', 'bp.supplier')
-                ->where('s.category', $categoryId)
+                ->where(function ($q) use ($identifiers) {
+                    $q->whereIn('bp.supplier', $identifiers['ids'])
+                      ->orWhereIn('bp.supplier', $identifiers['names']);
+                })
                 ->whereIn(DB::raw('LOWER(TRIM(bp.name))'), $loweredChunk)
                 ->select('bp.*')
                 ->get();
@@ -349,6 +384,36 @@ class RetailBranchProductsController extends Controller
         ]);
     }
 
+    // Same as logPriceChange() but for a base-catalogue-level edit that has
+    // no branch context (branch_id stays null in the log row).
+    private function logPriceChangesBaseCatalogue(
+        int    $baseProductId,
+        float  $oldPrice,
+        float  $newPrice,
+        string $productName,
+        ?string $productCode,
+        string $productUnit,
+        ?string $reason = null
+    ): void {
+        if (round($oldPrice, 2) === round($newPrice, 2)) return;
+
+        DB::connection('tenant')->table('retail_price_changes')->insert([
+            'base_product_id' => $baseProductId,
+            'branch_id'       => null,
+            'changed_by'      => Auth::id(),
+            'product_name'    => $productName,
+            'product_code'    => $productCode,
+            'product_unit'    => $productUnit,
+            'branch_name'     => null,
+            'old_price'       => $oldPrice,
+            'new_price'       => $newPrice,
+            'reason'          => $reason,
+            'change_date'     => now()->toDateString(),
+            'created_at'      => now(),
+            'updated_at'      => now(),
+        ]);
+    }
+
     private function logPriceChangesBulk(array $entries, int $branchId): void
     {
         if (empty($entries)) return;
@@ -382,6 +447,82 @@ class RetailBranchProductsController extends Controller
         foreach (array_chunk($rows, self::CHUNK_SIZE) as $rowsChunk) {
             DB::connection('tenant')->table('retail_price_changes')->insert($rowsChunk);
         }
+    }
+
+    // ── NEW: keep delivery note prices in sync with the catalogue ──────────
+    // Whenever a base product's price or a branch's price override changes
+    // here (Branch Products view), every delivery note row for that product
+    // ON THE MATCHING DATE needs to pick up the new price too — otherwise a
+    // price set after the note was first added never reaches it. Each row
+    // is recomputed the same way the Action Centre derives it: branch
+    // override wins, else base price. Both pending AND already-submitted
+    // rows are touched, as long as the delivery date matches — a submitted
+    // note is only "locked" against this resync if it's dated differently.
+    //
+    // $branchId = null → resync this product's rows across every branch
+    //                     (used after a base catalogue price change).
+    // $branchId = X     → resync only that branch's rows (used after a
+    //                     branch-level price override change).
+    // $date             → only touches delivery notes dated exactly this day.
+    //                     The Branch Products view has no delivery-date
+    //                     context of its own, so callers always pass today.
+    private function syncDeliveryNotePrices(int $baseProductId, ?int $branchId, string $date): int
+    {
+        $base = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $baseProductId)
+            ->first(['selling_price', 'cost_price']);
+
+        if (! $base) return 0;
+
+        $query = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->where('base_product_id', $baseProductId)
+            ->where('delivery_date', $date);
+
+        if ($branchId !== null) {
+            $query->where('branch_id', $branchId);
+        }
+
+        $notesToSync = $query->get(['id', 'branch_id']);
+        if ($notesToSync->isEmpty()) return 0;
+
+        $branchIds = $notesToSync->pluck('branch_id')->unique()->values()->all();
+
+        $overrides = DB::connection('tenant')
+            ->table('retail_branch_products')
+            ->where('base_product_id', $baseProductId)
+            ->whereIn('branch_id', $branchIds)
+            ->get(['branch_id', 'selling_price', 'cost_price'])
+            ->keyBy('branch_id');
+
+        $now     = now();
+        $updated = 0;
+
+        foreach ($notesToSync as $note) {
+            $override = $overrides->get($note->branch_id);
+
+            $effectiveSell = ($override && $override->selling_price !== null)
+                ? (float) $override->selling_price
+                : (float) ($base->selling_price ?? 0);
+
+            $effectiveCost = ($override && $override->cost_price !== null)
+                ? (float) $override->cost_price
+                : (float) ($base->cost_price ?? 0);
+
+            DB::connection('tenant')
+                ->table('retail_deliverynotes')
+                ->where('id', $note->id)
+                ->update([
+                    'selling_price' => $effectiveSell,
+                    'cost_price'    => $effectiveCost,
+                    'updated_at'    => $now,
+                ]);
+
+            $updated++;
+        }
+
+        return $updated;
     }
 
     // ── Suppliers filtered by branch category ─────────────────────────────
@@ -467,15 +608,23 @@ class RetailBranchProductsController extends Controller
     public function updateBaseproduct(Request $request)
     {
         $request->validate([
-            'id'                => 'required|integer|exists:tenant.retail_base_products,id',
-            'name'              => 'required|string|max:255',
-            'selling_price'     => 'required|numeric|min:0',
-            'cost_price'        => 'nullable|numeric|min:0',
-            'unit'              => 'nullable|string|max:50',
-            'code'              => 'nullable|string|max:100',
-            'supplier'          => 'nullable|string|max:255',
-            'branch_product_id' => 'nullable|integer',
+            'id'                   => 'required|integer|exists:tenant.retail_base_products,id',
+            'name'                 => 'required|string|max:255',
+            'selling_price'        => 'required|numeric|min:0',
+            'cost_price'           => 'nullable|numeric|min:0',
+            'unit'                 => 'nullable|string|max:50',
+            'code'                 => 'nullable|string|max:100',
+            'supplier'             => 'nullable|string|max:255',
+            'branch_product_id'    => 'nullable|integer',
+            'price_change_reason'  => 'nullable|string|max:255',
         ]);
+
+        // Snapshot the OLD price BEFORE writing — needed for the change log
+        // and to know whether the price actually moved.
+        $existing = DB::connection('tenant')
+            ->table('retail_base_products')
+            ->where('id', $request->id)
+            ->first(['selling_price']);
 
         DB::connection('tenant')->table('retail_base_products')
             ->where('id', $request->id)
@@ -488,6 +637,26 @@ class RetailBranchProductsController extends Controller
                 'supplier'      => $request->supplier ?? null,
                 'updated_at'    => now(),
             ]);
+
+        // ── Log the base catalogue price change, if the selling price actually moved ──
+        if ($existing && $existing->selling_price !== null) {
+            $this->logPriceChangesBaseCatalogue(
+                baseProductId: (int) $request->id,
+                oldPrice:      (float) $existing->selling_price,
+                newPrice:      (float) $request->selling_price,
+                productName:   trim($request->name),
+                productCode:   $request->code ? trim($request->code) : null,
+                productUnit:   $request->unit ?? 'Each',
+                reason:        $request->price_change_reason ? trim($request->price_change_reason) : 'Base catalogue price updated via Branch Products view',
+            );
+        }
+
+        // Push the (possibly new) base price into every branch's PENDING
+        // delivery notes for today — the Branch Products view has no
+        // delivery-date context of its own, so today is the only sensible
+        // scope. Branches with their own price override keep it, since
+        // syncDeliveryNotePrices() always lets an override win.
+        $this->syncDeliveryNotePrices((int) $request->id, null, now()->toDateString());
 
         $branchProduct = null;
         if ($request->branch_product_id) {
@@ -706,6 +875,15 @@ class RetailBranchProductsController extends Controller
             reason:        $request->price_change_reason ? trim($request->price_change_reason) : $stockReason,
         );
 
+        // Push the new effective price into this branch's matching delivery
+        // notes for today — Branch Products view has no delivery-date
+        // context, so today is the only sensible scope.
+        $this->syncDeliveryNotePrices(
+            (int) $current->base_product_id,
+            (int) $current->branch_id,
+            now()->toDateString()
+        );
+
         $bp = $this->fetchBranchProduct((int) $request->id);
         return response()->json([
             'success' => 'Branch product updated successfully.',
@@ -774,6 +952,15 @@ class RetailBranchProductsController extends Controller
                     ->update(['selling_price' => $price, 'updated_at' => now()]);
 
                 $updatedIds[] = $id;
+
+                // Push into today's matching delivery notes for this branch
+                // product — Branch Products view has no delivery-date
+                // context, so today is the only sensible scope.
+                $this->syncDeliveryNotePrices(
+                    (int) $current->base_product_id,
+                    (int) $current->branch_id,
+                    now()->toDateString()
+                );
             }
 
             $branchIdForLog = $currentRows->first()->branch_id ?? null;
@@ -842,6 +1029,18 @@ class RetailBranchProductsController extends Controller
 
             if ($branchIdForLog) {
                 $this->logPriceChangesBulk($priceLogEntries, (int) $branchIdForLog);
+            }
+
+            // Push each product's (now base) effective price into today's
+            // matching delivery notes — Branch Products view has no
+            // delivery-date context, so today is the only sensible scope.
+            $today = now()->toDateString();
+            foreach ($rows as $row) {
+                $this->syncDeliveryNotePrices(
+                    (int) $row->base_product_id,
+                    (int) $row->branch_id,
+                    $today
+                );
             }
 
             $processedIds = array_merge($processedIds, $idsChunk);
@@ -958,9 +1157,12 @@ class RetailBranchProductsController extends Controller
     public function uploadBranchproductsCsv(Request $request)
     {
         $request->validate([
-            'csv_file'    => 'required|file|mimes:csv,txt|max:5120',
-            'branch_id'   => 'required|integer|exists:tenant.branches,id',
-            'supplier_id' => 'required|integer|exists:tenant.suppliers,id',
+            'rows'         => 'required|array|min:1',
+            'rows.*.name'  => 'required|string',
+            'branch_id'    => 'required|integer|exists:tenant.branches,id',
+            'supplier_id'  => 'required|integer|exists:tenant.suppliers,id',
+            'chunk_index'  => 'required|integer|min:1',
+            'total_chunks' => 'required|integer|min:1',
         ]);
 
         $branchId       = (int) $request->branch_id;
@@ -983,75 +1185,46 @@ class RetailBranchProductsController extends Controller
             ]);
         }
 
-        // ── Parse CSV ──────────────────────────────────────────────────────
-        $raw = file_get_contents($request->file('csv_file')->getRealPath());
-        $raw = preg_replace('/^\xEF\xBB\xBF/', '', $raw);
-        $raw = str_replace(["\r\n", "\r"], "\n", $raw);
-
-        $lines = array_values(array_filter(explode("\n", $raw), fn($l) => trim($l) !== ''));
-        if (count($lines) < 2) {
-            return response()->json(['error' => 'CSV is empty or has no data rows.', 'status' => 422]);
-        }
-
-        $header = array_map(fn($h) => strtolower(trim($h)), str_getcsv(array_shift($lines)));
-
-        $map = ['name' => null, 'code' => null, 'unit' => null, 'selling_price' => null, 'cost_price' => null, 'quantity' => null];
-        foreach ($header as $i => $col) {
-            if (in_array($col, ['name', 'product', 'product_name']))            $map['name']          = $i;
-            if (in_array($col, ['code', 'sku']))                                $map['code']          = $i;
-            if ($col === 'unit')                                                 $map['unit']          = $i;
-            if (in_array($col, ['selling_price', 'price', 'sell_price']))       $map['selling_price'] = $i;
-            if (in_array($col, ['cost_price', 'cost']))                         $map['cost_price']    = $i;
-            if (in_array($col, ['quantity', 'qty', 'stock', 'stock_quantity'])) $map['quantity']      = $i;
-        }
-
-        if ($map['name'] === null) {
-            return response()->json(['error' => 'CSV must contain a "name" column.', 'status' => 422]);
-        }
-
+        // Rows arrive already split into columns by the client-side CSV
+        // parser (one JSON chunk per request — see csvUploadRowsChunked in
+        // the blade view). Clean/validate them the same way the old
+        // server-side str_getcsv parsing did, just per-row instead of per-line.
         $validUnits = ['Each','kg','g','Litre','ml','Box','Carton','Pack','Pair','Dozen','Bag','Bottle','Metre','Service'];
 
         $clean = [];
-        foreach ($lines as $line) {
-            $cols = str_getcsv($line);
-            $name = trim(strip_tags($cols[$map['name']] ?? ''));
+        foreach ($request->input('rows', []) as $row) {
+            $name = trim(strip_tags($row['name'] ?? ''));
             if ($name === '') continue;
 
-            $unit = $map['unit'] !== null ? trim(strip_tags($cols[$map['unit']] ?? '')) : 'Each';
-            $unit = in_array($unit, $validUnits) ? $unit : 'Each';
+            $unit = trim(strip_tags($row['unit'] ?? ''));
+            $unit = ($unit !== '' && in_array($unit, $validUnits)) ? $unit : 'Each';
+
+            $code = trim(strip_tags($row['code'] ?? ''));
 
             $clean[] = [
                 'name'          => $name,
-                'code'          => $map['code']          !== null ? (trim(strip_tags($cols[$map['code']]          ?? '')) ?: null) : null,
+                'code'          => $code !== '' ? $code : null,
                 'unit'          => $unit,
-                'selling_price' => $map['selling_price'] !== null ? $this->purifyNumber($cols[$map['selling_price']] ?? null) : null,
-                'cost_price'    => $map['cost_price']    !== null ? $this->purifyNumber($cols[$map['cost_price']]    ?? null) : null,
-                'quantity'      => $map['quantity']      !== null ? ($this->purifyNumber($cols[$map['quantity']]     ?? null) ?? 0) : 0,
+                'selling_price' => $this->purifyNumber($row['selling_price'] ?? null),
+                'cost_price'    => $this->purifyNumber($row['cost_price'] ?? null),
+                'quantity'      => $this->purifyNumber($row['quantity'] ?? null) ?? 0,
             ];
         }
 
         if (empty($clean)) {
-            return response()->json(['error' => 'No valid rows found in CSV.', 'status' => 422]);
+            return response()->json(['error' => 'No valid rows found in this batch.', 'status' => 422]);
         }
 
         $result = $this->processCsvRowsChunked($clean, $branchId, $branchCategory, $supplier);
 
-        $processed  = $result['created'] + $result['updated'];
-        $total      = count($clean);
-
-        $successMsg = "Import complete — {$processed} of {$total} row(s) saved.";
-        if ($result['updated'] > 0) {
-            $successMsg .= " ({$result['created']} new, {$result['updated']} stock updated)";
-        }
-
         return response()->json([
             'status'        => 200,
-            'success'       => $successMsg,
-            'row_count'     => $total,
             'created_count' => $result['created'],
             'updated_count' => $result['updated'],
             'skipped_count' => $result['skipped'],
             'skipped_names' => $result['skipped_names'],
+            'chunk_index'   => (int) $request->chunk_index,
+            'total_chunks'  => (int) $request->total_chunks,
         ]);
     }
 
@@ -1091,7 +1264,7 @@ class RetailBranchProductsController extends Controller
                     'name'          => $r['name'],
                     'description'   => null,
                     'code'          => $code,
-                    'supplier'      => $supplier->name,
+                    'supplier'      => $supplier->id, // supplier ID only — never a name
                     'unit'          => $r['unit'],
                     'cost_price'    => $r['cost_price'],
                     'selling_price' => $r['selling_price'],
@@ -1105,11 +1278,31 @@ class RetailBranchProductsController extends Controller
             }
 
             if (!empty($newBaseInserts)) {
-                DB::connection('tenant')->table('retail_base_products')->insert(array_values($newBaseInserts));
+                try {
+                    DB::connection('tenant')->table('retail_base_products')->insert(array_values($newBaseInserts));
+                } catch (\Throwable $e) {
+                    // A product with this name most likely already exists
+                    // elsewhere in the catalogue (e.g. added via Base
+                    // Products under a different supplier/category, so it
+                    // wasn't matched above) and the insert hit a unique
+                    // constraint. Retry row-by-row so one bad name can't
+                    // take down the whole chunk with an uncaught 500 —
+                    // whichever rows still fail simply stay unmatched and
+                    // fall through to the "not resolved to a base product
+                    // in this category" skip logic further below.
+                    foreach ($newBaseInserts as $row) {
+                        try {
+                            DB::connection('tenant')->table('retail_base_products')->insert($row);
+                        } catch (\Throwable $rowError) {
+                            // leave it out of $newBaseInserts's created set —
+                            // it will be reported as skipped below.
+                        }
+                    }
+                }
 
                 $createdRows = DB::connection('tenant')
                     ->table('retail_base_products')
-                    ->where('supplier', $supplier->name)
+                    ->where('supplier', $supplier->id)
                     ->whereIn(DB::raw('LOWER(TRIM(name))'), array_keys($newBaseInserts))
                     ->get();
                 foreach ($createdRows as $cr) {
@@ -1142,6 +1335,17 @@ class RetailBranchProductsController extends Controller
             $stockLogEntries = [];
             $toInsert        = [];
 
+            // Tracks base_product_id => index in $toInsert for rows staged
+            // (not yet inserted) during THIS chunk. $existingBranchProducts
+            // only reflects what was already in the DB when the chunk
+            // started, so two CSV rows resolving to the same branch+product
+            // within one chunk would otherwise both queue as separate
+            // inserts — a duplicate branch_id/base_product_id pair that
+            // violates the unique constraint. Instead, the second (and any
+            // further) occurrence folds its quantity into the first row
+            // already staged for that product.
+            $stagedIndexByBaseId = [];
+
             foreach ($resolvedRows as $rr) {
                 $r    = $rr['row'];
                 $base = $rr['base'];
@@ -1159,6 +1363,14 @@ class RetailBranchProductsController extends Controller
                         ->where('id', $existingBp->id)
                         ->update(['stock_quantity' => $newQty, 'updated_at' => now()]);
 
+                    // Keep local state in sync so a THIRD row for this same
+                    // product later in the chunk merges against the latest
+                    // quantity too, not the stale pre-chunk snapshot.
+                    $existingBranchProducts[$base->id] = (object) array_merge(
+                        (array) $existingBp,
+                        ['stock_quantity' => $newQty]
+                    );
+
                     $stockLogEntries[] = [
                         'base_product_id' => (int) $base->id,
                         'branch_id'       => $branchId,
@@ -1169,6 +1381,13 @@ class RetailBranchProductsController extends Controller
                         'selling_price'   => $logSell,
                         'cost_price'      => $logCost,
                     ];
+                    $updated++;
+                } elseif (isset($stagedIndexByBaseId[$base->id])) {
+                    // Already queued for insert earlier in this same chunk —
+                    // merge into that staged row instead of adding a second.
+                    $idx = $stagedIndexByBaseId[$base->id];
+                    $toInsert[$idx]['stock_quantity'] += $qty;
+                    $toInsert[$idx]['_log_qty']       += $qty;
                     $updated++;
                 } else {
                     $toInsert[] = [
@@ -1188,6 +1407,7 @@ class RetailBranchProductsController extends Controller
                         '_log_sell'            => (float) ($base->selling_price ?? 0),
                         '_log_cost'            => (float) ($base->cost_price    ?? 0),
                     ];
+                    $stagedIndexByBaseId[$base->id] = count($toInsert) - 1;
                 }
             }
 
@@ -1358,6 +1578,125 @@ class RetailBranchProductsController extends Controller
                 'total_units'   => $totalUnits,
                 'total_value'   => $totalValue,
             ],
+        ]);
+    }
+
+
+
+
+
+
+
+
+
+
+    public function showBranchproductsOfflineView()
+    {
+        return view('operations.retail.branchproducts_offline');
+    }
+
+
+
+
+    
+    public function syncOfflineChanges(Request $request)
+    {
+        $request->validate([
+            'branch_id'              => 'required|integer|exists:tenant.branches,id',
+            'items'                  => 'required|array|min:1',
+            'items.*.type'           => 'required|in:edit,delete',
+            'items.*.id'             => 'required|integer|exists:tenant.retail_branch_products,id',
+            'items.*.selling_price'  => 'nullable|numeric|min:0',
+            'items.*.stock_quantity' => 'nullable|numeric',
+        ]);
+
+        $branchId  = (int) $request->branch_id;
+        $synced    = 0;
+        $failed    = 0;
+        $errors    = [];
+        $editedIds = [];
+
+        foreach ($request->items as $item) {
+            try {
+                $current = DB::connection('tenant')
+                    ->table('retail_branch_products')
+                    ->where('id', $item['id'])
+                    ->where('branch_id', $branchId)
+                    ->first();
+
+                if (!$current) {
+                    $failed++;
+                    $errors[] = "Item #{$item['id']} no longer exists — skipped.";
+                    continue;
+                }
+
+                if ($item['type'] === 'delete') {
+                    DB::connection('tenant')->table('retail_branch_products')->where('id', $item['id'])->delete();
+                    $synced++;
+                    continue;
+                }
+
+                // type === 'edit' — same price-change logging and delivery
+                // note sync as the online edit path (updateBranchproduct),
+                // just applied against whatever was queued while offline.
+                $base = $this->fetchBaseProduct((int) $current->base_product_id);
+
+                $newQty = (array_key_exists('stock_quantity', $item) && $item['stock_quantity'] !== null)
+                    ? (float) $item['stock_quantity']
+                    : (float) $current->stock_quantity;
+
+                $storeSellPrice = (array_key_exists('selling_price', $item) && $item['selling_price'] !== null && $item['selling_price'] !== '')
+                    ? (float) $item['selling_price']
+                    : null;
+
+                $oldSellPrice = (float) ($current->selling_price ?? $base->selling_price ?? 0);
+                $newSellPrice = $storeSellPrice ?? (float) ($base->selling_price ?? 0);
+
+                DB::connection('tenant')->table('retail_branch_products')
+                    ->where('id', $item['id'])
+                    ->update([
+                        'selling_price'  => $storeSellPrice,
+                        'stock_quantity' => $newQty,
+                        'updated_at'     => now(),
+                    ]);
+
+                $this->logPriceChange(
+                    baseProductId: (int) $current->base_product_id,
+                    branchId:      $branchId,
+                    oldPrice:      $oldSellPrice,
+                    newPrice:      $newSellPrice,
+                    productName:   $base->name ?? '',
+                    productCode:   $base->code ?? null,
+                    productUnit:   $base->unit ?? 'Each',
+                    reason:        'Branch product updated via offline sync',
+                );
+
+                // Push into today's matching delivery notes — offline edits
+                // apply whenever connectivity resumes, so there's no
+                // meaningful date context other than today.
+                $this->syncDeliveryNotePrices(
+                    (int) $current->base_product_id,
+                    $branchId,
+                    now()->toDateString()
+                );
+
+                $editedIds[] = (int) $item['id'];
+                $synced++;
+            } catch (\Throwable $e) {
+                $failed++;
+                $errors[] = "Item #{$item['id']}: " . $e->getMessage();
+            }
+        }
+
+        $updatedProducts = $this->fetchBranchProductsFormatted($editedIds);
+
+        return response()->json([
+            'status'   => 201,
+            'success'  => "{$synced} change(s) synced" . ($failed ? ", {$failed} failed." : '.'),
+            'synced'   => $synced,
+            'failed'   => $failed,
+            'errors'   => $errors,
+            'products' => $updatedProducts,
         ]);
     }
 }

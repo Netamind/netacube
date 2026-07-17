@@ -1,4 +1,5 @@
 <?php
+// TenantCommonController.php (overwrite existing file)
 
 namespace App\Http\Controllers\Tenant;
 
@@ -16,6 +17,7 @@ use Barryvdh\DomPDF\Facade\Pdf;
 use Illuminate\Support\Str;
 use Illuminate\Http\UploadedFile;
 use Carbon\Carbon;
+use App\SectorDashboards;
 use DB;
 use Auth;
 
@@ -118,6 +120,11 @@ class TenantCommonController extends Controller
     {
         session()->flush();
 
+        // Fresh token for this login. Written to the session below and to
+        // user_session_tokens so EnforceIdleTimeout can spot a second,
+        // later login to the same account when enforce_single_session is on.
+        $sessionToken = Str::random(64);
+
         session([
             'tenant_code'                        => $tenantCode,
 
@@ -160,12 +167,31 @@ class TenantCommonController extends Controller
             'auth_user_nextofkin_relationship'   => $user->nextofkin_relationship,
             'auth_user_nextofkin_physical_address' => $user->nextofkin_physical_address,
             'auth_user_nextofkin_contact'        => $user->nextofkin_contact,
+
+            // Session-lock token (see EnforceIdleTimeout)
+            'auth_session_token'                 => $sessionToken,
         ]);
 
         session()->regenerate(true);
 
-        if ($user->role === 'Admin' || $user->role === 'Operations') {
-            return redirect()->route('tenant.admin.dashboard', ['tenantName' => $tenantCode]);
+        // Overwrite any previous token for this user — this login is now
+        // the "latest" one, so an older session elsewhere will fail the
+        // token check on its next request if enforce_single_session is on.
+        DB::connection('tenant')->table('user_session_tokens')->updateOrInsert(
+            ['user_id' => $user->id],
+            [
+                'session_token' => $sessionToken,
+                'last_seen_at'  => now(),
+                'updated_at'    => now(),
+                'created_at'    => now(),
+            ]
+        );
+
+        if ($user->role === 'Admin') {
+            return $this->redirectAdmin($user, $tenantCode);
+
+        } elseif ($user->role === 'Operations') {
+            return $this->redirectOperations($user, $tenantCode);
 
         } elseif ($user->role === 'Sales') {
             return redirect()->route('retail.sales.dashboard', ['tenantName' => $tenantCode]);
@@ -177,6 +203,38 @@ class TenantCommonController extends Controller
                 'alert-type' => 'error'
             ]);
         }
+    }
+
+    /**
+     * Admin landing: settings-driven. Defaults to the general admin
+     * dashboard unless this admin has configured a specific sector
+     * dashboard in their own admin_dashboard_settings row (now per-user,
+     * same as operations_dashboard_settings — see
+     * AdminDashboardSettingsController). A first-time admin with no row
+     * yet simply has no override, same as if the field were blank.
+     */
+    private function redirectAdmin($user, string $tenantCode)
+    {
+        $settings     = DB::connection('tenant')->table('admin_dashboard_settings')->where('user_id', $user->id)->first();
+        $sectorRoutes = SectorDashboards::routes();
+
+        if ($settings && $settings->default_landing_sector && isset($sectorRoutes[$settings->default_landing_sector])) {
+            return redirect()->route($sectorRoutes[$settings->default_landing_sector], ['tenantName' => $tenantCode]);
+        }
+
+        return redirect()->route('tenant.admin.dashboard', ['tenantName' => $tenantCode]);
+    }
+
+    /**
+     * Operations landing: always the Operations dashboard, never the admin
+     * area. All the actual landing logic (default_landing_sector, sector
+     * access via employee_access, the "no access at all" bounce) lives in
+     * OperationsSectorSwitcherController::show so there's a single source
+     * of truth for it — this just sends the user there.
+     */
+    private function redirectOperations($user, string $tenantCode)
+    {
+        return redirect()->route('tenant.operations.hub.dashboard', ['tenantName' => $tenantCode]);
     }
 
     private function getTenantDatabaseName(string $clientCode): string

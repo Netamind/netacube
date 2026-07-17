@@ -314,6 +314,9 @@ input[type=number] { -moz-appearance:textfield; appearance:textfield; }
 .csv-preview-row:last-child { border-bottom:none; }
 .import-skipped-list { max-height:140px; overflow-y:auto; background:#fff8f8; border:1px solid #fecaca; border-radius:6px; padding:8px 12px; margin-top:8px; }
 .import-skipped-list li { font-size:12px; color:#7f1d1d; padding:1px 0; }
+.csv-chunk-progress-track { background:#e9ecef; border-radius:6px; height:8px; overflow:hidden; margin:14px 0 6px; }
+.csv-chunk-progress-fill { background:linear-gradient(to right,#4B5EBD,#576CC0); height:100%; width:0%; transition:width .25s ease; }
+.csv-chunk-progress-label { font-size:11px; color:#6c757d; text-align:center; }
 
 /* ── Set branch prices modal ─────────────────────────────────────── */
 .sbp-table-wrap { max-height:440px; overflow-y:auto; overflow-x:auto; border:1px solid #e2e6f0; border-radius:8px; }
@@ -363,8 +366,8 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
 }
 </style>
 
-<div class="progress" id="progressBar" role="progressbar" style="height:8px;transform:rotate(180deg);display:none">
-  <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+<div class="progress" id="progressBar" role="progressbar" style="height:8px;transform:rotate(180deg);display:none;border-radius:0">
+  <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%;border-radius:0"></div>
 </div>
 
 <div class="content-page"><div class="content"><div class="container-fluid">
@@ -376,7 +379,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
       @if($selectedBranch)
         <input type="checkbox" id="selectAll" class="header-select-all">
       @endif
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}" id="headerBranchForm" style="margin:0;display:inline;">
+      <form method="POST" action="{{ route('retail.operations.update.filters') }}" id="headerBranchForm" style="margin:0;display:inline;">
         @csrf
         <input type="hidden" name="user_id" value="{{ Auth::id() }}">
         <div class="header-title-block">
@@ -643,11 +646,11 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
             </div>
             <div class="row g-2 mb-2">
               <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Unit</label><input class="form-control form-control-sm" type="text" id="new-unit" value="Each" autocomplete="off" /></div>
-              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Quantity</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-stock-qty" value="0" /></div>
+              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Quantity</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-stock-qty" value="0" autocomplete="off" /></div>
             </div>
             <div class="row g-2 mb-2">
               <div class="col-12"><label class="form-label fw-semibold" style="font-size:12px">Supplier</label>
-                <select class="form-select form-select-sm" id="new-supplier">
+                <select class="form-select form-select-sm" id="new-supplier" autocomplete="off">
                   <option value="">Select supplier</option>
                   @foreach($supplierRows as $sup)<option value="{{ $sup->id }}" data-id="{{ $sup->id }}">{{ $sup->name }}</option>@endforeach
                 </select>
@@ -669,7 +672,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
             <div id="npBasePriceArea" class="row g-2 mb-2">
               <div class="col-12">
                 <label class="form-label fw-semibold" style="font-size:12px">Selling Price <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-selling-price" placeholder="0.00" />
+                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-selling-price" placeholder="0.00" autocomplete="off" />
               </div>
             </div>
             {{-- Branch sell price — shown when source = branch --}}
@@ -679,14 +682,14 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
                   <i class="ri-information-line me-1"></i>Enter the selling price. It will be stored as the base catalogue price <strong>and</strong> set as a branch override for <strong>{{ $selectedBranch->name ?? 'this branch' }}</strong>.
                 </div>
                 <label class="form-label fw-semibold" style="font-size:12px">Branch Selling Price <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-branch-price" placeholder="0.00" />
+                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-branch-price" placeholder="0.00" autocomplete="off" />
               </div>
             </div>
 
             {{-- Cost Price --}}
             <div class="edit-section"><i class="ri-money-dollar-circle-line"></i>Cost Price <span style="font-size:10px;font-weight:400;text-transform:none;letter-spacing:0;color:#b0b7c3;">(base catalogue only)</span></div>
             <div class="row g-2 mb-3">
-              <div class="col-12"><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-cost-price" placeholder="0.00" /></div>
+              <div class="col-12"><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-cost-price" placeholder="0.00" autocomplete="off" /></div>
             </div>
 
             <div class="d-flex justify-content-end mt-1">
@@ -727,7 +730,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
             </div>
             <div class="csv-step" id="csvStep2">
               <label class="form-label fw-semibold" style="font-size:12px">Supplier <span class="text-danger">*</span></label>
-              <select class="form-select form-select-sm mb-3" id="csv-supplier">
+              <select class="form-select form-select-sm mb-3" id="csv-supplier" autocomplete="off">
                 <option value="">Select supplier</option>
                 @foreach($supplierRows as $sup)<option value="{{ $sup->id }}">{{ $sup->name }}</option>@endforeach
               </select>
@@ -740,9 +743,16 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
               <div id="csvFilePreviewWrap" style="display:none;"><div style="font-size:11px;color:#6c757d;margin-bottom:6px;" id="csvFilePreviewLabel"></div><div class="csv-preview-scroll" id="csvFilePreviewScroll"></div></div>
               <div style="font-size:11px;color:#6c757d;margin:10px 0 14px;">Existing branch products will only have their quantity updated.</div>
               <div class="d-flex justify-content-between"><button type="button" class="btn btn-secondary btn-sm" onclick="csvGoToStep(2)"><i class="ri-arrow-left-s-line"></i> Back</button><button type="button" class="btn btn-success btn-sm" id="csvImportBtn"><i class="ri-upload-2-line"></i> Import CSV</button></div>
+              <div class="text-center mt-3 pt-2" style="border-top:1px solid #f1f5f9;">
+                <a href="#" id="csvClearCacheBtn" style="font-size:11px;color:#94a3b8;"><i class="ri-delete-bin-line me-1"></i>Clear loaded data in local storage</a>
+              </div>
             </div>
             <div class="csv-step" id="csvStep4">
               <div id="csvImportProgress" style="font-size:13px;color:#475569;margin-bottom:14px;text-align:center;padding:20px 0;"></div>
+              <div id="csvChunkProgressWrap" style="display:none;">
+                <div class="csv-chunk-progress-track"><div class="csv-chunk-progress-fill" id="csvChunkProgressFill"></div></div>
+                <div class="csv-chunk-progress-label" id="csvChunkProgressLabel"></div>
+              </div>
               <div class="d-flex justify-content-end"><button type="button" class="btn btn-primary btn-sm" id="csvDoneBtn"><i class="ri-check-line"></i> Done</button></div>
             </div>
           </div>
@@ -803,7 +813,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
 
 {{-- ══ EDIT MODAL ══ --}}
 <div class="modal fade" id="editDataModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
-  <div class="modal-dialog modal-dialog-scrollable">
+  <div class="modal-dialog">
     <div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
       <div class="modal-header mh-blue">
         <h5 class="modal-title mh-title"><i class="ri-edit-box-line"></i> <span id="editModalName"></span></h5>
@@ -834,18 +844,18 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
           {{-- Product name (read-only) --}}
           <div class="mb-2">
             <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Product</label>
-            <input type="text" class="form-control form-control-sm edit-ro" id="edit-ro-name" readonly tabindex="-1" />
+            <input type="text" class="form-control form-control-sm edit-ro" id="edit-ro-name" readonly tabindex="-1" autocomplete="off" />
           </div>
 
           {{-- Unit + link --}}
           <div class="row g-2 mb-2">
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:11px;color:#9ca3af;text-transform:uppercase;letter-spacing:.5px;">Unit</label>
-              <input type="text" class="form-control form-control-sm edit-ro" id="edit-ro-unit" readonly tabindex="-1" />
+              <input type="text" class="form-control form-control-sm edit-ro" id="edit-ro-unit" readonly tabindex="-1" autocomplete="off" />
             </div>
               <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:12px">Quantity</label>
-              <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editStockQty" />
+              <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editStockQty" autocomplete="off" />
             </div>
           </div>
 
@@ -859,7 +869,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
             <div class="edit-reason-label">
               Reason for quantity change <span class="edit-reason-opt">(optional)</span>
             </div>
-            <textarea class="form-control form-control-sm" id="editStockReason" rows="2" placeholder="e.g. Stock count correction, received delivery…" style="resize:vertical;font-size:12px;"></textarea>
+            <textarea class="form-control form-control-sm" id="editStockReason" rows="2" placeholder="e.g. Stock count correction, received delivery…" style="resize:vertical;font-size:12px;" autocomplete="off"></textarea>
           </div>
 
           {{-- Selling Price source ──────────────────── --}}
@@ -884,7 +894,7 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
             <div class="row g-2 mb-1">
               <div class="col-12">
                 <label class="form-label fw-semibold" style="font-size:12px">Branch Selling Price <span class="text-danger">*</span></label>
-                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editSellPrice" placeholder="0.00" />
+                <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editSellPrice" placeholder="0.00" autocomplete="off" />
               </div>
             </div>
           </div>
@@ -897,20 +907,20 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
           <div class="row g-2 mb-2">
             <div class="col-12">
               <label class="form-label fw-semibold" style="font-size:12px">Cost Price (MWK)</label>
-              <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editCostPrice" placeholder="0.00" />
+              <input class="form-control form-control-sm" type="text" inputmode="decimal" id="editCostPrice" placeholder="0.00" autocomplete="off" />
             </div>
           </div>
           <div class="edit-section"><i class="ri-stack-line"></i>Reorder &amp; Limits</div>
           <div class="row g-2 mb-2">
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editReorderPoint" /></div>
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Qty</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editReorderQty" /></div>
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Max Stock</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editMaxStock" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editReorderPoint" autocomplete="off" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Qty</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editReorderQty" autocomplete="off" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Max Stock</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="editMaxStock" autocomplete="off" /></div>
           </div>
           <div class="edit-section"><i class="ri-qr-code-line"></i>Barcode &amp; Batch</div>
           <div class="row g-2 mb-2">
             <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Barcode</label><input class="form-control form-control-sm" type="text" id="editBarcode" autocomplete="off" /></div>
             <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Batch Number</label><input class="form-control form-control-sm" type="text" id="editBatch" autocomplete="off" /></div>
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Expiry Date</label><input class="form-control form-control-sm" type="date" id="editExpiry" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Expiry Date</label><input class="form-control form-control-sm" type="date" id="editExpiry" autocomplete="off" /></div>
           </div>
           <div class="edit-section"><i class="ri-toggle-line"></i>Status &amp; Behaviour</div>
           <div class="row g-2">
@@ -933,13 +943,13 @@ table.sbp-table tbody tr:hover { background:#fafbff; }
           </div>
           <div class="row g-2 mb-2">
             <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Unit</label><input class="form-control form-control-sm" type="text" id="bpEditUnit" autocomplete="off" /></div>
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Base Sell Price <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="bpEditSellPrice" placeholder="0.00" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Base Sell Price <span class="text-danger">*</span></label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="bpEditSellPrice" placeholder="0.00" autocomplete="off" /></div>
           </div>
           <div class="row g-2 mb-2">
-            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Base Cost Price</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="bpEditCostPrice" placeholder="0.00" /></div>
+            <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Base Cost Price</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="bpEditCostPrice" placeholder="0.00" autocomplete="off" /></div>
             <div class="col-6">
               <label class="form-label fw-semibold" style="font-size:12px">Supplier</label>
-              <select class="form-select form-select-sm" id="bpEditSupplier">
+              <select class="form-select form-select-sm" id="bpEditSupplier" autocomplete="off">
                 <option value="">Select supplier</option>
                 @foreach($supplierRows as $sup)<option value="{{ $sup->id }}">{{ $sup->name }}</option>@endforeach
               </select>
@@ -1215,6 +1225,9 @@ $(document).ready(function () {
         $('#csvFilePreviewWrap').hide();
         $('#csvFilePreviewScroll').html('');
         $('#csvImportProgress').html('');
+        $('#csvChunkProgressWrap').hide();
+        $('#csvChunkProgressFill').css('width', '0%');
+        $('#csvChunkProgressLabel').text('');
         setNpPriceSource('base');
         csvGoToStep(1);
     }
@@ -1228,13 +1241,46 @@ $(document).ready(function () {
     });
     $('#addProductModal').on('hidden.bs.modal', softResetAddModal);
 
+    // Fuzzy subsequence match: true if every character of `needle` appears
+    // in `haystack`, in order, but not necessarily next to each other.
+    // e.g. "pra" matches "paracetamol" (p...r...a...) even though "pra"
+    // isn't a literal substring of it.
+    function bpIsSubsequence(needle, haystack) {
+        var hi = 0;
+        for (var i = 0; i < haystack.length && hi < needle.length; i++) {
+            if (haystack[i] === needle[hi]) hi++;
+        }
+        return hi === needle.length;
+    }
+
+    // Does this token match the product's searchable text? Checked in order:
+    // (1) literal substring within a single word — fast, covers most typing,
+    //     e.g. "500" in "500mg" or "ceta" in "paracetamol";
+    // (2) fuzzy subsequence within a single word — for partial/skipped-letter
+    //     typing, e.g. "pra" in "paracetamol";
+    // (3) fuzzy subsequence across the whole run-together text — for queries
+    //     typed with no space, e.g. "para500" spanning "paracetamol" and
+    //     "500mg" as separate words.
+    function bpTokenMatchesWords(token, words, joined) {
+        return words.some(function (w) {
+            return w.indexOf(token) !== -1 || bpIsSubsequence(token, w);
+        }) || bpIsSubsequence(token, joined);
+    }
+
     // ── Search box: independent of any result-row input. Typing here never
     //    shifts focus to qty/override fields and never gets re-focused away. ──
+    // Token-based ("smart") search: split the query into whitespace-separated
+    // tokens and require every token to match somewhere in the product's
+    // searchable words, in any order — e.g. "para 500" or "500 para" both
+    // match "Paracetamol 500mg".
     $('#baseProductSearch').on('input', function() {
         var q = $(this).val().trim().toLowerCase();
         if (!q) { $('#searchResultList').hide(); return; }
+        var tokens = q.split(/\s+/).filter(Boolean);
         var results = allBaseProducts.filter(function(p) {
-            return p.name.toLowerCase().indexOf(q) >= 0 || (p.code && p.code.toLowerCase().indexOf(q) >= 0);
+            var words = ((p.name||'') + ' ' + (p.code||'') + ' ' + (p.unit||'') + ' ' + (p.supplier||'')).toLowerCase().split(/\s+/).filter(Boolean);
+            var joined = words.join('');
+            return tokens.every(function(t) { return bpTokenMatchesWords(t, words, joined); });
         }).slice(0, 30);
         renderSearchResults(results, q);
     });
@@ -1301,14 +1347,14 @@ $(document).ready(function () {
                         <input type="checkbox" class="sri-override-check" id="${ockId}" ${btnDis}
                                onchange="toggleSriPriceOverride(${p.id},this.checked)" />
                         <input type="text" inputmode="decimal" class="sri-price-override-input" id="${ovinId}"
-                               ${btnDis} />
+                               autocomplete="off" ${btnDis} />
                     </div>
                 </div>
                 <div class="sri-controls">
                     <div class="sri-qty-wrap">
                         <span class="sri-qty-label">Qty</span>
                         <input type="text" inputmode="decimal" class="sri-qty-input" id="sri_qty_${p.id}"
-                               value="" ${btnDis}
+                               value="" autocomplete="off" ${btnDis}
                                onkeydown="if(event.key==='Enter'){event.preventDefault();addProductFromSearch(${p.id});}" />
                     </div>
                     <button type="button" class="sri-add-btn" id="sri_btn_${p.id}"
@@ -1541,60 +1587,339 @@ $(document).ready(function () {
         URL.revokeObjectURL(url);
     });
 
-    $('#csv-file').on('change', function() {
-        var file = this.files[0];
-        if (!file) { $('#csvFilePreviewWrap').hide(); return; }
+    // Decodes a file as text, auto-detecting encoding: tries strict UTF-8 first
+    // (handles the common case, including a BOM) and falls back to Windows-1252
+    // (what Excel writes by default on "CSV (Comma delimited)" export) if the
+    // bytes aren't valid UTF-8. Without this, non-ASCII bytes from an
+    // Excel-exported CSV render as replacement-character "boxes" in the preview.
+    function csvReadFileSmart(file, onDone) {
         var reader = new FileReader();
         reader.onload = function(e) {
-            var lines = e.target.result.split(/\r\n|\r|\n/).filter(function(l) { return l.trim() !== ''; });
-            var previewLines = lines.slice(0, 50);
-            var html = previewLines.map(function(line, idx) {
-                var cls = idx === 0 ? 'font-weight:700;color:#4B5EBD;' : 'color:#374151;';
-                return '<div class="csv-preview-row"><span style="' + cls + '">' + $('<div>').text(line).html() + '</span></div>';
-            }).join('');
-            $('#csvFilePreviewLabel').text((lines.length - 1) + ' row(s) detected');
-            $('#csvFilePreviewScroll').html(html);
-            $('#csvFilePreviewWrap').show();
+            var buf = e.target.result;
+            var text;
+            try {
+                text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+            } catch (err) {
+                text = new TextDecoder('windows-1252').decode(buf);
+            }
+            onDone(text);
         };
-        reader.readAsText(file);
+        reader.onerror = function() { onDone(null); };
+        reader.readAsArrayBuffer(file);
+    }
+
+    var CSV_PREVIEW_LS_KEY = 'branchproducts_csv_preview_' + BRANCH_ID;
+    var CSV_UPLOAD_CHUNK_SIZE = 150; // rows per network request — keeps every POST small and lets progress advance visibly
+
+    function csvRenderPreviewFromText(text) {
+        var lines = text.split(/\r\n|\r|\n/).filter(function(l) { return l.trim() !== ''; });
+        var previewLines = lines.slice(0, 50);
+        var html = previewLines.map(function(line, idx) {
+            var cls = idx === 0 ? 'font-weight:700;color:#4B5EBD;' : 'color:#374151;';
+            return '<div class="csv-preview-row"><span style="' + cls + '">' + $('<div>').text(line).html() + '</span></div>';
+        }).join('');
+        $('#csvFilePreviewLabel').text((lines.length - 1) + ' row(s) detected');
+        $('#csvFilePreviewScroll').html(html);
+        $('#csvFilePreviewWrap').show();
+    }
+
+    // Minimal RFC4180-ish CSV parser (quoted fields, embedded commas, escaped
+    // quotes, CRLF/CR/LF) — turns the raw text into row objects matching the
+    // columns the server expects, so the import can be sent as small JSON
+    // chunks instead of the whole file in one request.
+    function csvParseRowsFromText(text) {
+        text = text.replace(/^\uFEFF/, ''); // strip BOM
+        var table = [];
+        var row = []; var field = ''; var inQuotes = false; var i = 0, len = text.length;
+        while (i < len) {
+            var ch = text[i];
+            if (inQuotes) {
+                if (ch === '"') { if (text[i + 1] === '"') { field += '"'; i += 2; continue; } inQuotes = false; i++; continue; }
+                field += ch; i++; continue;
+            }
+            if (ch === '"') { inQuotes = true; i++; continue; }
+            if (ch === ',') { row.push(field); field = ''; i++; continue; }
+            if (ch === '\r') { i++; continue; }
+            if (ch === '\n') { row.push(field); field = ''; if (row.length > 1 || row[0] !== '') table.push(row); row = []; i++; continue; }
+            field += ch; i++;
+        }
+        if (field !== '' || row.length) { row.push(field); if (row.length > 1 || row[0] !== '') table.push(row); }
+
+        if (table.length < 2) return { error: 'CSV is empty or has no data rows.' };
+
+        var header = table[0].map(function(h) { return h.trim().toLowerCase(); });
+        var map = { name:null, code:null, unit:null, selling_price:null, cost_price:null, quantity:null };
+        header.forEach(function(col, idx) {
+            if (['name','product','product_name'].indexOf(col) !== -1)             map.name          = idx;
+            if (['code','sku'].indexOf(col) !== -1)                                map.code          = idx;
+            if (col === 'unit')                                                    map.unit          = idx;
+            if (['selling_price','price','sell_price'].indexOf(col) !== -1)        map.selling_price = idx;
+            if (['cost_price','cost'].indexOf(col) !== -1)                         map.cost_price    = idx;
+            if (['quantity','qty','stock','stock_quantity'].indexOf(col) !== -1)   map.quantity      = idx;
+        });
+        if (map.name === null) return { error: 'CSV must contain a "name" column.' };
+
+        var rows = [];
+        for (var r = 1; r < table.length; r++) {
+            var cols = table[r];
+            var name = (cols[map.name] || '').trim();
+            if (name === '') continue;
+            rows.push({
+                name:          name,
+                code:          map.code          !== null ? (cols[map.code]          || '').trim() : '',
+                unit:          map.unit          !== null ? (cols[map.unit]          || '').trim() : '',
+                selling_price: map.selling_price !== null ? (cols[map.selling_price] || '').trim() : '',
+                cost_price:    map.cost_price    !== null ? (cols[map.cost_price]    || '').trim() : '',
+                quantity:      map.quantity      !== null ? (cols[map.quantity]      || '').trim() : ''
+            });
+        }
+        if (!rows.length) return { error: 'No valid rows found in CSV.' };
+        return { rows: rows };
+    }
+
+    var csvParsedRows = []; // in-memory rows ready to upload, built when the file is selected
+    var CSV_ROWS_LS_KEY = 'branchproducts_csv_rows_' + BRANCH_ID;
+
+    $('#csv-file').on('change', function() {
+        var file = this.files[0];
+        csvParsedRows = [];
+        $('#csvImportBtn').prop('disabled', true);
+        if (!file) { $('#csvFilePreviewWrap').hide(); return; }
+        csvReadFileSmart(file, function(text) {
+            if (text === null) { toastr.error('Could not read that file.', 'Error'); return; }
+            csvRenderPreviewFromText(text);
+            var parsed = csvParseRowsFromText(text);
+            if (parsed.error) {
+                toastr.error(parsed.error, 'Error');
+                return;
+            }
+            csvParsedRows = parsed.rows;
+            $('#csvImportBtn').prop('disabled', false);
+            try {
+                localStorage.setItem(CSV_PREVIEW_LS_KEY, text);
+                localStorage.setItem(CSV_ROWS_LS_KEY, JSON.stringify(csvParsedRows));
+            } catch (e) { /* storage full/unavailable — proceed in-memory only */ }
+        });
+    });
+
+    // Manually wipes the cached preview text for this branch's CSV wizard.
+    $('#csvClearCacheBtn').on('click', function(e) {
+        e.preventDefault();
+        try {
+            localStorage.removeItem(CSV_PREVIEW_LS_KEY);
+            localStorage.removeItem(CSV_ROWS_LS_KEY);
+        } catch (e2) {}
+        csvParsedRows = [];
+        $('#csvFilePreviewWrap').hide();
+        $('#csvFilePreviewScroll').html('');
+        $('#csv-file').val('');
+        $('#csvImportBtn').prop('disabled', true);
+        toastr.success('Cleared locally cached CSV data.', 'Done');
+    });
+
+    /**
+     * Uploads parsed rows to the server in sequential chunks of
+     * CSV_UPLOAD_CHUNK_SIZE, each its own small JSON POST — mirrors the base
+     * products import so large files never risk a single request timing out,
+     * and the progress bar can advance after every chunk instead of sitting
+     * on a spinner for the whole import.
+     */
+    function csvUploadRowsChunked(rows, supplierId) {
+        var chunks = [];
+        for (var i = 0; i < rows.length; i += CSV_UPLOAD_CHUNK_SIZE) {
+            chunks.push(rows.slice(i, i + CSV_UPLOAD_CHUNK_SIZE));
+        }
+        var totalChunks = chunks.length;
+        var aggregate = { created: 0, updated: 0, skipped: 0, skippedNames: [], failedRows: [], chunkErrors: 0 };
+
+        $('#csvChunkProgressWrap').show();
+        $('#csvChunkProgressLabel').text('Preparing ' + totalChunks + ' batch(es)…');
+
+        function uploadOne(index) {
+            if (index >= totalChunks) return Promise.resolve();
+
+            var chunkRows = chunks[index];
+            var pct = Math.round((index / totalChunks) * 100);
+            $('#csvChunkProgressFill').css('width', pct + '%');
+            $('#csvChunkProgressLabel').text(
+                'Uploading batch ' + (index + 1) + ' of ' + totalChunks +
+                ' — ' + (index * CSV_UPLOAD_CHUNK_SIZE) + '/' + rows.length + ' rows sent'
+            );
+
+            return new Promise(function(resolve) {
+                $.ajax({
+                    type: 'POST',
+                    url:  '{{ route("retail.operations.branchproducts.csv.upload") }}',
+                    contentType: 'application/json',
+                    data: JSON.stringify({
+                        rows:         chunkRows,
+                        branch_id:    BRANCH_ID,
+                        supplier_id:  supplierId,
+                        chunk_index:  index + 1,
+                        total_chunks: totalChunks,
+                        _token:       '{{ csrf_token() }}'
+                    }),
+                    headers: { 'X-CSRF-TOKEN': '{{ csrf_token() }}' },
+                    timeout: 60000,
+                    success: function(data) {
+                        if (data.status === 200) {
+                            aggregate.created += (data.created_count || 0);
+                            aggregate.updated += (data.updated_count || 0);
+                            aggregate.skipped += (data.skipped_count || 0);
+                            if (data.skipped_names && data.skipped_names.length) {
+                                aggregate.skippedNames = aggregate.skippedNames.concat(data.skipped_names);
+                                // These rows were NOT saved — keep the full row (not just the
+                                // name) so they can be downloaded or resubmitted, not just
+                                // reported as a count.
+                                var skippedSet = {};
+                                data.skipped_names.forEach(function(n) { skippedSet[(n || '').toLowerCase().trim()] = true; });
+                                chunkRows.forEach(function(r) {
+                                    if (skippedSet[r.name.toLowerCase().trim()]) {
+                                        aggregate.failedRows.push($.extend({}, r, { error: 'Could not be resolved to a base product in this category.' }));
+                                    }
+                                });
+                            }
+                        } else {
+                            aggregate.chunkErrors++;
+                            var errMsg = data.error || ('Batch ' + (index + 1) + ' failed.');
+                            toastr.error(errMsg, 'Error');
+                            // Whole batch failed server-side — none of these rows were saved.
+                            chunkRows.forEach(function(r) {
+                                aggregate.failedRows.push($.extend({}, r, { error: errMsg }));
+                            });
+                        }
+                        resolve();
+                    },
+                    error: function(xhr, status) {
+                        aggregate.chunkErrors++;
+                        var msg = status === 'timeout'
+                            ? 'Request timed out.'
+                            : ('Network/server error (HTTP ' + (xhr && xhr.status ? xhr.status : '?') + ') for batch ' + (index + 1) + '.');
+                        toastr.error(msg, 'Error');
+                        chunkRows.forEach(function(r) {
+                            aggregate.failedRows.push($.extend({}, r, { error: msg }));
+                        });
+                        resolve(); // keep going with remaining chunks regardless
+                    }
+                });
+            }).then(function() { return uploadOne(index + 1); });
+        }
+
+        return uploadOne(0).then(function() {
+            $('#csvChunkProgressFill').css('width', '100%');
+            $('#csvChunkProgressLabel').text('All batches sent — ' + totalChunks + ' of ' + totalChunks);
+            return aggregate;
+        });
+    }
+
+    // Loads xlsx.js on demand (only needed when there are failed rows to export).
+    var _csvXlsxLoading = null;
+    function csvLoadXlsxLib() {
+        if (window.XLSX) return Promise.resolve();
+        if (_csvXlsxLoading) return _csvXlsxLoading;
+        _csvXlsxLoading = new Promise(function(resolve, reject) {
+            var s = document.createElement('script');
+            s.src = 'https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js';
+            s.onload = resolve;
+            s.onerror = reject;
+            document.head.appendChild(s);
+        });
+        return _csvXlsxLoading;
+    }
+
+    function csvDownloadFailedRowsAsExcel(rows) {
+        csvLoadXlsxLib().then(function() {
+            var sheetData = rows.map(function(r) {
+                return {
+                    name: r.name, code: r.code, unit: r.unit,
+                    selling_price: r.selling_price, cost_price: r.cost_price, quantity: r.quantity,
+                    error: r.error || 'Failed to save'
+                };
+            });
+            var ws = XLSX.utils.json_to_sheet(sheetData);
+            var wb = XLSX.utils.book_new();
+            XLSX.utils.book_append_sheet(wb, ws, 'Failed Rows');
+            XLSX.writeFile(wb, 'branch_products_failed_rows.xlsx');
+        }).catch(function() {
+            toastr.error('Could not load the Excel export library — check your connection.', 'Error');
+        });
+    }
+
+    var csvFailedRows = []; // rows that didn't save on the last attempt — downloadable/resubmittable
+
+    function csvRunImport(rows, supId) {
+        var self = $('#csvImportBtn');
+        self.prop('disabled', true);
+        csvGoToStep(4);
+        $('#csvImportProgress').html('<i class="ri-loader-4-line" style="font-size:32px;animation:spin 1s linear infinite;display:inline-block;"></i><div class="mt-2">Importing — please wait…</div>');
+        $('#csvChunkProgressWrap').hide();
+        $('#csvChunkProgressFill').css('width', '0%');
+        $('#progressBar').show();
+
+        csvUploadRowsChunked(rows, supId).then(function(aggregate) {
+            $('#progressBar').hide();
+            self.prop('disabled', false);
+
+            csvFailedRows = aggregate.failedRows;
+
+            // Only the rows that actually saved get dropped from the cache —
+            // whatever's left (skipped/errored) stays cached so it survives
+            // an accidental close and can be downloaded or resubmitted.
+            try {
+                if (csvFailedRows.length) {
+                    localStorage.setItem(CSV_ROWS_LS_KEY, JSON.stringify(csvFailedRows));
+                } else {
+                    localStorage.removeItem(CSV_ROWS_LS_KEY);
+                    localStorage.removeItem(CSV_PREVIEW_LS_KEY);
+                }
+            } catch (e) { /* storage full/unavailable */ }
+
+            var savedCount = aggregate.created + aggregate.updated;
+            var html = '<i class="ri-checkbox-circle-line text-success" style="font-size:38px;"></i>' +
+                       '<div class="mt-2" style="font-weight:600;color:#1e293b;">' +
+                       savedCount + ' of ' + rows.length + ' row(s) saved.</div>';
+            if (aggregate.updated > 0) {
+                html += '<div class="mt-1" style="font-size:12px;color:#6c757d;">' + aggregate.created + ' new &nbsp;·&nbsp; ' + aggregate.updated + ' updated</div>';
+            }
+            if (csvFailedRows.length) {
+                html += '<div class="mt-2" style="font-size:12px;color:#6c757d;text-align:left;"><strong>' + csvFailedRows.length + '</strong> row(s) were not saved:</div><div class="import-skipped-list"><ul class="mb-0 ps-3">';
+                $.each(csvFailedRows.slice(0, 50), function(i, r) { html += '<li>' + $('<div>').text(r.name + ' — ' + r.error).html() + '</li>'; });
+                if (csvFailedRows.length > 50) html += '<li style="color:#94a3b8;">…and ' + (csvFailedRows.length - 50) + ' more</li>';
+                html += '</ul></div>';
+                html += '<div class="d-flex justify-content-center gap-2 mt-3">' +
+                        '<button type="button" class="btn btn-outline-danger btn-sm" id="csvDownloadFailedBtn"><i class="ri-file-excel-2-line me-1"></i>Download Failed Rows (.xlsx)</button>' +
+                        '<button type="button" class="btn btn-outline-primary btn-sm" id="csvResubmitFailedBtn"><i class="ri-refresh-line me-1"></i>Resubmit Failed Rows</button>' +
+                        '</div>';
+            }
+            $('#csvImportProgress').html(html);
+
+            if (!csvFailedRows.length) {
+                toastr.success('Import complete.', 'Done');
+            } else {
+                toastr.warning(csvFailedRows.length + ' row(s) were not saved — download or resubmit them from this screen.', 'Import finished with issues');
+            }
+        });
+    }
+
+    // Delegated because these buttons are rebuilt into #csvImportProgress on every import.
+    $('#csvImportProgress').on('click', '#csvDownloadFailedBtn', function(e) {
+        e.preventDefault();
+        if (!csvFailedRows.length) { toastr.info('No failed rows to download.', 'Info'); return; }
+        csvDownloadFailedRowsAsExcel(csvFailedRows);
+    });
+    $('#csvImportProgress').on('click', '#csvResubmitFailedBtn', function(e) {
+        e.preventDefault();
+        var supId = $('#csv-supplier').val();
+        if (!supId) { toastr.warning('Select a supplier first.', 'Required'); csvGoToStep(2); return; }
+        if (!csvFailedRows.length) { toastr.info('Nothing to resubmit.', 'Info'); return; }
+        csvRunImport(csvFailedRows, supId);
     });
 
     $('#csvImportBtn').on('click', function() {
         var supId = $('#csv-supplier').val();
-        var file  = $('#csv-file')[0].files[0];
-        if (!supId) { toastr.warning('Select a supplier first.', 'Required'); csvGoToStep(2); return; }
-        if (!file)  { toastr.warning('Choose a CSV file.', 'Required'); return; }
-        var fd = new FormData();
-        fd.append('csv_file', file); fd.append('branch_id', BRANCH_ID); fd.append('supplier_id', supId); fd.append('_token', '{{ csrf_token() }}');
-        var self = $(this); self.prop('disabled', true);
-        csvGoToStep(4);
-        $('#csvImportProgress').html('<i class="ri-loader-4-line" style="font-size:32px;animation:spin 1s linear infinite;display:inline-block;"></i><div class="mt-2">Importing — please wait…</div>');
-        $.ajax({
-            type:'POST', url:'{{ route("retail.operations.branchproducts.csv.upload") }}', data:fd, processData:false, contentType:false, timeout:180000,
-            beforeSend: function() { $('#progressBar').show(); },
-            complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
-            success: function(data) {
-                if (data.status === 200) {
-                    var html = '<i class="ri-checkbox-circle-line text-success" style="font-size:38px;"></i><div class="mt-2 fw-600" style="font-weight:600;color:#1e293b;">' + data.success + '</div>';
-                    if ((data.created_count||0)>0||(data.updated_count||0)>0) html += '<div class="mt-1" style="font-size:12px;color:#6c757d;">' + (data.created_count||0) + ' new &nbsp;·&nbsp; ' + (data.updated_count||0) + ' updated</div>';
-                    if (data.skipped_count > 0 && data.skipped_names && data.skipped_names.length) {
-                        html += '<div class="mt-2" style="font-size:12px;color:#6c757d;text-align:left;"><strong>' + data.skipped_count + '</strong> row(s) could not be resolved:</div><div class="import-skipped-list"><ul class="mb-0 ps-3">';
-                        $.each(data.skipped_names.slice(0,50), function(i,n) { html += '<li>' + $('<div>').text(n).html() + '</li>'; });
-                        if (data.skipped_names.length > 50) html += '<li style="color:#94a3b8;">…and ' + (data.skipped_names.length-50) + ' more</li>';
-                        html += '</ul></div>';
-                    }
-                    $('#csvImportProgress').html(html);
-                    toastr.success(data.success, 'Import complete');
-                } else {
-                    $('#csvImportProgress').html('<i class="ri-error-warning-line text-danger" style="font-size:38px;"></i><div class="mt-2">' + (data.error||'Import failed.') + '</div>');
-                    toastr.error(data.error||'Import failed.', 'Error');
-                }
-            },
-            error: function(xhr, status) {
-                $('#csvImportProgress').html('<i class="ri-error-warning-line text-danger" style="font-size:34px;"></i><div class="mt-2">Import failed — please try again.</div>');
-                handleAjaxError(xhr, status);
-            }
-        });
+        if (!supId)                { toastr.warning('Select a supplier first.', 'Required'); csvGoToStep(2); return; }
+        if (!csvParsedRows.length) { toastr.warning('Choose a CSV file.', 'Required'); return; }
+        csvRunImport(csvParsedRows, supId);
     });
 
     $('#csvDoneBtn').on('click', function() { $('#addProductModal').modal('hide'); setTimeout(function() { location.reload(); }, 200); });
@@ -1954,7 +2279,7 @@ $(document).ready(function () {
             var metaLine = unit || ''; if(bpFmt) metaLine += (metaLine?' &middot; ':'') + 'Base: <span style="color:#059669;font-weight:700;">'+bpFmt+'</span>';
             var hasBranch = (sellIsBranch==1&&sellNow!==''&&sellNow!==null&&sellNow!==undefined);
             var prefill = hasBranch ? parseFloat(sellNow).toFixed(2) : '';
-            html += `<tr data-id="${id}" data-bp-sell="${bpSell||''}"><td><div style="font-size:13px;font-weight:600;color:#1e293b;">${name}</div><div style="font-size:11px;color:#6c757d;margin-top:1px;">${metaLine}</div></td><td style="text-align:center;"><input type="text" inputmode="decimal" class="sbp-input" id="sbp_price_${id}" placeholder="0.00" value="${prefill}" data-autofilled="0"></td></tr>`;
+            html += `<tr data-id="${id}" data-bp-sell="${bpSell||''}"><td><div style="font-size:13px;font-weight:600;color:#1e293b;">${name}</div><div style="font-size:11px;color:#6c757d;margin-top:1px;">${metaLine}</div></td><td style="text-align:center;"><input type="text" inputmode="decimal" class="sbp-input" id="sbp_price_${id}" placeholder="0.00" value="${prefill}" data-autofilled="0" autocomplete="off"></td></tr>`;
         });
         $('#sbpProductList').html(html);
         $('#sbpCount').text(ids.length);

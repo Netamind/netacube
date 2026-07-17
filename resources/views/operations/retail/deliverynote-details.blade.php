@@ -112,14 +112,6 @@
 /* ── Table wrap — matches baseproducts card-body ──────────────────────────── */
 .det-table-wrap { padding: 0 1.5rem 1.5rem 1.5rem !important; background: #fff; position: relative; }
 
-#detLoadingOverlay {
-    display: none; position: absolute; inset: 0;
-    background: rgba(255,255,255,0.72); z-index: 10;
-    align-items: center; justify-content: center;
-    border-radius: 0 0 10px 10px;
-}
-#detLoadingOverlay .spinner-border { color: #4B5EBD; }
-
 /* ── Table alignment — mirrors baseproducts exactly ──────────────────────── */
 #detTable thead th,
 table.dataTable thead th { text-align: center !important; vertical-align: middle !important; }
@@ -131,6 +123,7 @@ table.dataTable tbody td { text-align: center !important; vertical-align: middle
 table.dataTable tbody td:first-child { text-align: left !important; }
 
 .det-row-check { width: 16px; height: 16px; cursor: pointer; accent-color: #4B5EBD; }
+#selectAllDet { margin-right: 2px; }
 
 /* ── Status badges ───────────────────────────────────────────────────────── */
 .status-badge {
@@ -140,6 +133,12 @@ table.dataTable tbody td:first-child { text-align: left !important; }
 }
 .status-submitted { background: #dcfce7; color: #15803d; border-color: #bbf7d0; }
 .status-pending   { background: #fef9c3; color: #854d0e; border-color: #fde68a; }
+.status-pending-clickable {
+    cursor: pointer; transition: all .15s;
+}
+.status-pending-clickable:hover {
+    background: #4B5EBD; color: #fff; border-color: #4B5EBD;
+}
 
 /* ── Row action buttons — same icon-link style as baseproducts ───────────── */
 .det-act-btn {
@@ -231,9 +230,6 @@ table.dataTable tbody td:first-child { text-align: left !important; }
             <a href="#" class="ch-btn" id="pdfBtn" title="Download PDF for this branch">
                 <i class="ri-file-pdf-2-line"></i>
             </a>
-            <a href="#" class="ch-btn" id="refreshBtn" title="Refresh">
-                <i class="ri-refresh-line"></i>
-            </a>
             <a href="#" class="ch-btn" id="infoBtn" title="Help">
                 <i class="ri-information-line"></i>
             </a>
@@ -248,9 +244,8 @@ table.dataTable tbody td:first-child { text-align: left !important; }
 
 {{-- ── Selection / action bar ──────────────────────────────────────────── --}}
 <div class="det-sel-bar" id="detSelBar">
-    <span class="det-sel-count none" id="detSelCount">
-        <i class="ri-checkbox-blank-line" style="font-size:13px;"></i> 0 selected
-    </span>
+    <input type="checkbox" id="selectAllDet" class="det-row-check" title="Select all">
+    <span class="det-sel-count none" id="detSelCount">0 selected</span>
     <div class="det-bar-sep"></div>
     <button type="button" class="det-action-bar-btn dab-submit"     id="barSubmitBtn"    disabled><i class="ri-corner-up-right-line"></i> Submit</button>
     <button type="button" class="det-action-bar-btn dab-unsubmit"   id="barUnsubmitBtn"  disabled><i class="ri-arrow-go-back-line"></i>   Unsubmit</button>
@@ -271,12 +266,10 @@ table.dataTable tbody td:first-child { text-align: left !important; }
         </span>
         <div class="det-bar-sep"></div>
         <span class="det-info-badge dib-submitted">
-            <i class="ri-check-line" style="font-size:11px;"></i>
             <span class="badge-label">Submitted</span>
             <span id="badgeSubmitted">—</span>
         </span>
         <span class="det-info-badge dib-pending">
-            <i class="ri-time-line" style="font-size:11px;"></i>
             <span class="badge-label">Pending</span>
             <span id="badgePending">—</span>
         </span>
@@ -285,20 +278,10 @@ table.dataTable tbody td:first-child { text-align: left !important; }
 
 {{-- ── Table ────────────────────────────────────────────────────────────── --}}
 <div class="det-table-wrap">
-    <div id="detLoadingOverlay">
-        <div class="spinner-border" role="status" style="width:2.5rem;height:2.5rem;">
-            <span class="visually-hidden">Loading…</span>
-        </div>
-    </div>
-
     <table id="detTable" class="table table-sm table-striped row-border order-column w-100">
         <thead style="background-color:#e2e2e9;">
             <tr>
-                <th>
-                    <input type="checkbox" id="selectAllDet" class="det-row-check" title="Select all">
-                    &nbsp;&nbsp;Product
-                </th>
-                <th>Code</th>
+                <th>Product</th>
                 <th>Unit</th>
                 <th>Qty</th>
                 <th>Cost Price</th>
@@ -306,14 +289,12 @@ table.dataTable tbody td:first-child { text-align: left !important; }
                 <th>Cost Value</th>
                 <th>Sell Value</th>
                 <th>Status</th>
-                <th>Submitted By</th>
-                <th>Submitted At</th>
                 <th>Action</th>
             </tr>
         </thead>
         <tbody id="detTableBody">
             <tr>
-                <td colspan="12" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:13px;">
+                <td colspan="9" style="text-align:center;padding:40px 16px;color:#94a3b8;font-size:13px;">
                     <i class="ri-loader-4-line" style="font-size:24px;display:block;margin-bottom:8px;animation:spin 1s linear infinite;"></i>
                     Loading delivery note lines…
                 </td>
@@ -450,6 +431,7 @@ table.dataTable tbody td:first-child { text-align: left !important; }
                         @foreach([
                             ['Line items',     'Each row represents one product line in the delivery note for this branch on the selected date.'],
                             ['Checkboxes',     'Select one or more lines to bulk Submit, Unsubmit, or Delete via the action bar.'],
+                            ['Status',         'Click a "Pending" status badge to submit that single line and update branch stock.'],
                             ['Summary badges', 'The action bar shows live totals — Cost, Value, Submitted count, and Pending count.'],
                             ['Submit All',     'Submits every pending line at once — active only when at least one pending line exists.'],
                             ['Submit',         'Marks selected pending lines as submitted and increments branch stock.'],
@@ -530,20 +512,15 @@ $(document).ready(function () {
         var costVal = parseFloat(l.quantity || 0) * parseFloat(l.cost_price    || 0);
         var sellVal = parseFloat(l.quantity || 0) * parseFloat(l.selling_price || 0);
 
+        /* Status badge — when pending, the badge itself is clickable and
+           submits that single line (no separate submit icon under
+           Actions any more). No time icon on the pending badge. */
         var statusBadge = l.submitted
             ? '<span class="status-badge status-submitted"><i class="ri-check-line"></i> Submitted</span>'
-            : '<span class="status-badge status-pending"><i class="ri-time-line"></i> Pending</span>';
-
-        /* Submit / Unsubmit toggle — icon link style like baseproducts */
-        var toggleBtn = !l.submitted
-            ? '<a href="#" class="det-act-btn det-act-submit det-single-submit"'
+            : '<span class="status-badge status-pending status-pending-clickable"'
               + ' data-note-id="' + l.id + '" data-row-id="' + rowId + '"'
               + ' data-product="' + esc(l.product_name) + '"'
-              + ' title="Submit"><i class="ri-corner-up-right-line"></i></a>'
-            : '<a href="#" class="det-act-btn det-act-unsubmit det-single-unsubmit"'
-              + ' data-note-id="' + l.id + '" data-row-id="' + rowId + '"'
-              + ' data-product="' + esc(l.product_name) + '"'
-              + ' title="Unsubmit"><i class="ri-arrow-go-back-line"></i></a>';
+              + ' title="Click to submit this line">Pending</span>';
 
         var editBtn = '<a href="#" class="det-act-btn det-act-edit det-single-edit"'
             + ' data-note-id="'  + l.id             + '"'
@@ -566,7 +543,6 @@ $(document).ready(function () {
             +   '<input type="checkbox" class="det-row-check" value="' + l.id + '" style="margin-right:8px;vertical-align:middle;">'
             +   '<strong>' + esc(l.product_name) + '</strong>'
             + '</td>'
-            + '<td>' + (l.product_code || '—') + '</td>'
             + '<td>' + (l.product_unit || '—') + '</td>'
             + '<td style="font-weight:700;">' + fmt(l.quantity, 0) + '</td>'
             + '<td>' + fmt(l.cost_price) + '</td>'
@@ -574,10 +550,8 @@ $(document).ready(function () {
             + '<td style="color:#475569;">' + fmt(costVal) + '</td>'
             + '<td style="color:#059669;font-weight:600;">' + fmt(sellVal) + '</td>'
             + '<td>' + statusBadge + '</td>'
-            + '<td style="font-size:11px;color:#64748b;">' + esc(l.submitted_by_name || '—') + '</td>'
-            + '<td style="font-size:11px;color:#64748b;">' + (l.submitted_at || '—') + '</td>'
             + '<td>'
-            +   toggleBtn + ' ' + editBtn + ' ' + deleteBtn
+            +   editBtn + ' ' + deleteBtn
             + '</td>'
             + '</tr>';
     }
@@ -594,12 +568,10 @@ $(document).ready(function () {
     function updateSelectionUI() {
         var count = $('.det-row-check:checked').not('#selectAllDet').length;
         if (count > 0) {
-            $('#detSelCount').removeClass('none')
-                .html('<i class="ri-checkbox-multiple-line" style="font-size:13px;"></i> ' + count + ' selected');
+            $('#detSelCount').removeClass('none').text(count + ' selected');
             $('#barSubmitBtn, #barUnsubmitBtn, #barDeleteBtn').prop('disabled', false);
         } else {
-            $('#detSelCount').addClass('none')
-                .html('<i class="ri-checkbox-blank-line" style="font-size:13px;"></i> 0 selected');
+            $('#detSelCount').addClass('none').text('0 selected');
             $('#barSubmitBtn, #barUnsubmitBtn, #barDeleteBtn').prop('disabled', true);
             $('#selectAllDet').prop('checked', false);
         }
@@ -623,12 +595,12 @@ $(document).ready(function () {
         $('#detTableBody tr').each(function () {
             var $tds = $(this).find('td');
             if ($tds.length < 9) return;
-            var qty  = parseFloat($tds.eq(3).text().replace(/,/g,'')) || 0;
-            var cost = parseFloat($tds.eq(4).text().replace(/,/g,'')) || 0;
-            var sell = parseFloat($tds.eq(5).text().replace(/,/g,'')) || 0;
+            var qty  = parseFloat($tds.eq(2).text().replace(/,/g,'')) || 0;
+            var cost = parseFloat($tds.eq(3).text().replace(/,/g,'')) || 0;
+            var sell = parseFloat($tds.eq(4).text().replace(/,/g,'')) || 0;
             totalCost  += qty * cost;
             totalValue += qty * sell;
-            if ($tds.eq(8).find('.status-submitted').length) submitted++;
+            if ($tds.eq(7).find('.status-submitted').length) submitted++;
             else pending++;
         });
         hasPending = pending > 0;
@@ -644,7 +616,6 @@ $(document).ready(function () {
     ══════════════════════════════════════════════════════════════════ */
     function loadTable() {
         showProgress();
-        $('#detLoadingOverlay').css('display','flex');
         $('#selectAllDet').prop('checked', false);
         hasPending = false;
         updateSelectionUI();
@@ -653,7 +624,7 @@ $(document).ready(function () {
             type: 'GET',
             url:  '{{ route("retail.operations.deliverynotes.branch.lines") }}',
             data: { branch_id: branchId, delivery_date: activeDate },
-            complete: function () { hideProgress(); $('#detLoadingOverlay').hide(); },
+            complete: function () { hideProgress(); },
             success: function (data) {
                 if (data.status !== 200) { toastr.error('Failed to load data.'); return; }
 
@@ -678,7 +649,7 @@ $(document).ready(function () {
 
                 var html = '';
                 if (!lines.length) {
-                    html = '<tr><td colspan="12" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:13px;">'
+                    html = '<tr><td colspan="9" style="text-align:center;padding:48px 16px;color:#94a3b8;font-size:13px;">'
                          + '<i class="ri-inbox-2-line" style="font-size:36px;display:block;margin-bottom:10px;color:#dde1f0;"></i>'
                          + 'No delivery note lines found for this branch on ' + activeDate + '.'
                          + '</td></tr>';
@@ -699,7 +670,7 @@ $(document).ready(function () {
                     columnDefs: [
                         { targets: '_all', className: 'text-center' },
                         { targets: 0,      className: 'text-start'  },
-                        { orderable: false, targets: [11] },
+                        { orderable: false, targets: [8] },
                     ],
                     buttons: [
                         { extend:'excelHtml5', title: branchName+' – Delivery Notes – '+activeDate, exportOptions:{ columns:':visible:not(:last-child)' } },
@@ -851,9 +822,11 @@ $(document).ready(function () {
     }
 
     /* ══════════════════════════════════════════════════════════════════
-       SINGLE ROW: SUBMIT
+       STATUS BADGE (Pending) — click to submit that single line.
+       Replaces the old separate submit/unsubmit icons under Actions;
+       Actions now only shows Edit and Delete.
     ══════════════════════════════════════════════════════════════════ */
-    $(document).on('click', '.det-single-submit', function (e) {
+    $(document).on('click', '.status-pending-clickable', function (e) {
         e.preventDefault();
         var noteId  = $(this).data('note-id');
         var product = $(this).data('product');
@@ -866,24 +839,6 @@ $(document).ready(function () {
             noteText:  '<i class="ri-information-line me-1"></i> Stock will be incremented.',
             btnClass:  'btn-primary', btnText: '<i class="ri-corner-up-right-line me-1"></i> Yes, Submit',
         }, function () { executeSingle('submit', noteId); });
-    });
-
-    /* ══════════════════════════════════════════════════════════════════
-       SINGLE ROW: UNSUBMIT
-    ══════════════════════════════════════════════════════════════════ */
-    $(document).on('click', '.det-single-unsubmit', function (e) {
-        e.preventDefault();
-        var noteId  = $(this).data('note-id');
-        var product = $(this).data('product');
-        openConfirm({
-            headerClass:'mh-amber', iconClass:'ri-arrow-go-back-line', iconColor:'#d97706', wrapBg:'#fff8e1',
-            title:     '<i class="ri-arrow-go-back-line"></i> Unsubmit Line',
-            heading:   'Unsubmit this delivery note line?',
-            body:      '<strong>' + esc(product) + '</strong> will revert to pending and branch stock will be decremented.',
-            noteStyle: 'background:#fff8e1;color:#92400e;border-color:#f59e0b;',
-            noteText:  '<i class="ri-alert-line me-1"></i> Stock will be reversed.',
-            btnClass:  'btn-warning text-white', btnText: '<i class="ri-arrow-go-back-line me-1"></i> Yes, Unsubmit',
-        }, function () { executeSingle('unsubmit', noteId); });
     });
 
     /* ══════════════════════════════════════════════════════════════════
@@ -1026,7 +981,6 @@ $(document).ready(function () {
     /* ── Header buttons ───────────────────────────────────────────────── */
     $('#pdfBtn').on('click',      function (e) { e.preventDefault(); window.location.href = pdfUrl; });
     $('#downloadBtn').on('click', function (e) { e.preventDefault(); $('#downloadModal').modal('show'); });
-    $('#refreshBtn').on('click',  function (e) { e.preventDefault(); loadTable(); });
     $('#infoBtn').on('click',     function (e) { e.preventDefault(); $('#detInfoModal').modal('show'); });
 
     /* ── Flash messages ───────────────────────────────────────────────── */

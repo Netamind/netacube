@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Operations\Retail;
 use Illuminate\Http\Request;
 use App\Http\Controllers\Controller;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Str;
 use Carbon\Carbon;
 use DB;
 use Dompdf\Dompdf;
@@ -161,8 +162,8 @@ class RetailDeliverynotesController extends Controller
                         ->insert([
                             'branch_id'       => $branchId,
                             'base_product_id' => $baseProductId,
-                            'selling_price'   => $note->selling_price,
-                            'cost_price'      => $note->cost_price,
+                            'selling_price'   => null,
+                            'cost_price'      => null,
                             'stock_quantity'  => $deliveredQty,
                             'created_at'      => $now,
                             'updated_at'      => $now,
@@ -281,9 +282,11 @@ class RetailDeliverynotesController extends Controller
     $dompdf->render();
  
     // ── 8. Safe filename ──────────────────────────────────────────────
-    $filename = 'DeliveryNotes_'
-              . preg_replace('/[^\w\-]+/', '_', $branch->name)
-              . '_' . $deliveryDate . '.pdf';
+    $branchSlug   = Str::slug($branch->name);                                    // carplus-pharmacy
+    $dateSlug     = strtolower(Carbon::parse($deliveryDate)->format('d-F-Y'));   // 07-july-2026
+    $randomSuffix = str_pad((string) random_int(0, 999999), 6, '0', STR_PAD_LEFT);
+
+    $filename = "{$branchSlug}-{$dateSlug}-deliverynote-{$randomSuffix}.pdf";
  
     return response($dompdf->output(), 200, [
         'Content-Type'        => 'application/pdf',
@@ -418,8 +421,8 @@ public function showBranchDeliveryNoteEditView(Request $request)
                         ->insert([
                             'branch_id'       => $branchId,
                             'base_product_id' => $baseProductId,
-                            'selling_price'   => $note->selling_price,
-                            'cost_price'      => $note->cost_price,
+                            'selling_price'   => null,
+                            'cost_price'      => null,
                             'stock_quantity'  => $deliveredQty,
                             'created_at'      => $now,
                             'updated_at'      => $now,
@@ -575,6 +578,246 @@ public function showBranchDeliveryNoteEditView(Request $request)
             'status'  => 200,
             'success' => $deletedCount . ' delivery note' . ($deletedCount > 1 ? 's' : '') .
                          ' permanently deleted for ' . count($branchIds) . ' branch' . (count($branchIds) > 1 ? 'es' : '') . '.',
+        ]);
+    }
+
+    // ══════════════════════════════════════════════════════════════════════
+    //  GLOBAL ACTIONS — operate on every branch in a category, for a date
+    // ══════════════════════════════════════════════════════════════════════
+
+    private function resolveBranchIdsForCategory(int $categoryId): array
+    {
+        return DB::connection('tenant')
+            ->table('branches')
+            ->where('sector', 'Retail')
+            ->where('status', 'active')
+            ->where('category', (string) $categoryId)
+            ->pluck('id')
+            ->map(fn ($id) => (int) $id)
+            ->toArray();
+    }
+
+    public function bulkSubmitAllForDate(Request $request)
+    {
+        $request->validate([
+            'category_id'   => 'required|integer|exists:tenant.categories,id',
+            'delivery_date' => 'required|date',
+        ]);
+
+        $branchIds = $this->resolveBranchIdsForCategory((int) $request->category_id);
+        if (empty($branchIds)) {
+            return response()->json(['status' => 200, 'info' => 'No branches found for this category.']);
+        }
+
+        $date        = $request->delivery_date;
+        $now         = now();
+        $submitterId = Auth::id();
+
+        $pendingNotes = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->whereIn('branch_id',   $branchIds)
+            ->where('delivery_date', $date)
+            ->where('submitted',     false)
+            ->get();
+
+        if ($pendingNotes->isEmpty()) {
+            return response()->json([
+                'status' => 200,
+                'info'   => 'No pending delivery notes found for ' . Carbon::parse($date)->format('d M Y') . '.',
+            ]);
+        }
+
+        $notesSubmittedCount = 0;
+        $branchesAffected    = [];
+
+        DB::connection('tenant')->transaction(function () use (
+            $pendingNotes, $submitterId, $now, &$notesSubmittedCount, &$branchesAffected
+        ) {
+            foreach ($pendingNotes as $note) {
+                $branchId      = (int) $note->branch_id;
+                $baseProductId = (int) $note->base_product_id;
+                $deliveredQty  = (float) $note->quantity;
+
+                if ($deliveredQty <= 0) continue;
+
+                DB::connection('tenant')
+                    ->table('retail_deliverynotes')
+                    ->where('id', $note->id)
+                    ->update([
+                        'submitted'    => true,
+                        'submitted_by' => $submitterId,
+                        'submitted_at' => $now,
+                        'updated_at'   => $now,
+                    ]);
+
+                $existingBranchProduct = DB::connection('tenant')
+                    ->table('retail_branch_products')
+                    ->where('branch_id',       $branchId)
+                    ->where('base_product_id', $baseProductId)
+                    ->first();
+
+                if ($existingBranchProduct) {
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->where('id', $existingBranchProduct->id)
+                        ->update([
+                            'stock_quantity' => (float) $existingBranchProduct->stock_quantity + $deliveredQty,
+                            'updated_at'     => $now,
+                        ]);
+                } else {
+                    DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->insert([
+                            'branch_id'       => $branchId,
+                            'base_product_id' => $baseProductId,
+                            'selling_price'   => null,
+                            'cost_price'      => null,
+                            'stock_quantity'  => $deliveredQty,
+                            'created_at'      => $now,
+                            'updated_at'      => $now,
+                        ]);
+                }
+
+                $branchesAffected[$branchId] = true;
+                $notesSubmittedCount++;
+            }
+        });
+
+        if ($notesSubmittedCount === 0) {
+            return response()->json([
+                'status' => 200,
+                'info'   => 'All pending notes had zero quantity and were skipped.',
+            ]);
+        }
+
+        $branchCount = count($branchesAffected);
+
+        return response()->json([
+            'status'  => 200,
+            'success' => $notesSubmittedCount . ' delivery note' . ($notesSubmittedCount > 1 ? 's' : '') .
+                         ' submitted across ' . $branchCount . ' branch' . ($branchCount > 1 ? 'es' : '') .
+                         '. Branch stock updated.',
+        ]);
+    }
+
+    public function bulkUnsubmitAllForDate(Request $request)
+    {
+        $request->validate([
+            'category_id'   => 'required|integer|exists:tenant.categories,id',
+            'delivery_date' => 'required|date',
+        ]);
+
+        $branchIds = $this->resolveBranchIdsForCategory((int) $request->category_id);
+        if (empty($branchIds)) {
+            return response()->json(['status' => 200, 'info' => 'No branches found for this category.']);
+        }
+
+        $date = $request->delivery_date;
+        $now  = now();
+
+        $submittedNotes = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->whereIn('branch_id',   $branchIds)
+            ->where('delivery_date', $date)
+            ->where('submitted',     true)
+            ->get();
+
+        if ($submittedNotes->isEmpty()) {
+            return response()->json([
+                'status' => 200,
+                'info'   => 'No submitted delivery notes found for ' . Carbon::parse($date)->format('d M Y') . '.',
+            ]);
+        }
+
+        $notesReversedCount = 0;
+        $branchesAffected   = [];
+
+        DB::connection('tenant')->transaction(function () use (
+            $submittedNotes, $now, &$notesReversedCount, &$branchesAffected
+        ) {
+            foreach ($submittedNotes as $note) {
+                $branchId      = (int) $note->branch_id;
+                $baseProductId = (int) $note->base_product_id;
+                $deliveredQty  = (float) $note->quantity;
+
+                DB::connection('tenant')
+                    ->table('retail_deliverynotes')
+                    ->where('id', $note->id)
+                    ->update([
+                        'submitted'    => false,
+                        'submitted_by' => null,
+                        'submitted_at' => null,
+                        'updated_at'   => $now,
+                    ]);
+
+                if ($deliveredQty > 0) {
+                    $existingBranchProduct = DB::connection('tenant')
+                        ->table('retail_branch_products')
+                        ->where('branch_id',       $branchId)
+                        ->where('base_product_id', $baseProductId)
+                        ->first();
+
+                    if ($existingBranchProduct) {
+                        $reversedQty = max(0, (float) $existingBranchProduct->stock_quantity - $deliveredQty);
+                        DB::connection('tenant')
+                            ->table('retail_branch_products')
+                            ->where('id', $existingBranchProduct->id)
+                            ->update([
+                                'stock_quantity' => $reversedQty,
+                                'updated_at'     => $now,
+                            ]);
+                    }
+                }
+
+                $branchesAffected[$branchId] = true;
+                $notesReversedCount++;
+            }
+        });
+
+        if ($notesReversedCount === 0) {
+            return response()->json(['status' => 200, 'info' => 'No notes were reversed.']);
+        }
+
+        $branchCount = count($branchesAffected);
+
+        return response()->json([
+            'status'  => 200,
+            'success' => $notesReversedCount . ' delivery note' . ($notesReversedCount > 1 ? 's' : '') .
+                         ' unsubmitted across ' . $branchCount . ' branch' . ($branchCount > 1 ? 'es' : '') .
+                         '. Stock has been reversed.',
+        ]);
+    }
+
+    public function bulkDeleteAllForDate(Request $request)
+    {
+        $request->validate([
+            'category_id'   => 'required|integer|exists:tenant.categories,id',
+            'delivery_date' => 'required|date',
+        ]);
+
+        $branchIds = $this->resolveBranchIdsForCategory((int) $request->category_id);
+        if (empty($branchIds)) {
+            return response()->json(['status' => 200, 'info' => 'No branches found for this category.']);
+        }
+
+        $date = $request->delivery_date;
+
+        $deletedCount = DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->whereIn('branch_id',   $branchIds)
+            ->where('delivery_date', $date)
+            ->delete();
+
+        if (! $deletedCount) {
+            return response()->json([
+                'status' => 200,
+                'info'   => 'No delivery notes found for ' . Carbon::parse($date)->format('d M Y') . '.',
+            ]);
+        }
+
+        return response()->json([
+            'status'  => 200,
+            'success' => $deletedCount . ' delivery note' . ($deletedCount > 1 ? 's' : '') . ' permanently deleted.',
         ]);
     }
 
@@ -742,8 +985,8 @@ public function submitSingleDeliveryNoteLine(Request $request)
                 ->insert([
                     'branch_id'       => $branchId,
                     'base_product_id' => $baseProductId,
-                    'selling_price'   => $note->selling_price,
-                    'cost_price'      => $note->cost_price,
+                    'selling_price'   => null,
+                    'cost_price'      => null,
                     'stock_quantity'  => $deliveredQty,
                     'created_at'      => $now,
                     'updated_at'      => $now,
@@ -901,7 +1144,7 @@ public function bulkSubmitDeliveryNoteLines(Request $request)
             } else {
                 DB::connection('tenant')->table('retail_branch_products')->insert([
                     'branch_id' => $branchId, 'base_product_id' => $baseProductId,
-                    'selling_price' => $note->selling_price, 'cost_price' => $note->cost_price,
+                    'selling_price' => null, 'cost_price' => null,
                     'stock_quantity' => $qty, 'created_at' => $now, 'updated_at' => $now,
                 ]);
             }
@@ -1042,7 +1285,7 @@ public function updateSingleDeliveryNoteLine(Request $request)
         $noteId, $branchId, $baseProductId,
         $oldQty, $newQty,
         $newCostPrice, $newSellPrice,
-        $wasSubmitted, $now
+        $wasSubmitted, $now, $note
     ) {
         // 1. Update the note line itself
         DB::connection('tenant')
@@ -1055,7 +1298,24 @@ public function updateSingleDeliveryNoteLine(Request $request)
                 'updated_at'    => $now,
             ]);
 
-        // 2. If already submitted → adjust branch stock by the qty difference
+        // 1b. A manual price edit on one line applies to every OTHER pending
+        // (unsubmitted) line for the same product on the same delivery date,
+        // across branches — keeps sibling rows from drifting out of sync.
+        DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->where('base_product_id', $baseProductId)
+            ->where('delivery_date',   $note->delivery_date)
+            ->where('submitted',       false)
+            ->where('id', '!=', $noteId)
+            ->update([
+                'cost_price'    => $newCostPrice,
+                'selling_price' => $newSellPrice,
+                'updated_at'    => $now,
+            ]);
+
+        // 2. If already submitted → adjust branch stock by the qty difference only.
+        // Branch selling/cost price is NEVER set from delivery note operations —
+        // it is only ever set explicitly via Branch Products or the Action Centre.
         if ($wasSubmitted) {
             $qtyDelta = $newQty - $oldQty;
 
@@ -1073,8 +1333,6 @@ public function updateSingleDeliveryNoteLine(Request $request)
                     ->where('id', $existing->id)
                     ->update([
                         'stock_quantity' => $adjustedStock,
-                        'selling_price'  => $newSellPrice,
-                        'cost_price'     => $newCostPrice,
                         'updated_at'     => $now,
                     ]);
             } elseif ($newQty > 0) {
@@ -1083,8 +1341,8 @@ public function updateSingleDeliveryNoteLine(Request $request)
                     ->insert([
                         'branch_id'       => $branchId,
                         'base_product_id' => $baseProductId,
-                        'selling_price'   => $newSellPrice,
-                        'cost_price'      => $newCostPrice,
+                        'selling_price'   => null,
+                        'cost_price'      => null,
                         'stock_quantity'  => $newQty,
                         'created_at'      => $now,
                         'updated_at'      => $now,
@@ -1173,13 +1431,28 @@ public function updateDeliverynoteFromDetailsView(Request $request)
     DB::connection('tenant')->transaction(function () use (
         $noteId, $branchId, $baseProductId,
         $oldQty, $newQty, $newCostPrice, $newSellPrice,
-        $wasSubmitted, $now
+        $wasSubmitted, $now, $note
     ) {
         DB::connection('tenant')
             ->table('retail_deliverynotes')
             ->where('id', $noteId)
             ->update([
                 'quantity'      => $newQty,
+                'cost_price'    => $newCostPrice,
+                'selling_price' => $newSellPrice,
+                'updated_at'    => $now,
+            ]);
+
+        // A manual price edit on one line applies to every OTHER pending
+        // (unsubmitted) line for the same product on the same delivery date,
+        // across branches — keeps sibling rows from drifting out of sync.
+        DB::connection('tenant')
+            ->table('retail_deliverynotes')
+            ->where('base_product_id', $baseProductId)
+            ->where('delivery_date',   $note->delivery_date)
+            ->where('submitted',       false)
+            ->where('id', '!=', $noteId)
+            ->update([
                 'cost_price'    => $newCostPrice,
                 'selling_price' => $newSellPrice,
                 'updated_at'    => $now,
@@ -1193,14 +1466,15 @@ public function updateDeliverynoteFromDetailsView(Request $request)
                 ->where('base_product_id', $baseProductId)
                 ->first();
 
+            // Branch stock quantity is adjusted here, but branch selling/cost
+            // price is NEVER touched by delivery-note operations — it is only
+            // ever set explicitly via Branch Products or the Action Centre.
             if ($existing) {
                 DB::connection('tenant')
                     ->table('retail_branch_products')
                     ->where('id', $existing->id)
                     ->update([
                         'stock_quantity' => max(0, (float) $existing->stock_quantity + $qtyDelta),
-                        'selling_price'  => $newSellPrice,
-                        'cost_price'     => $newCostPrice,
                         'updated_at'     => $now,
                     ]);
             } elseif ($newQty > 0) {
@@ -1209,8 +1483,8 @@ public function updateDeliverynoteFromDetailsView(Request $request)
                     ->insert([
                         'branch_id'       => $branchId,
                         'base_product_id' => $baseProductId,
-                        'selling_price'   => $newSellPrice,
-                        'cost_price'      => $newCostPrice,
+                        'selling_price'   => null,
+                        'cost_price'      => null,
                         'stock_quantity'  => $newQty,
                         'created_at'      => $now,
                         'updated_at'      => $now,
@@ -1320,8 +1594,8 @@ public function submitDeliverynoteFromDetailsView(Request $request)
                 ->insert([
                     'branch_id'       => $branchId,
                     'base_product_id' => $baseProductId,
-                    'selling_price'   => $note->selling_price,
-                    'cost_price'      => $note->cost_price,
+                    'selling_price'   => null,
+                    'cost_price'      => null,
                     'stock_quantity'  => $deliveredQty,
                     'created_at'      => $now,
                     'updated_at'      => $now,
@@ -1475,7 +1749,7 @@ public function bulkSubmitDeliverynoteLinesFromDetailsView(Request $request)
             } else {
                 DB::connection('tenant')->table('retail_branch_products')->insert([
                     'branch_id' => $branchId, 'base_product_id' => $baseProductId,
-                    'selling_price' => $note->selling_price, 'cost_price' => $note->cost_price,
+                    'selling_price' => null, 'cost_price' => null,
                     'stock_quantity' => $qty, 'created_at' => $now, 'updated_at' => $now,
                 ]);
             }

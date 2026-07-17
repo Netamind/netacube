@@ -65,19 +65,13 @@ class Kernel extends HttpKernel
         'throttle' => \Illuminate\Routing\Middleware\ThrottleRequests::class,
         'verified' => \Illuminate\Auth\Middleware\EnsureEmailIsVerified::class,
 
-        'tenancy' => \App\Http\Middleware\InitializeTenancyByPath::class,     
-        'master.admin'  => \App\Http\Middleware\MasterAdmin::class,
-        'tenant.admin'  => \App\Http\Middleware\TenantAdmin::class,
-        'tenant.operations'  => \App\Http\Middleware\TenantOperations::class,
-        'retail.allowed'  => \App\Http\Middleware\RetailAllowed::class,
-        'wholesale.allowed'  => \App\Http\Middleware\WholesaleAllowed::class,
-        'finance.allowed'  => \App\Http\Middleware\FinanceAllowed::class,
+        'tenancy'      => \App\Http\Middleware\InitializeTenancyByPath::class,
+        'master.admin' => \App\Http\Middleware\MasterAdmin::class,
+        'hydrate.auth' => \App\Http\Middleware\HydrateAuthFromSession::class,
 
-        'sales.allowed'  => \App\Http\Middleware\SalesAllowed::class,
-        'hydrate.auth'   => \App\Http\Middleware\HydrateAuthFromSession::class,
-
-
-
-             
+        'role'   => \App\Http\Middleware\RoleAllowed::class,
+        'sector' => \App\Http\Middleware\SectorAllowed::class,
+        'idle.timeout' => \App\Http\Middleware\EnforceIdleTimeout::class,
+        'session.lifetime' => \App\Http\Middleware\EnforceSessionLifetime::class,
     ];
 }

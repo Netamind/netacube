@@ -1,4 +1,5 @@
 <?php
+// File: app/Http/Controllers/Tenant/TenantAdminController.php
 namespace App\Http\Controllers\Tenant;
 
 use Illuminate\Http\Request;
@@ -1384,6 +1385,105 @@ public function deleteEmployee(Request $request)
         return response()->json(['error' => 'Branch not found.', 'status' => 404]);
     }
 
+
+    /* ════════════════════════════════════════════════════════════════════
+       BRANCH SALES SETTINGS
+       One row per branch (branch_id unique). The view queries its own
+       defaults directly (same self-querying pattern as branches.blade.php
+       and branch-details.blade.php), so this controller only needs to
+       serve the page and handle the save.
+       ════════════════════════════════════════════════════════════════════ */
+
+    public function showBranchSalesSettingsListView()
+    {
+        // branches.category is a foreign key -> categories.id (categories.category
+        // is the display label), so join it once here instead of resolving it
+        // per-row in the view. branches is the source of truth for this list —
+        // branch_sales_settings is only consulted below to flag which branches
+        // already have a settings row.
+        $branches = DB::connection('tenant')->table('branches')
+            ->leftJoin('categories', 'branches.category', '=', 'categories.id')
+            ->orderBy('branches.name')
+            ->select('branches.*', 'categories.category as category_name')
+            ->get();
+
+        // Just the branch_ids that already have a settings row — enough to
+        // flag "Configured" vs "Default" per branch without pulling every
+        // column for every branch.
+        $configuredBranchIds = DB::connection('tenant')->table('branch_sales_settings')
+            ->pluck('branch_id')
+            ->flip();
+
+        return view('tenants.admin.branch-sales-settings-list', compact('branches', 'configuredBranchIds'));
+    }
+
+    public function showBranchSalesSettingsView()
+    {
+        return view('tenants.admin.branch-sales-settings');
+    }
+
+    public function updateBranchSalesSettings(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'branch_id'                                => 'required|integer|exists:tenant.branches,id',
+            'auto_upload_cloud_sales_interval_minutes'  => 'nullable|integer|min:1|max:1440',
+            'auto_refresh_interval_minutes'             => 'nullable|integer|min:1|max:1440',
+            'idle_timeout_minutes'                      => 'nullable|integer|min:1|max:1440',
+            'session_lifetime_minutes'                  => 'nullable|integer|min:1|max:1440',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
+        }
+
+        $branchId = (int) $request->branch_id;
+
+        // Toggle + interval pairs — the interval only means something while
+        // its switch is on, so force it back to null whenever the switch is
+        // off rather than trusting whatever the client happened to send.
+        $autoUploadCloudSales = $request->boolean('auto_upload_cloud_sales');
+        $autoRefreshPage      = $request->boolean('auto_refresh_page');
+
+        $data = [
+            'auto_upload_cloud_sales'                  => $autoUploadCloudSales,
+            'auto_upload_cloud_sales_interval_minutes' => $autoUploadCloudSales
+                ? ($request->auto_upload_cloud_sales_interval_minutes ?: 2)
+                : null,
+            'allow_to_clear_cloud_sales' => $request->boolean('allow_to_clear_cloud_sales'),
+
+            'display_yesterdays_sales'          => $request->boolean('display_yesterdays_sales'),
+            'display_price_changes'             => $request->boolean('display_price_changes'),
+            'display_deliverynotes_this_month'  => $request->boolean('display_deliverynotes_this_month'),
+            'display_sales_this_month'          => $request->boolean('display_sales_this_month'),
+            'display_number_of_customers_today' => $request->boolean('display_number_of_customers_today'),
+            'display_regular_orders_short_cut'  => $request->boolean('display_regular_orders_short_cut'),
+            'display_emergency_order_short_cut' => $request->boolean('display_emergency_order_short_cut'),
+            'display_low_stock_alerts'          => $request->boolean('display_low_stock_alerts'),
+
+            'auto_refresh_page' => $autoRefreshPage,
+            'auto_refresh_interval_minutes' => $autoRefreshPage
+                ? ($request->auto_refresh_interval_minutes ?: 5)
+                : null,
+
+            // Null = disabled, a number = enabled — taken as-is, no separate flag.
+            'idle_timeout_minutes'     => $request->idle_timeout_minutes ?: null,
+            'session_lifetime_minutes' => $request->session_lifetime_minutes ?: null,
+
+            'updated_at' => now(),
+        ];
+
+        $exists = DB::connection('tenant')->table('branch_sales_settings')->where('branch_id', $branchId)->exists();
+
+        if ($exists) {
+            DB::connection('tenant')->table('branch_sales_settings')->where('branch_id', $branchId)->update($data);
+        } else {
+            $data['branch_id']  = $branchId;
+            $data['created_at'] = now();
+            DB::connection('tenant')->table('branch_sales_settings')->insert($data);
+        }
+
+        return response()->json(['status' => 201, 'success' => 'Sales settings updated successfully.']);
+    }
 
     public function insertCategory(Request $request)
     {

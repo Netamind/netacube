@@ -87,8 +87,7 @@
 </div>
 <?php
     $maintableTitle = "Retail Branches";
-    $retailSectorId = DB::connection('tenant')->table('sectors')->where('sector', 'Retail')->value('id');
-    $branches = DB::connection('tenant')->table('branches')->where('sector', $retailSectorId)->get();
+    $branches = DB::connection('tenant')->table('branches')->where('sector', 'Retail')->get();
 ?>
 </div>
 <div class="card-body">

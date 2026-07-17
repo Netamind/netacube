@@ -484,6 +484,4 @@ class RetailSalesController extends Controller
 
 
 
-
-
 }

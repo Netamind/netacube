@@ -147,6 +147,7 @@
 <i class="ri-team-line"></i> Tenant Management
 </h4>
 <div class="d-flex align-items-center">
+    <a href="{{ route('master.tenants.by_currency') }}" class="btn btn-light text-primary fs-16 mx-1" title="Billing by Currency"><i class="ri-currency-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="deleteSelectedBtn" title="Selected Actions"><i class="ri-checkbox-circle-line"></i><span class="badge" id="selectedCount">0</span></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="newDataBtn" title="Add new tenant"><i class="ri-user-add-line"></i></a>
     <a href="#" class="btn btn-light text-primary fs-16 mx-1" id="infoBtn" title="Info"><i class="ri-information-line"></i></a>
@@ -182,10 +183,21 @@
             <td style="text-align:center">{{ $tenant->phone_number }}</td>
             <?php $plan = DB::table('subscription_plans')->where('id',$tenant->subscription_plan)->first(); ?>
             <td style="text-align:center">
-                {{ optional($plan)->plan_name }}
-                <span class="text-muted">({{ optional($plan)->plan_period }})</span>
+                @if($tenant->custom_pricing_enabled)
+                    Custom
+                    <span class="text-muted">({{ $tenant->custom_period_name ?? optional($plan)->plan_period }})</span>
+                @else
+                    {{ optional($plan)->plan_name }}
+                    <span class="text-muted">({{ optional($plan)->plan_period }})</span>
+                @endif
             </td>
-            <td style="text-align:center">{{ optional($plan)->plan_amount }} {{ optional($plan)->plan_currency }}</td>
+            <td style="text-align:center">
+                @if($tenant->custom_pricing_enabled)
+                    {{ number_format($tenant->custom_amount, 2) }} {{ strtoupper($tenant->custom_currency) }}
+                @else
+                    {{ optional($plan)->plan_amount }} {{ optional($plan)->plan_currency }}
+                @endif
+            </td>
             <td style="text-align:center">{{ $tenant->next_payment_date ?? 'NA' }}</td>
             <td style="text-align:center">
                 <span class="status-badge {{ $tenant->status == 'active' ? 'status-active' : 'status-inactive' }}">

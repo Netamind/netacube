@@ -72,6 +72,7 @@ return new class extends Migration
             $table->date('start_date')->nullable();
             $table->date('end_date')->nullable();
             $table->date('fst_custom_date')->nullable();
+            $table->date('pst_custom_date')->nullable();
             $table->date('dnote_custom_date')->nullable();
             $table->date('po_custom_date')->nullable();
             $table->date('adjustment_custom_date')->nullable();

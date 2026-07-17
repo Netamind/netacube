@@ -284,7 +284,7 @@ table.dataTable thead th.fixedHeader-floating { background:#e2e2e9 !important; }
       @if($selectedBranch)
         <input type="checkbox" id="selectAll" class="header-select-all">
       @endif
-      <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+      <form method="POST" action="{{ route('retail.operations.update.filters') }}"
             id="headerBranchForm" style="margin:0;display:inline;">
         @csrf
         <input type="hidden" name="user_id" value="{{ Auth::id() }}">

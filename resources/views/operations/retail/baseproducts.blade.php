@@ -151,8 +151,8 @@
 @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
 </style>
 
-<div class="progress" id="progressBar" role="progressbar" style="height:8px;transform:rotate(180deg);display:none">
-  <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%"></div>
+<div class="progress" id="progressBar" role="progressbar" style="height:8px;transform:rotate(180deg);display:none;border-radius:0">
+  <div class="progress-bar progress-bar-striped progress-bar-animated" style="width:100%;border-radius:0"></div>
 </div>
 
 <div class="content-page"><div class="content"><div class="container-fluid">
@@ -176,7 +176,7 @@
 
   {{-- ── Filter bar ── --}}
   <div class="card-filter">
-    <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+    <form method="POST" action="{{ route('retail.operations.update.filters') }}"
           id="filterCategoryForm" style="display:contents;">
       @csrf
       <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
@@ -201,7 +201,7 @@
           <i class="ri-information-line"></i> No active suppliers for this category.
         </div>
       @else
-        <form method="POST" action="{{ route('tenant.admin.update.filters') }}"
+        <form method="POST" action="{{ route('retail.operations.update.filters') }}"
               id="filterSupplierForm" style="display:contents;">
           @csrf
           <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
@@ -556,6 +556,9 @@
             <button type="button" class="btn btn-success btn-sm" id="bpCsvImportBtn" disabled>
               <i class="ri-upload-2-line"></i> Import CSV
             </button>
+          </div>
+          <div class="text-center mt-3 pt-2" style="border-top:1px solid #f1f5f9;">
+            <a href="#" id="bpCsvClearCacheBtn" style="font-size:11px;color:#94a3b8;"><i class="ri-delete-bin-line me-1"></i>Clear loaded data in local storage</a>
           </div>
         </div>
 
@@ -1141,7 +1144,19 @@ $(document).ready(function () {
 
         var reader = new FileReader();
         reader.onload = function(e) {
-            var result = bpBuildAndValidateRowsFromCsv(e.target.result);
+            var buf = e.target.result;
+            var text;
+            try {
+                // Strict UTF-8 first (covers the common case, including a BOM).
+                text = new TextDecoder('utf-8', { fatal: true }).decode(buf);
+            } catch (decodeErr) {
+                // Falls back to Windows-1252 — what Excel writes by default on
+                // "CSV (Comma delimited)" export. Without this fallback, non-ASCII
+                // bytes (accented names, en/em dashes, curly quotes, nbsp, etc.)
+                // decode as replacement-character "boxes" in the preview.
+                text = new TextDecoder('windows-1252').decode(buf);
+            }
+            var result = bpBuildAndValidateRowsFromCsv(text);
             if (result.error) {
                 $('#bpCsvParseError').text(result.error).show();
                 $('#bpCsvFilePreviewWrap').hide();
@@ -1165,7 +1180,24 @@ $(document).ready(function () {
         reader.onerror = function() {
             $('#bpCsvParseError').text('Could not read that file.').show();
         };
-        reader.readAsText(file);
+        reader.readAsArrayBuffer(file);
+    });
+
+    // Manually wipes the cached valid/invalid rows from a previous parse —
+    // useful if a stale or bad parse (e.g. from before the encoding fix) is
+    // stuck in localStorage and keeps getting re-hydrated on modal reopen.
+    $('#bpCsvClearCacheBtn').on('click', function(e) {
+        e.preventDefault();
+        bpClearStorage(BP_CSV_VALID_LS_KEY);
+        bpClearStorage(BP_CSV_INVALID_LS_KEY);
+        bpCsvValidRows = [];
+        bpCsvInvalidRows = [];
+        $('#bp-csv-file').val('');
+        $('#bpCsvFilePreviewWrap').hide();
+        $('#bpCsvFilePreviewScroll').html('');
+        $('#bpCsvInvalidWrap').hide();
+        $('#bpCsvImportBtn').prop('disabled', true);
+        toastr.success('Cleared locally cached CSV data.', 'Done');
     });
 
     // Loads xlsx.js on demand (only needed when there are rows to export).

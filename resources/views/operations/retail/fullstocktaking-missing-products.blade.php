@@ -252,8 +252,8 @@
 
 /* ── Table area — wraps its content; scrolls only past a sane max height ── */
 .fst-table-wrap {
-    flex: 0 1 auto; min-height: 0; max-height: calc(100vh - 230px);
-    overflow-y: auto; overflow-x: auto;
+    flex: 0 1 auto; min-height: 0;
+    overflow-x: auto;
     padding: 0 1.5rem 1.5rem 1.5rem;
 }
 .fst-table-wrap table.dataTable { margin-top: 0 !important; }
@@ -335,7 +335,7 @@ input[type=number] { -moz-appearance: textfield; }
     .content-page { padding: 0 !important; }
     .content { padding: 0 !important; }
     .content-page > .content > .container-fluid { padding-top: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
-    .fst-table-wrap { padding: 0 10px 12px; max-height: calc(100vh - 210px); }
+    .fst-table-wrap { padding: 0 10px 12px; }
     .modal-dialog { margin: 1.25rem auto !important; max-width: calc(100% - 24px) !important; }
     .modal-content { border-radius: 10px !important; }
 
@@ -467,7 +467,7 @@ input[type=number] { -moz-appearance: textfield; }
                         <td>{{ $m->product_name }}</td>
                         <td>{{ $m->unit }}</td>
                         <td>{{ number_format($m->price, 2) }}</td>
-                        <td>
+                        <td data-order="{{ number_format($m->quantity, 2, '.', '') }}">
                             <input type="number" class="mp-qty-input"
                                    id="mpqty{{ $m->id }}"
                                    value="{{ number_format($m->quantity, 2, '.', '') }}"
@@ -774,7 +774,12 @@ $(document).ready(function () {
     mpQueue.forEach(function (op) {
         if (op.type === 'update') {
             var $inp = $('#mpqty' + op.id);
-            if ($inp.length) { $inp.val(parseFloat(op.quantity).toFixed(2)).addClass('mp-dirty'); }
+            if ($inp.length) {
+                var qtyVal = parseFloat(op.quantity);
+                $inp.val(qtyVal.toFixed(2)).addClass('mp-dirty');
+                $inp.closest('td').attr('data-order', qtyVal);
+                table.cell($inp.closest('td')).invalidate('dom');
+            }
         }
         if (op.type === 'delete') {
             var row = document.getElementById('mprow' + op.id);
@@ -793,6 +798,8 @@ $(document).ready(function () {
             return;
         }
         $input.val(qty.toFixed(2)).addClass('mp-dirty');
+        $input.closest('td').attr('data-order', qty);
+        table.cell($input.closest('td')).invalidate('dom').draw(false);
         mpQueueUpdate(rowId, qty);
         toastr.info('Quantity queued offline. Sync to apply.', 'Queued');
     });

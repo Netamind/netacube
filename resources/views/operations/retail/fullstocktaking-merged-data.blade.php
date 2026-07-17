@@ -174,8 +174,8 @@
 
 /* ── Table area ── */
 .fst-table-wrap {
-    flex: 0 1 auto; min-height: 0; max-height: calc(100vh - 230px);
-    overflow-y: auto; overflow-x: auto;
+    flex: 0 1 auto; min-height: 0;
+    overflow-x: auto;
     padding: 0 1.5rem 1.5rem 1.5rem;
 }
 .fst-table-wrap table.dataTable { margin-top: 0 !important; }
@@ -288,7 +288,7 @@ input[type=number] { -moz-appearance: textfield; }
     .content-page { padding: 0 !important; }
     .content { padding: 0 !important; }
     .content-page > .content > .container-fluid { padding-top: 0 !important; padding-left: 0 !important; padding-right: 0 !important; }
-    .fst-table-wrap { padding: 0 10px 12px; max-height: calc(100vh - 210px); }
+    .fst-table-wrap { padding: 0 10px 12px; }
     .modal-dialog { margin: 1.25rem auto !important; max-width: calc(100% - 24px) !important; }
     .modal-content { border-radius: 10px !important; }
     #fstActionsBtn { font-size: 11px; padding: 0 8px; height: 26px; }
@@ -403,7 +403,6 @@ input[type=number] { -moz-appearance: textfield; }
                         <th>Expected</th>
                         <th>Found</th>
                         <th>Difference</th>
-                        <th>Merges</th>
                         <th>Del</th>
                     </tr>
                 </thead>
@@ -440,7 +439,6 @@ input[type=number] { -moz-appearance: textfield; }
                             id="cellDiff{{ $d->id }}">
                             {{ number_format($diff, 2) }}
                         </td>
-                        <td>{{ $d->merge_count }}</td>
                         <td>
                             <i class="ri-delete-bin-line action-icon text-danger deleteBtn"
                                data-id="{{ $d->id }}"
@@ -680,6 +678,19 @@ const MD_QUEUE_KEY = 'fullstocktaking_merged_data_queue_' + MD_BRANCH_ID + '_' +
 
 let mdQueue = [];
 
+/* Last-known-committed Expected/Found per row, used to tell a real edit
+   apart from simply clicking into an input and clicking (or tabbing) back
+   out again — 'blur' fires in both cases, but only a real edit should
+   queue an update or show the "Edited" badge. */
+let mdRowState = {};
+
+function mdCaptureRowState(rowId) {
+    const inpE = document.getElementById('inpExpected' + rowId);
+    const inpF = document.getElementById('inpFound'    + rowId);
+    if (!inpE || !inpF) return;
+    mdRowState[rowId] = { expected: parseFloat(inpE.value) || 0, found: parseFloat(inpF.value) || 0 };
+}
+
 function mdUuid() { return 'md_' + Date.now().toString(36) + '_' + Math.random().toString(36).slice(2, 9); }
 function mdCsrf() { return document.querySelector('meta[name="csrf-token"]').getAttribute('content'); }
 
@@ -773,6 +784,11 @@ $(document).ready(function () {
         }
     });
 
+    /* ── Baseline state for dirty-checking inline edits ── */
+    $('#mergedDataTable tbody tr').each(function () {
+        mdCaptureRowState(parseInt($(this).data('id'), 10));
+    });
+
     /* ── DataTable ── */
     var table = $('#mergedDataTable').DataTable({
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
@@ -810,9 +826,28 @@ $(document).ready(function () {
         inpE.value = valE.toFixed(2);
         inpF.value = valF.toFixed(2);
 
+        /* Clicking into a field and clicking/tabbing back out still fires
+           'blur' with no real change — only treat it as an edit if the
+           value actually moved from what was last committed. */
+        const prev = mdRowState[rowId];
+        const unchanged = prev
+            && Math.abs(prev.expected - valE) < 0.0001
+            && Math.abs(prev.found    - valF) < 0.0001;
+        if (unchanged) return;
+        mdRowState[rowId] = { expected: valE, found: valF };
+
         mdQueueUpdate(rowId, valE, valF);
         mdRefreshDiff(rowId);
         mdMarkRowDirty(rowId);
+
+        /* DataTables caches each row's data at draw time and does not know
+           the Expected/Found inputs or the Difference cell just changed
+           underneath it (inputs update via .value, Difference via
+           .textContent — neither touches the HTML DataTables cached).
+           Without this, the Difference column can sort/export/filter using
+           the pre-edit value even though the cell visibly shows the new
+           one. Invalidating tells DataTables to re-read the live DOM. */
+        table.row($(this).closest('tr')).invalidate().draw(false);
     });
 
     /* Allow Enter to commit inline edit */

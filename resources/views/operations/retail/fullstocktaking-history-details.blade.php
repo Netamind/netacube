@@ -320,6 +320,20 @@
 .cprod-table .badge-neg  { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: #fee2e2; color: #991b1b; }
 .cprod-table .badge-zero { font-size: 9px; font-weight: 700; padding: 2px 7px; border-radius: 8px; background: #f1f5f9; color: #64748b; }
 
+/* ── DataTable alignment (Counted / Missing tables) ── */
+#countedTable thead th, #missingTable thead th,
+table.dataTable thead th { text-align: center !important; vertical-align: middle !important; }
+#countedTable thead th:first-child, #missingTable thead th:first-child,
+table.dataTable thead th:first-child { text-align: left !important; }
+#countedTable tbody td, #missingTable tbody td,
+table.dataTable tbody td { text-align: center !important; vertical-align: middle !important; }
+#countedTable tbody td:first-child, #missingTable tbody td:first-child,
+table.dataTable tbody td:first-child { text-align: left !important; }
+
+/* ── Fixed column background (keeps sticky first column opaque while scrolling) ── */
+table.dataTable.fixedColumns .DTFC_LeftBodyLiner,
+table.dataTable.fixedColumns .DTFC_LeftHeadWrapper { background: #fff; }
+
 .missing-note {
     margin: 0; padding: 10px 14px; font-size: 12px; color: #92400e;
     background: #fffbeb; border-bottom: 1px solid #fde68a;
@@ -526,11 +540,9 @@
                         No counted products found for this session.
                     </div>
                 @else
-                <div style="overflow-x:auto;">
-                    <table class="cprod-table" id="countedTable">
+                    <table class="cprod-table table table-sm w-100" id="countedTable">
                         <thead style="background:#e2e2e9;">
                             <tr>
-                                <th>#</th>
                                 <th>Product</th>
                                 <th>Unit</th>
                                 <th class="c">Expected</th>
@@ -549,7 +561,6 @@
                                 $status    = abs($diff) < 0.0001 ? 'none' : ($diff > 0 ? 'over' : 'short');
                             @endphp
                             <tr>
-                                <td style="color:#94a3b8;font-size:11px;">{{ $i + 1 }}</td>
                                 <td style="font-weight:600;">{{ $row->product_name }}</td>
                                 <td style="color:#64748b;font-size:12px;">{{ $row->unit }}</td>
                                 <td class="c">{{ number_format($row->expected_at_count, 2) }}</td>
@@ -574,7 +585,6 @@
                             @endforeach
                         </tbody>
                     </table>
-                </div>
                 @endif
             </div>
         </div>
@@ -594,11 +604,9 @@
                         No missing products — all branch stock was counted.
                     </div>
                 @else
-                <div style="overflow-x:auto;">
-                    <table class="cprod-table" id="missingTable">
+                    <table class="cprod-table table table-sm w-100" id="missingTable">
                         <thead style="background:#e2e2e9;">
                             <tr>
-                                <th>#</th>
                                 <th>Product</th>
                                 <th>Unit</th>
                                 <th class="c">Stock Qty</th>
@@ -611,7 +619,6 @@
                         <tbody>
                             @foreach($missing as $i => $m)
                             <tr>
-                                <td style="color:#94a3b8;font-size:11px;">{{ $i + 1 }}</td>
                                 <td style="font-weight:600;">{{ $m->product_name }}</td>
                                 <td style="color:#64748b;font-size:12px;">{{ $m->unit }}</td>
                                 <td class="c">{{ number_format($m->quantity, 2) }}</td>
@@ -626,7 +633,7 @@
                         </tbody>
                         <tfoot>
                             <tr style="background:#f4f6ff;border-top:2px solid #c5caec;">
-                                <td colspan="5" style="font-weight:800;font-size:12.5px;padding:8px 10px;">Total missing value</td>
+                                <td colspan="4" style="font-weight:800;font-size:12.5px;padding:8px 10px;">Total missing value</td>
                                 <td class="c" style="font-weight:800;font-size:13px;color:#dc2626;padding:8px 10px;">
                                     {{ number_format($missing->sum(fn($m) => $m->quantity * $m->price), 2) }}
                                 </td>
@@ -634,7 +641,6 @@
                             </tr>
                         </tfoot>
                     </table>
-                </div>
                 @endif
             </div>
         </div>
@@ -724,6 +730,38 @@
 <script>
 'use strict';
 
+// ── COUNTED / MISSING DATATABLES ───────────────────────────────────────
+// Both tables live inside tabs that start hidden (display:none), so each
+// is initialized once and then relaid out (columns.adjust + fixedColumns
+// relayout) the first time its tab is actually shown — initializing a
+// DataTable on a hidden element gives it a zero-width first render.
+var hdCountedTable = null;
+var hdMissingTable = null;
+var hdCountedReady = false;
+var hdMissingReady = false;
+
+function hdBuildTable(id) {
+    var $t = $('#' + id);
+    if (!$t.length) return null;
+    return $t.DataTable({
+        dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
+        lengthChange: true,
+        pageLength: 100,
+        lengthMenu: [[50, 100, 250, -1], [50, 100, 250, 'All']],
+        fixedColumns: { leftColumns: 1 },
+        scrollX: true,
+        columnDefs: [
+            { targets: '_all', className: 'text-center' },
+            { targets: 0,      className: 'text-start'  }
+        ]
+    });
+}
+
+$(function () {
+    if ($('#countedTable tbody tr').length) hdCountedTable = hdBuildTable('countedTable');
+    if ($('#missingTable tbody tr').length) hdMissingTable = hdBuildTable('missingTable');
+});
+
 // ── TAB SWITCHING ─────────────────────────────────────────────────────
 document.querySelectorAll('#hdTabBar .det-tab').forEach(function (tab) {
     tab.addEventListener('click', function () {
@@ -738,6 +776,18 @@ document.querySelectorAll('#hdTabBar .det-tab').forEach(function (tab) {
         document.querySelectorAll('.det-tab-content').forEach(function (panel) {
             panel.classList.toggle('active', panel.id === 'tab-' + target);
         });
+
+        // Relayout the relevant DataTable now that its container is visible
+        if (target === 'counted' && hdCountedTable && !hdCountedReady) {
+            hdCountedTable.columns.adjust();
+            if (hdCountedTable.fixedColumns) hdCountedTable.fixedColumns().relayout();
+            hdCountedReady = true;
+        }
+        if (target === 'missing' && hdMissingTable && !hdMissingReady) {
+            hdMissingTable.columns.adjust();
+            if (hdMissingTable.fixedColumns) hdMissingTable.fixedColumns().relayout();
+            hdMissingReady = true;
+        }
     });
 });
 

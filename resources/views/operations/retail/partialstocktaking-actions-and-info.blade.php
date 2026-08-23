@@ -34,17 +34,21 @@
         $counted = DB::connection('tenant')->table('retail_partialstocktaking')
             ->where('branch_id', $branchId)->where('date', $date)->get();
 
+        // Expected is always expected_at_count — fixed, only ever moved by an
+        // explicit edit on the Stocktaking Data tab. expected_final is an
+        // informational figure written once at rectification and is never
+        // used here, so these totals can never drift just from a page reload.
         $totalCount    = $counted->count();
-        $zeroCount     = $counted->filter(fn ($r) => abs($r->found - ($r->expected_final ?? $r->expected_at_count)) < 0.0001)->count();
-        $positiveCount = $counted->filter(fn ($r) => $r->found > ($r->expected_final ?? $r->expected_at_count) + 0.0001)->count();
-        $negativeCount = $counted->filter(fn ($r) => $r->found < ($r->expected_final ?? $r->expected_at_count) - 0.0001)->count();
+        $zeroCount     = $counted->filter(fn ($r) => abs($r->found - $r->expected_at_count) < 0.0001)->count();
+        $positiveCount = $counted->filter(fn ($r) => $r->found > $r->expected_at_count + 0.0001)->count();
+        $negativeCount = $counted->filter(fn ($r) => $r->found < $r->expected_at_count - 0.0001)->count();
 
-        $expectedValue = $counted->sum(fn ($r) => ($r->expected_final ?? $r->expected_at_count) * $r->price);
+        $expectedValue = $counted->sum(fn ($r) => $r->expected_at_count * $r->price);
         $foundValue    = $counted->sum(fn ($r) => $r->found * $r->price);
-        $positiveValue = $counted->filter(fn ($r) => $r->found > ($r->expected_final ?? $r->expected_at_count))
-            ->sum(fn ($r) => ($r->found - ($r->expected_final ?? $r->expected_at_count)) * $r->price);
-        $negativeValue = $counted->filter(fn ($r) => $r->found < ($r->expected_final ?? $r->expected_at_count))
-            ->sum(fn ($r) => (($r->expected_final ?? $r->expected_at_count) - $r->found) * $r->price);
+        $positiveValue = $counted->filter(fn ($r) => $r->found > $r->expected_at_count)
+            ->sum(fn ($r) => ($r->found - $r->expected_at_count) * $r->price);
+        $negativeValue = $counted->filter(fn ($r) => $r->found < $r->expected_at_count)
+            ->sum(fn ($r) => ($r->expected_at_count - $r->found) * $r->price);
 
         $totalCountSafe     = max($totalCount, 1);
         $zeroPercentage     = round(($zeroCount / $totalCountSafe) * 100, 2);
@@ -348,6 +352,7 @@
     .pst-branch-row { gap: 6px; }
     .pst-page-label { font-size: 11px; }
 }
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
 </style>
 
 <div class="content-page"><div class="content"><div class="container-fluid">
@@ -459,6 +464,16 @@
                     </button>
                 </div>
 
+                <div class="ai-card">
+                    <div class="ai-card-title"><i class="ri-shopping-cart-2-line"></i> Sales Since Count</div>
+                    <div style="font-size:12px;color:#64748b;margin-bottom:10px;">
+                        Every sale recorded against a counted product since ITS OWN count — anchored on the frozen checkpoint, so this stays correct even if Expected was hand-edited afterwards on Stocktaking Data.
+                    </div>
+                    <button type="button" class="btn btn-sm btn-outline-primary" id="pstSalesSinceBtn">
+                        <i class="ri-list-check-2"></i> View Sales Since Count
+                    </button>
+                </div>
+
             </div>
 
             {{-- Right: download + sync + rectify --}}
@@ -500,7 +515,7 @@
                             <i class="ri-lock-line"></i> Rectification
                         </div>
                         <div class="ai-rect-body">
-                            Freezes a summary record for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong> and locks the counting tab for this date. Sales made after counting are netted automatically.
+                            Freezes a summary record for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong> and locks the counting tab for this date. Expected stays exactly as entered — sales made after each product's count are netted off separately as part of this step, and the itemised list is always available above under Sales Since Count.
                         </div>
                         <a href="#" class="btn btn-success btn-sm w-100" id="rectifyBtn">
                             <i class="ri-arrow-right-line me-1"></i> Proceed to Rectification
@@ -535,6 +550,58 @@
             <div class="modal-footer" style="padding:10px 18px 14px;">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
                 <button type="button" class="btn btn-primary btn-sm" id="pstRemarksSaveBtn"><i class="ri-save-line"></i> Save Remarks</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
+
+
+{{-- ══ SALES SINCE COUNT MODAL ══ --}}
+@if($branchId)
+<div class="modal fade" id="pstSalesSinceModal" tabindex="-1">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content" style="border:1px solid #a6a6a6;">
+            <div class="modal-header mh-pos">
+                <h5 class="modal-title mh-pos-title"><i class="ri-shopping-cart-2-line"></i> Sales Since Count</h5>
+                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body" style="padding:18px 20px;max-height:65vh;overflow-y:auto;">
+                <p style="font-size:12px;color:#64748b;margin-bottom:12px;">
+                    Every sale recorded on a counted product since its own frozen checkpoint, oldest first. This is keyed off the checkpoint captured the moment each product was first counted — never off Expected — so it's correct regardless of any manual edit made afterwards.
+                </p>
+                <div id="pstSalesSinceLoading" style="text-align:center;padding:30px 0;color:#94a3b8;">
+                    <i class="ri-loader-4-line" style="font-size:26px;animation:spin 1s linear infinite;"></i>
+                    <div style="font-size:12px;margin-top:6px;">Loading...</div>
+                </div>
+                <div id="pstSalesSinceEmpty" style="display:none;text-align:center;padding:30px 0;color:#94a3b8;">
+                    <i class="ri-checkbox-circle-line" style="font-size:32px;color:#c8d0ed;"></i>
+                    <div style="font-size:13px;margin-top:8px;">No sales recorded since any product was counted.</div>
+                </div>
+                <div id="pstSalesSinceError" style="display:none;" class="alert alert-danger border-0 py-2 px-3" style="font-size:12px;"></div>
+                <div id="pstSalesSinceContent" style="display:none;">
+                    <table class="table table-sm" style="font-size:12.5px;">
+                        <thead>
+                            <tr style="background:#e2e2e9;">
+                                <th>Product</th>
+                                <th class="text-center">Expected (fixed)</th>
+                                <th class="text-center">Found</th>
+                                <th class="text-center">Sold Since Count</th>
+                                <th>Sale Detail (oldest first)</th>
+                            </tr>
+                        </thead>
+                        <tbody id="pstSalesSinceBody"></tbody>
+                        <tfoot>
+                            <tr class="total-row">
+                                <td colspan="3" class="text-end"><strong>Total sold since count</strong></td>
+                                <td class="text-center" colspan="2"><strong id="pstSalesSinceGrandTotal">0</strong></td>
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            </div>
+            <div class="modal-footer" style="padding:10px 18px 14px;">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -627,8 +694,9 @@
                         This freezes a summary for <strong>{{ $branchName }}</strong> on <strong>{{ $displayDate }}</strong>,
                         locks counting for this date, and finalizes stock for every counted product — including creating
                         branch product records for anything newly found, so nothing counted is ever lost. Rows are
-                        processed one at a time, so a single bad row never blocks the rest; sales made after a product
-                        was counted are netted off automatically as each row is finalized. This action is
+                        processed one at a time, so a single bad row never blocks the rest. Expected is never touched by
+                        this step; sales made after each product's count are netted off separately, once, as part of
+                        finalizing that row — see Sales Since Count for the itemised list. This action is
                         <strong>one-time and can't be re-run</strong> — remarks can still be edited afterwards from the
                         Auditor Remarks card.
                     </p>
@@ -689,7 +757,8 @@
             </div>
             <div class="modal-body" style="padding:18px 20px;font-size:13px;line-height:1.6;">
                 <ul style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:10px;">
-                    <li>Sales that happen after a product is counted are netted off <strong>automatically</strong> every time this page loads — nothing to click.</li>
+                    <li><strong>Expected never changes on its own</strong> — the only way it moves is an explicit edit on Stocktaking Data. Viewing this page, syncing, or refreshing live stock never touches it.</li>
+                    <li>Sales that happen after a product is counted are netted off exactly once, only at <strong>Rectify</strong> — see the Sales Since Count card for the itemised, oldest-first list, which stays correct even if Expected was hand-edited afterwards.</li>
                     <li><strong>Rectify</strong> freezes a summary record and locks the counting tab for this date — it's a one-time action and can't be re-run. Unlike Full Stocktaking, edits from Stocktaking Data still keep pushing to live stock afterwards.</li>
                     <li><strong>Remarks</strong> are free text for the closing auditor — they print under a dedicated section on the report. Use the <strong>Edit Remarks</strong> button to add or change them any time, independent of rectification.</li>
                     <li>Rectification refuses to run while any device still has unsynced offline edits queued, unless you tick <em>Rectify anyway (force)</em>.</li>
@@ -1169,5 +1238,79 @@ document.getElementById('pstDateChip')?.addEventListener('click', () => {
 @if(Session::has('message'))
 toastr['{{ Session::get("alert-type","info") }}']('{{ Session::get("message") }}');
 @endif
+
+/* ══ SALES SINCE COUNT ══
+   Read-only viewer for salesSinceCount() — every sale recorded against a
+   counted product since ITS OWN frozen sales_id_at_count checkpoint,
+   oldest first. Fetched fresh every time the modal opens so it always
+   reflects the latest sales, but it never writes anything back. */
+function pstSSEsc(s) {
+    return String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+function pstSSFmt(n) {
+    return (n === null || n === undefined || n === '') ? '0' : parseFloat(n).toLocaleString('en-US', { maximumFractionDigits: 2 });
+}
+function pstSSFmtDate(iso) {
+    if (!iso) return '';
+    const d = new Date(iso.replace(' ', 'T'));
+    if (isNaN(d.getTime())) return iso;
+    const mo = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    return d.getDate() + ' ' + mo[d.getMonth()] + ', ' + d.toTimeString().slice(0, 5);
+}
+
+document.getElementById('pstSalesSinceBtn')?.addEventListener('click', function () {
+    $('#pstSalesSinceModal').modal('show');
+
+    const loading = document.getElementById('pstSalesSinceLoading');
+    const empty   = document.getElementById('pstSalesSinceEmpty');
+    const errBox  = document.getElementById('pstSalesSinceError');
+    const content = document.getElementById('pstSalesSinceContent');
+    const body    = document.getElementById('pstSalesSinceBody');
+
+    loading.style.display = 'block';
+    empty.style.display   = 'none';
+    errBox.style.display  = 'none';
+    content.style.display = 'none';
+    body.innerHTML = '';
+
+    fetch(`{{ route('retail.operations.partialstocktaking.sales-since-count') }}?branch_id=${AI_BRANCH_ID}&date=${AI_DATE}`)
+        .then(res => res.json().then(data => ({ status: res.status, data })))
+        .then(({ status, data }) => {
+            loading.style.display = 'none';
+
+            if (status !== 200) {
+                errBox.textContent = (data && data.message) || 'Could not load sales since count.';
+                errBox.style.display = 'block';
+                return;
+            }
+
+            if (!data.products || !data.products.length) {
+                empty.style.display = 'block';
+                return;
+            }
+
+            body.innerHTML = data.products.map(p => {
+                const saleLines = p.sales.map(s =>
+                    `${pstSSFmtDate(s.created_at)} — ${pstSSFmt(s.quantity)}`
+                ).join('<br>');
+
+                return `<tr>
+                    <td>${pstSSEsc(p.product_name)} <span style="color:#94a3b8;">(${pstSSEsc(p.unit)})</span></td>
+                    <td class="text-center">${pstSSFmt(p.expected_at_count)}</td>
+                    <td class="text-center">${pstSSFmt(p.found)}</td>
+                    <td class="text-center"><strong>${pstSSFmt(p.qty_sold_since_count)}</strong></td>
+                    <td style="font-size:11.5px;color:#475569;">${saleLines}</td>
+                </tr>`;
+            }).join('');
+
+            document.getElementById('pstSalesSinceGrandTotal').textContent = pstSSFmt(data.grand_total_qty);
+            content.style.display = 'block';
+        })
+        .catch(() => {
+            loading.style.display = 'none';
+            errBox.textContent = 'Could not reach the server.';
+            errBox.style.display = 'block';
+        });
+});
 </script>
 @endsection

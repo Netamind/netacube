@@ -40,7 +40,10 @@
             ->get();
 
         foreach ($data as $d) {
-            $expectedValue += ($d->expected_final ?? $d->expected_at_count) * $d->price;
+            // Expected is always expected_at_count — fixed, and only ever
+            // moved by an explicit edit on this tab. expected_final is a
+            // rectification-time-only figure and is never used for display.
+            $expectedValue += $d->expected_at_count * $d->price;
             $foundValue    += $d->found * $d->price;
         }
     }
@@ -265,7 +268,7 @@ input[type=number] { -moz-appearance: textfield; }
                 </thead>
                 <tbody>
                     @foreach($data as $d)
-                    @php $exp = $d->expected_final ?? $d->expected_at_count; $diff = $d->found - $exp; @endphp
+                    @php $exp = $d->expected_at_count; $diff = $d->found - $exp; @endphp
                     <tr id="row{{ $d->id }}" data-id="{{ $d->id }}">
                         <td>
                             <span data-bs-toggle="tooltip" data-bs-placement="top"
@@ -289,9 +292,6 @@ input[type=number] { -moz-appearance: textfield; }
                             {{ number_format($diff, 2) }}
                         </td>
                         <td>
-                            <i class="ri-refresh-line action-icon text-primary recountBtn" data-id="{{ $d->id }}"
-                               data-product="{{ $d->product_name }}" data-found="{{ number_format($d->found, 2, '.', '') }}"
-                               data-bs-toggle="tooltip" data-bs-placement="top" title="Recount now — resets the sales checkpoint"></i>
                             <i class="ri-delete-bin-line action-icon text-danger deleteBtn" data-id="{{ $d->id }}" data-product="{{ $d->product_name }}"></i>
                         </td>
                     </tr>
@@ -354,29 +354,6 @@ input[type=number] { -moz-appearance: textfield; }
             </div>
             <div class="modal-footer" style="padding:10px 18px 14px;">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
-            </div>
-        </div>
-    </div>
-</div>
-
-
-{{-- ══ RECOUNT MODAL ══ --}}
-<div class="modal fade" id="recountModal" data-bs-backdrop="static" tabindex="-1">
-    <div class="modal-dialog" style="max-width:380px;">
-        <div class="modal-content" style="border:1px solid #a6a6a6;">
-            <div class="modal-header mh-pos">
-                <h5 class="modal-title mh-pos-title"><i class="ri-refresh-line"></i> Recount <span id="recountProductLabel"></span></h5>
-                <button type="button" class="btn-close mh-close-w" data-bs-dismiss="modal"></button>
-            </div>
-            <div class="modal-body" style="padding:18px 20px;font-size:13px;">
-                <p style="color:#64748b;">Use this when someone has physically recounted this product just now — not for fixing a typo in the figures already on file. This resets the sales checkpoint to this moment, so sales before now are treated as already reflected in this new count.</p>
-                <label for="recountFoundInput" class="form-label" style="font-size:12px;font-weight:600;">New found quantity</label>
-                <input type="number" id="recountFoundInput" class="form-control" step="0.01" min="0">
-                <div id="recountError" style="display:none;margin-top:10px;" class="alert alert-danger border-0 py-2 px-3"></div>
-            </div>
-            <div class="modal-footer" style="padding:10px 18px 14px;">
-                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Cancel</button>
-                <button type="button" class="btn btn-primary btn-sm" id="recountConfirmBtn"><i class="ri-refresh-line"></i> Recount</button>
             </div>
         </div>
     </div>
@@ -494,8 +471,10 @@ input[type=number] { -moz-appearance: textfield; }
                 <ul class="info-list mb-3" style="padding-left:18px;margin:0;display:flex;flex-direction:column;gap:10px;">
                     <li>Every product counted live from the Stocktaking tab for the selected branch + date, newest activity first.</li>
                     <li><strong>Expected and Found are editable inline</strong> — click into a cell, change the value, tab or click away. The edit is queued offline instantly and syncs later.</li>
+                    <li><strong>Expected never changes on its own.</strong> It only moves when you edit it here — nothing in the background (sales, syncing, refreshing, viewing another tab) ever touches it.</li>
                     <li>Editing here never creates a duplicate row for a product — it edits the existing one and moves it back to the top of this list.</li>
-                    <li>Tap the cloud icon in the blue bar to sync all queued edits and deletes. Syncing re-runs the sales-netting calculation and pushes straight to live stock.</li>
+                    <li>Tap the cloud icon in the blue bar to sync all queued edits and deletes. Syncing pushes the corrected quantity straight to live stock — it never rewrites Expected.</li>
+                    <li>Sales made after a product was counted are netted off and itemised only at rectification — see "Sales Since Count" on the Actions &amp; Info tab.</li>
                     <li>Tap the chart icon in the top bar to view current totals (Expected Value, Found Value, Difference).</li>
                 </ul>
                 @if($isRectified)
@@ -663,59 +642,6 @@ $(document).ready(function () {
         pdQueueDelete(deleteId);
         pdMarkRowDeleted(deleteId);
         toastr.info('Removal queued offline. Sync to apply.', 'Queued');
-    });
-
-    // Recount is deliberately NOT part of the offline queue — it needs a
-    // live sales checkpoint from the server at the moment it's confirmed,
-    // so it always requires connectivity (unlike the plain inline edit,
-    // which is a pure typo correction and stays offline-friendly).
-    var recountId = null;
-    $(document).on('click', '.recountBtn', function () {
-        recountId = parseInt($(this).data('id'), 10);
-        $('#recountProductLabel').text($(this).data('product'));
-        $('#recountFoundInput').val($(this).data('found'));
-        $('#recountError').hide();
-        $('#recountModal').modal('show');
-    });
-
-    document.getElementById('recountConfirmBtn')?.addEventListener('click', function () {
-        const btn = this;
-        const errorBox = document.getElementById('recountError');
-        const found = parseFloat(document.getElementById('recountFoundInput').value);
-        if (isNaN(found) || found < 0) {
-            errorBox.textContent = 'Enter a valid quantity.';
-            errorBox.style.display = 'block';
-            return;
-        }
-        errorBox.style.display = 'none';
-        btn.disabled = true;
-        const originalHtml = btn.innerHTML;
-        btn.innerHTML = '<i class="ri-loader-4-line"></i> Recounting...';
-
-        fetch('{{ route("retail.operations.partialstocktaking.data.recount") }}', {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRF-TOKEN': pdCsrf(), 'Accept': 'application/json' },
-            body:    JSON.stringify({ id: recountId, found: found }),
-        })
-        .then(res => res.json().then(data => ({ status: res.status, data })))
-        .then(({ status, data }) => {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            if (status === 201) {
-                toastr.success(data.success, 'Recounted');
-                $('#recountModal').modal('hide');
-                setTimeout(function () { location.reload(); }, 700);
-            } else {
-                errorBox.textContent = data.error || 'Could not recount this row.';
-                errorBox.style.display = 'block';
-            }
-        })
-        .catch(() => {
-            btn.disabled = false;
-            btn.innerHTML = originalHtml;
-            errorBox.textContent = 'Could not reach the server — recount needs a live connection.';
-            errorBox.style.display = 'block';
-        });
     });
 
     document.getElementById('pdTotalsBtn')?.addEventListener('click', function (e) { e.preventDefault(); $('#pdTotalsModal').modal('show'); });

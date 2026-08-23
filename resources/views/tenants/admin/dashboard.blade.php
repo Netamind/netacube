@@ -3,10 +3,10 @@
 <html lang="en" data-menu-color="brand">
 <head>
     <meta charset="utf-8" />
-    <title>Netacube - The ultimate business management system</title>
+    <title>@yield('title', 'Netacube - The ultimate business management system')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
-    <meta content="Coderthemes" name="author" />
+    <meta content="@yield('meta_description', 'Netacube is an all-in-one business management platform — sales, inventory, staff, payroll, documents and multi-branch reporting, built to keep your business running online or offline.')" name="description" />
+    <meta content="Netacube" name="author" />
 
     <!-- Favicon -->
     <link rel="icon" href="{{ asset('dashboard/images/icon.png') }}" type="image/x-icon">
@@ -239,14 +239,14 @@
                         </a>
                     </li>
 
-                   <!-- <li class="side-nav-item">
+                    <li class="side-nav-item">
                         <a href="{{ route('wholesale.operations.dashboard') }}" class="side-nav-link">
                             <i class="ri-truck-fill"></i>
                             <span> Wholesale </span>
                         </a>
                     </li>
 
-                    <li class="side-nav-item">
+                   <!-- <li class="side-nav-item">
                         <a href="{{ route('finance.operations.dashboard') }}" class="side-nav-link">
                             <i class="ri-money-dollar-circle-fill"></i>
                             <span> Finance </span>

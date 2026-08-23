@@ -59,6 +59,34 @@ class WebsiteController extends Controller
     }
 
 
+    public function showHelpcenterFaqView(){
+      return view('website.faq');
+    }
+
+
+    
+    public function showHelpcenterVideosView(){
+      return view('website.videos');
+    }
+
+
+    
+    public function showHelpcenterUserManualView(){
+      return view('website.user-manual');
+    }
+
+
+    public function showTermsView(){
+      return view('website.terms');
+    }
+
+
+    
+    public function showPrivacyPolicyView(){
+      return view('website.privacy');
+    }
+
+
     public function clientRegistration(Request $request)
     {
 

@@ -53,10 +53,17 @@ Route::get('/about',                 [WebsiteController::class, 'showAboutUsView
 Route::get('/features',              [WebsiteController::class, 'showFeaturesView']);
 Route::get('/pricing',               [WebsiteController::class, 'showPricingView']);
 Route::get('/contact',               [WebsiteController::class, 'showContactView']);
+Route::get('/terms',                 [WebsiteController::class, 'showTermsView']);
+Route::get('/privacy-policy',        [WebsiteController::class, 'showPrivacyPolicyView']);
 Route::get('/help-center',           [WebsiteController::class, 'showHelpcenterView']);
+Route::get('/help-center/faq',           [WebsiteController::class, 'showHelpcenterFaqView']);
+Route::get('/help-center/videos',        [WebsiteController::class, 'showHelpcenterVideosView']);
+Route::get('/help-center/user-manual',   [WebsiteController::class, 'showHelpcenterUserManualView']);
 Route::post('client-registration',   [WebsiteController::class, 'clientRegistration'])->name('client.registration');
 Route::get('/login',                 [WebsiteController::class,    'showLoginByCodeView'])->name('login.by.code.view');
 Route::post('/submit-login-by-code', [TenantCommonController::class, 'loginByCode'])->name('submit.login.by.code');
+
+
 // ══════════════════════════════════════════════════════════════════════════════
 // CSRF token refresh — keeps login pages (and any other public page) alive
 // indefinitely. Public on purpose: the login page has no auth session yet.
@@ -470,6 +477,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
 
     Route::post('/operations/retail/partialstocktaking/recompute-all', [RetailPartialstocktakingController::class, 'recomputeAll'])->name('retail.operations.partialstocktaking.recompute-all');
     Route::post('/operations/retail/partialstocktaking/remarks',       [RetailPartialstocktakingController::class, 'updateRemarks'])->name('retail.operations.partialstocktaking.remarks');
+    Route::get('/operations/retail/partialstocktaking/sales-since-count', [RetailPartialstocktakingController::class, 'salesSinceCount'])->name('retail.operations.partialstocktaking.sales-since-count');
 
     Route::post('/operations/retail/partialstocktaking/report',          [RetailPartialstocktakingController::class, 'downloadReport'])->name('retail.operations.partialstocktaking.report');
     Route::post('/operations/retail/partialstocktaking/report/delivery', [RetailPartialstocktakingController::class, 'downloadDeliveryNote'])->name('retail.operations.partialstocktaking.report.delivery');
@@ -479,7 +487,6 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     Route::get('/operations/retail/partialstocktaking/history',      [RetailPartialstocktakingController::class, 'showHistoryView'])->name('retail.operations.partialstocktaking.history');
 
     Route::post('/retail/operations/partialstocktaking/session/start', [RetailPartialstocktakingController::class, 'startCountingSession'])->name('retail.operations.partialstocktaking.session.start');
-    Route::post('/retail/operations/partialstocktaking/data/recount',  [RetailPartialstocktakingController::class, 'recountDataRow'])->name('retail.operations.partialstocktaking.data.recount');
 
 
 
@@ -519,6 +526,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     // Kept on WholesaleBranchProductsController itself (self-contained,
     // no role check) — same reasoning as retail.operations.update.filters.
     Route::post('operations/wholesale/update-user-filters', [WholesaleBranchProductsController::class, 'updateUserFilters'])->name('wholesale.operations.update.filters');
+    Route::post('operations/wholesale/baseproducts/update-user-filters', [WholesaleBaseProductsController::class, 'updateUserFilters'])->name('wholesale.operations.baseproducts.update.filters');
 
     // ── Base Products ───────────────────────────────────────────────────
     Route::get('operations/wholesale/baseproducts',               [WholesaleBaseProductsController::class, 'showBaseproductsView'])->name('wholesale.operations.baseproducts');
@@ -535,6 +543,7 @@ Route::group(['prefix' => '{tenantName}', 'middleware' => ['web', 'tenancy', 'hy
     // ── Branch Products ─────────────────────────────────────────────────
     Route::get('operations/wholesale/branchproducts',                [WholesaleBranchProductsController::class, 'showBranchproductsView'])->name('wholesale.operations.branchproducts');
     Route::get('operations/wholesale/branchproducts/search',         [WholesaleBranchProductsController::class, 'searchBaseproducts'])->name('wholesale.operations.branchproducts.search');
+    Route::get('operations/wholesale/branchproducts/row',            [WholesaleBranchProductsController::class, 'getRow'])->name('wholesale.operations.branchproducts.row');
     Route::post('operations/wholesale/branchproducts/insert',        [WholesaleBranchProductsController::class, 'insertBranchproduct'])->name('wholesale.operations.branchproducts.insert');
     Route::post('operations/wholesale/branchproducts/update',        [WholesaleBranchProductsController::class, 'updateBranchproduct'])->name('wholesale.operations.branchproducts.update');
     Route::post('operations/wholesale/branchproducts/delete',        [WholesaleBranchProductsController::class, 'deleteBranchproduct'])->name('wholesale.operations.branchproducts.delete');

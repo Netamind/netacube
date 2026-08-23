@@ -15,11 +15,18 @@ return new class extends Migration
            Unlike Full Stocktaking there is no separate session-snapshot
            table: expected_at_count and sales_id_at_count are frozen
            directly on THIS row the first time the product is counted that
-           day (see controller). Every subsequent write on this product
-           (live count, or an edit from the Stocktaking Data tab) updates
-           `found` and immediately auto-resolves `expected_final` /
-           pushes to retail_branch_products.stock_quantity — that's what
-           makes Partial Stocktaking "live".
+           day (see controller).
+
+           expected_at_count is FIXED from that moment on: it is only ever
+           rewritten by an explicit user edit on the Stocktaking Data tab.
+           sales_id_at_count is a permanent checkpoint — it is never
+           re-baselined (there is deliberately no "recount" action). Every
+           write to `found` (a live count, or a correction from the
+           Stocktaking Data tab) pushes the corrected quantity straight to
+           retail_branch_products.stock_quantity, netting off sales since
+           the checkpoint purely in memory — that push never touches this
+           row. `expected_final` is written in exactly one place: formal
+           rectification, as an informational net-of-sales figure.
 
            `last_activity_line_id` is NOT a timestamp — it is copied from
            the auto-increment id of whichever retail_partialstocktaking_
@@ -44,7 +51,7 @@ return new class extends Migration
             $table->decimal('expected_at_count', 14, 3);                 // frozen the first time this product is counted today
             $table->unsignedBigInteger('sales_id_at_count')->nullable(); // sales checkpoint frozen at the same moment
             $table->decimal('found', 14, 3)->default(0);                 // cached SUM of ledger lines for this product
-            $table->decimal('expected_final', 14, 3)->nullable();        // live-recomputed: expected_at_count minus sales since count
+            $table->decimal('expected_final', 14, 3)->nullable();        // informational only — written once, at rectification: expected_at_count minus sales since the frozen checkpoint
 
             $table->unsignedInteger('merge_count')->default(0);
             $table->json('source_device_ids')->nullable();

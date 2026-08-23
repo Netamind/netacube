@@ -279,6 +279,19 @@ $branchesByYesterday = $branches
     ->sortByDesc(fn ($b) => $branchStats[$b->id]['sys_yesterday'])
     ->values();
 
+// ── Active expenditure types ──────────────────────────────────────────
+// Expenditures are only meaningful for reporting while their type is
+// still 'active' in retail_expenditure_types. Every direct query below
+// against retail_expenditures (grand totals, the 4-month graph series,
+// and the Income & Expenditure scope figures) filters down to this id
+// list so a deactivated type's historical spend silently drops out of
+// all dashboard totals — not just the per-type breakdown, which already
+// gets this for free via its join to retail_expenditure_types.
+$activeExpenditureTypeIds = DB::connection('tenant')
+    ->table('retail_expenditure_types')
+    ->where('status', 'active')
+    ->pluck('id');
+
 // ── Sales / Value Added / Direct Gain / Expenditure — last 4 months ──────
 // (single loop so we don't re-derive month cursors separately for each)
 $threeMonthLabels       = [];
@@ -313,6 +326,7 @@ for ($i = 3; $i >= 0; $i--) {
 
     $monthExp = (float) DB::connection('tenant')
         ->table('retail_expenditures')
+        ->whereIn('expenditure_type_id', $activeExpenditureTypeIds)
         ->whereMonth('expenditure_date', $cursor->month)
         ->whereYear('expenditure_date', $cursor->year)
         ->sum('amount');
@@ -372,21 +386,25 @@ $expLastMonthRows = DB::connection('tenant')
     ->selectRaw('ret.name as name, COALESCE(SUM(re.amount), 0) as total')
     ->get();
 
-// Grand totals still come straight from retail_expenditures (not the
-// per-type rows) so a type that's since been deactivated doesn't drop
-// out of the headline figure even though it no longer appears in the
-// category list below.
+// Grand totals come straight from retail_expenditures (not the per-type
+// rows), but still restricted to active types via $activeExpenditureTypeIds
+// so the headline figure always matches what the category list below
+// shows — a deactivated type's spend drops out of both consistently.
 $expenditureToday = (float) DB::connection('tenant')
-    ->table('retail_expenditures')->where('expenditure_date', $today)->sum('amount');
+    ->table('retail_expenditures')
+    ->whereIn('expenditure_type_id', $activeExpenditureTypeIds)
+    ->where('expenditure_date', $today)->sum('amount');
 
 $expenditureThisMonth = (float) DB::connection('tenant')
     ->table('retail_expenditures')
+    ->whereIn('expenditure_type_id', $activeExpenditureTypeIds)
     ->whereMonth('expenditure_date', Carbon::today()->month)
     ->whereYear('expenditure_date', Carbon::today()->year)
     ->sum('amount');
 
 $expenditureLastMonth = (float) DB::connection('tenant')
     ->table('retail_expenditures')
+    ->whereIn('expenditure_type_id', $activeExpenditureTypeIds)
     ->whereMonth('expenditure_date', $lastMonthCursor->month)
     ->whereYear('expenditure_date', $lastMonthCursor->year)
     ->sum('amount');
@@ -422,9 +440,10 @@ $ieIncomeForPeriod = function (Carbon $cursor, $branchId = null) {
     return (float) $q->sum(DB::raw('quantity * price'));
 };
 
-$ieExpenditureForPeriod = function (Carbon $cursor, $branchId = null) {
+$ieExpenditureForPeriod = function (Carbon $cursor, $branchId = null) use ($activeExpenditureTypeIds) {
     $q = DB::connection('tenant')
         ->table('retail_expenditures')
+        ->whereIn('expenditure_type_id', $activeExpenditureTypeIds)
         ->whereMonth('expenditure_date', $cursor->month)
         ->whereYear('expenditure_date', $cursor->year);
     if ($branchId !== null) {

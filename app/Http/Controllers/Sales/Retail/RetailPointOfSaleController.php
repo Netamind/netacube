@@ -29,8 +29,11 @@ class RetailPointOfSaleController extends Controller
     // UPLOAD SALES
     // Accepts the JSON blob from localStorage, inserts into
     // retail_system_sales, decrements retail_branch_products.stock_quantity,
-    // and returns whatever rows could NOT be inserted so the client can
-    // keep them pending.
+    // and returns whatever rows could NOT be inserted. Each returned row
+    // carries a `_reason` (missing_product_reference | product_not_found |
+    // server_error) that the client logs into failedToUploadSales — these
+    // are not retryable, so the client removes them from its pending
+    // queue rather than resending them forever.
     // ══════════════════════════════════════════════════════════════════════
 
     public function uploadSales(Request $request)
@@ -50,6 +53,7 @@ class RetailPointOfSaleController extends Controller
                 $branchProductId = $row['branch_product_id'] ?? null;
 
                 if (!$branchProductId) {
+                    $row['_reason'] = 'missing_product_reference';
                     $failed[] = $row;
                     continue;
                 }
@@ -60,6 +64,7 @@ class RetailPointOfSaleController extends Controller
                     ->first();
 
                 if (!$branchProduct) {
+                    $row['_reason'] = 'product_not_found';
                     $failed[] = $row;
                     continue;
                 }
@@ -110,11 +115,13 @@ class RetailPointOfSaleController extends Controller
 
             } catch (\Throwable $e) {
                 \Log::error('uploadSales row failed: ' . $e->getMessage());
+                $row['_reason'] = 'server_error';
                 $failed[] = $row;
             }
         }
 
-        // Return the failed rows so the JS can keep them in localStorage.
+        // Return the failed rows so the JS can log them to failedToUploadSales
+        // and drop them from its pending queue — they won't be retried.
         // An empty array means "all done — clear your pending queue".
         return response()->json($failed);
     }

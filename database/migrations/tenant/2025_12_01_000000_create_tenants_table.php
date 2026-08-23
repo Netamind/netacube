@@ -3,14 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
+        // No FOREIGN_KEY_CHECKS toggling needed: this migration is timestamped
+        // to run after users, subscription_plans, and currency, so both FK
+        // targets already exist when this table is created.
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
 
@@ -39,9 +39,21 @@ return new class extends Migration
 
             // Subscription & billing
             $table->unsignedBigInteger('subscription_plan')->nullable();
+            $table->integer('payment_amount')->nullable();
             $table->string('payment_method')->nullable();
             $table->date('last_payment_date')->nullable();
             $table->date('next_payment_date')->nullable();
+
+            // Custom pricing — lets a tenant be invoiced with their own
+            // amount/currency (and optionally their own billing cycle)
+            // instead of inheriting straight from their subscription plan.
+            // The plan itself (name/description) is unaffected either way —
+            // these only ever override the money and, optionally, the period.
+            $table->boolean('custom_pricing_enabled')->default(false);
+            $table->decimal('custom_amount', 12, 2)->nullable();
+            $table->char('custom_currency', 3)->nullable();
+            $table->unsignedInteger('custom_period_days')->nullable();
+            $table->string('custom_period_name')->nullable();
 
             // Migration / table provisioning tracking
             $table->unsignedInteger('number_of_tables')->default(0);
@@ -53,15 +65,16 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Foreign keys
+            // Foreign keys — both targets already exist at this point in the
+            // migration order (users, subscription_plans, currency).
             $table->foreign('approved_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('subscription_plan')->references('id')->on('subscription_plans')->nullOnDelete();
+            $table->foreign('custom_currency')->references('code')->on('currency')->nullOnDelete();
         });
     }
 
     public function down(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Schema::dropIfExists('tenants');
     }
 };

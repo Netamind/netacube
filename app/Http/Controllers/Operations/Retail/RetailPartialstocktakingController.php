@@ -15,7 +15,7 @@ use Carbon\Carbon;
 use Barryvdh\DomPDF\Facade\Pdf;
 
 /*
- * Partial Stocktaking is Full Stocktaking's "live" sibling:
+ * Partial Stocktaking is Full Stocktaking's opportunistic sibling:
  *
  *   - No session-snapshot seeding for the whole catalog, and no "missing
  *     products" tab — partial counts are opportunistic (a shelf, a
@@ -24,14 +24,42 @@ use Barryvdh\DomPDF\Facade\Pdf;
  *     frozen directly on ITS OWN row the first time it is counted that
  *     day.
  *
- *   - Every write (a live count, or an edit on the Stocktaking Data tab)
- *     immediately auto-resolves expected_final (netting off any sales
- *     that happened after the count) and pushes the corrected quantity
- *     straight to retail_branch_products.stock_quantity. There is no
- *     waiting for a batch rectification to see live stock move.
+ *   ── "Expected" is FIXED. Full stop. ──────────────────────────────────
+ *     expected_at_count is written ONLY in two places: (1) the moment a
+ *     product is first counted that day, and (2) an explicit user edit on
+ *     the Stocktaking Data tab. Nothing else — no background job, no page
+ *     view, no sync, no rectification step — is ever allowed to touch it.
+ *     Same rule for sales_id_at_count, the sales checkpoint frozen at the
+ *     same moment: it is a permanent snapshot for the day and is never
+ *     re-baselined (there is deliberately no "recount" action that would
+ *     do that — a correction on the Data tab is always a typo-fix against
+ *     the ORIGINAL count, never a new checkpoint).
  *
- *   - Rectification still exists (Actions & Info tab) as a formal
- *     "close-off" action: it locks each counted row's status, freezes a
+ *   - Every write (a live count, or an edit on the Stocktaking Data tab)
+ *     still pushes the corrected quantity straight to
+ *     retail_branch_products.stock_quantity — see pushLiveStock() — so
+ *     stock stays live without waiting for rectification. That push nets
+ *     off sales that happened after the count purely as an in-memory
+ *     calculation (computeSalesSinceCount()); it is never written back
+ *     onto the row as a new "expected", and it never changes
+ *     expected_at_count or sales_id_at_count.
+ *
+ *   - expected_final on the row is informational only, and is written in
+ *     exactly one place: rectifyRow(), as part of the formal close-off.
+ *     That is also where "the actual difference" — expected_at_count
+ *     minus everything sold since the frozen checkpoint, each sale
+ *     counted exactly once — is settled. Because it's anchored on
+ *     sales_id_at_count (never mutated), this is correct even if
+ *     expected_at_count itself was edited by a user in between.
+ *
+ *   - salesSinceCount() gives the auditor the itemised list backing that
+ *     number: every sale on a counted product since its frozen checkpoint,
+ *     oldest first. It reads the same untouched sales_id_at_count, so it
+ *     stays correct no matter when — or how many times — expected was
+ *     manually corrected afterwards.
+ *
+ *   - Rectification (Actions & Info tab) is the formal "close-off"
+ *     action: it locks each counted row's status, freezes a
  *     retail_partialstocktaking_summary row (same atomic-INSERT-is-the-
  *     lock pattern as Full Stocktaking), captures the auditor's remarks,
  *     and — critically — makes sure any newly-found product that had no
@@ -66,14 +94,15 @@ class RetailPartialstocktakingController extends Controller
     }
 
     /**
-     * Unlike Full Stocktaking — which only recomputes sales-since-count live
-     * for DISPLAY purposes on this page and finalizes stock at rectify time —
-     * Partial Stocktaking is meant to stay "live" continuously. Rather than
-     * making the auditor click "Refresh Live Figures" to see current numbers,
-     * every visit to this page re-runs applyAutoResolve() for each counted
-     * product first, so expected_final and live stock are already caught up
-     * with sales by the time the summary renders. The manual button still
-     * exists for an instant refresh without a full page reload.
+     * A GET request must never mutate data — simply viewing this page used
+     * to silently rewrite expected_final (and push live stock) for every
+     * counted row, which is exactly what made "Expected" look like it was
+     * changing on its own. That's gone: this view only reads. Expected
+     * (expected_at_count) is fixed and comes straight off each row; the
+     * only place "sales since count" actually gets settled and written is
+     * rectifyRow(). If stock needs a live nudge outside of a count or an
+     * edit, that's what the explicit "Refresh Live Figures" button
+     * (recomputeAll()) is for.
      */
     public function showActionsAndInfoView()
     {
@@ -84,13 +113,9 @@ class RetailPartialstocktakingController extends Controller
         $date          = ! empty($pstCustomDate) ? $pstCustomDate : now()->toDateString();
 
         if ($branchId) {
-            $rows = DB::connection('tenant')->table('retail_partialstocktaking')
-                ->where('branch_id', $branchId)->where('date', $date)->get();
-
-            foreach ($rows as $row) {
-                $this->applyAutoResolve($row, true);
-            }
-
+            // Keeps a completed summary's totals in sync with any row edits
+            // or deletes made since — pure recomputation from fixed
+            // expected_at_count values, no writes to the counted rows.
             $this->recomputeSummaryIfRectified((int) $branchId, $date);
         }
 
@@ -103,13 +128,13 @@ class RetailPartialstocktakingController extends Controller
     }
 
     /* ════════════════════════════════════════════════════════════════════
-       AUTO-RESOLVE — the core "live" behaviour.
-       Recomputes expected_final by netting off any sales that happened
-       after this product's count, then (optionally) pushes the corrected
-       quantity straight to live stock. Called after every write, and can
-       be re-run on demand for a whole branch+date from Actions & Info.
+       SALES-SINCE-COUNT — read-only. Never writes to expected_at_count or
+       sales_id_at_count; those two stay exactly as frozen at first count
+       (or as later hand-edited by a user), no matter how many times this
+       is called. Anchored on sales_id_at_count, the permanent checkpoint,
+       so it stays correct even if expected_at_count was edited afterwards.
        ════════════════════════════════════════════════════════════════════ */
-    private function applyAutoResolve($row, bool $pushToLiveStock = true): array
+    private function computeSalesSinceCount($row): array
     {
         $branchProduct = DB::connection('tenant')->table('retail_branch_products')
             ->where('branch_id', $row->branch_id)
@@ -117,55 +142,75 @@ class RetailPartialstocktakingController extends Controller
             ->first();
 
         $qtySoldSinceCount = $branchProduct
-            ? DB::connection('tenant')->table('retail_system_sales')
+            ? (float) DB::connection('tenant')->table('retail_system_sales')
                 ->where('branch', (string) $row->branch_id)
                 ->where('branch_product_id', $branchProduct->id)
                 ->where('id', '>', $row->sales_id_at_count ?? 0)
                 ->sum('quantity')
-            : 0;
+            : 0.0;
 
-        $expectedFinal = max(0, (float) $row->expected_at_count - $qtySoldSinceCount);
+        return [
+            'branch_product'        => $branchProduct,
+            'qty_sold_since_count'  => $qtySoldSinceCount,
+            'expected_now'          => max(0, (float) $row->expected_at_count - $qtySoldSinceCount),
+        ];
+    }
+
+    /**
+     * Pushes a corrected quantity straight to retail_branch_products.stock_quantity
+     * — the "live" half of Partial Stocktaking. Called after a count merge or a
+     * Stocktaking Data edit so stock moves immediately, without waiting for
+     * rectification. Deliberately does NOT touch retail_partialstocktaking at
+     * all (not expected_at_count, not expected_final) — this only ever moves
+     * the branch's live stock figure.
+     */
+    private function pushLiveStock($row, float $qtySoldSinceCount, $branchProduct = null): void
+    {
         $now = now();
-
-        DB::connection('tenant')->table('retail_partialstocktaking')
-            ->where('id', $row->id)
-            ->update(['expected_final' => $expectedFinal, 'updated_at' => $now]);
-
         $trueCurrentStock = max(0, (float) $row->found - $qtySoldSinceCount);
 
-        if ($pushToLiveStock) {
-            if ($branchProduct) {
-                DB::connection('tenant')->table('retail_branch_products')
-                    ->where('id', $branchProduct->id)
-                    ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
-            } else {
-                // No retail_branch_products row exists for this branch+product yet
-                // (a genuinely new find). Create one now so counted stock is never
-                // silently lost — see the price rule note in submitRectification().
-                try {
-                    DB::connection('tenant')->table('retail_branch_products')->insert([
-                        'branch_id'       => $row->branch_id,
-                        'base_product_id' => $row->base_product_id,
-                        'stock_quantity'  => $trueCurrentStock,
-                        'selling_price'   => null, // inherits base price — never freeze today's price as a branch override
-                        'is_active'       => 1,
-                        'created_at'      => $now,
-                        'updated_at'      => $now,
-                    ]);
-                } catch (\Illuminate\Database\QueryException $e) {
-                    if ((int) $e->getCode() === 23000) {
-                        DB::connection('tenant')->table('retail_branch_products')
-                            ->where('branch_id', $row->branch_id)
-                            ->where('base_product_id', $row->base_product_id)
-                            ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
-                    } else {
-                        throw $e;
-                    }
-                }
-            }
+        if ($branchProduct) {
+            DB::connection('tenant')->table('retail_branch_products')
+                ->where('id', $branchProduct->id)
+                ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
+            return;
         }
 
-        return ['expected_final' => $expectedFinal, 'qty_sold_since_count' => $qtySoldSinceCount];
+        // No retail_branch_products row exists for this branch+product yet
+        // (a genuinely new find). Create one now so counted stock is never
+        // silently lost — see the price rule note in rectifyRow().
+        try {
+            DB::connection('tenant')->table('retail_branch_products')->insert([
+                'branch_id'       => $row->branch_id,
+                'base_product_id' => $row->base_product_id,
+                'stock_quantity'  => $trueCurrentStock,
+                'selling_price'   => null, // inherits base price — never freeze today's price as a branch override
+                'is_active'       => 1,
+                'created_at'      => $now,
+                'updated_at'      => $now,
+            ]);
+        } catch (\Illuminate\Database\QueryException $e) {
+            if ((int) $e->getCode() === 23000) {
+                DB::connection('tenant')->table('retail_branch_products')
+                    ->where('branch_id', $row->branch_id)
+                    ->where('base_product_id', $row->base_product_id)
+                    ->update(['stock_quantity' => $trueCurrentStock, 'updated_at' => $now]);
+            } else {
+                throw $e;
+            }
+        }
+    }
+
+    /**
+     * Refreshes live stock for one row against current sales — used after a
+     * count merge, a Stocktaking Data edit, and the "Refresh Live Figures"
+     * button. Pure convenience wrapper: read the sales-since-count, push it.
+     * Never touches expected_at_count, sales_id_at_count, or expected_final.
+     */
+    private function refreshLiveStock($row): void
+    {
+        $resolved = $this->computeSalesSinceCount($row);
+        $this->pushLiveStock($row, $resolved['qty_sold_since_count'], $resolved['branch_product']);
     }
 
     /* ════════════════════════════════════════════════════════════════════
@@ -354,7 +399,8 @@ class RetailPartialstocktakingController extends Controller
                     // Checkpoint = the highest sales id that already existed when
                     // this device's session opened (or "no ceiling" if we don't
                     // trust the session — see note above). Sales after that id
-                    // are what applyAutoResolve() will net off going forward.
+                    // are what computeSalesSinceCount() will net off going forward,
+                    // right through to rectification — this checkpoint never moves.
                     $maxSalesId = $branchProduct
                         ? DB::connection('tenant')->table('retail_system_sales')
                             ->where('branch', (string) $branchId)
@@ -428,9 +474,11 @@ class RetailPartialstocktakingController extends Controller
                         'updated_at'            => $now,
                     ]);
 
-                // Live: auto-resolve any sales since the count and push corrected stock immediately.
+                // Live: push corrected stock immediately. This never touches
+                // expected_at_count/sales_id_at_count/expected_final — only
+                // retail_branch_products.stock_quantity moves here.
                 $freshRow = DB::connection('tenant')->table('retail_partialstocktaking')->find($existing->id);
-                $this->applyAutoResolve($freshRow, true);
+                $this->refreshLiveStock($freshRow);
 
                 $merged++;
                 $results[] = ['client_uuid' => $clientUuid, 'base_product_id' => $productId, 'product_name' => $lineLabel, 'status' => 'success'];
@@ -564,7 +612,15 @@ class RetailPartialstocktakingController extends Controller
         ]);
     }
 
-    private function applyDataRowEdit($row, float $newExpected, float $newFound, ?string $clientUuid = null, string $mode = 'correction'): void
+    /**
+     * A typo CORRECTION against the ORIGINAL count — nothing about when
+     * that count happened has changed, so sales_id_at_count (the sales
+     * checkpoint) is never touched here, only ever set once, when the row
+     * is first created. expected_at_count only changes because the user
+     * explicitly typed a new value into the Expected field — never as a
+     * side effect of anything else.
+     */
+    private function applyDataRowEdit($row, float $newExpected, float $newFound, ?string $clientUuid = null): void
     {
         $now   = now();
         $delta = $newFound - (float) $row->found;
@@ -579,7 +635,7 @@ class RetailPartialstocktakingController extends Controller
                     'branch_id'            => $row->branch_id,
                     'base_product_id'      => $row->base_product_id,
                     'device_id'            => 'partial-data-correction',
-                    'device_label'         => $mode === 'recount' ? 'Recount (Stocktaking Data)' : 'Manual correction (Stocktaking Data)',
+                    'device_label'         => 'Manual correction (Stocktaking Data)',
                     'submitted_by_user_id' => Auth::id(),
                     'quantity'             => $delta,
                     'replaces_line_id'     => null,
@@ -599,35 +655,10 @@ class RetailPartialstocktakingController extends Controller
             ->where('base_product_id', $row->base_product_id)->sum('quantity'));
 
         $update = [
-            'found'      => $trueFound,
-            'updated_at' => $now,
+            'found'             => $trueFound,
+            'expected_at_count' => $newExpected, // only ever moved by an explicit user edit — baseline lives directly on the row, no separate snapshot table
+            'updated_at'        => $now,
         ];
-
-        if ($mode === 'recount') {
-            // This is a brand new physical count happening right now, not a
-            // typo fix on the original one — re-baseline BOTH halves of the
-            // checkpoint together. Only overwriting expected_at_count (the
-            // old behaviour, still used for 'correction') leaves it anchored
-            // to a stale sales_id_at_count, and applyAutoResolve() ends up
-            // netting off the same in-between sales a second time.
-            $branchProduct = DB::connection('tenant')->table('retail_branch_products')
-                ->where('branch_id', $row->branch_id)
-                ->where('base_product_id', $row->base_product_id)
-                ->first();
-
-            $update['expected_at_count'] = $branchProduct->stock_quantity ?? $newExpected;
-            $update['sales_id_at_count'] = $branchProduct
-                ? DB::connection('tenant')->table('retail_system_sales')
-                    ->where('branch', (string) $row->branch_id)
-                    ->where('branch_product_id', $branchProduct->id)
-                    ->max('id')
-                : $row->sales_id_at_count;
-        } else {
-            // Correction: fixing a typo against the ORIGINAL count — nothing
-            // about when that count happened has changed, so the checkpoint
-            // it's anchored to (sales_id_at_count) is left exactly as-is.
-            $update['expected_at_count'] = $newExpected; // baseline lives directly on the row — no separate snapshot table
-        }
 
         if ($lineId !== null) {
             $update['last_activity_line_id'] = $lineId; // bump — edited row resurfaces at the top
@@ -639,41 +670,12 @@ class RetailPartialstocktakingController extends Controller
 
         DB::connection('tenant')->table('retail_partialstocktaking')->where('id', $row->id)->update($update);
 
-        // Re-fetch and immediately auto-resolve + push live — same as counting,
-        // and works whether the row is still open or already rectified: editing
-        // a rectified row keeps stock correct rather than freezing it stale.
+        // Re-fetch and push live stock — same as counting, and works whether
+        // the row is still open or already rectified: editing a rectified
+        // row keeps stock correct rather than freezing it stale. This never
+        // touches expected_at_count/sales_id_at_count/expected_final.
         $freshRow = DB::connection('tenant')->table('retail_partialstocktaking')->find($row->id);
-        $this->applyAutoResolve($freshRow, true);
-    }
-
-    /**
-     * Explicit "recount" action for a single row on the Stocktaking Data
-     * tab — distinct from the plain inline expected/found edit, which is a
-     * typo CORRECTION against the original count and must never move the
-     * sales checkpoint. This is for "someone physically went and counted
-     * this again right now": found is replaced, and the checkpoint is
-     * re-baselined to this moment via applyDataRowEdit's 'recount' mode.
-     */
-    public function recountDataRow(Request $request)
-    {
-        $validator = Validator::make($request->all(), [
-            'id'    => 'required|integer|exists:tenant.retail_partialstocktaking,id',
-            'found' => 'required|numeric|gte:0',
-        ]);
-
-        if ($validator->fails()) {
-            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
-        }
-
-        $row = DB::connection('tenant')->table('retail_partialstocktaking')->where('id', $request->id)->first();
-
-        if (! $row) {
-            return response()->json(['status' => 404, 'error' => 'Row not found.'], 404);
-        }
-
-        $this->applyDataRowEdit($row, (float) $row->expected_at_count, (float) $request->found, null, 'recount');
-
-        return response()->json(['status' => 201, 'success' => 'Recounted — checkpoint reset to now.']);
+        $this->refreshLiveStock($freshRow);
     }
 
     /* ════════════════════════════════════════════════════════════════════
@@ -753,9 +755,11 @@ class RetailPartialstocktakingController extends Controller
     }
 
     /**
-     * Force-refresh auto-resolve for every counted row of a branch+date.
+     * Force-refresh live stock for every counted row of a branch+date.
      * Used by the "Refresh live figures" button — useful after a burst of
-     * sales, or after a batch of offline edits has just been synced.
+     * sales, or after a batch of offline edits has just been synced. This
+     * only ever moves retail_branch_products.stock_quantity — Expected
+     * (expected_at_count) is fixed and is never touched here.
      */
     public function recomputeAll(Request $request)
     {
@@ -772,14 +776,14 @@ class RetailPartialstocktakingController extends Controller
             ->where('branch_id', $request->branch_id)->where('date', $request->date)->get();
 
         foreach ($rows as $row) {
-            $this->applyAutoResolve($row, true);
+            $this->refreshLiveStock($row);
         }
 
         $this->recomputeSummaryIfRectified((int) $request->branch_id, $request->date);
 
         return response()->json([
             'status'  => 200,
-            'message' => "Refreshed {$rows->count()} product(s) against live sales.",
+            'message' => "Refreshed live stock for {$rows->count()} product(s) against sales — Expected values were not changed.",
             'count'   => $rows->count(),
         ]);
     }
@@ -842,24 +846,108 @@ class RetailPartialstocktakingController extends Controller
         return response()->json(['status' => 200, 'success' => 'Remarks saved.']);
     }
 
+    /**
+     * Totals are always computed off expected_at_count — the fixed figure —
+     * never expected_final. Sales since count cancel out of found-minus-
+     * expected identically whether or not they're netted off first, so this
+     * is also the mathematically "actual" difference; the difference is
+     * that it can never drift just because time passed or a page was
+     * reloaded.
+     */
+    /**
+     * Itemised list of every sale recorded against a counted product since
+     * ITS OWN frozen sales_id_at_count checkpoint — the evidence behind the
+     * "actual difference" settled at rectification. Read-only, and anchored
+     * on that checkpoint rather than on expected_at_count, so it stays
+     * correct no matter how many times (or when) Expected was hand-edited
+     * on the Stocktaking Data tab afterwards. Sorted oldest-first per
+     * product — the order the sales actually happened in — using the sale's
+     * own auto-increment id (centrally assigned, so it's a safe proxy for
+     * "happened before/after" the same way last_activity_line_id is used
+     * elsewhere in this module). Only products with at least one sale since
+     * their count are returned — nothing to show for the rest.
+     */
+    public function salesSinceCount(Request $request)
+    {
+        $validator = Validator::make($request->all(), [
+            'branch_id' => 'required|integer|exists:tenant.branches,id',
+            'date'      => 'required|date',
+        ]);
+
+        if ($validator->fails()) {
+            return response()->json(['status' => 422, 'errors' => $validator->errors()], 422);
+        }
+
+        $branchId = (int) $request->branch_id;
+        $date     = $request->date;
+
+        $rows = DB::connection('tenant')->table('retail_partialstocktaking')
+            ->where('branch_id', $branchId)->where('date', $date)
+            ->orderBy('product_name')->get();
+
+        $products = [];
+        $grandTotalQty = 0;
+
+        foreach ($rows as $row) {
+            $branchProduct = DB::connection('tenant')->table('retail_branch_products')
+                ->where('branch_id', $row->branch_id)
+                ->where('base_product_id', $row->base_product_id)
+                ->first();
+
+            $sales = $branchProduct
+                ? DB::connection('tenant')->table('retail_system_sales')
+                    ->where('branch', (string) $row->branch_id)
+                    ->where('branch_product_id', $branchProduct->id)
+                    ->where('id', '>', $row->sales_id_at_count ?? 0)
+                    ->orderBy('id') // chronological — the order these sales actually happened in
+                    ->get(['id', 'quantity', 'created_at'])
+                : collect();
+
+            if ($sales->isEmpty()) {
+                continue;
+            }
+
+            $qty = (float) $sales->sum('quantity');
+            $grandTotalQty += $qty;
+
+            $products[] = [
+                'row_id'               => $row->id,
+                'product_name'         => $row->product_name,
+                'unit'                 => $row->unit,
+                'expected_at_count'    => $row->expected_at_count, // fixed — untouched by anything below
+                'found'                => $row->found,
+                'qty_sold_since_count' => $qty,
+                'sales'                => $sales,
+            ];
+        }
+
+        return response()->json([
+            'status'          => 200,
+            'branch_id'       => $branchId,
+            'date'            => $date,
+            'products'        => $products,
+            'grand_total_qty' => $grandTotalQty,
+        ]);
+    }
+
     private function computeTotals($rows): array
     {
         $noAnomaly = $overage = $shortage = 0;
         $expectedTotal = $foundTotal = $overageTotal = $shortageTotal = 0;
 
         foreach ($rows as $row) {
-            $expectedFinal = $row->expected_final ?? $row->expected_at_count;
-            $expectedTotal += $expectedFinal * $row->price;
+            $expected = (float) $row->expected_at_count;
+            $expectedTotal += $expected * $row->price;
             $foundTotal    += $row->found * $row->price;
 
-            if (abs($row->found - $expectedFinal) < self::QTY_EPSILON) {
+            if (abs($row->found - $expected) < self::QTY_EPSILON) {
                 $noAnomaly++;
-            } elseif ($row->found > $expectedFinal) {
+            } elseif ($row->found > $expected) {
                 $overage++;
-                $overageTotal += ($row->found - $expectedFinal) * $row->price;
+                $overageTotal += ($row->found - $expected) * $row->price;
             } else {
                 $shortage++;
-                $shortageTotal += ($expectedFinal - $row->found) * $row->price;
+                $shortageTotal += ($expected - $row->found) * $row->price;
             }
         }
 
@@ -902,7 +990,8 @@ class RetailPartialstocktakingController extends Controller
        aborts the whole batch — progress can be shown live, and any row
        that fails is reported back individually so it can be retried
        (retrying is safe even after finishRectification() has already run,
-       since applyAutoResolve() is idempotent and always safe to re-run).
+       since computeSalesSinceCount()/pushLiveStock() are idempotent and
+       always safe to re-run).
        finishRectification() then freezes the summary totals regardless of
        whether every row made it to 'rectified' status, exactly as the old
        single-shot version did — a handful of stubborn rows never blocks
@@ -1041,7 +1130,7 @@ class RetailPartialstocktakingController extends Controller
      * a bad row is reported and skipped rather than aborting the whole
      * close-off. Safe to call again later for a row that previously
      * failed — including after finishRectification() has already flipped
-     * the summary to 'completed' — since applyAutoResolve() always
+     * the summary to 'completed' — since computeSalesSinceCount() always
      * recomputes fresh against whatever sales have happened since.
      */
     public function rectifyRow(Request $request)
@@ -1078,18 +1167,25 @@ class RetailPartialstocktakingController extends Controller
         }
 
         try {
-            // applyAutoResolve() both finalizes expected_final/found against
-            // live sales that happened after the count AND — the
-            // branch-vs-base-product safeguard — creates the
-            // retail_branch_products row (price = null, inherits base
-            // price) the first time a genuinely new product is closed off,
-            // so nothing counted is ever lost and no branch-specific price
-            // override is invented that was never deliberately set.
-            $this->applyAutoResolve($row, true);
+            // The ONE place expected_final is written. It's informational —
+            // expected_at_count (Expected, and everything the summary/totals
+            // are built from) is untouched. This nets off, exactly once,
+            // every sale recorded since the row's frozen sales_id_at_count
+            // checkpoint — correct even if expected_at_count was hand-edited
+            // afterwards, since the checkpoint itself was never moved.
+            // pushLiveStock() is the same branch-vs-base-product safeguard as
+            // before: creates the retail_branch_products row (price = null,
+            // inherits base price) the first time a genuinely new product is
+            // closed off, so nothing counted is ever lost and no
+            // branch-specific price override is invented that was never
+            // deliberately set.
+            $resolved = $this->computeSalesSinceCount($row);
+            $this->pushLiveStock($row, $resolved['qty_sold_since_count'], $resolved['branch_product']);
 
             DB::connection('tenant')->table('retail_partialstocktaking')
                 ->where('id', $row->id)
                 ->update([
+                    'expected_final'       => $resolved['expected_now'],
                     'status'               => 'rectified',
                     'rectified_by_user_id' => Auth::id(),
                     'rectified_at'         => $now,

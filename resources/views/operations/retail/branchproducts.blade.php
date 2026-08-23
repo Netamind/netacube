@@ -1,7 +1,7 @@
 @extends('operations.retail.dashboard')
 @section('content')
 @php
-    $branches = DB::connection('tenant')->table('branches')->orderBy('name')->get();
+    $branches = DB::connection('tenant')->table('branches')->where('sector', 'Retail')->orderBy('name')->get();
     $pref     = DB::connection('tenant')->table('user_filters')->where('user_id', Auth::id())->first();
 
     $branchProducts = collect();
@@ -10,7 +10,7 @@
     $branchCategory = null;
 
     if ($pref && $pref->branch_id) {
-        $selectedBranch = DB::connection('tenant')->table('branches')->find($pref->branch_id);
+        $selectedBranch = DB::connection('tenant')->table('branches')->where('sector', 'Retail')->find($pref->branch_id);
 
         if ($selectedBranch) {
             $branchCategory = DB::connection('tenant')

@@ -18,29 +18,194 @@ class WholesaleBaseProductsController extends Controller
 
     public function showBaseproductsView()
     {
-        // Unlike retail (category → supplier cascade, since suppliers there
-        // carry both), wholesale suppliers already carry their own
-        // category/sector — so this page just scopes straight to suppliers
-        // whose sector is "Wholesale" and lists every base product with its
-        // supplier joined in. No category picker needed.
-        $suppliers = DB::connection('tenant')
-            ->table('suppliers')
+        $tenant = DB::connection('tenant');
+        $userId = auth()->id();
+
+        // Load the user's saved category/supplier filters.
+        $pref = $tenant->table('user_filters')
+            ->where('user_id', $userId)
+            ->first();
+
+        $savedCategoryId = $pref->category_id ?? null;
+        $savedSupplierId = $pref->supplier_id ?? null;
+
+        // Only categories that currently have active Wholesale suppliers.
+        $categoryIds = $tenant->table('suppliers')
             ->where('status', 'active')
             ->where('sector', 'Wholesale')
-            ->orderBy('name')
-            ->get(['id', 'name']);
+            ->whereNotNull('category')
+            ->pluck('category')
+            ->unique()
+            ->values();
 
-        $products = DB::connection('tenant')
-            ->table('wholesale_base_products as p')
+        $categories = $tenant->table('categories')
+            ->whereIn('id', $categoryIds)
+            ->orderBy('category')
+            ->get();
+
+        // Suppliers are dependent on the selected category.
+        $suppliers = collect();
+
+        if ($savedCategoryId) {
+            $suppliers = $tenant->table('suppliers')
+                ->where('status', 'active')
+                ->where('sector', 'Wholesale')
+                ->where('category', $savedCategoryId)
+                ->orderBy('name')
+                ->get(['id', 'name', 'category']);
+
+            // Prevent a stale supplier filter from hiding all products.
+            if ($savedSupplierId && !$suppliers->contains('id', (int) $savedSupplierId)) {
+                $savedSupplierId = null;
+            }
+        } else {
+            $savedSupplierId = null;
+        }
+
+        // Filter products by the selected category and, optionally, supplier.
+        $products = $tenant->table('wholesale_base_products as p')
             ->leftJoin('suppliers as s', 's.id', '=', 'p.supplier_id')
+            ->where('s.status', 'active')
+            ->where('s.sector', 'Wholesale');
+
+        if ($savedCategoryId) {
+            $products->where('s.category', $savedCategoryId);
+
+            if ($savedSupplierId) {
+                $products->where('p.supplier_id', (int) $savedSupplierId);
+            }
+        } else {
+            // No category selected = no filtered product list, matching Retail.
+            $products->whereRaw('1 = 0');
+        }
+
+        $products = $products
             ->orderBy('p.name')
             ->select('p.*', 's.name as supplier_name')
             ->get();
 
+        $supplierNamesMap = $products->isNotEmpty()
+            ? $tenant->table('suppliers')
+                ->whereIn('id', $products->pluck('supplier_id')->unique()->filter()->values())
+                ->pluck('name', 'id')
+            : collect();
+
         return view('operations.wholesale.baseproducts', [
-            'suppliers' => $suppliers,
-            'products'  => $products,
+            'categories'      => $categories,
+            'suppliers'       => $suppliers,
+            'products'        => $products,
+            'savedCategoryId' => $savedCategoryId,
+            'savedSupplierId' => $savedSupplierId,
+            'supplierNamesMap'=> $supplierNamesMap,
         ]);
+    }
+
+    /**
+     * Save Wholesale Base Products filters.
+     *
+     * The Base Products page posts category_id first, then supplier_id.
+     * Only the submitted filter fields are updated so other user_filters
+     * values are preserved.
+     */
+    public function updateUserFilters(Request $request)
+    {
+        $request->validate([
+            'category_id' => 'nullable|integer',
+            'supplier_id' => 'nullable|integer',
+        ]);
+
+        $tenant = DB::connection('tenant');
+        $userId = auth()->id();
+
+        $existing = $tenant->table('user_filters')
+            ->where('user_id', $userId)
+            ->first();
+
+        $data = [
+            'updated_at' => now(),
+        ];
+
+        if ($request->has('category_id')) {
+            $categoryId = $request->input('category_id');
+
+            if ($categoryId === null || $categoryId === '') {
+                $data['category_id'] = null;
+                $data['supplier_id'] = null;
+            } else {
+                $categoryId = (int) $categoryId;
+
+                $categoryExists = $tenant->table('categories')
+                    ->where('id', $categoryId)
+                    ->exists();
+
+                if (!$categoryExists) {
+                    return redirect()->route('wholesale.operations.baseproducts')->with('error', 'Selected category does not exist.');
+                }
+
+                $hasWholesaleSupplier = $tenant->table('suppliers')
+                    ->where('status', 'active')
+                    ->where('sector', 'Wholesale')
+                    ->where('category', $categoryId)
+                    ->exists();
+
+                if (!$hasWholesaleSupplier) {
+                    return redirect()->route('wholesale.operations.baseproducts')->with('error', 'No active Wholesale suppliers exist for the selected category.');
+                }
+
+                $oldCategoryId = $existing->category_id ?? null;
+                $data['category_id'] = $categoryId;
+
+                // Category changed: clear the old supplier.
+                if ((int) $oldCategoryId !== $categoryId) {
+                    $data['supplier_id'] = null;
+                }
+            }
+        }
+
+        if ($request->has('supplier_id')) {
+            $supplierId = $request->input('supplier_id');
+
+            if ($supplierId === null || $supplierId === '') {
+                $data['supplier_id'] = null;
+            } else {
+                $supplierId = (int) $supplierId;
+                $categoryId = array_key_exists('category_id', $data)
+                    ? $data['category_id']
+                    : ($existing->category_id ?? null);
+
+                if (!$categoryId) {
+                    return redirect()->route('wholesale.operations.baseproducts')->with('error', 'Please select a category first.');
+                }
+
+                $supplierExists = $tenant->table('suppliers')
+                    ->where('id', $supplierId)
+                    ->where('status', 'active')
+                    ->where('sector', 'Wholesale')
+                    ->where('category', $categoryId)
+                    ->exists();
+
+                if (!$supplierExists) {
+                    return redirect()->route('wholesale.operations.baseproducts')->with('error', 'Selected supplier is not valid for the selected Wholesale category.');
+                }
+
+                $data['supplier_id'] = $supplierId;
+            }
+        }
+
+        if ($existing) {
+            $tenant->table('user_filters')
+                ->where('user_id', $userId)
+                ->update($data);
+        } else {
+            $data['user_id'] = $userId;
+            $data['category_id'] = $data['category_id'] ?? null;
+            $data['supplier_id'] = $data['supplier_id'] ?? null;
+            $data['created_at'] = now();
+
+            $tenant->table('user_filters')->insert($data);
+        }
+
+        return redirect()->route('wholesale.operations.baseproducts');
     }
 
     // ── Helpers ───────────────────────────────────────────────────────────

@@ -20,10 +20,10 @@
 <html lang="en" data-menu-color="brand">
 <head>
     <meta charset="utf-8" />
-    <title>Operations Dashboard - Netacube</title>
+    <title>@yield('title', 'Operations Dashboard - Netacube')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
-    <meta content="Coderthemes" name="author" />
+    <meta content="@yield('meta_description', 'Netacube is an all-in-one business management platform — sales, inventory, staff, payroll, documents and multi-branch reporting, built to keep your business running online or offline.')" name="description" />
+    <meta content="Netacube" name="author" />
 
     <!-- Favicon -->
     <link rel="icon" href="{{ asset('dashboard/images/icon.png') }}" type="image/x-icon">

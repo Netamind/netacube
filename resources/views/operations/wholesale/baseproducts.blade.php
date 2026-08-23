@@ -2,81 +2,10 @@
 @section('content')
 
 @php
-    // Wholesale suppliers always carry sector = 'Wholesale'. We mirror
-    // Retail's category → supplier cascade exactly — just with every
-    // supplier lookup additionally pinned to sector = 'Wholesale', so a
-    // category with only retail suppliers correctly shows as having none.
-    $categoryIdsWithWholesaleSuppliers = DB::connection('tenant')
-                        ->table('suppliers')
-                        ->where('status', 'active')
-                        ->where('sector', 'Wholesale')
-                        ->pluck('category')
-                        ->unique()
-                        ->filter()
-                        ->values();
-
-    $categories = DB::connection('tenant')
-                     ->table('categories')
-                     ->whereIn('id', $categoryIdsWithWholesaleSuppliers)
-                     ->orderBy('category')
-                     ->get();
-
-    $pref = DB::connection('tenant')
-               ->table('user_filters')
-               ->where('user_id', Auth::id())
-               ->first();
-
-    $savedCategoryId = $pref->category_id ?? null;
-    $savedSupplierId = $pref->supplier_id  ?? null;
-
-    $suppliers = collect();
-    if ($savedCategoryId) {
-        $suppliers = DB::connection('tenant')
-                        ->table('suppliers')
-                        ->where('status', 'active')
-                        ->where('sector', 'Wholesale')
-                        ->where('category', $savedCategoryId)
-                        ->orderBy('name')
-                        ->get(['id', 'name', 'category']);
-    }
-
-    // wholesale_base_products.supplier_id is a real FK (int) — filtered
-    // through the sector-scoped supplier set above.
-    $products = collect();
-    if ($savedCategoryId) {
-        if ($savedSupplierId) {
-            $products = DB::connection('tenant')
-                           ->table('wholesale_base_products')
-                           ->where('supplier_id', $savedSupplierId)
-                           ->orderBy('name')
-                           ->get();
-        } else {
-            $categorySupplierIds = DB::connection('tenant')
-                                      ->table('suppliers')
-                                      ->where('status', 'active')
-                                      ->where('sector', 'Wholesale')
-                                      ->where('category', $savedCategoryId)
-                                      ->pluck('id')
-                                      ->toArray();
-            if (!empty($categorySupplierIds)) {
-                $products = DB::connection('tenant')
-                               ->table('wholesale_base_products')
-                               ->whereIn('supplier_id', $categorySupplierIds)
-                               ->orderBy('name')
-                               ->get();
-            }
-        }
-    }
-
-    // Resolve supplier names for display
-    $supplierNamesMap = collect();
-    if ($products->isNotEmpty()) {
-        $supplierNamesMap = DB::connection('tenant')
-            ->table('suppliers')
-            ->whereIn('id', $products->pluck('supplier_id')->unique()->filter()->values())
-            ->pluck('name', 'id');
-    }
-
+    // $categories, $suppliers, $products, $savedCategoryId, $savedSupplierId,
+    // $supplierNamesMap are all passed in by WholesaleBaseProductsController::showBaseproductsView()
+    // and already scoped to Wholesale-sector suppliers / wholesale_base_products.
+    // Do not re-query them here.
     $maintableTitle = 'Wholesale Base Products';
 @endphp
 
@@ -116,9 +45,6 @@
 .price-cell { font-size:12px; font-weight:600; color:#198754; }
 .type-badge-product { font-size:10px; font-weight:600; background:#e8f5e9; color:#2d6a4f; border:1px solid #a5d6a7; border-radius:10px; padding:1px 7px; white-space:nowrap; }
 .type-badge-service { font-size:10px; font-weight:600; background:#fff3e0; color:#e65100; border:1px solid #ffcc80; border-radius:10px; padding:1px 7px; white-space:nowrap; }
-.status-badge-active   { font-size:10px; font-weight:600; background:#e8f0fe; color:#1a56c4; border:1px solid #a8c5f5; border-radius:10px; padding:1px 7px; white-space:nowrap; }
-.status-badge-inactive { font-size:10px; font-weight:600; background:#f1f2f4; color:#6c757d; border:1px solid #d3d6db; border-radius:10px; padding:1px 7px; white-space:nowrap; }
-.pack-cell { font-size:12px; color:#475569; }
 
 /* ── Modal header helpers ────────────────────────────────────────── */
 .mh-blue   { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
@@ -199,7 +125,7 @@
 
   {{-- ── Filter bar ── --}}
   <div class="card-filter">
-    <form method="POST" action="{{ route('wholesale.operations.update.filters') }}"
+    <form method="POST" action="{{ route('wholesale.operations.baseproducts.update.filters') }}"
           id="filterCategoryForm" style="display:contents;">
       @csrf
       <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
@@ -224,7 +150,7 @@
           <i class="ri-information-line"></i> No active suppliers for this category.
         </div>
       @else
-        <form method="POST" action="{{ route('wholesale.operations.update.filters') }}"
+        <form method="POST" action="{{ route('wholesale.operations.baseproducts.update.filters') }}"
               id="filterSupplierForm" style="display:contents;">
           @csrf
           <input type="hidden" name="user_id"     value="{{ Auth::id() }}">
@@ -259,8 +185,6 @@
           <th>Product Name</th>
           <th>Code</th>
           <th>Unit</th>
-          <th>Pack</th>
-          <th>Min Order</th>
           <th>Order Price</th>
           <th>Sell Price</th>
           <th>Action</th>
@@ -268,13 +192,7 @@
       </thead>
       <tbody id="tbody">
         @foreach($products as $product)
-          @php
-            $row = 'row' . $product->id;
-            $supplierName = $supplierNamesMap[$product->supplier_id] ?? '—';
-            $packLabel = $product->pack_unit
-                ? $product->pack_unit . ($product->units_per_pack !== null ? ' (' . rtrim(rtrim(number_format($product->units_per_pack, 2), '0'), '.') . ')' : '')
-                : null;
-          @endphp
+          @php $row = 'row' . $product->id; $supplierName = $supplierNamesMap[$product->supplier_id] ?? '—'; @endphp
           <tr id="{{ $row }}">
             <td>
               <input type="checkbox" class="selectRow" value="{{ $product->id }}" data-row-id="{{ $row }}">
@@ -282,8 +200,6 @@
             </td>
             <td>{{ $product->code ?? '—' }}</td>
             <td>{{ $product->unit }}</td>
-            <td><span class="pack-cell">{{ $packLabel ?? '—' }}</span></td>
-            <td><span class="pack-cell">{{ $product->min_order_quantity !== null ? rtrim(rtrim(number_format($product->min_order_quantity, 2), '0'), '.') : '—' }}</span></td>
             <td>
               @if($product->cost_price !== null)
                 <span style="font-size:12px;color:#6c757d">{{ number_format($product->cost_price,2) }}</span>
@@ -300,10 +216,8 @@
                  data-description="{{ $product->description }}"
                  data-supplier-id="{{ $product->supplier_id }}" data-supplier-name="{{ $supplierName }}"
                  data-code="{{ $product->code }}" data-unit="{{ $product->unit }}"
-                 data-pack-unit="{{ $product->pack_unit }}" data-units-per-pack="{{ $product->units_per_pack }}"
-                 data-min-order="{{ $product->min_order_quantity }}"
                  data-sell="{{ $product->selling_price }}" data-cost="{{ $product->cost_price }}"
-                 data-is-product="{{ $product->is_product }}" data-is-active="{{ $product->is_active }}">
+                 data-is-product="{{ $product->is_product }}">
                 <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
               </a>
               <a href="#" class="editDataBtn"
@@ -311,10 +225,8 @@
                  data-name="{{ $product->name }}" data-description="{{ $product->description }}"
                  data-supplier-id="{{ $product->supplier_id }}"
                  data-code="{{ $product->code }}" data-unit="{{ $product->unit }}"
-                 data-pack-unit="{{ $product->pack_unit }}" data-units-per-pack="{{ $product->units_per_pack }}"
-                 data-min-order="{{ $product->min_order_quantity }}"
                  data-sell="{{ $product->selling_price }}" data-cost="{{ $product->cost_price }}"
-                 data-is-product="{{ $product->is_product }}" data-is-active="{{ $product->is_active }}">
+                 data-is-product="{{ $product->is_product }}">
                 <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
               </a>
               <a href="#" class="deleteDataBtn"
@@ -353,11 +265,10 @@
       <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
     </div>
     <div class="modal-body">
-      <p class="mb-2"><strong>Base Products</strong> are your master wholesale catalogue — defined once and assigned to branches/warehouses.</p>
-      <p class="mb-2"><strong>Supplier (Required)</strong> — every product links to a supplier which determines its category. Only suppliers with sector "Wholesale" appear here.</p>
-      <p class="mb-2"><strong>Pack / Min Order</strong> — Pack Unit and Units per Pack describe how the product is bought in bulk (e.g. Carton of 24); Min Order Quantity is the smallest quantity a wholesale customer may order.</p>
+      <p class="mb-2"><strong>Base Products</strong> are your master catalogue — defined once and assigned to branches.</p>
+      <p class="mb-2"><strong>Supplier (Required)</strong> — every product links to a supplier which determines its category.</p>
       <p class="mb-2"><strong>Default Prices</strong> — selling and cost prices here apply to all branches by default. Branches can override individually.</p>
-      <p class="mb-0"><strong>Product vs Service / Active vs Inactive</strong> — both flagged via the Edit form. New entries default to Product and Active.</p>
+      <p class="mb-0"><strong>Product vs Service</strong> — flagged via the Edit form. New entries default to Product.</p>
     </div>
   </div></div>
 </div>
@@ -382,7 +293,6 @@
         </div>
         <ul class="nav nav-tabs nav-sm mb-3" role="tablist" style="font-size:12px;">
           <li class="nav-item"><button class="nav-link active py-1 px-2" data-bs-toggle="tab" data-bs-target="#vw-t1"><i class="ri-price-tag-3-line me-1"></i>Identity</button></li>
-          <li class="nav-item"><button class="nav-link py-1 px-2"        data-bs-toggle="tab" data-bs-target="#vw-t3"><i class="ri-archive-2-line me-1"></i>Wholesale</button></li>
           <li class="nav-item"><button class="nav-link py-1 px-2"        data-bs-toggle="tab" data-bs-target="#vw-t2"><i class="ri-money-dollar-circle-line me-1"></i>Pricing</button></li>
         </ul>
         <div class="tab-content">
@@ -393,14 +303,6 @@
               <div class="view-item"><label>Supplier</label><div class="view-val" id="vw-supplier"></div></div>
               <div class="view-item"><label>Type</label><div class="view-val" id="vw-type"></div></div>
               <div class="view-item full"><label>Description</label><div class="view-val" id="vw-description"></div></div>
-            </div>
-          </div>
-          <div class="tab-pane fade" id="vw-t3">
-            <div class="view-grid">
-              <div class="view-item"><label>Pack Unit</label><div class="view-val" id="vw-pack-unit"></div></div>
-              <div class="view-item"><label>Units per Pack</label><div class="view-val" id="vw-units-per-pack"></div></div>
-              <div class="view-item"><label>Min Order Quantity</label><div class="view-val" id="vw-min-order"></div></div>
-              <div class="view-item"><label>Status</label><div class="view-val" id="vw-active"></div></div>
             </div>
           </div>
           <div class="tab-pane fade" id="vw-t2">
@@ -470,23 +372,6 @@
               <option value="Box"><option value="Carton"><option value="Pack"><option value="Pair">
               <option value="Dozen"><option value="Bag"><option value="Bottle"><option value="Metre"><option value="Service">
             </datalist>
-          </div>
-          <div class="row g-2 mb-3">
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Pack Unit <small class="text-muted fw-normal">(optional)</small></label>
-              <input class="form-control" type="text" id="new-pack-unit" list="newPackUnitOptions" placeholder="Carton, Pallet, Box…" autocomplete="off" />
-              <datalist id="newPackUnitOptions">
-                <option value="Carton"><option value="Pallet"><option value="Box"><option value="Bag"><option value="Crate">
-              </datalist>
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Units per Pack <small class="text-muted fw-normal">(optional)</small></label>
-              <input class="form-control" type="number" step="0.01" min="0" id="new-units-per-pack" placeholder="e.g. 24" />
-            </div>
-          </div>
-          <div class="mb-3">
-            <label class="form-label fw-semibold" style="font-size:13px">Min Order Quantity</label>
-            <input class="form-control" type="number" step="0.01" min="0" id="new-min-order" placeholder="1" value="1" />
           </div>
           <div class="mb-3">
             <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU — optional)</small></label>
@@ -738,17 +623,6 @@
             </a>
           </div>
         </div>
-        <div class="bulk-section">
-          <div class="bulk-section-title"><i class="ri-toggle-line me-1"></i>Set Status</div>
-          <div class="d-flex gap-2">
-            <a href="#" class="btn btn-sm btn-primary text-white flex-fill" id="bulkMarkActiveBtn">
-              <i class="ri-checkbox-circle-line me-1"></i>Mark Active
-            </a>
-            <a href="#" class="btn btn-sm btn-secondary text-white flex-fill" id="bulkMarkInactiveBtn">
-              <i class="ri-close-circle-line me-1"></i>Mark Inactive
-            </a>
-          </div>
-        </div>
         <div class="d-grid mt-1">
           <a href="#" class="btn btn-danger" id="deleteSelectedBtn">
             <i class="ri-delete-bin-line me-1"></i>Delete Selected
@@ -801,23 +675,6 @@
             <label class="form-label fw-semibold" style="font-size:13px">Unit of Measure <span class="text-danger">*</span></label>
             <input class="form-control form-control-sm" type="text" id="editUnit" autocomplete="off" required />
           </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Pack Unit <small class="text-muted fw-normal">(optional)</small></label>
-              <input class="form-control form-control-sm" type="text" id="editPackUnit" list="editPackUnitOptions" autocomplete="off" />
-              <datalist id="editPackUnitOptions">
-                <option value="Carton"><option value="Pallet"><option value="Box"><option value="Bag"><option value="Crate">
-              </datalist>
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold" style="font-size:13px">Units per Pack</label>
-              <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editUnitsPerPack" placeholder="e.g. 24" />
-            </div>
-          </div>
-          <div class="mb-2">
-            <label class="form-label fw-semibold" style="font-size:13px">Min Order Quantity</label>
-            <input class="form-control form-control-sm" type="number" step="0.01" min="0" id="editMinOrder" placeholder="1" />
-          </div>
           <div class="mb-2">
             <label class="form-label fw-semibold" style="font-size:13px">Code <small class="text-muted fw-normal">(SKU — optional)</small></label>
             <input class="form-control form-control-sm" type="text" id="editCode" autocomplete="off" />
@@ -826,39 +683,20 @@
             <label class="form-label fw-semibold" style="font-size:13px">Description</label>
             <textarea class="form-control form-control-sm" id="editDescription" rows="2"></textarea>
           </div>
-          <div class="row g-2 mb-2">
-            <div class="col-6">
-              <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
-              <div class="d-flex gap-3">
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="is_product" id="editIsProductYes" value="1">
-                  <label class="form-check-label" for="editIsProductYes">
-                    <span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="is_product" id="editIsProductNo" value="0">
-                  <label class="form-check-label" for="editIsProductNo">
-                    <span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>
-                  </label>
-                </div>
+          <div class="mb-2">
+            <label class="form-label fw-semibold d-block" style="font-size:13px">Type</label>
+            <div class="d-flex gap-3">
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_product" id="editIsProductYes" value="1">
+                <label class="form-check-label" for="editIsProductYes">
+                  <span class="type-badge-product"><i class="ri-box-3-line me-1"></i>Product</span>
+                </label>
               </div>
-            </div>
-            <div class="col-6">
-              <label class="form-label fw-semibold d-block" style="font-size:13px">Status</label>
-              <div class="d-flex gap-3">
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="is_active" id="editIsActiveYes" value="1">
-                  <label class="form-check-label" for="editIsActiveYes">
-                    <span class="status-badge-active"><i class="ri-checkbox-circle-line me-1"></i>Active</span>
-                  </label>
-                </div>
-                <div class="form-check">
-                  <input class="form-check-input" type="radio" name="is_active" id="editIsActiveNo" value="0">
-                  <label class="form-check-label" for="editIsActiveNo">
-                    <span class="status-badge-inactive"><i class="ri-close-circle-line me-1"></i>Inactive</span>
-                  </label>
-                </div>
+              <div class="form-check">
+                <input class="form-check-input" type="radio" name="is_product" id="editIsProductNo" value="0">
+                <label class="form-check-label" for="editIsProductNo">
+                  <span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>
+                </label>
               </div>
             </div>
           </div>
@@ -913,25 +751,6 @@ $(document).ready(function () {
             : '<span class="type-badge-service"><i class="ri-service-line me-1"></i>Service</span>';
     }
 
-    function statusBadge(isActive) {
-        return parseInt(isActive) === 1
-            ? '<span class="status-badge-active"><i class="ri-checkbox-circle-line me-1"></i>Active</span>'
-            : '<span class="status-badge-inactive"><i class="ri-close-circle-line me-1"></i>Inactive</span>';
-    }
-
-    function fmtQty(val) {
-        if (val === null || val === '' || val === undefined) return null;
-        var n = parseFloat(val);
-        if (isNaN(n)) return null;
-        return n.toLocaleString('en-US', { maximumFractionDigits: 2 });
-    }
-
-    function packLabel(p) {
-        if (!p.pack_unit) return '—';
-        var qty = fmtQty(p.units_per_pack);
-        return p.pack_unit + (qty !== null ? ' (' + qty + ')' : '');
-    }
-
     function buildRow(p) {
         var spCell = (p.selling_price !== null && p.selling_price !== '')
             ? '<span class="price-cell">' + fmtPrice(p.selling_price) + '</span>'
@@ -939,7 +758,6 @@ $(document).ready(function () {
         var cpCell = (p.cost_price !== null && p.cost_price !== '')
             ? '<span style="font-size:12px;color:#6c757d">' + fmtPrice(p.cost_price) + '</span>'
             : '<span class="text-muted" style="font-size:12px">—</span>';
-        var minOrderCell = fmtQty(p.min_order_quantity) || '—';
         function d(v) { return (v || '').toString().replace(/"/g, '&quot;'); }
 
         return `<tr id="${p.row}">
@@ -949,8 +767,6 @@ $(document).ready(function () {
             </td>
             <td>${p.code || '—'}</td>
             <td>${p.unit}</td>
-            <td><span class="pack-cell">${packLabel(p)}</span></td>
-            <td><span class="pack-cell">${minOrderCell}</span></td>
             <td>${cpCell}</td>
             <td>${spCell}</td>
             <td>
@@ -958,11 +774,9 @@ $(document).ready(function () {
                    data-id="${p.id}" data-name="${d(p.name)}" data-description="${d(p.description)}"
                    data-supplier-id="${p.supplier_id}" data-supplier-name="${d(p.supplier_name)}"
                    data-code="${d(p.code)}" data-unit="${d(p.unit)}"
-                   data-pack-unit="${d(p.pack_unit)}" data-units-per-pack="${p.units_per_pack !== null ? p.units_per_pack : ''}"
-                   data-min-order="${p.min_order_quantity !== null ? p.min_order_quantity : ''}"
                    data-sell="${p.selling_price !== null ? p.selling_price : ''}"
                    data-cost="${p.cost_price    !== null ? p.cost_price    : ''}"
-                   data-is-product="${p.is_product}" data-is-active="${p.is_active}">
+                   data-is-product="${p.is_product}">
                    <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="editDataBtn"
@@ -970,11 +784,9 @@ $(document).ready(function () {
                    data-name="${d(p.name)}" data-description="${d(p.description)}"
                    data-supplier-id="${p.supplier_id}"
                    data-code="${d(p.code)}" data-unit="${d(p.unit)}"
-                   data-pack-unit="${d(p.pack_unit)}" data-units-per-pack="${p.units_per_pack !== null ? p.units_per_pack : ''}"
-                   data-min-order="${p.min_order_quantity !== null ? p.min_order_quantity : ''}"
                    data-sell="${p.selling_price !== null ? p.selling_price : ''}"
                    data-cost="${p.cost_price    !== null ? p.cost_price    : ''}"
-                   data-is-product="${p.is_product}" data-is-active="${p.is_active}">
+                   data-is-product="${p.is_product}">
                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
                 </a>
                 <a href="#" class="deleteDataBtn"
@@ -1263,7 +1075,7 @@ $(document).ready(function () {
         var blob = new Blob([csv], { type:'text/csv' });
         var url  = URL.createObjectURL(blob);
         var a    = document.createElement('a');
-        a.href   = url; a.download = 'wholesale_base_products_sample.csv'; a.click();
+        a.href   = url; a.download = 'base_products_sample.csv'; a.click();
         URL.revokeObjectURL(url);
     });
 
@@ -1379,7 +1191,7 @@ $(document).ready(function () {
         e.preventDefault();
         var rows = bpLoadFromStorage(BP_CSV_INVALID_LS_KEY) || bpCsvInvalidRows;
         if (!rows.length) { toastr.info('No invalid rows to download.', 'Info'); return; }
-        bpDownloadRowsAsExcel(rows, 'wholesale_base_products_invalid_rows.xlsx', 'Invalid Rows');
+        bpDownloadRowsAsExcel(rows, 'base_products_invalid_rows.xlsx', 'Invalid Rows');
     });
 
     /**
@@ -1535,7 +1347,7 @@ $(document).ready(function () {
             if (allFailedRows.length) {
                 $('#bpDownloadFailedBtn').on('click', function(e) {
                     e.preventDefault();
-                    bpDownloadRowsAsExcel(allFailedRows, 'wholesale_base_products_failed_rows.xlsx', 'Failed Rows');
+                    bpDownloadRowsAsExcel(allFailedRows, 'base_products_failed_rows.xlsx', 'Failed Rows');
                 });
             }
 
@@ -1570,13 +1382,9 @@ $(document).ready(function () {
             supplierName:b.data('supplier-name'),
             code:        b.data('code'),
             unit:        b.data('unit'),
-            packUnit:    b.data('pack-unit'),
-            unitsPerPack:b.data('units-per-pack'),
-            minOrder:    b.data('min-order'),
             sell:        b.data('sell'),
             cost:        b.data('cost'),
             isProduct:   b.data('is-product'),
-            isActive:    b.data('is-active'),
             editRow:     b.closest('tr').attr('id')
         };
 
@@ -1587,16 +1395,12 @@ $(document).ready(function () {
 
         $('#vw-name').text(_viewData.name);
         $('#vw-code-line').text(_viewData.code ? 'Code: ' + _viewData.code : '');
-        $('#vw-badges').html(typeBadge(_viewData.isProduct) + statusBadge(_viewData.isActive));
+        $('#vw-badges').html(typeBadge(_viewData.isProduct));
         $('#vw-code').html(mv(_viewData.code));
         $('#vw-unit').html(mv(_viewData.unit));
         $('#vw-supplier').html(mv(_viewData.supplierName));
         $('#vw-type').html(typeBadge(_viewData.isProduct));
         $('#vw-description').html(mv(_viewData.description));
-        $('#vw-pack-unit').html(mv(_viewData.packUnit));
-        $('#vw-units-per-pack').html(mv(fmtQty(_viewData.unitsPerPack)));
-        $('#vw-min-order').html(mv(fmtQty(_viewData.minOrder)));
-        $('#vw-active').html(statusBadge(_viewData.isActive));
         $('#vw-sell').html(_viewData.sell !== '' && _viewData.sell !== null ? fmtPrice(_viewData.sell) : '<span style="color:#9ca3af;font-style:italic;">—</span>');
         $('#vw-cost').html(_viewData.cost !== '' && _viewData.cost !== null ? fmtPrice(_viewData.cost) : '<span style="color:#9ca3af;font-style:italic;">—</span>');
 
@@ -1621,9 +1425,8 @@ $(document).ready(function () {
     $('#cancelDataBtn').on('click', function(e) { e.preventDefault(); $('#newDataModal').modal('hide'); });
 
     function resetNewModal() {
-        $('#new-name, #new-code, #new-description, #new-selling-price, #new-cost-price, #new-pack-unit, #new-units-per-pack').val('');
+        $('#new-name, #new-code, #new-description, #new-selling-price, #new-cost-price').val('');
         $('#new-unit').val('Each');
-        $('#new-min-order').val('1');
         $('#new-supplier').val('');
     }
 
@@ -1640,17 +1443,14 @@ $(document).ready(function () {
             url:     '{{ route("wholesale.operations.baseproducts.insert") }}',
             timeout: 60000,
             data: {
-                name:               name,
-                supplier_id:        $('#new-supplier').val(),
-                unit:               $('#new-unit').val() || 'Each',
-                pack_unit:          $('#new-pack-unit').val(),
-                units_per_pack:     $('#new-units-per-pack').val(),
-                min_order_quantity: $('#new-min-order').val(),
-                code:               $('#new-code').val(),
-                description:        $('#new-description').val(),
-                selling_price:      $('#new-selling-price').val(),
-                cost_price:         $('#new-cost-price').val(),
-                _token:             '{{ csrf_token() }}'
+                name:          name,
+                supplier_id:   $('#new-supplier').val(),
+                unit:          $('#new-unit').val() || 'Each',
+                code:          $('#new-code').val(),
+                description:   $('#new-description').val(),
+                selling_price: $('#new-selling-price').val(),
+                cost_price:    $('#new-cost-price').val(),
+                _token:        '{{ csrf_token() }}'
             },
             beforeSend: function() { $('#progressBar').show(); },
             complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
@@ -1682,18 +1482,12 @@ $(document).ready(function () {
         $('#editSupplier').val(b.data('supplier-id'));
         $('#editCode').val(b.data('code'));
         $('#editUnit').val(b.data('unit'));
-        $('#editPackUnit').val(b.data('pack-unit'));
-        $('#editUnitsPerPack').val(b.data('units-per-pack'));
-        $('#editMinOrder').val(b.data('min-order'));
         $('#editDescription').val(b.data('description'));
         $('#editSellingPrice').val(b.data('sell'));
         $('#editCostPrice').val(b.data('cost'));
         var ip = parseInt(b.data('is-product'));
         if (ip === 1) $('#editIsProductYes').prop('checked', true);
         else          $('#editIsProductNo').prop('checked',  true);
-        var ia = parseInt(b.data('is-active'));
-        if (ia === 0) $('#editIsActiveNo').prop('checked', true);
-        else          $('#editIsActiveYes').prop('checked', true);
         $('#editDataModal').modal('show');
     });
 
@@ -1715,20 +1509,16 @@ $(document).ready(function () {
             url:     '{{ route("wholesale.operations.baseproducts.update") }}',
             timeout: 60000,
             data: {
-                id:                 $('#editId').val(),
-                name:               name,
-                supplier_id:        supplier,
-                unit:               $('#editUnit').val(),
-                pack_unit:          $('#editPackUnit').val(),
-                units_per_pack:     $('#editUnitsPerPack').val(),
-                min_order_quantity: $('#editMinOrder').val(),
-                code:               $('#editCode').val(),
-                description:        $('#editDescription').val(),
-                is_product:         $('input[name="is_product"]:checked').val() || '1',
-                is_active:          $('input[name="is_active"]:checked').val()  || '1',
-                selling_price:      $('#editSellingPrice').val(),
-                cost_price:         $('#editCostPrice').val(),
-                _token:             '{{ csrf_token() }}'
+                id:            $('#editId').val(),
+                name:          name,
+                supplier_id:   supplier,
+                unit:          $('#editUnit').val(),
+                code:          $('#editCode').val(),
+                description:   $('#editDescription').val(),
+                is_product:    $('input[name="is_product"]:checked').val() || '1',
+                selling_price: $('#editSellingPrice').val(),
+                cost_price:    $('#editCostPrice').val(),
+                _token:        '{{ csrf_token() }}'
             },
             beforeSend: function() { $('#progressBar').show(); },
             complete:   function() { $('#progressBar').hide(); self.prop('disabled', false); },
@@ -1874,31 +1664,6 @@ $(document).ready(function () {
     }
     $('#bulkMarkProductBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(1); });
     $('#bulkMarkServiceBtn').on('click', function(e) { e.preventDefault(); doBulkStatus(0); });
-
-    // ════════════════════════════════════════════════════════════════════════
-    //  BULK ACTIVE / INACTIVE
-    // ════════════════════════════════════════════════════════════════════════
-    function doBulkActive(isActive) {
-        var selected = []; $('.selectRow:checked').each(function() { selected.push($(this).val()); });
-        if (!selected.length) return;
-        $.ajaxSetup({ headers:{'X-CSRF-TOKEN': $('meta[name="csrf-token"]').attr('content')} });
-        $.ajax({
-            type: 'POST', url: '{{ route("wholesale.operations.baseproducts.bulkactive") }}',
-            data: { ids:selected, is_active:isActive, _token:'{{ csrf_token() }}' }, timeout:60000,
-            beforeSend: function() { $('#progressBar').show(); },
-            complete:   function() { $('#progressBar').hide(); },
-            success: function(data) {
-                if (data.status === 201) {
-                    toastr.success(data.success, 'Success');
-                    $.each(data.products, function(i,p) { table.row('#'+p.row).remove(); table.row.add($(buildRow(p))); });
-                    table.draw(false); updateSelectedCount(); $('#bulkActionsModal').modal('hide');
-                } else { toastr.error(data.error || 'Failed.', 'Error'); }
-            },
-            error: handleAjaxError
-        });
-    }
-    $('#bulkMarkActiveBtn').on('click',   function(e) { e.preventDefault(); doBulkActive(1); });
-    $('#bulkMarkInactiveBtn').on('click', function(e) { e.preventDefault(); doBulkActive(0); });
 
     // ════════════════════════════════════════════════════════════════════════
     //  BULK SUPPLIER

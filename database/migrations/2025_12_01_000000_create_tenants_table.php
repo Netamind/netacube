@@ -3,17 +3,14 @@
 use Illuminate\Database\Migrations\Migration;
 use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\Schema;
-use Illuminate\Support\Facades\DB;
 
 return new class extends Migration
 {
     public function up(): void
     {
-        // Disabled so this table can be created (and reference subscription_plans /
-        // currency via FK) regardless of migration run order — MySQL normally
-        // refuses to add a foreign key to a table that doesn't exist yet.
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
-
+        // No FOREIGN_KEY_CHECKS toggling needed: this migration is timestamped
+        // to run after users, subscription_plans, and currency, so both FK
+        // targets already exist when this table is created.
         Schema::create('tenants', function (Blueprint $table) {
             $table->id();
 
@@ -68,25 +65,16 @@ return new class extends Migration
 
             $table->timestamps();
 
-            // Foreign keys
+            // Foreign keys — both targets already exist at this point in the
+            // migration order (users, subscription_plans, currency).
             $table->foreign('approved_by')->references('id')->on('users')->nullOnDelete();
             $table->foreign('subscription_plan')->references('id')->on('subscription_plans')->nullOnDelete();
-
-            // NOTE: requires the `currency` table to already exist at
-            // migration time — same ordering requirement as subscription_plan
-            // above. Keep the currency migration's timestamp earlier than
-            // this file's if you're setting up a fresh database.
             $table->foreign('custom_currency')->references('code')->on('currency')->nullOnDelete();
         });
-
-        // Restore normal enforcement for every migration that runs after this one.
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
     }
 
     public function down(): void
     {
-        DB::statement('SET FOREIGN_KEY_CHECKS=0;');
         Schema::dropIfExists('tenants');
-        DB::statement('SET FOREIGN_KEY_CHECKS=1;');
     }
 };

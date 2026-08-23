@@ -2,10 +2,10 @@
 <html lang="en" data-menu-color="brand">
 <head>
     <meta charset="utf-8" />
-    <title>Netacube - The ultimate business management system</title>
+    <title>@yield('title', 'Netacube - The ultimate business management system')</title>
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <meta content="A fully featured admin theme which can be used to build CRM, CMS, etc." name="description" />
-    <meta content="Coderthemes" name="author" />
+    <meta content="@yield('meta_description', 'Netacube is an all-in-one business management platform — sales, inventory, staff, payroll, documents and multi-branch reporting, built to keep your business running online or offline.')" name="description" />
+    <meta content="Netacube" name="author" />
 
     <!-- Favicon -->
     <link rel="icon" href="{{ asset('dashboard/images/icon.png') }}" type="image/x-icon">
@@ -42,6 +42,7 @@
     <style>
         /* ── Modal headers — same classes/values as operations/retail/branchproducts.blade.php ── */
         .mh-danger { background:linear-gradient(135deg,#c0392b,#e74c3c); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
+        .mh-primary { background:linear-gradient(135deg,#4B5EBD,#576CC0); padding:14px 18px !important; border-bottom:none; border-radius:8px 8px 0 0; }
         .mh-title  { color:#fff; font-size:15px; font-weight:600; display:flex; align-items:center; gap:6px; }
         .mh-close  { filter:brightness(0) invert(1); opacity:.8; }
         .mh-close:hover { opacity:1; }
@@ -227,16 +228,14 @@
                                            kept visible so it's easy to build
                                            against next.
 
-                    Deliberately excluded: a Sales section. Wholesale sales
-                    (orders, invoicing, customer-facing POS/portal) lives on
-                    its own separate dashboard — this one is scoped to
-                    Wholesale INVENTORY MANAGEMENT only.
-
                     GENERAL              — Dashboard, Inventory, Actioncenter, Products (flat);
                                            Directory: Warehouses, Suppliers, Wholesale Customers (dropdown)
-                    STOCK MANAGEMENT     — Transactions, Orders, Stocktaking (dropdowns)
-                    DOCUMENTS            — Quotations, Deliverynotes, Invoices (dropdowns) — supplier
-                                           paperwork trail, not customer-facing sales docs
+                    STOCK MANAGEMENT     — Transactions, Stocktaking (dropdowns)
+                    SALES                — Cashsales (Today/Yesterday/History, dropdown — History
+                                           opens a date-picker modal, "View" navigates to the
+                                           dated results), Quotations, Deliverynotes, Invoices
+                                           (dropdowns) — Cashsales is the customer-facing side,
+                                           the other three stay the supplier paperwork trail
                     EXPENDITURES         — Expenses, Payables (dropdowns)
                     REPORTS              — Stock, Finances (dropdowns) — no Sales report here
                     SETTINGS             — Dashboard (flat), Logout (flat)
@@ -306,7 +305,8 @@
                             <ul class="side-nav-second-level">
                                 <li><a href="{{ route('wholesale.operations.branches') }}">Warehouses</a></li>          {{-- Warehouse / depot locations — route reserved, WholesaleOperationsController@showBranchesView not yet built --}}
                                 <li><a href="{{ route('wholesale.operations.suppliers') }}">Suppliers</a></li>           {{-- Vendor registry — route reserved, WholesaleOperationsController@showSuppliersView not yet built --}}
-                                <li><a href="{{ route('wholesale.operations.customers') }}">Wholesale Customers</a></li> {{-- Bulk-buyer accounts — NOT implemented yet (WholesaleCustomersController stub) --}}
+                                <li><a href="{{ route('wholesale.operations.customers') }}">Customers</a></li> {{-- Bulk-buyer accounts — NOT implemented yet (WholesaleCustomersController stub) --}}
+                                 <li><a href="{{ route('wholesale.operations.customers') }}">Categories</a></li> 
                             </ul>
                         </div>
                     </li>
@@ -319,28 +319,10 @@
                         </a>
                     </li>
 
-                    <!-- Price Changes: read-only log fed by Base + Branch Products edits -->
-                    <li class="side-nav-item">
-                        <a href="{{ route('wholesale.operations.pricechanges') }}" class="side-nav-link">
-                            <i class="ri-price-tag-2-line"></i>
-                            <span>Price Changes</span>
-                        </a>
-                    </li>
-
-                    <!-- Product category hierarchy management -->
-                    <li class="side-nav-item">
-                        <a href="#" class="side-nav-link">
-                            <i class="ri-list-check-3"></i>
-                            <span>Categories</span>
-                        </a>
-                    </li>
-
-
                     <!-- ==================== STOCK MANAGEMENT ==================== -->
                     {{--
                         Covers the full physical stock lifecycle across warehouses:
                           Transactions — damages, expiries, usages, transfers
-                          Orders      — purchase order creation and processing
                           Stocktaking — periodic partial / full counts
                     --}}
                     <li class="side-nav-title mt-2">Stock Management</li>
@@ -362,23 +344,6 @@
                         </div>
                     </li>
 
-                    <!-- Orders: purchase orders, split by category -->
-                    <li class="side-nav-item">
-                        <a data-bs-toggle="collapse" href="#sidebarWholesaleOrders" aria-expanded="false" class="side-nav-link">
-                            <i class="ri-shopping-cart-2-line"></i>
-                            <span>Orders</span>
-                            <span class="menu-arrow"></span>
-                        </a>
-                        <div class="collapse" id="sidebarWholesaleOrders">
-                            <ul class="side-nav-second-level">
-                                <li><a href="#">Regular</a></li>
-                                <li><a href="#">Emergency</a></li>
-                                <li><a href="#">Bulk</a></li>
-                                <li><a href="#">Rare</a></li>
-                            </ul>
-                        </div>
-                    </li>
-
                     <!-- Stocktaking: scheduled partial or full physical counts and historical results -->
                     <li class="side-nav-item">
                         <a data-bs-toggle="collapse" href="#sidebarWholesaleStocktaking" aria-expanded="false" class="side-nav-link">
@@ -388,22 +353,40 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleStocktaking">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Partial Stocktaking</a></li>
-                                <li><a href="#">Full Stocktaking</a></li>
+                                <li><a href="#">Partialstocktaking</a></li>
+                                <li><a href="#">Fullstocktaking</a></li>
                             </ul>
                         </div>
                     </li>
 
 
-                    <!-- ==================== DOCUMENTS ==================== -->
+                    <!-- ==================== SALES ==================== -->
                     {{--
-                        Procurement paperwork trail — supplier-facing, not the
-                        customer sales interface: Quotations (pre-PO pricing),
-                        Purchase Orders (already under Stock Management ▸
-                        Orders), Deliverynotes (goods received from
-                        suppliers), Invoices (supplier billing tied to POs).
+                        Cashsales — over-the-counter/customer-facing sales,
+                        filtered by Today, Yesterday, or a picked History date.
+                        Below it, the rest of this section is still the
+                        procurement paperwork trail — supplier-facing, not
+                        customer sales: Quotations (pre-PO pricing),
+                        Deliverynotes (goods received from suppliers),
+                        Invoices (supplier billing tied to POs).
                     --}}
-                    <li class="side-nav-title mt-2">Documents</li>
+                    <li class="side-nav-title mt-2">Sales</li>
+
+                    <!-- Cashsales: customer-facing sales, filterable by Today / Yesterday / a picked date -->
+                    <li class="side-nav-item">
+                        <a data-bs-toggle="collapse" href="#sidebarWholesaleCashsales" aria-expanded="false" class="side-nav-link">
+                            <i class="ri-money-dollar-circle-line"></i>
+                            <span>Cashsales</span>
+                            <span class="menu-arrow"></span>
+                        </a>
+                        <div class="collapse" id="sidebarWholesaleCashsales">
+                            <ul class="side-nav-second-level">
+                                <li><a href="#">Today</a></li>          {{-- route reserved — add to WholesaleOperationsController when built --}}
+                                <li><a href="#">Yesterday</a></li>  {{-- route reserved --}}
+                                <li><a href="#" data-bs-toggle="modal" data-bs-target="#cashsalesHistoryModal">History</a></li>  {{-- opens date-picker modal below --}}
+                            </ul>
+                        </div>
+                    </li>
 
                     <!-- Quotations: supplier price quotes received before raising a PO -->
                     <li class="side-nav-item">
@@ -414,8 +397,8 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleQuotations">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">All Quotations</a></li>
-                                <li><a href="#">Pending Approval</a></li>
+                                <li><a href="#">Quotations</a></li>
+                                <li><a href="#">Pending</a></li>
                                 <li><a href="#">Expired</a></li>
                             </ul>
                         </div>
@@ -430,8 +413,8 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleDeliverynotes">
                             <ul class="side-nav-second-level">
-                                <li><a href="{{ route('wholesale.operations.deliverynotes') }}">All Deliverynotes</a></li> {{-- NOT implemented yet — route reserved --}}
-                                <li><a href="#">Pending Reconciliation</a></li>
+                                <li><a href="{{ route('wholesale.operations.deliverynotes') }}">Deliverynotes</a></li> {{-- NOT implemented yet — route reserved --}}
+                                <li><a href="#">Pending</a></li>
                                 <li><a href="#">Discrepancies</a></li>
                             </ul>
                         </div>
@@ -446,7 +429,7 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleInvoices">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">All Invoices</a></li>
+                                <li><a href="#">Invoices</a></li>
                                 <li><a href="#">Unpaid</a></li>
                                 <li><a href="#">Paid</a></li>
                                 <li><a href="#">Overdue</a></li>
@@ -486,8 +469,8 @@
                         </a>
                         <div class="collapse" id="sidebarWholesalePayables">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Outstanding Balances</a></li>  {{-- Unpaid supplier invoices, by amount owed --}}
-                                <li><a href="#">Payment History</a></li>      {{-- Settled payment records --}}
+                                <li><a href="#">Outstanding</a></li>  {{-- Unpaid supplier invoices, by amount owed --}}
+                                <li><a href="#">History</a></li>      {{-- Settled payment records --}}
                             </ul>
                         </div>
                     </li>
@@ -510,14 +493,14 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleStockReports">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Warehouse Values</a></li>
-                                <li><a href="{{ route('wholesale.operations.auditlogs') }}">Audit Logs</a></li> {{-- NOT implemented yet — route reserved, lands on a "coming soon" notice for now --}}
+                                <li><a href="#">Values</a></li>
+                                <li><a href="{{ route('wholesale.operations.auditlogs') }}">Auditlogs</a></li> {{-- NOT implemented yet — route reserved, lands on a "coming soon" notice for now --}}
                                 <li><a href="#">Valuation</a></li>    {{-- Current stock value at cost & wholesale price --}}
                                 <li><a href="#">Movement</a></li>     {{-- Stock flow in/out over time --}}
                                 <li><a href="#">Shrinkage</a></li>    {{-- Losses: theft, damage, waste --}}
                                 <li><a href="#">Expiry</a></li>       {{-- Items approaching or past expiry date --}}
                                 <li><a href="#">Reordering</a></li>   {{-- SKUs below reorder threshold --}}
-                                <li><a href="#">Batch Report</a></li> {{-- Batch / lot traceability --}}
+                                <li><a href="#">Batch</a></li> {{-- Batch / lot traceability --}}
                             </ul>
                         </div>
                     </li>
@@ -531,9 +514,9 @@
                         </a>
                         <div class="collapse" id="sidebarWholesaleFinancialReports">
                             <ul class="side-nav-second-level">
-                                <li><a href="#">Profit & Loss</a></li>       {{-- Revenue minus costs for a period --}}
-                                <li><a href="#">Margin Analysis</a></li>     {{-- Gross margin by product / category --}}
-                                <li><a href="#">Expenditure Summary</a></li> {{-- Total spend breakdown --}}
+                                <li><a href="#">Profit</a></li>       {{-- Revenue minus costs for a period --}}
+                                <li><a href="#">Margin</a></li>     {{-- Gross margin by product / category --}}
+                                <li><a href="#">Expenditure</a></li> {{-- Total spend breakdown --}}
                                 <li><a href="#">Debtors</a></li>             {{-- Amounts owed to the business --}}
                                 <li><a href="#">Payables</a></li>            {{-- Amounts the business owes --}}
                             </ul>
@@ -762,6 +745,48 @@
 
         $__sessionStartedAt = session('retail_session_started_at');
     @endphp
+
+    {{--
+        Cashsales ▸ History modal — pick a date, "View" is meant to navigate
+        to the Cashsales history route for that date. Route not built yet,
+        so it's a "#" placeholder below (see JS) — swap in
+        route('wholesale.operations.cashsales.history') once it exists.
+    --}}
+    <div class="modal fade" id="cashsalesHistoryModal" tabindex="-1" aria-hidden="true">
+        <div class="modal-dialog"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">
+            <div class="modal-header mh-primary"><h5 class="modal-title mh-title"><i class="ri-calendar-line"></i> Cashsales History</h5><button type="button" class="btn-close mh-close" data-bs-dismiss="modal"></button></div>
+            <div class="modal-body py-4">
+                <label for="cashsalesHistoryDate" class="form-label">Select date</label>
+                <input type="date" class="form-control" id="cashsalesHistoryDate" max="{{ date('Y-m-d') }}">
+            </div>
+            <div class="modal-footer justify-content-end gap-2" style="padding:10px 20px 18px;">
+                <button type="button" class="btn btn-light btn-sm px-4" data-bs-dismiss="modal">Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm px-4" id="cashsalesHistoryViewBtn">View</button>
+            </div>
+        </div></div>
+    </div>
+
+    <script>
+    (function () {
+        var historyBaseUrl = '#'; // TODO: route('wholesale.operations.cashsales.history') once it exists
+
+        document.getElementById('cashsalesHistoryViewBtn').addEventListener('click', function () {
+            var date = document.getElementById('cashsalesHistoryDate').value;
+
+            if (!date) {
+                toastr.error('Please select a date');
+                return;
+            }
+
+            if (historyBaseUrl === '#') {
+                toastr.info('Cashsales history route is not wired up yet');
+                return;
+            }
+
+            window.location.href = historyBaseUrl + '?date=' + date;
+        });
+    })();
+    </script>
 
     <div class="modal fade" id="idleTimeoutWarningModal" data-bs-backdrop="static" data-bs-keyboard="false" tabindex="-1" aria-hidden="true">
       <div class="modal-dialog"><div class="modal-content" style="border:none;border-radius:10px;overflow:hidden;box-shadow:0 8px 32px rgba(0,0,0,0.18);">

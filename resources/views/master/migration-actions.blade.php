@@ -569,14 +569,21 @@ $(document).ready(function () {
             type: 'POST',
             url:  "{{ route('master.tenant.migrations.reset', $tenant->id) }}",
             data: { _token: csrfToken, confirmation: $('#confirmation-input').val().trim() },
-            timeout: 120000,
+            timeout: 30000, // just a DROP TABLE loop now — should never take long
             complete: function () { self.prop('disabled', false).text('Confirm Delete'); },
             success:  function (data) {
                 if (data.success) {
-                    toastr.success(data.success || 'Database reset!', 'Success');
-                    setTimeout(() => location.reload(), 2000);
+                    toastr.success('All tables dropped. Rebuilding schema…', 'Success');
+                    $('#refreshModal').modal('hide');
+                    // Reuse the exact same one-migration-per-request loop the
+                    // "Run" button uses — this is what actually keeps every
+                    // step clear of PHP's execution timeout. The reset
+                    // endpoint's job was only ever to clear the tables.
+                    $('#runModal').modal('show');
+                    runMigrationsSequentially();
                 } else {
                     toastr.error(data.error || 'Reset failed', 'Error');
+                    $('#refreshModal').modal('hide');
                 }
             },
             error: function (xhr, status) {
@@ -584,10 +591,9 @@ $(document).ready(function () {
                           : xhr.status === 419    ? 'Session expired — refresh the page.'
                           : 'Unexpected error (' + xhr.status + ').';
                 toastr.error(msg, 'Error');
+                $('#refreshModal').modal('hide');
             },
         });
-
-        $('#refreshModal').modal('hide');
     });
 });
 </script>

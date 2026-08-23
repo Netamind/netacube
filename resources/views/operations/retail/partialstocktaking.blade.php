@@ -900,7 +900,7 @@ function renderPstCart() {
     tbody.innerHTML = pstCart.map(c => {
         const diff = c.qty - (c.expected || 0);
         const cls  = Math.abs(diff) < 0.0001 ? 'pst-diff-zero' : (diff > 0 ? 'pst-diff-pos' : 'pst-diff-neg');
-        const diffLabel = Math.abs(diff) < 0.0001 ? '0' : ((diff > 0 ? '+' : '') + pstFmt(diff));
+        const diffLabel = Math.abs(diff) < 0.0001 ? '0' : pstFmt(diff); // natural sign — pstFmt already renders negatives with '-'; positives get no prefix
         return `<tr id="pstcrow_${pstEsc(c.client_uuid)}">
             <td>${pstEsc(c.name)}</td>
             <td>${pstEsc(c.unit)}</td>

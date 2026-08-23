@@ -531,6 +531,36 @@
 }
 .sd-pane-subbar-note { font-size: 11px; color: #8a8a8a; font-style: italic; }
 #sdRecentListWrap { max-height: 60vh; overflow-x: auto; overflow-y: auto; }
+#sdFailedListWrap { max-height: 60vh; overflow: auto; }
+#sdFailedTable { min-width: 480px; }
+#sdFailedTable thead th { position: sticky; top: 0; background: silver; z-index: 1; }
+#sdFailedTable td.sd-failed-reason { font-size: 11px; color: #7f1d1d; }
+.sd-tab-badge {
+    background: #dc2626; color: #fff; font-size: 10px; font-weight: 700;
+    min-width: 16px; height: 16px; border-radius: 8px;
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0 4px; margin-left: 2px;
+}
+.sd-failed-del-btn {
+    background: none; border: none; color: #dc2626; cursor: pointer;
+    font-size: 15px; padding: 2px 6px;
+}
+.sd-failed-del-btn:hover { color: #7f1d1d; }
+#clearFailedDataBtn {
+    background: #fff; color: #dc2626; border: 1.5px solid #dc2626; border-radius: 4px;
+    height: 32px; padding: 0 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+}
+#clearFailedDataBtn:hover { background: #fee2e2; }
+#downloadFailedExcelBtn {
+    background: #fff; color: #1e7a34; border: 1.5px solid #1e7a34; border-radius: 4px;
+    height: 32px; padding: 0 12px; font-size: 12px; font-weight: 700; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px;
+}
+#downloadFailedExcelBtn:hover { background: #e8f6ec; }
+#downloadFailedExcelBtn:disabled,
+#uploadFailedSalesBtn:disabled,
+#clearFailedDataBtn:disabled { opacity: .55; cursor: not-allowed; }
 
 /* — Clear Cloud Data warning / captcha modal — */
 #clearCloudWarnModal .modal-body { text-align: center; padding: 24px 22px 8px; }
@@ -710,6 +740,7 @@ input[type=number] { -moz-appearance: textfield; }
    moved to RECEIPT_CSS in the print-receipt script block below — that's
    the only place they're used, so that's the single source of truth. */
 
+
 /* ══ MOBILE LAYOUT (≤ 768px) ══════════════════════════════════ */
 @media (max-width: 768px) {
     /* On mobile content-page/content are zeroed, so add margin to card itself */
@@ -873,7 +904,7 @@ input[type=number] { -moz-appearance: textfield; }
             <div id="pos-left-col">
                 <div id="pos-search-row">
                     <div id="pos-search-wrap">
-                        <i class="ri-computer-line"></i>
+                        <i class="ri-smartphone-line"></i>
                         <input type="text" id="pos-search"
                                placeholder="Search product name or code"
                                autocomplete="off"
@@ -929,18 +960,13 @@ input[type=number] { -moz-appearance: textfield; }
 <input type="hidden" id="posUserId"     value="{{ $userId }}">
 <input type="hidden" id="posUserName"   value="{{ Auth::user()->name ?? Auth::id() }}">
 <input type="hidden" id="posBranchId"   value="{{ $branchId }}">
-<input type="hidden" id="posBranchName"    value="{{ $branchName }}">
+<input type="hidden" id="posBranchName" value="{{ $branchName }}">
 <input type="hidden" id="posBranchAddress" value="{{ $branchAddress }}">
-<input type="hidden" id="posBranchPhone"   value="{{ $branchPhone }}">
+<input type="hidden" id="posBranchPhone" value="{{ $branchPhone }}">
 <input type="hidden" id="posDate"       value="{{ $today }}">
 <input type="hidden" id="posDisplayDate" value="{{ $displayDate }}">
 
-{{-- ══ RECEIPT PRINT FRAME (DESKTOP ONLY) ═══════════════════════════════════
-     Empty placeholder iframe. printReceipt() writes a standalone receipt
-     document into it and calls THAT frame's own print() — not the main
-     window's — so only the receipt ever reaches paper. The frame is docked
-     off-canvas on the right at a narrow (80mm-ish) width and slides into
-     view for the moment printing happens, then slides back out. ═══════════ --}}
+{{-- ══ RECEIPT PRINT FRAME (DESKTOP ONLY) ═══════════════════════════════════ --}}
 <iframe id="receiptPrintFrame" title="Receipt" aria-hidden="true"></iframe>
 
 {{-- ══ CHECKOUT MODAL ════════════════════════════════════════════════════ --}}
@@ -998,6 +1024,14 @@ input[type=number] { -moz-appearance: textfield; }
                 <button type="button" class="sd-tab active" id="sdCloudTabBtn" onclick="switchSalesDataTab('cloud')">
                     <i class="ri-archive-line"></i> Cloud Data
                 </button>
+                <button type="button" class="sd-tab" id="sdFailedTabBtn" onclick="switchSalesDataTab('failed')">
+                    <i class="ri-error-warning-line"></i> Failed
+                    <span class="sd-tab-badge" id="sdFailedTabBadge" style="display:none;"></span>
+                </button>
+                <button type="button" class="sd-tab" id="sdLegacyFailedTabBtn" onclick="switchSalesDataTab('legacy')">
+                    <i class="ri-history-line"></i> Legacy Failed
+                    <span class="sd-tab-badge" id="sdLegacyFailedTabBadge" style="display:none;"></span>
+                </button>
                 <button type="button" class="sd-tab" id="sdRecentTabBtn" onclick="switchSalesDataTab('recent')">
                     <i class="ri-list-check"></i> Recently Sold
                 </button>
@@ -1027,6 +1061,65 @@ input[type=number] { -moz-appearance: textfield; }
                                         No pending sales.
                                     </td>
                                 </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Failed Sales pane — sales the server explicitly could not
+                     accept. Kept in localStorage as the FULL original sale row
+                     (product/unit/price/qty/date/time/transid/branch_product_id/
+                     user/branch/payment_method/etc, plus reason + failed_at),
+                     newest first, until the cashier deletes them or a retry
+                     upload succeeds. Keeping every original field — not just
+                     the ones shown in this table — is what lets "Upload Failed
+                     Sales" retry without any stray/incomplete records. --}}
+                <div id="sdFailedPane" style="display:none;">
+                    <div class="sd-pane-subbar">
+                        <span>Not uploaded: <b id="sdFailedCountLabel">0</b></span>
+                        <span class="sd-pane-subbar-note">Not retried automatically — download, retry, or delete</span>
+                    </div>
+                    <div id="sdFailedListWrap">
+                        <table class="table table-sm mb-0" id="sdFailedTable">
+                            <thead>
+                                <tr>
+                                    <th>Product</th>
+                                    <th class="text-center">Unit</th>
+                                    <th class="text-center">Qty</th>
+                                    <th class="text-center">Price</th>
+                                    <th class="text-center">Date</th>
+                                    <th>Reason</th>
+                                    <th class="text-center">Del</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sdFailedTbody">
+                                <tr>
+                                    <td colspan="7" style="text-align:center;color:#595959;padding:30px;font-size:13px;">
+                                        No failed sales.
+                                    </td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+                {{-- Legacy Failed Sales pane — historical failed-sales records recovered from the old date-specific storage. --}}
+                <div id="sdLegacyFailedPane" style="display:none;">
+                    <div class="sd-pane-subbar">
+                        <span>Recovered legacy: <b id="sdLegacyFailedCountLabel">0</b></span>
+                        <span class="sd-pane-subbar-note">Historical records from the previous storage format</span>
+                    </div>
+                    <div id="sdLegacyFailedListWrap">
+                        <table class="table table-sm mb-0" id="sdLegacyFailedTable">
+                            <thead>
+                                <tr>
+                                    <th>Product</th><th class="text-center">Unit</th><th class="text-center">Qty</th>
+                                    <th class="text-center">Price</th><th>Trans ID</th><th class="text-center">Date</th>
+                                    <th>Reason</th><th class="text-center">Actions</th>
+                                </tr>
+                            </thead>
+                            <tbody id="sdLegacyFailedTbody">
+                                <tr><td colspan="8" style="text-align:center;color:#595959;padding:30px;font-size:13px;">No legacy failed sales.</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -1078,6 +1171,26 @@ input[type=number] { -moz-appearance: textfield; }
                 @endif
                 <button class="btn btn-primary btn-sm" onclick="posUpload()" id="pendingUploadBtn" style="margin-left:auto;">
                     <i class="ri-cloud-line me-1"></i> Upload All
+                </button>
+            </div>
+            <div class="modal-footer" id="sdFailedFooter" style="display:none;">
+                <button class="btn btn-outline-secondary btn-sm" id="downloadFailedExcelBtn" onclick="downloadFailedSalesExcel()">
+                    <i class="ri-file-excel-2-line"></i> Download Excel
+                </button>
+                <button class="btn btn-primary btn-sm" id="uploadFailedSalesBtn" onclick="uploadFailedSales()">
+                    <i class="ri-upload-cloud-2-line me-1"></i> Upload Failed Sales
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="downloadLegacyFailedExcelBtn" onclick="downloadLegacyFailedSalesExcel()" style="display:none;">
+                    <i class="ri-file-excel-2-line"></i> Download Legacy Excel
+                </button>
+                <button class="btn btn-primary btn-sm" id="uploadLegacyFailedSalesBtn" onclick="uploadLegacyFailedSales()" style="display:none;">
+                    <i class="ri-upload-cloud-2-line me-1"></i> Retry Legacy Upload
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="clearLegacyFailedDataBtn" onclick="clearAllLegacyFailedSales()" style="display:none;">
+                    <i class="ri-delete-bin-line"></i> Clear Legacy
+                </button>
+                <button class="btn btn-outline-secondary btn-sm" id="clearFailedDataBtn" onclick="clearAllFailedSales()" style="margin-left:auto;">
+                    <i class="ri-delete-bin-line"></i> Clear All Failed
                 </button>
             </div>
         </div>
@@ -1437,7 +1550,7 @@ input[type=number] { -moz-appearance: textfield; }
 {{-- ══ BYPASS POS MODAL ══════════════════════════════════════════════════
      Lets a cashier serve a second customer without disturbing the main
      cart. Its own search/cart/checkout, but confirmed sales are pushed
-     into the SAME cloudData/POS_CLOUD_KEY as the main cart, so pending
+     into the SAME cloudData/POS_PENDING_KEY as the main cart, so pending
      uploads are unified regardless of which cart recorded the sale. ═══ --}}
 <div class="modal fade" id="bypassPosModal" data-bs-backdrop="static" tabindex="-1">
     <div class="modal-dialog modal-lg" style="max-width:640px;">
@@ -1449,7 +1562,7 @@ input[type=number] { -moz-appearance: textfield; }
             <div class="modal-body" style="padding:0;">
                 <div id="bypass-pos-search-row">
                     <div id="bypass-pos-search-wrap">
-                        <i class="ri-computer-line"></i>
+                        <i class="ri-smartphone-line"></i>
                         <input type="text" id="bypass-pos-search"
                                placeholder="Search product name or code"
                                autocomplete="off"
@@ -1527,11 +1640,54 @@ const _BRANCH = document.getElementById('posBranchId').value;
 const _DATE   = document.getElementById('posDate').value;
 const PAGE_LOADED_AT = new Date();
 
-const POS_CART_KEY   = 'npos_cart_b'   + _BRANCH + '_v2';
-const POS_CLOUD_KEY  = 'npos_cloud_b'  + _BRANCH + '_v2';
-const POS_FAILED_KEY = 'npos_failed_b' + _BRANCH + '_d' + _DATE.replace(/-/g,'') + '_v2';
-const POS_SETTINGS_KEY     = 'npos_settings_v1';
-const POS_BYPASS_CART_KEY  = 'npos_bypass_cart_b' + _BRANCH + '_v1';
+/* NOTE ON NAMING — these are the ONLY storage entries this POS ever
+   writes for cart/sale data, and every one of them is branch-scoped
+   but date-INDEPENDENT on purpose: a cashier who adds items today and
+   comes back tomorrow (without having synced or cleared) must still
+   find that same data waiting for them. Nothing here is keyed by date,
+   and nothing here is ever deleted just because the calendar changed. */
+const POS_CART_KEY        = 'dpos_mainPosCart_b'          + _BRANCH; // one "mainPosCart" entry
+const POS_BYPASS_CART_KEY = 'dpos_bypassPosCart_b'        + _BRANCH; // one "bypassPosCart" entry
+const POS_PENDING_KEY     = 'dpos_pendingSales_b'         + _BRANCH; // one "pendingSales" entry
+const POS_FAILED_KEY      = 'dpos_failedToUploadSales_b'  + _BRANCH; // one "failedToUploadSales" entry
+const POS_SETTINGS_KEY    = 'dpos_settings_v1';
+const POS_TXN_KEY         = 'dpos_saleCommit_b' + _BRANCH;
+const POS_LEGACY_FAILED_KEY = 'dpos_recoveredLegacyFailed_b' + _BRANCH;
+
+/* Desktop storage is intentionally self-contained. It does not import
+   mobile npos_* keys, because doing so can duplicate or consume mobile sales. */
+
+/* Desktop and Mobile POS intentionally NEVER migrate/read each other's
+   current storage namespace. Older shared npos_* keys are left untouched so
+   they remain recoverable by the POS version that created them. */
+
+function migrateLegacyFailedStorage() {
+    try {
+        const oldFailedPrefix = 'npos_failed_b' + _BRANCH + '_d';
+        const legacyKeys = [];
+        const recovered = [];
+        for (let i = localStorage.length - 1; i >= 0; i--) {
+            const k = localStorage.key(i);
+            if (!k || k.indexOf(oldFailedPrefix) !== 0) continue;
+            legacyKeys.push(k);
+            try {
+                const raw = JSON.parse(localStorage.getItem(k) || '[]');
+                const rows = Array.isArray(raw) ? raw : (raw && Array.isArray(raw.items) ? raw.items : []);
+                rows.forEach(r => recovered.push(Object.assign({}, r, { legacy_recovered:true, legacy_source_key:k })));
+            } catch(e) {}
+        }
+        if (!recovered.length) return;
+        let existing=[];
+        try { existing=JSON.parse(localStorage.getItem(POS_LEGACY_FAILED_KEY)||'[]'); } catch(e) {}
+        if (!Array.isArray(existing)) existing=[];
+        const keyOf=r=>(r.transid||'')+'|'+(r.branch_product_id||'')+'|'+(r.date||'')+'|'+(r.time||'')+'|'+(r.product||'');
+        const map=new Map();
+        existing.concat(recovered).forEach(r=>map.set(keyOf(r),r));
+        storageWriteVerified(POS_LEGACY_FAILED_KEY, Array.from(map.values()));
+        // Do not remove the old keys here: historical records are evidence until the
+        // cashier has reviewed/exported them. A separate cleanup action handles them.
+    } catch(e) { console.error('migrateLegacyFailedStorage failed',e); }
+}
 
 /* ── Admin-controlled settings (from branch_sales_settings) ── */
 const ADMIN_AUTO_UPLOAD_ENABLED       = @json($adminAutoUploadEnabled);
@@ -1543,7 +1699,7 @@ const ADMIN_AUTO_REFRESH_INTERVAL_MIN = {{ (int) $adminAutoRefreshInterval }};
 /* ══════════════════════════════════════════════════════════════
    SINGLE-TAB LOCK
 ══════════════════════════════════════════════════════════════ */
-const POS_LOCK_KEY    = 'npos_lock_b' + _BRANCH + '_v1';
+const POS_LOCK_KEY    = 'dpos_lock_b' + _BRANCH + '_v1';
 const POS_LOCK_TTL_MS  = 5000;
 const POS_LOCK_BEAT_MS = 2000;
 
@@ -1556,7 +1712,7 @@ const posTabLock = {
     initChannel() {
         if (typeof BroadcastChannel === 'undefined') return false;
         try {
-            this.channel = new BroadcastChannel('netacube_pos_lock_b' + _BRANCH);
+            this.channel = new BroadcastChannel('netacube_desktop_pos_lock_b' + _BRANCH);
             this.channel.onmessage = (e) => this.handleChannelMessage(e.data);
             return true;
         } catch(err) { return false; }
@@ -1791,6 +1947,7 @@ let activePaymentMethod = 'cash';
 let bypassCart = [];
 let bypassActivePaymentMethod = 'cash';
 let bypassTransId = '';
+let posUploadInProgress = false;
 
 let posSettings = { autoHideSearchOnAdd: true };
 
@@ -1846,9 +2003,7 @@ let currentIvSales = null;
 
 let ccwExpectedAnswer = null;
 
-/* ADDED FOR DESKTOP PRINT — holds the most recently confirmed sale so the
-   receipt builder has something to read. Nothing else in the app reads
-   or depends on this — it only feeds buildReceiptHTML()/printReceipt(). */
+/* Desktop-only receipt state. */
 let lastSaleSnapshot = null;
 
 /* ══════════════════════════════════════════════════════════════
@@ -1972,64 +2127,106 @@ function exportRowsToCsv(rows, filenamePrefix) {
 /* ══════════════════════════════════════════════════════════════
    STORAGE
 ══════════════════════════════════════════════════════════════ */
-function saveCart() {
+function storageWriteVerified(key, value) {
     try {
-        localStorage.setItem(POS_CART_KEY, JSON.stringify({ date: _DATE, items: cart }));
+        const serialized = JSON.stringify(value);
+        localStorage.setItem(key, serialized);
+        return localStorage.getItem(key) === serialized;
+    } catch(e) {
+        console.error('LocalStorage write failed for', key, e);
+        return false;
     }
-    catch(e) { console.error('saveCart failed', e); }
+}
+function storageRemoveVerified(key) {
+    try {
+        localStorage.removeItem(key);
+        return localStorage.getItem(key) === null;
+    } catch(e) {
+        console.error('LocalStorage remove failed for', key, e);
+        return false;
+    }
+}
+function saveCart() {
+    return storageWriteVerified(POS_CART_KEY, { items: cart });
 }
 function loadCart() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(POS_CART_KEY) || 'null'); }
     catch(e) { raw = null; }
-    if (raw && Array.isArray(raw.items) && raw.date === _DATE) {
+    if (raw && Array.isArray(raw.items)) {
         cart = raw.items;
     } else if (Array.isArray(raw)) {
         cart = raw;
     } else {
         cart = [];
-        if (raw) { try { localStorage.removeItem(POS_CART_KEY); } catch(e) {} }
     }
     if (!Array.isArray(cart)) cart = [];
 }
 function saveBypassCart() {
-    try {
-        localStorage.setItem(POS_BYPASS_CART_KEY, JSON.stringify({ date: _DATE, items: bypassCart }));
-    }
-    catch(e) { console.error('saveBypassCart failed', e); }
+    return storageWriteVerified(POS_BYPASS_CART_KEY, { items: bypassCart });
 }
 function loadBypassCart() {
     let raw = null;
     try { raw = JSON.parse(localStorage.getItem(POS_BYPASS_CART_KEY) || 'null'); }
     catch(e) { raw = null; }
-    if (raw && Array.isArray(raw.items) && raw.date === _DATE) {
+    if (raw && Array.isArray(raw.items)) {
         bypassCart = raw.items;
+    } else if (Array.isArray(raw)) {
+        bypassCart = raw;
     } else {
         bypassCart = [];
-        if (raw) { try { localStorage.removeItem(POS_BYPASS_CART_KEY); } catch(e) {} }
     }
+    if (!Array.isArray(bypassCart)) bypassCart = [];
 }
-function saveCloud() {
-    try { localStorage.setItem(POS_CLOUD_KEY, JSON.stringify(cloudData)); }
-    catch(e) { console.error('saveCloud failed', e); }
+function savePendingSales() {
+    return storageWriteVerified(POS_PENDING_KEY, cloudData);
 }
-function loadCloud() {
-    try { cloudData = JSON.parse(localStorage.getItem(POS_CLOUD_KEY) || '[]'); }
+function loadPendingSales() {
+    try { cloudData = JSON.parse(localStorage.getItem(POS_PENDING_KEY) || '[]'); }
     catch(e) { cloudData = []; }
     if (!Array.isArray(cloudData)) cloudData = [];
-    const stale = cloudData.filter(r => r.date && r.date !== _DATE);
-    if (stale.length) {
-        stale.forEach(row => appendToFailedLog(row, 'stale_date'));
-        cloudData = cloudData.filter(r => !r.date || r.date === _DATE);
-        saveCloud();
-    }
+    // pendingSales is one date-independent queue. A sale made yesterday
+    // and never uploaded is exactly as valid as one made a minute ago —
+    // it stays here, visible and uploadable, until it succeeds or the
+    // server explicitly rejects it (see posUpload()). We never drop rows
+    // here just because the calendar date has rolled over.
 }
+/* Appends one row to failedToUploadSales — the single, date-independent
+   record of sales that were skipped because the server could not accept
+   them. Newest entries are kept at the top so the cashier sees the most
+   recent problem first; every entry stays until the cashier deletes it.
+   IMPORTANT: the FULL original row is kept (branch_product_id, transid,
+   date, time, product, unit, price, quantity, user, branch, payment_method,
+   amount_paid, slot, device_name, user_agent — whatever the row had), not
+   just the handful of fields shown in the Failed table. Dropping any field
+   here would turn a retryable failed sale into a stray record that
+   "Upload Failed Sales" and "Download Excel" could never fully recover. */
 function appendToFailedLog(row, reason) {
-    try {
-        const existing = JSON.parse(localStorage.getItem(POS_FAILED_KEY) || '[]');
-        existing.push({ ...row, _fail_reason: reason || 'upload_failed', _fail_at: new Date().toISOString() });
-        localStorage.setItem(POS_FAILED_KEY, JSON.stringify(existing));
-    } catch(e) { console.error('appendToFailedLog', e); }
+    const list = loadFailedSales();
+    const originalRow = Object.assign({}, row);
+    delete originalRow._reason;
+    list.unshift(Object.assign(originalRow, {
+        reason: reason || 'upload_failed',
+        failed_at: new Date().toISOString(),
+    }));
+    return saveFailedSales(list);
+}
+function loadFailedSales() {
+    let list = [];
+    try { list = JSON.parse(localStorage.getItem(POS_FAILED_KEY) || '[]'); } catch(e) {}
+    return Array.isArray(list) ? list : [];
+}
+function saveFailedSales(list) {
+    const input = Array.isArray(list) ? list : [];
+    const seen = new Set();
+    const unique = [];
+    input.forEach(row => {
+        const key = saleRowKey(row);
+        if (seen.has(key)) return;
+        seen.add(key);
+        unique.push(row);
+    });
+    return storageWriteVerified(POS_FAILED_KEY, unique);
 }
 function loadSettings() {
     try {
@@ -2047,6 +2244,87 @@ function onToggleAutoHideSearch(checked) {
     toastr.info(checked
         ? 'Search results will hide automatically after adding a product.'
         : 'Search results will stay open after adding a product.');
+}
+
+/* ══════════════════════════════════════════════════════════════
+   SALE COMMIT JOURNAL — protects the small window between recording a
+   sale and clearing its cart. The journal is branch-scoped and POS-scoped.
+   If the browser closes, storage fills, or a refresh happens mid-commit,
+   the next load finishes the commit instead of losing the sale.
+══════════════════════════════════════════════════════════════ */
+function saleRowKey(r) {
+    return [r.transid || '', r.branch_product_id || '', r.date || '', r.time || ''].join('|');
+}
+function beginSaleJournal(type, snapshot) {
+    return storageWriteVerified(POS_TXN_KEY, {
+        version: 1,
+        type,
+        stage: 'prepared',
+        snapshot: snapshot.map(r => Object.assign({}, r)),
+        created_at: new Date().toISOString(),
+    });
+}
+function updateSaleJournal(stage, snapshot, type) {
+    return storageWriteVerified(POS_TXN_KEY, {
+        version: 1, type, stage,
+        snapshot: snapshot.map(r => Object.assign({}, r)),
+        created_at: new Date().toISOString(),
+    });
+}
+function finishSaleJournal() {
+    return storageRemoveVerified(POS_TXN_KEY);
+}
+function recoverSaleJournal() {
+    let journal = null;
+    try { journal = JSON.parse(localStorage.getItem(POS_TXN_KEY) || 'null'); } catch(e) {}
+    if (!journal || !Array.isArray(journal.snapshot) || !journal.snapshot.length) return;
+
+    const snapshot = journal.snapshot;
+    const keys = new Set(snapshot.map(saleRowKey));
+    let pending = [];
+    try { pending = JSON.parse(localStorage.getItem(POS_PENDING_KEY) || '[]'); } catch(e) {}
+    if (!Array.isArray(pending)) pending = [];
+
+    const pendingKeys = new Set(pending.map(saleRowKey));
+    const missing = snapshot.filter(r => !pendingKeys.has(saleRowKey(r)));
+    if (missing.length) {
+        pending = pending.concat(missing);
+        if (!storageWriteVerified(POS_PENDING_KEY, pending)) {
+            console.error('Sale recovery could not persist pending sale journal.');
+            return;
+        }
+    }
+
+    const removeSold = (items) => {
+        const remaining = Array.isArray(items) ? items.map(i => Object.assign({}, i)) : [];
+        snapshot.forEach(row => {
+            const id = String(row.branch_product_id || '');
+            let qty = Number(row.quantity || row.qty_sold || 0);
+            for (let i = remaining.length - 1; i >= 0 && qty > 0; i--) {
+                if (String(remaining[i].id) !== id) continue;
+                const have = Number(remaining[i].qty || 0);
+                const take = Math.min(have, qty);
+                remaining[i].qty = have - take;
+                qty -= take;
+                if (remaining[i].qty <= 0) remaining.splice(i, 1);
+            }
+        });
+        return remaining;
+    };
+
+    const type = journal.type === 'bypass' ? 'bypass' : 'main';
+    if (type === 'bypass') {
+        let raw = null; try { raw = JSON.parse(localStorage.getItem(POS_BYPASS_CART_KEY) || 'null'); } catch(e) {}
+        const items = raw && Array.isArray(raw.items) ? raw.items : (Array.isArray(raw) ? raw : []);
+        bypassCart = removeSold(items);
+        if (!storageWriteVerified(POS_BYPASS_CART_KEY, { items: bypassCart })) return;
+    } else {
+        let raw = null; try { raw = JSON.parse(localStorage.getItem(POS_CART_KEY) || 'null'); } catch(e) {}
+        const items = raw && Array.isArray(raw.items) ? raw.items : (Array.isArray(raw) ? raw : []);
+        cart = removeSold(items);
+        if (!storageWriteVerified(POS_CART_KEY, { items: cart })) return;
+    }
+    storageRemoveVerified(POS_TXN_KEY);
 }
 
 /* ══════════════════════════════════════════════════════════════
@@ -2085,8 +2363,11 @@ function confirmClearCloudData() {
     }
     const backupRows = cloudData.map(r => ({ ...r }));
     exportRowsToCsv(backupRows, 'pending_sales_backup_branch' + _BRANCH);
+    if (!storageWriteVerified(POS_PENDING_KEY, [])) {
+        toastr.error('The backup was created, but the pending queue could not be safely cleared. The sales were retained.', 'Storage Warning');
+        return;
+    }
     cloudData = [];
-    saveCloud();
     updatePendingBadge();
     renderPendingModal();
     $('#clearCloudWarnModal').modal('hide');
@@ -2104,6 +2385,7 @@ function initPosApp() {
 
     initPosCardHeightWatcher();
     loadSettings();
+    recoverSaleJournal();
 
     try {
         allProducts = JSON.parse(document.getElementById('pos-products-json').textContent || '[]');
@@ -2142,7 +2424,10 @@ function initPosApp() {
         bypassDisplay.classList.add('has-results');
     });
 
-    loadCart(); loadCloud(); renderCart(); updatePendingBadge();
+        migrateLegacyFailedStorage();
+        loadCart(); loadPendingSales(); renderCart(); updatePendingBadge();
+    updateFailedBadge();
+    updateLegacyFailedBadge();
     document.getElementById('pos-search').focus();
 
     document.getElementById('ivDeleteKeepBtn').addEventListener('click', function(e) {
@@ -2525,12 +2810,19 @@ function confirmSale() {
         user_agent:        userAgent,
     }));
 
+    const originalCart = cart.map(c => Object.assign({}, c));
+    if (!beginSaleJournal('main', snapshot)) {
+        toastr.error('Sale could not be safely started. Nothing was cleared.', 'Storage Error');
+        return;
+    }
     cloudData = cloudData.concat(snapshot);
-    saveCloud(); updatePendingBadge();
+    if (!savePendingSales()) {
+        cloudData = cloudData.slice(0, -snapshot.length);
+        toastr.error('Sale was NOT completed because local storage could not save it. Nothing was cleared.', 'Storage Error');
+        return;
+    }
+    updateSaleJournal('pending_saved', snapshot, 'main');
 
-    /* ADDED FOR DESKTOP PRINT — capture everything the receipt needs
-       BEFORE the cart is cleared below. This does not alter any of the
-       existing sale-recording logic above. */
     lastSaleSnapshot = {
         transId,
         date,
@@ -2546,22 +2838,26 @@ function confirmSale() {
         items: cart.map(c => ({ name: c.name, unit: c.unit, price: c.price, qty: c.qty })),
     };
 
-    cart = []; saveCart(); renderCart(); refreshTransId();
+    cart = [];
+    if (!saveCart()) {
+        cart = originalCart;
+        toastr.error('Sale was saved safely, but the cart could not be cleared. Refreshing will recover it safely.', 'Storage Warning');
+        return;
+    }
+    finishSaleJournal();
+    updatePendingBadge();
+    renderCart(); refreshTransId();
     $('#checkoutModal').modal('hide');
     toastr.success('Sale recorded locally. Upload when online.', 'Done');
     document.getElementById('pos-search').focus();
 
-    /* ADDED FOR DESKTOP PRINT — sends the receipt straight to the browser's
-       print dialog right after the sale is confirmed. Runs after the
-       modal-hide above so it doesn't fight with the closing modal
-       animation. One dialog, one click — see printReceipt(). */
     setTimeout(() => printReceipt(lastSaleSnapshot), 300);
 }
 
 /* ══════════════════════════════════════════════════════════════
    BYPASS POS — serve a second customer without touching the main
    cart. Confirmed sales are pushed into the SAME `cloudData` array
-   (and therefore the same POS_CLOUD_KEY) as the main cart, so
+   (and therefore the same POS_PENDING_KEY) as the main cart, so
    pending-upload totals stay unified no matter which cart rang up
    the sale.
 ══════════════════════════════════════════════════════════════ */
@@ -2746,13 +3042,21 @@ function bypassConfirmSale() {
         bypass:            1,
     }));
 
-    /* Same cloudData array / same POS_CLOUD_KEY as the main cart —
+    /* Same cloudData array / same POS_PENDING_KEY as the main cart —
        pending sales from either cart show up together in one list. */
+    const originalBypassCart = bypassCart.map(c => Object.assign({}, c));
+    if (!beginSaleJournal('bypass', snapshot)) {
+        toastr.error('Sale could not be safely started. Nothing was cleared.', 'Storage Error');
+        return;
+    }
     cloudData = cloudData.concat(snapshot);
-    saveCloud(); updatePendingBadge();
+    if (!savePendingSales()) {
+        cloudData = cloudData.slice(0, -snapshot.length);
+        toastr.error('Sale was NOT completed because local storage could not save it. Nothing was cleared.', 'Storage Error');
+        return;
+    }
+    updateSaleJournal('pending_saved', snapshot, 'bypass');
 
-    /* ADDED FOR DESKTOP PRINT — same idea as the main cart's confirmSale():
-       capture what the receipt needs before the bypass cart is cleared. */
     lastSaleSnapshot = {
         transId: bypassTransId,
         date,
@@ -2768,11 +3072,18 @@ function bypassConfirmSale() {
         items: bypassCart.map(c => ({ name: c.name, unit: c.unit, price: c.price, qty: c.qty })),
     };
 
-    bypassCart = []; saveBypassCart(); bypassRenderCart(); generateBypassTransId();
+    bypassCart = [];
+    if (!saveBypassCart()) {
+        bypassCart = originalBypassCart;
+        toastr.error('Sale was saved safely, but the bypass cart could not be cleared. Refreshing will recover it safely.', 'Storage Warning');
+        return;
+    }
+    finishSaleJournal();
+    updatePendingBadge();
+    bypassRenderCart(); generateBypassTransId();
     toastr.success('Bypass sale recorded locally. Upload when online.', 'Done');
     document.getElementById('bypass-pos-search').focus();
 
-    /* ADDED FOR DESKTOP PRINT — same one-dialog print flow as the main cart. */
     setTimeout(() => printReceipt(lastSaleSnapshot), 300);
 }
 
@@ -2796,14 +3107,8 @@ function openBypassPos() {
 
 /* ══════════════════════════════════════════════════════════════
    RECEIPT PRINTING (DESKTOP ONLY)
-   Pure addition — reads lastSaleSnapshot, writes a standalone
-   document into #receiptPrintFrame's own iframe window, and prints
-   THAT window. Nothing here touches cart/cloud/state logic above.
-══════════════════════════════════════════════════════════════ */
+══════════════════════════════════════════════════════════════════════ */
 
-/* Typography for the receipt — lives here (not in the main page's
-   <style>) because it only ever gets used inside the iframe's own
-   document, which can't see the main page's stylesheet. */
 const RECEIPT_CSS = `
     @page { size: 80mm auto; margin: 0; }
     * { box-sizing: border-box; }
@@ -2962,6 +3267,247 @@ function renderPendingModal() {
 }
 
 /* ══════════════════════════════════════════════════════════════
+   FAILED SALES — view / delete-one / clear-all
+   Reads straight from failedToUploadSales on every render so the
+   list is always in sync with what's actually in localStorage.
+══════════════════════════════════════════════════════════════ */
+function updateFailedBadge() {
+    const n = loadFailedSales().length;
+    const badge = document.getElementById('sdFailedTabBadge');
+    if (n > 0) { badge.textContent = n; badge.style.display = 'inline-flex'; }
+    else { badge.style.display = 'none'; }
+}
+
+function renderFailedModal() {
+    const list  = loadFailedSales();
+    const tbody = document.getElementById('sdFailedTbody');
+    document.getElementById('sdFailedCountLabel').textContent = list.length;
+    updateFailedBadge();
+
+    if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="7" style="text-align:center;color:#595959;padding:30px;font-size:13px;">No failed sales.</td></tr>';
+        return;
+    }
+    let html = '';
+    list.forEach((e, idx) => {
+        html += `<tr>
+            <td>${escHtml(e.product)}</td>
+            <td class="text-center">${escHtml(e.unit)}</td>
+            <td class="text-center">${fmtQty(e.quantity)}</td>
+            <td class="text-center">${fmtNum(e.price)}</td>
+            <td class="text-center">${escHtml(e.date || '')}</td>
+            <td class="sd-failed-reason">${escHtml(e.reason || 'upload_failed')}</td>
+            <td class="text-center"><button type="button" class="sd-failed-del-btn" title="Delete" onclick="deleteFailedSale(${idx})"><i class="ri-close-line"></i></button></td>
+        </tr>`;
+    });
+    tbody.innerHTML = html;
+}
+
+function deleteFailedSale(index) {
+    const list = loadFailedSales();
+    if (index < 0 || index >= list.length) return;
+    const removed = list.splice(index, 1)[0];
+    if (!saveFailedSales(list)) {
+        toastr.error('The failed sale could not be safely removed and was retained.', 'Storage Warning');
+        return;
+    }
+    renderFailedModal();
+}
+
+function clearAllFailedSales() {
+    const list = loadFailedSales();
+    if (!list.length) { toastr.info('There is nothing to clear.'); return; }
+    if (!confirm(
+        'Delete all ' + list.length + ' failed sale record(s)? This cannot be undone.\n\n' +
+        'An Excel copy will be downloaded automatically first, so this data is never lost.'
+    )) return;
+    // Always export before wiping — this is what guarantees a cleared failed
+    // sale never becomes lost/stray data; it lives on in the downloaded file.
+    downloadFailedSalesExcel(list);
+    if (!saveFailedSales([])) {
+        toastr.error('The Excel backup was created, but the local Failed Sales list could not be cleared. The records were retained.', 'Storage Warning');
+        return;
+    }
+    renderFailedModal();
+    toastr.success('Failed sales list cleared. An Excel backup was downloaded first.', 'Cleared');
+}
+
+/* Exports the failed-sales list (every original field — not just the ones
+   shown in the table) to a static-named, timestamped .xls file the cashier
+   can open in Excel. Pure client-side (Blob download), so it also works
+   offline — which matters, since failed sales are exactly the kind of data
+   that shows up when connectivity is unreliable. */
+function loadLegacyFailedSales() {
+    let list=[];
+    try { list=JSON.parse(localStorage.getItem(POS_LEGACY_FAILED_KEY)||'[]'); } catch(e) {}
+    return Array.isArray(list) ? list : [];
+}
+function saveLegacyFailedSales(list) {
+    return storageWriteVerified(POS_LEGACY_FAILED_KEY, Array.isArray(list)?list:[]);
+}
+function updateLegacyFailedBadge() {
+    const n=loadLegacyFailedSales().length, badge=document.getElementById('sdLegacyFailedTabBadge');
+    if (!badge) return; badge.textContent=n; badge.style.display=n?'inline-flex':'none';
+}
+function renderLegacyFailedModal() {
+    const list=loadLegacyFailedSales(), tbody=document.getElementById('sdLegacyFailedTbody');
+    if (!tbody) return; document.getElementById('sdLegacyFailedCountLabel').textContent=list.length; updateLegacyFailedBadge();
+    const df=document.getElementById('downloadLegacyFailedExcelBtn'), up=document.getElementById('uploadLegacyFailedSalesBtn'), cl=document.getElementById('clearLegacyFailedDataBtn');
+    [df,up,cl].forEach(x=>{if(x)x.style.display=list.length?'':'none';});
+    if(!list.length){tbody.innerHTML='<tr><td colspan="8" style="text-align:center;color:#595959;padding:30px;font-size:13px;">No legacy failed sales.</td></tr>';return;}
+    tbody.innerHTML=list.map((e,i)=>`<tr>
+      <td>${escHtml(e.product||'')}</td><td class="text-center">${escHtml(e.unit||'')}</td><td class="text-center">${fmtQty(e.quantity)}</td>
+      <td class="text-center">${fmtNum(e.price)}</td><td style="font-family:monospace;font-size:11px;">${escHtml(e.transid||'')}</td>
+      <td class="text-center">${escHtml(e.date||'')}</td><td class="sd-failed-reason">${escHtml(e.reason||'legacy_failed')}</td>
+      <td class="text-center"><button type="button" class="btn btn-sm btn-outline-primary" onclick="retryOneLegacyFailedSale(${i})" title="Retry this sale"><i class="ri-upload-cloud-2-line"></i></button> <button type="button" class="sd-failed-del-btn" onclick="deleteLegacyFailedSale(${i})" title="Delete"><i class="ri-close-line"></i></button></td>
+    </tr>`).join('');
+}
+function deleteLegacyFailedSale(index){ const list=loadLegacyFailedSales(); if(index<0||index>=list.length)return; list.splice(index,1); if(!saveLegacyFailedSales(list)){toastr.error('Legacy record was retained because storage could not be verified.','Storage Warning');return;} renderLegacyFailedModal(); }
+function clearAllLegacyFailedSales(){ const list=loadLegacyFailedSales(); if(!list.length){toastr.info('There are no legacy failed sales.');return;} if(!confirm('Clear all '+list.length+' legacy failed sale record(s)? An Excel backup will be downloaded first.'))return; downloadLegacyFailedSalesExcel(list); if(!saveLegacyFailedSales([])){toastr.error('Backup created, but records were retained because local storage could not be verified.','Storage Warning');return;} renderLegacyFailedModal(); toastr.success('Legacy failed sales cleared after Excel backup.','Cleared'); }
+function downloadLegacyFailedSalesExcel(list){ list=list||loadLegacyFailedSales(); if(!list.length){toastr.info('There is nothing to download.');return;} const cols=[['Trans ID',r=>r.transid||''],['Product',r=>r.product||''],['Unit',r=>r.unit||''],['Qty',r=>r.quantity??''],['Price',r=>r.price??''],['Date',r=>r.date||''],['Time',r=>r.time||''],['Branch Product ID',r=>r.branch_product_id||''],['Reason',r=>r.reason||'legacy_failed'],['Legacy Source',r=>r.legacy_source_key||'']]; const esc=v=>String(v??'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;'); const html='<table><thead><tr>'+cols.map(c=>'<th>'+esc(c[0])+'</th>').join('')+'</tr></thead><tbody>'+list.map(r=>'<tr>'+cols.map(c=>'<td>'+esc(c[1](r))+'</td>').join('')+'</tr>').join('')+'</tbody></table>'; const blob=new Blob([html],{type:'application/vnd.ms-excel;charset=utf-8;'}); const url=URL.createObjectURL(blob),a=document.createElement('a'); a.href=url; a.download='legacy_failed_sales_'+new Date().toISOString().replace(/[:.]/g,'-')+'.xls'; document.body.appendChild(a);a.click();a.remove();setTimeout(()=>URL.revokeObjectURL(url),1000); toastr.success('Downloaded '+list.length+' legacy record(s) to Excel.','Exported'); }
+async function retryOneLegacyFailedSale(index){ const list=loadLegacyFailedSales(); if(!list[index])return; await uploadLegacyFailedSales([list[index]]); }
+async function uploadLegacyFailedSales(selected){ const list=selected||loadLegacyFailedSales(); if(!list.length){toastr.info('There are no legacy failed sales to retry.');return;} const btn=document.getElementById('uploadLegacyFailedSalesBtn'); if(btn)btn.disabled=true; posLoaderShow(); try { const clean=list.map(r=>{const x=Object.assign({},r);delete x.reason;delete x.failed_at;delete x.legacy_recovered;delete x.legacy_source_key;return x;}); const res=await fetch('/{{ request()->route("tenantName") }}/sales/retail/upload-sales',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded','X-CSRF-TOKEN':csrfToken(),'Cache-Control':'no-store'},body:new URLSearchParams({data:JSON.stringify(clean)})}); if(!res.ok){toastr.error('Server returned HTTP '+res.status+'. Legacy records were kept.','Upload Error');return;} const still=await res.json(); if(!Array.isArray(still)){toastr.error('Unexpected server response. Legacy records were kept.','Upload Error');return;} const keyOf=r=>(r.transid||'')+'|'+(r.branch_product_id||'')+'|'+(r.date||'')+'|'+(r.time||'')+'|'+(r.product||''); const failedKeys=new Set(still.map(keyOf)); const current=loadLegacyFailedSales(); const selectedKeys=new Set(list.map(keyOf)); const remaining=current.filter(r=>!selectedKeys.has(keyOf(r))||failedKeys.has(keyOf(r))).map(r=>failedKeys.has(keyOf(r))?Object.assign({},r,{reason:still.find(x=>keyOf(x)===keyOf(r))?._reason||r.reason,failed_at:new Date().toISOString()}):r); if(!saveLegacyFailedSales(remaining)){toastr.error('Upload completed, but local legacy storage could not be verified; records were retained.','Storage Warning');return;} renderLegacyFailedModal(); toastr.success((list.length-still.length)+' legacy record(s) uploaded; '+still.length+' remain.','Legacy Upload'); }catch(e){toastr.error('Network error — legacy records were kept.','Offline');}finally{posLoaderHide();if(btn)btn.disabled=false;} }
+
+function downloadFailedSalesExcel(list) {
+    list = list || loadFailedSales();
+    if (!list.length) { toastr.info('There is nothing to download.'); return; }
+
+    const cols = [
+        ['Trans ID',       r => r.transid || ''],
+        ['Product',        r => r.product || ''],
+        ['Unit',           r => r.unit || ''],
+        ['Quantity',       r => (r.quantity != null ? r.quantity : '')],
+        ['Price',          r => (r.price != null ? r.price : '')],
+        ['Date',           r => r.date || ''],
+        ['Time',           r => r.time || ''],
+        ['Payment Method', r => r.payment_method || ''],
+        ['User',           r => r.user || ''],
+        ['Branch',         r => r.branch || ''],
+        ['Reason',         r => r.reason || ''],
+        ['Failed At',      r => r.failed_at || ''],
+    ];
+
+    let tableHtml = '<tr>' + cols.map(c => '<th>' + escHtml(c[0]) + '</th>').join('') + '</tr>';
+    list.forEach(row => {
+        tableHtml += '<tr>' + cols.map(c => '<td>' + escHtml(String(c[1](row))) + '</td>').join('') + '</tr>';
+    });
+
+    const html = '<html><head><meta charset="UTF-8"></head><body>' +
+        '<table border="1">' + tableHtml + '</table></body></html>';
+
+    const blob = new Blob(['\ufeff' + html], { type: 'application/vnd.ms-excel;charset=UTF-8' });
+
+    // Static, deterministic filename pattern (branch + date/time) — no
+    // random suffixes — so files are predictable and easy to find later.
+    const branchSlug = String(_BRANCH || 'branch').replace(/[^A-Za-z0-9_-]/g, '');
+    const stamp = new Date().toISOString().slice(0, 19).replace(/[:T]/g, '-');
+    const filename = 'failed-sales-' + branchSlug + '-' + stamp + '.xls';
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+
+    toastr.success('Downloaded ' + list.length + ' failed sale record(s) to Excel.', 'Exported');
+}
+
+/* Retries uploading every row currently in failedToUploadSales through the
+   same /sales/retail/upload-sales endpoint posUpload() uses. Because
+   appendToFailedLog() now keeps the complete original row, this resend is
+   identical in shape to a normal upload — nothing partial, nothing stray.
+   Rows the server accepts are removed from the failed list; rows it still
+   rejects stay, with their reason refreshed from the server's response. */
+async function uploadFailedSales() {
+    const list = loadFailedSales();
+    if (!list.length) { toastr.info('There are no failed sales to upload.'); return; }
+
+    posLoaderShow();
+    const btn = document.getElementById('uploadFailedSalesBtn');
+    if (btn) btn.disabled = true;
+
+    // Strip only the local bookkeeping fields — everything the server
+    // needs (branch_product_id, transid, date, time, etc) travels as-is.
+    const toUpload = list.map(row => {
+        const clean = Object.assign({}, row);
+        delete clean.reason;
+        delete clean.failed_at;
+        return clean;
+    });
+
+    try {
+        const res = await fetch('/{{ request()->route("tenantName") }}/sales/retail/upload-sales', {
+            method: 'POST',
+            headers: {
+                'Content-Type':  'application/x-www-form-urlencoded',
+                'X-CSRF-TOKEN':  csrfToken(),
+                'Cache-Control': 'no-store',
+            },
+            body: new URLSearchParams({ data: JSON.stringify(toUpload) }),
+        });
+
+        if (!res.ok) {
+            toastr.error('Server returned HTTP ' + res.status + '. Failed sales kept — please retry.', 'Upload Error');
+            return;
+        }
+
+        let stillFailed;
+        try {
+            stillFailed = await res.json();
+        } catch (parseErr) {
+            toastr.error('Server response was not valid JSON. Failed sales kept — please retry.', 'Parse Error');
+            return;
+        }
+
+        if (!Array.isArray(stillFailed)) {
+            toastr.error('Unexpected server response shape. Failed sales kept — please retry.', 'Error');
+            return;
+        }
+
+        const keyOf = r => (r.transid || '') + '|' + (r.branch_product_id || '') + '|' + (r.date || '') + '|' + (r.time || '');
+
+        if (stillFailed.length === 0) {
+            saveFailedSales([]);
+            renderFailedModal();
+            toastr.success('All ' + toUpload.length + ' previously failed sale(s) uploaded successfully.', 'Done');
+            refreshPaymentSummaryPane();
+        } else {
+            // Same success/failure matching posUpload() uses. Rows the
+            // server accepted this time are dropped from the failed list;
+            // rows still rejected are kept with an updated reason so
+            // nothing here ever silently disappears.
+            const stillFailedByKey = new Map(stillFailed.map(r => [keyOf(r), r]));
+            const remaining = list
+                .filter(r => stillFailedByKey.has(keyOf(r)))
+                .map(r => {
+                    const match = stillFailedByKey.get(keyOf(r));
+                    return Object.assign({}, r, {
+                        reason:    (match && match._reason) || r.reason,
+                        failed_at: new Date().toISOString(),
+                    });
+                });
+            saveFailedSales(remaining);
+            renderFailedModal();
+            const successCount = toUpload.length - stillFailed.length;
+            toastr.warning(
+                successCount + ' uploaded. ' + stillFailed.length + ' still could not be uploaded and ' +
+                (stillFailed.length === 1 ? 'remains' : 'remain') + ' in Failed Sales.',
+                'Partial Upload'
+            );
+            refreshPaymentSummaryPane();
+        }
+    } catch (networkErr) {
+        toastr.error('Network error — no failed sales were changed. Check your connection and retry.', 'Offline');
+    } finally {
+        posLoaderHide();
+        if (btn) btn.disabled = false;
+    }
+}
+
+/* ══════════════════════════════════════════════════════════════
    SALES DATA MODAL — tab switching + last-sync label
 ══════════════════════════════════════════════════════════════ */
 function formatLastSync(d) {
@@ -2980,26 +3526,48 @@ function updateLastSyncLabel() {
     if (el) el.textContent = formatLastSync(PAGE_LOADED_AT);
 }
 
+function setLegacyFooter(show) {
+    const hasLegacy = loadLegacyFailedSales().length > 0;
+    ['downloadLegacyFailedExcelBtn','uploadLegacyFailedSalesBtn','clearLegacyFailedDataBtn'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=(show && hasLegacy)?'':'none';});
+    ['downloadFailedExcelBtn','uploadFailedSalesBtn','clearFailedDataBtn'].forEach(id=>{const e=document.getElementById(id);if(e)e.style.display=show?'none':'';});
+}
+
 function switchSalesDataTab(tab) {
     const cloudTabBtn  = document.getElementById('sdCloudTabBtn');
     const recentTabBtn = document.getElementById('sdRecentTabBtn');
+    const failedTabBtn = document.getElementById('sdFailedTabBtn');
+    const legacyTabBtn = document.getElementById('sdLegacyFailedTabBtn');
     const cloudPane    = document.getElementById('sdCloudPane');
     const recentPane   = document.getElementById('sdRecentPane');
-    const footer       = document.getElementById('sdCloudFooter');
-    const showCloud    = tab === 'cloud';
+    const failedPane   = document.getElementById('sdFailedPane');
+    const legacyPane   = document.getElementById('sdLegacyFailedPane');
+    const cloudFooter  = document.getElementById('sdCloudFooter');
+    const failedFooter = document.getElementById('sdFailedFooter');
 
-    cloudTabBtn.classList.toggle('active', showCloud);
-    recentTabBtn.classList.toggle('active', !showCloud);
-    cloudPane.style.display  = showCloud ? '' : 'none';
-    recentPane.style.display = showCloud ? 'none' : '';
-    footer.style.display     = showCloud ? '' : 'none';
+    cloudTabBtn.classList.toggle('active', tab === 'cloud');
+    recentTabBtn.classList.toggle('active', tab === 'recent');
+    failedTabBtn.classList.toggle('active', tab === 'failed');
+    legacyTabBtn.classList.toggle('active', tab === 'legacy');
 
-    if (!showCloud) updateLastSyncLabel();
+    cloudPane.style.display  = tab === 'cloud'  ? '' : 'none';
+    recentPane.style.display = tab === 'recent' ? '' : 'none';
+    failedPane.style.display = tab === 'failed' ? '' : 'none';
+    legacyPane.style.display = tab === 'legacy' ? '' : 'none';
+
+    cloudFooter.style.display  = tab === 'cloud'  ? '' : 'none';
+    failedFooter.style.display = (tab === 'failed' || tab === 'legacy') ? '' : 'none';
+
+    if (tab === 'recent') updateLastSyncLabel();
+    if (tab === 'failed') { renderFailedModal(); setLegacyFooter(false); }
+    if (tab === 'legacy') { renderLegacyFailedModal(); setLegacyFooter(true); }
+    if (tab === 'cloud' || tab === 'recent') setLegacyFooter(false);
 }
 
 async function posUpload(isAuto = false) {
+    if (posUploadInProgress) return;
     if (!cloudData.length) { toastr.info('Nothing to upload.'); return; }
 
+    posUploadInProgress = true;
     posLoaderShow();
     document.getElementById('pendingUploadBtn').disabled = true;
 
@@ -3035,21 +3603,51 @@ async function posUpload(isAuto = false) {
         }
 
         if (failed.length === 0) {
+            if (!storageWriteVerified(POS_PENDING_KEY, [])) {
+                cloudData = toUpload;
+                toastr.error('Server accepted the sales, but this device could not safely clear its local queue. The sales were retained for recovery.', 'Storage Warning');
+                return;
+            }
             cloudData = [];
-            saveCloud(); updatePendingBadge();
+            updatePendingBadge();
             toastr.success('All ' + toUpload.length + ' sales uploaded successfully.', 'Done');
             if (!isAuto) { $('#pendingModal').modal('hide'); }
             refreshPaymentSummaryPane();
         } else {
-            const failedTransids = new Set(failed.map(r => r.transid + '|' + r.branch_product_id + '|' + r.date + '|' + r.time));
-            cloudData = toUpload.filter(r =>
-                failedTransids.has(r.transid + '|' + r.branch_product_id + '|' + r.date + '|' + r.time)
+            // The server has told us, definitively, which specific rows it
+            // could not accept (bad/missing product reference, etc). Those
+            // are not retryable — retrying the same bad row forever just
+            // re-fails it and re-logs it. So: remove every row the server
+            // responded about (success AND failure) from pendingSales, and
+            // silently move the rejected ones into failedToUploadSales for
+            // the cashier to review and delete at their own pace.
+            const failedKeys = new Set(failed.map(r => r.transid + '|' + r.branch_product_id + '|' + r.date + '|' + r.time));
+            const existingFailed = loadFailedSales();
+            const failedRows = failed.map(row => {
+                const originalRow = Object.assign({}, row);
+                delete originalRow._reason;
+                return Object.assign(originalRow, {
+                    reason: row._reason || 'server_rejected',
+                    failed_at: new Date().toISOString(),
+                });
+            });
+            if (!storageWriteVerified(POS_FAILED_KEY, failedRows.concat(existingFailed))) {
+                toastr.error('The server rejected some sales, but this device could not safely save the rejected records. ALL pending sales were retained for retry.', 'Storage Error');
+                return;
+            }
+            const nextPending = cloudData.filter(r =>
+                !failedKeys.has(r.transid + '|' + r.branch_product_id + '|' + r.date + '|' + r.time)
             );
-            failed.forEach(row => appendToFailedLog(row, 'server_rejected'));
-            saveCloud(); updatePendingBadge();
-            const successCount = toUpload.length - cloudData.length;
+            if (!storageWriteVerified(POS_PENDING_KEY, nextPending)) {
+                toastr.error('Some sales were accepted/rejected by the server, but the local queue could not be safely updated. The original pending queue was retained.', 'Storage Error');
+                return;
+            }
+            cloudData = nextPending; updatePendingBadge();
+            renderFailedModal(); updateFailedBadge();
+            const successCount = toUpload.length - failed.length;
             toastr.warning(
-                successCount + ' uploaded. ' + cloudData.length + ' failed and remain pending. Check connection.',
+                successCount + ' uploaded. ' + failed.length + ' could not be uploaded and ' +
+                (failed.length === 1 ? 'was' : 'were') + ' moved to Failed Sales.',
                 'Partial Upload'
             );
             refreshPaymentSummaryPane();
@@ -3059,6 +3657,7 @@ async function posUpload(isAuto = false) {
     } finally {
         posLoaderHide();
         document.getElementById('pendingUploadBtn').disabled = false;
+        posUploadInProgress = false;
     }
 }
 
@@ -3486,4 +4085,4 @@ function calcEquals() {
     } catch(e) { document.getElementById('calcDisplay').textContent='Error'; }
 }
 </script>
-@endsection
+@endsection]o

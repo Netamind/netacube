@@ -360,8 +360,8 @@ input[type=number] { -moz-appearance:textfield; appearance:textfield; }
               </div>
             </div>
             <div class="row g-2 mb-2">
-              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Quantity (opening stock)</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-stock-qty" value="0" autocomplete="off" /></div>
-              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-reorder-point" value="0" autocomplete="off" /></div>
+              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Quantity (opening stock)</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-stock-qty" placeholder="0" autocomplete="off" /></div>
+              <div class="col-6"><label class="form-label fw-semibold" style="font-size:12px">Reorder Point</label><input class="form-control form-control-sm" type="text" inputmode="decimal" id="new-reorder-point" placeholder="0" autocomplete="off" /></div>
             </div>
 
             <div class="edit-section"><i class="ri-coin-line"></i>Selling Price</div>
@@ -802,11 +802,73 @@ $(document).ready(function () {
             ? '<span class="badge bg-success" style="font-size:11px">Yes</span>'
             : '<span class="badge bg-secondary" style="font-size:11px">No</span>';
     }
-    // Any mutation reloads the page — the controller's JSON responses don't
-    // carry base_selling_price/base_cost_price/pack_unit, so client-side row
-    // rebuilding can't be done correctly. A reload keeps every price/stock
-    // badge trustworthy.
-    function reloadAfter(ms) { setTimeout(function () { window.location.reload(); }, ms || 700); }
+    // Rebuilds one <tr> from a JSON row shaped like the controller's
+    // fetchFormattedRow() output — mirrors the server-side loop markup
+    // above, so table.row.add()/remove() can update the table in place
+    // instead of reloading the page.
+    function buildRow(p) {
+        var sq  = parseFloat(p.stock_quantity) || 0;
+        var rp  = parseFloat(p.reorder_point)  || 0;
+        var stockClass    = sq <= 0 ? 'stock-zero' : (sq <= rp ? 'stock-low' : 'stock-ok');
+        var sellIsBranch  = (p.selling_price !== null && p.selling_price !== '');
+        var displayPrice  = sellIsBranch ? p.selling_price : p.base_selling_price;
+        var costIsBranch  = (p.cost_price !== null && p.cost_price !== '');
+
+        function d(v) { return (v === null || v === undefined ? '' : v).toString().replace(/"/g, '&quot;'); }
+
+        return `<tr id="${p.row}">
+            <td>
+                <input type="checkbox" class="selectRow" value="${p.id}" data-row-id="${p.row}" data-name="${d(p.name)}">
+                &nbsp;${p.name}
+            </td>
+            <td>${p.code || '—'}</td>
+            <td>${p.unit}</td>
+            <td>${p.supplier_name || '—'}</td>
+            <td><span class="${stockClass}">${fmtNum(sq, 2)}</span></td>
+            <td><span class="${sellIsBranch ? 'price-branch' : 'price-base'}">${fmtNum(displayPrice, 2)}</span></td>
+            <td>${p.batch_number || '—'}</td>
+            <td>${p.expiry_date || '—'}</td>
+            <td>
+                <a href="#" class="viewDataBtn"
+                   data-id="${p.id}" data-name="${d(p.name)}" data-code="${d(p.code)}"
+                   data-unit="${d(p.unit)}" data-pack-unit="${d(p.pack_unit)}" data-units-per-pack="${d(p.units_per_pack)}"
+                   data-supplier="${d(p.supplier_name)}" data-barcode="${d(p.primary_barcode)}"
+                   data-batch="${d(p.batch_number)}" data-expiry="${d(p.expiry_date)}"
+                   data-cost="${d(p.cost_price)}" data-sell="${d(p.selling_price)}"
+                   data-base-cost="${d(p.base_cost_price)}" data-base-sell="${d(p.base_selling_price)}"
+                   data-stock="${d(p.stock_quantity)}" data-reorder="${d(p.reorder_point)}"
+                   data-reorder-qty="${d(p.reorder_quantity)}" data-max="${d(p.max_stock)}"
+                   data-active="${p.is_active}" data-track="${p.track_stock}" data-neg="${p.allow_negative_stock}"
+                   data-sell-is-branch="${sellIsBranch ? 1 : 0}" data-cost-is-branch="${costIsBranch ? 1 : 0}">
+                    <i class="ri-eye-line text-primary" style="font-weight:bold;font-size:17px"></i>
+                </a>
+                <a href="#" class="editDataBtn"
+                   data-id="${p.id}" data-row="${p.row}" data-name="${d(p.name)}" data-code="${d(p.code)}"
+                   data-unit="${d(p.unit)}" data-supplier-id="${p.supplier_id || ''}"
+                   data-barcode="${d(p.primary_barcode)}" data-batch="${d(p.batch_number)}" data-expiry="${d(p.expiry_date)}"
+                   data-cost="${d(p.cost_price)}" data-sell="${d(p.selling_price)}"
+                   data-base-cost="${d(p.base_cost_price)}" data-base-sell="${d(p.base_selling_price)}"
+                   data-stock="${d(p.stock_quantity)}" data-reorder="${d(p.reorder_point)}"
+                   data-reorder-qty="${d(p.reorder_quantity)}" data-max="${d(p.max_stock)}"
+                   data-active="${p.is_active}" data-track="${p.track_stock}" data-neg="${p.allow_negative_stock}"
+                   data-sell-is-branch="${sellIsBranch ? 1 : 0}"
+                   data-base-product-id="${p.base_product_id}">
+                    <i class="ri-edit-box-line text-info" style="font-weight:bold;font-size:17px"></i>
+                </a>
+                <a href="#" class="deleteDataBtn" data-label="${d(p.name)}" data-id="${p.id}" data-row="${p.row}" data-stock="${d(p.stock_quantity)}">
+                    <i class="ri-delete-bin-line text-danger" style="font-weight:bold;font-size:17px"></i>
+                </a>
+            </td>
+        </tr>`;
+    }
+
+    // Replaces an existing row (by id) with a freshly built one, or appends
+    // it if the row isn't in the table yet.
+    function upsertRow(p) {
+        var existing = table.row('#' + p.row);
+        if (existing.length) existing.remove();
+        table.row.add($(buildRow(p)));
+    }
 
     function updateSelectedCount() {
         var total = $('.selectRow').length;
@@ -831,6 +893,7 @@ $(document).ready(function () {
         dom: '<"row mt-2 mb-2"<"col-md-6"l><"col-md-6"f>>rt<"row"<"col-md-6"i><"col-md-6 text-end"p>>',
         lengthChange: true,
         lengthMenu: [[100, 250, 500, -1], [100, 250, 500, 'All']],
+        fixedColumns: { leftColumns: 1 },
         scrollX: true,
         columnDefs: [
             { targets: '_all', className: 'text-center' },
@@ -888,7 +951,7 @@ $(document).ready(function () {
                             '<div class="sri-main"><div class="sri-name-wrap"><div class="sri-name">' + p.name + ' <span class="sri-code">' + (p.code || '') + '</span></div></div>' +
                             '<span class="sri-price-tag">MWK ' + fmtNum(p.selling_price) + '</span></div>' +
                             '<div class="sri-controls">' +
-                            '<div class="sri-qty-wrap"><span class="sri-qty-label">Qty</span><input type="number" min="0" step="any" class="sri-qty-input" id="sri-qty-' + p.id + '" value="0"></div>' +
+                            '<div class="sri-qty-wrap"><span class="sri-qty-label">Qty</span><input type="number" min="0" step="any" class="sri-qty-input" id="sri-qty-' + p.id + '" placeholder="0"></div>' +
                             '<button type="button" class="sri-add-btn" data-id="' + p.id + '"><i class="ri-add-line"></i> Add</button>' +
                             '</div></div>';
                     });
@@ -910,7 +973,16 @@ $(document).ready(function () {
             beforeSend:function(){ $('#progressBar').show(); },
             complete:function(){ $('#progressBar').hide(); },
             success:function(data) {
-                if (data.status === 201) { toastr.success(data.success, 'Success'); $('#addProductModal').modal('hide'); reloadAfter(); }
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $('#addProductModal').modal('hide');
+                    upsertRow(data.product);
+                    table.draw(false);
+                    updateSelectedCount();
+                    $('#baseProductSearch').val('');
+                    $('#searchResultList').hide().empty();
+                    self.prop('disabled', false);
+                }
                 else { toastr.error(data.error || 'Failed.', 'Error'); self.prop('disabled', false); }
             },
             error:function(xhr, status) { handleAjaxError(xhr, status); self.prop('disabled', false); }
@@ -967,7 +1039,11 @@ $(document).ready(function () {
                             $('#addSuccessText').text(name + ' added to the catalogue and this warehouse.');
                             $('#addSuccessNotice').show();
                             toastr.success('Product created and assigned.', 'Success');
-                            $('#addProductModal').modal('hide'); reloadAfter();
+                            $('#addProductModal').modal('hide');
+                            upsertRow(data2.product);
+                            table.draw(false);
+                            updateSelectedCount();
+                            self.prop('disabled', false);
                         } else {
                             toastr.warning('Product created in the catalogue, but assigning it to this warehouse failed: ' + (data2.error || ''), 'Partial success');
                             self.prop('disabled', false);
@@ -1108,7 +1184,12 @@ $(document).ready(function () {
             beforeSend:function(){ $('#progressBar').show(); },
             complete:function(){ $('#progressBar').hide(); self.prop('disabled', false); },
             success:function(data) {
-                if (data.status === 201) { toastr.success(data.success, 'Success'); $('#editDataModal').modal('hide'); reloadAfter(); }
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $('#editDataModal').modal('hide');
+                    upsertRow(data.product);
+                    table.draw(false);
+                }
                 else { toastr.error(data.error || 'Failed.', 'Error'); }
             },
             error:handleAjaxError
@@ -1130,7 +1211,18 @@ $(document).ready(function () {
             beforeSend:function(){ $('#progressBar').show(); },
             complete:function(){ $('#progressBar').hide(); self.prop('disabled', false); },
             success:function(data) {
-                if (data.status === 201) { toastr.success(data.success || 'Base product updated.', 'Success'); $('#editDataModal').modal('hide'); reloadAfter(); }
+                if (data.status === 201) {
+                    toastr.success(data.success || 'Base product updated.', 'Success');
+                    $('#editDataModal').modal('hide');
+                    var branchRowId = $('#editId').val();
+                    $.ajax({
+                        type:'GET', url:'{{ route("wholesale.operations.branchproducts.row") }}',
+                        data:{ id: branchRowId },
+                        success:function(rowData) {
+                            if (rowData.product) { upsertRow(rowData.product); table.draw(false); }
+                        }
+                    });
+                }
                 else { toastr.error(data.error || 'Error.', 'Error'); }
             },
             error:handleAjaxError
@@ -1159,7 +1251,13 @@ $(document).ready(function () {
             beforeSend:function(){ $('#progressBar').show(); },
             complete:function(){ $('#progressBar').hide(); },
             success:function(data) {
-                if (data.status === 201) { toastr.success(data.success, 'Success'); $('#deleteModal, #forceDeleteModal').modal('hide'); reloadAfter(); }
+                if (data.status === 201) {
+                    toastr.success(data.success, 'Success');
+                    $('#deleteModal, #forceDeleteModal').modal('hide');
+                    var row = $('#deleteRow').val();
+                    table.row('#' + row).remove().draw(false);
+                    updateSelectedCount();
+                }
                 else if (data.status === 409 && data.requires_force) {
                     $('#deleteModal').modal('hide');
                     $('#forceDeleteStock').text(fmtNum(data.stock_quantity));
@@ -1193,7 +1291,14 @@ $(document).ready(function () {
             type:'POST', url:'{{ route("wholesale.operations.branchproducts.bulkstatus") }}', timeout:60000,
             data:{ ids:ids, is_active:isActive, _token:'{{ csrf_token() }}' },
             beforeSend:function(){ $('#progressBar').show(); }, complete:function(){ $('#progressBar').hide(); },
-            success:function(data){ if(data.status===201){ toastr.success(data.success,'Success'); reloadAfter(); } else { toastr.error(data.error||'Failed.','Error'); } },
+            success:function(data){
+                if(data.status===201){
+                    toastr.success(data.success,'Success');
+                    (data.products || []).forEach(function(p){ upsertRow(p); });
+                    table.draw(false);
+                    updateSelectedCount();
+                } else { toastr.error(data.error||'Failed.','Error'); }
+            },
             error:handleAjaxError
         });
     }
@@ -1205,7 +1310,14 @@ $(document).ready(function () {
             type:'POST', url:'{{ route("wholesale.operations.branchproducts.bulktrackstock") }}', timeout:60000,
             data:{ ids:ids, track_stock:track, _token:'{{ csrf_token() }}' },
             beforeSend:function(){ $('#progressBar').show(); }, complete:function(){ $('#progressBar').hide(); },
-            success:function(data){ if(data.status===201){ toastr.success(data.success,'Success'); reloadAfter(); } else { toastr.error(data.error||'Failed.','Error'); } },
+            success:function(data){
+                if(data.status===201){
+                    toastr.success(data.success,'Success');
+                    (data.products || []).forEach(function(p){ upsertRow(p); });
+                    table.draw(false);
+                    updateSelectedCount();
+                } else { toastr.error(data.error||'Failed.','Error'); }
+            },
             error:handleAjaxError
         });
     }
@@ -1229,7 +1341,13 @@ $(document).ready(function () {
             data:{ ids:ids, force: force ? 1 : 0, _token:'{{ csrf_token() }}' },
             beforeSend:function(){ $('#progressBar').show(); }, complete:function(){ $('#progressBar').hide(); },
             success:function(data){
-                if (data.status === 201) { toastr.success(data.success,'Success'); $('#confirmBulkDeleteModal, #forceBulkDeleteModal').modal('hide'); reloadAfter(); }
+                if (data.status === 201) {
+                    toastr.success(data.success,'Success');
+                    $('#confirmBulkDeleteModal, #forceBulkDeleteModal').modal('hide');
+                    ids.forEach(function(id){ table.row('#row' + id).remove(); });
+                    table.draw(false);
+                    updateSelectedCount();
+                }
                 else if (data.status === 409 && data.requires_force) {
                     $('#confirmBulkDeleteModal').modal('hide');
                     $('#forceBulkDeleteCount').text(data.blocked_count);

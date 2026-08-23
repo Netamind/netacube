@@ -146,6 +146,16 @@ class RetailBranchProductsController extends Controller
         return DB::connection('tenant')->table('branches')->where('id', $branchId)->value('category');
     }
 
+    /** Ensure the supplied branch belongs to the retail sector. */
+    private function retailBranch(int $branchId)
+    {
+        return DB::connection('tenant')
+            ->table('branches')
+            ->where('id', $branchId)
+            ->where('sector', 'Retail')
+            ->first();
+    }
+
     /**
      * retail_base_products.supplier is stored inconsistently: rows added
      * via the Base Products page store a real supplier ID (int), while
@@ -533,6 +543,10 @@ class RetailBranchProductsController extends Controller
             'branch_id' => 'required|integer|exists:tenant.branches,id',
         ]);
 
+        if (!$this->retailBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422], 422);
+        }
+
         $categoryId = $this->getBranchCategory((int) $request->branch_id);
         if (!$categoryId) {
             return response()->json(['suppliers' => []]);
@@ -690,6 +704,10 @@ class RetailBranchProductsController extends Controller
             'is_active'            => 'nullable|boolean',
         ]);
 
+        if (!$this->retailBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422], 422);
+        }
+
         $base   = $this->fetchBaseProduct((int) $request->base_product_id);
         $newQty = (float) ($request->stock_quantity ?? 0);
 
@@ -804,6 +822,10 @@ class RetailBranchProductsController extends Controller
 
         if (!$current) {
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
+        }
+
+        if (!$this->retailBranch((int) $current->branch_id)) {
+            return response()->json(['error' => 'Branch product does not belong to a retail branch.', 'status' => 422], 422);
         }
 
         $base = $this->fetchBaseProduct((int) $current->base_product_id);
@@ -921,6 +943,10 @@ class RetailBranchProductsController extends Controller
 
             if ($currentRows->isEmpty()) continue;
 
+            if ($currentRows->contains(fn ($r) => !$this->retailBranch((int) $r->branch_id))) {
+                return response()->json(['error' => 'One or more selected products do not belong to a retail branch.', 'status' => 422], 422);
+            }
+
             $baseMap = $this->fetchBaseProductsMap(
                 $currentRows->pluck('base_product_id')->unique()->toArray()
             );
@@ -998,6 +1024,10 @@ class RetailBranchProductsController extends Controller
 
             if ($rows->isEmpty()) continue;
 
+            if ($rows->contains(fn ($r) => !$this->retailBranch((int) $r->branch_id))) {
+                return response()->json(['error' => 'One or more selected products do not belong to a retail branch.', 'status' => 422], 422);
+            }
+
             $baseMap = $this->fetchBaseProductsMap(
                 $rows->pluck('base_product_id')->unique()->toArray()
             );
@@ -1072,6 +1102,10 @@ class RetailBranchProductsController extends Controller
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
         }
 
+        if (!$this->retailBranch((int) $current->branch_id)) {
+            return response()->json(['error' => 'Branch product does not belong to a retail branch.', 'status' => 422], 422);
+        }
+
         $base = $this->fetchBaseProduct((int) $current->base_product_id);
 
         $this->logStockChange(
@@ -1113,6 +1147,10 @@ class RetailBranchProductsController extends Controller
                 ->get();
 
             if ($rows->isEmpty()) continue;
+
+            if ($rows->contains(fn ($r) => !$this->retailBranch((int) $r->branch_id))) {
+                return response()->json(['error' => 'One or more selected products do not belong to a retail branch.', 'status' => 422], 422);
+            }
 
             $baseMap = $this->fetchBaseProductsMap(
                 $rows->pluck('base_product_id')->unique()->toArray()
@@ -1165,7 +1203,11 @@ class RetailBranchProductsController extends Controller
             'total_chunks' => 'required|integer|min:1',
         ]);
 
-        $branchId       = (int) $request->branch_id;
+        $branchId = (int) $request->branch_id;
+        if (!$this->retailBranch($branchId)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422]);
+        }
+
         $branchCategory = $this->getBranchCategory($branchId);
         if (!$branchCategory) {
             return response()->json(['error' => 'This branch has no category configured.', 'status' => 422]);
@@ -1465,6 +1507,10 @@ class RetailBranchProductsController extends Controller
             'branch_id' => 'required|integer|exists:tenant.branches,id',
         ]);
 
+        if (!$this->retailBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422], 422);
+        }
+
         $branchId = (int) $request->branch_id;
         $today    = now()->toDateString();
         $from     = now()->subMonths(3)->toDateString();
@@ -1532,6 +1578,10 @@ class RetailBranchProductsController extends Controller
             'date'      => 'required|date',
             'type'      => 'required|in:added,removed',
         ]);
+
+        if (!$this->retailBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422], 422);
+        }
 
         $branchId = (int) $request->branch_id;
         $date     = $request->date;
@@ -1609,6 +1659,10 @@ class RetailBranchProductsController extends Controller
             'items.*.selling_price'  => 'nullable|numeric|min:0',
             'items.*.stock_quantity' => 'nullable|numeric',
         ]);
+
+        if (!$this->retailBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a retail branch.', 'status' => 422], 422);
+        }
 
         $branchId  = (int) $request->branch_id;
         $synced    = 0;

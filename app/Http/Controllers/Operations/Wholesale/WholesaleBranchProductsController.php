@@ -26,6 +26,29 @@ use DB;
 
 class WholesaleBranchProductsController extends Controller
 {
+    /** Ensure the supplied branch belongs to the wholesale sector. */
+    private function wholesaleBranch(int $branchId)
+    {
+        return DB::connection('tenant')
+            ->table('branches')
+            ->where('id', $branchId)
+            ->where('sector', 'Wholesale')
+            ->first();
+    }
+
+    /** Ensure a supplier belongs to the wholesale catalogue and is active. */
+    private function wholesaleSupplier(?int $supplierId)
+    {
+        if (!$supplierId) return null;
+
+        return DB::connection('tenant')
+            ->table('suppliers')
+            ->where('id', $supplierId)
+            ->where('sector', 'Wholesale')
+            ->where('status', 'active')
+            ->first();
+    }
+
     // ─────────────────────────────────────────────────────────────────────
     //  VIEW
     // ─────────────────────────────────────────────────────────────────────
@@ -41,6 +64,9 @@ class WholesaleBranchProductsController extends Controller
 
         $selectedBranch = $request->query('branch_id') ?? ($pref->branch_id ?? null);
         $selectedBranch = $selectedBranch ? (int) $selectedBranch : null;
+        if ($selectedBranch && !$this->wholesaleBranch($selectedBranch)) {
+            $selectedBranch = null;
+        }
 
         $branchProducts = collect();
         $shopValue = 0;
@@ -79,6 +105,10 @@ class WholesaleBranchProductsController extends Controller
     {
         $request->validate(['branch_id' => 'nullable|integer|exists:tenant.branches,id']);
 
+        if ($request->filled('branch_id') && !$this->wholesaleBranch((int) $request->branch_id)) {
+            return redirect()->back()->withErrors(['branch_id' => 'Please select a wholesale warehouse.']);
+        }
+
         DB::connection('tenant')->table('user_filters')->updateOrInsert(
             ['user_id' => auth()->id()],
             ['branch_id' => $request->branch_id, 'updated_at' => now(), 'created_at' => now()]
@@ -109,6 +139,10 @@ class WholesaleBranchProductsController extends Controller
             'branch_id' => 'required|integer|exists:tenant.branches,id',
             'q'         => 'nullable|string|max:255',
         ]);
+
+        if (!$this->wholesaleBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a wholesale warehouse.', 'status' => 422], 422);
+        }
 
         $existingIds = DB::connection('tenant')
             ->table('wholesale_branch_products')
@@ -155,6 +189,13 @@ class WholesaleBranchProductsController extends Controller
             'max_stock'        => 'nullable|numeric|min:0',
             'track_stock'      => 'nullable|boolean',
         ]);
+
+        if (!$this->wholesaleBranch((int) $request->branch_id)) {
+            return response()->json(['error' => 'Selected branch is not a wholesale warehouse.', 'status' => 422], 422);
+        }
+        if ($request->filled('supplier_id') && !$this->wholesaleSupplier((int) $request->supplier_id)) {
+            return response()->json(['error' => 'Selected supplier is not an active wholesale supplier.', 'status' => 422], 422);
+        }
 
         $already = DB::connection('tenant')
             ->table('wholesale_branch_products')
@@ -235,6 +276,9 @@ class WholesaleBranchProductsController extends Controller
         if (!$existing) {
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
         }
+        if (!$this->wholesaleBranch((int) $existing->branch_id)) {
+            return response()->json(['error' => 'This branch product does not belong to a wholesale warehouse.', 'status' => 422], 422);
+        }
 
         $request->validate([
             'supplier_id'          => 'nullable|integer|exists:tenant.suppliers,id',
@@ -253,6 +297,10 @@ class WholesaleBranchProductsController extends Controller
             'stock_change_reason'  => 'nullable|string|max:255',
             'price_change_reason'  => 'nullable|string|max:255',
         ]);
+
+        if ($request->has('supplier_id') && $request->supplier_id && !$this->wholesaleSupplier((int) $request->supplier_id)) {
+            return response()->json(['error' => 'Selected supplier is not an active wholesale supplier.', 'status' => 422], 422);
+        }
 
         $newSellingPrice = $request->has('selling_price') ? $this->purifyNumber($request->selling_price) : $existing->selling_price;
         $newStockQty     = $request->has('stock_quantity') ? ($this->purifyNumber($request->stock_quantity) ?? 0) : $existing->stock_quantity;
@@ -276,12 +324,27 @@ class WholesaleBranchProductsController extends Controller
 
         $updated = DB::connection('tenant')->table('wholesale_branch_products')->where('id', $request->id)->update($data);
 
-        // ── Price change log — only if the selling price actually moved ──
-        if ($existing->selling_price !== null
-            && $data['selling_price'] !== null
-            && round((float) $existing->selling_price, 2) !== round((float) $data['selling_price'], 2)) {
+        // ── Price change log — compare effective prices so both transitions
+        //    (base -> warehouse override and override -> base) are audited.
+        $baseForPrice = DB::connection('tenant')
+            ->table('wholesale_base_products')
+            ->where('id', $existing->base_product_id)
+            ->first(['selling_price']);
+        $oldEffectivePrice = $existing->selling_price !== null
+            ? (float) $existing->selling_price
+            : (float) ($baseForPrice->selling_price ?? 0);
+        $newEffectivePrice = $data['selling_price'] !== null
+            ? (float) $data['selling_price']
+            : (float) ($baseForPrice->selling_price ?? 0);
 
-            $this->logBranchPriceChange($existing->base_product_id, $existing->branch_id, $existing->selling_price, $data['selling_price'], $request->price_change_reason);
+        if (round($oldEffectivePrice, 2) !== round($newEffectivePrice, 2)) {
+            $this->logBranchPriceChange(
+                $existing->base_product_id,
+                $existing->branch_id,
+                $oldEffectivePrice,
+                $newEffectivePrice,
+                $request->price_change_reason ?: 'Branch product price updated'
+            );
         }
 
         // ── Stock movement log — only if the quantity actually moved ─────
@@ -331,6 +394,9 @@ class WholesaleBranchProductsController extends Controller
         if (!$row) {
             return response()->json(['error' => 'Branch product not found.', 'status' => 404]);
         }
+        if (!$this->wholesaleBranch((int) $row->branch_id)) {
+            return response()->json(['error' => 'This branch product does not belong to a wholesale warehouse.', 'status' => 422], 422);
+        }
 
         if ((float) $row->stock_quantity > 0 && !$request->boolean('force')) {
             return response()->json([
@@ -373,6 +439,14 @@ class WholesaleBranchProductsController extends Controller
         ]);
 
         $rows = DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $request->ids)->get();
+        if ($rows->isEmpty()) {
+            return response()->json(['error' => 'No branch products found.', 'status' => 404], 404);
+        }
+
+        $invalidRows = $rows->first(fn ($r) => !$this->wholesaleBranch((int) $r->branch_id));
+        if ($invalidRows) {
+            return response()->json(['error' => 'One or more selected products do not belong to a wholesale warehouse.', 'status' => 422], 422);
+        }
 
         $force   = $request->boolean('force');
         $blocked = $rows->filter(fn ($r) => (float) $r->stock_quantity > 0 && !$force);
@@ -427,7 +501,15 @@ class WholesaleBranchProductsController extends Controller
             'is_active' => 'required|boolean',
         ]);
 
-        DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $request->ids)
+        $rows = DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $request->ids)->get(['id', 'branch_id']);
+        if ($rows->isEmpty()) {
+            return response()->json(['error' => 'No branch products found.', 'status' => 404], 404);
+        }
+        if ($rows->contains(fn ($r) => !$this->wholesaleBranch((int) $r->branch_id))) {
+            return response()->json(['error' => 'One or more selected products do not belong to a wholesale warehouse.', 'status' => 422], 422);
+        }
+
+        DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $rows->pluck('id'))
             ->update(['is_active' => (int) $request->is_active, 'updated_at' => now()]);
 
         return $this->respondWithFormattedRows($request->ids, $request->is_active ? 'marked Active' : 'marked Inactive');
@@ -441,7 +523,15 @@ class WholesaleBranchProductsController extends Controller
             'track_stock' => 'required|boolean',
         ]);
 
-        DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $request->ids)
+        $rows = DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $request->ids)->get(['id', 'branch_id']);
+        if ($rows->isEmpty()) {
+            return response()->json(['error' => 'No branch products found.', 'status' => 404], 404);
+        }
+        if ($rows->contains(fn ($r) => !$this->wholesaleBranch((int) $r->branch_id))) {
+            return response()->json(['error' => 'One or more selected products do not belong to a wholesale warehouse.', 'status' => 422], 422);
+        }
+
+        DB::connection('tenant')->table('wholesale_branch_products')->whereIn('id', $rows->pluck('id'))
             ->update(['track_stock' => (int) $request->track_stock, 'updated_at' => now()]);
 
         return $this->respondWithFormattedRows($request->ids, $request->track_stock ? 'set to track stock' : 'set to not track stock');
@@ -465,7 +555,12 @@ class WholesaleBranchProductsController extends Controller
             ->join('wholesale_base_products as p', 'p.id', '=', 'wbp.base_product_id')
             ->leftJoin('suppliers as s', 's.id', '=', 'wbp.supplier_id')
             ->where('wbp.id', $id)
-            ->select('wbp.*', 'p.name', 'p.code', 'p.unit', 's.name as supplier_name')
+            ->select(
+                'wbp.*',
+                'p.name', 'p.code', 'p.unit', 'p.pack_unit', 'p.units_per_pack',
+                'p.selling_price as base_selling_price', 'p.cost_price as base_cost_price',
+                's.name as supplier_name'
+            )
             ->first();
 
         return [
@@ -476,6 +571,8 @@ class WholesaleBranchProductsController extends Controller
             'name'              => $row->name,
             'code'              => $row->code,
             'unit'              => $row->unit,
+            'pack_unit'         => $row->pack_unit,
+            'units_per_pack'    => $row->units_per_pack,
             'supplier_id'       => $row->supplier_id,
             'supplier_name'     => $row->supplier_name,
             'primary_barcode'   => $row->primary_barcode,
@@ -483,6 +580,8 @@ class WholesaleBranchProductsController extends Controller
             'expiry_date'       => $row->expiry_date,
             'cost_price'        => $row->cost_price,
             'selling_price'     => $row->selling_price,
+            'base_cost_price'   => $row->base_cost_price,
+            'base_selling_price'=> $row->base_selling_price,
             'stock_quantity'    => $row->stock_quantity,
             'reorder_point'     => $row->reorder_point,
             'reorder_quantity'  => $row->reorder_quantity,
@@ -491,6 +590,26 @@ class WholesaleBranchProductsController extends Controller
             'is_active'         => (int) $row->is_active,
             'allow_negative_stock' => (int) $row->allow_negative_stock,
         ];
+    }
+
+    /**
+     * Fetch one branch product row in the same shape as the insert/update
+     * responses. Used by the front-end to refresh a row after an action
+     * (e.g. editing the base product) whose own response doesn't carry the
+     * branch-specific fields, so a full page reload can be avoided.
+     */
+    public function getRow(Request $request)
+    {
+        $request->validate([
+            'id' => 'required|integer|exists:tenant.wholesale_branch_products,id',
+        ]);
+
+        $row = DB::connection('tenant')->table('wholesale_branch_products')->where('id', $request->id)->first(['branch_id']);
+        if (!$row || !$this->wholesaleBranch((int) $row->branch_id)) {
+            return response()->json(['error' => 'Branch product not found.', 'status' => 404], 404);
+        }
+
+        return response()->json(['product' => $this->fetchFormattedRow((int) $request->id)]);
     }
 
     private function respondWithFormattedRows(array $ids, string $verb): \Illuminate\Http\JsonResponse
@@ -504,6 +623,35 @@ class WholesaleBranchProductsController extends Controller
         ]);
     }
 
+    private function parseDeviceType(string $ua): string
+    {
+        $ua = strtolower($ua);
+        if (str_contains($ua, 'tablet') || str_contains($ua, 'ipad')) return 'tablet';
+        if (str_contains($ua, 'mobile') || str_contains($ua, 'android') || str_contains($ua, 'iphone')) return 'mobile';
+        return 'desktop';
+    }
+
+    private function parseBrowser(string $ua): string
+    {
+        if (str_contains($ua, 'Edg')) return 'Edge';
+        if (str_contains($ua, 'OPR') || str_contains($ua, 'Opera')) return 'Opera';
+        if (str_contains($ua, 'Chrome')) return 'Chrome';
+        if (str_contains($ua, 'Firefox')) return 'Firefox';
+        if (str_contains($ua, 'Safari') && !str_contains($ua, 'Chrome')) return 'Safari';
+        if (str_contains($ua, 'MSIE') || str_contains($ua, 'Trident')) return 'IE';
+        return 'Other';
+    }
+
+    private function parseOS(string $ua): string
+    {
+        if (str_contains($ua, 'Windows NT')) return 'Windows';
+        if (str_contains($ua, 'Mac OS X')) return 'macOS';
+        if (str_contains($ua, 'Android')) return 'Android';
+        if (str_contains($ua, 'iPhone') || str_contains($ua, 'iPad')) return 'iOS';
+        if (str_contains($ua, 'Linux')) return 'Linux';
+        return 'Other';
+    }
+
     /**
      * Writes one row to wholesale_inventory_logs. Called on every stock
      * change so the movement trail is complete before the Audit Logs
@@ -512,17 +660,18 @@ class WholesaleBranchProductsController extends Controller
     private function logInventoryMovement(array $movement): void
     {
         $user = auth()->user();
+        $agent = request()->userAgent() ?? '';
 
         DB::connection('tenant')->table('wholesale_inventory_logs')->insert(array_merge([
             'user_id'           => auth()->id(),
             'user_full_name'    => $user->name ?? null,
             'user_email'        => $user->email ?? null,
             'user_role'         => $user->role ?? null,
-            'user_device_details' => request()->userAgent(),
+            'user_device_details' => $agent,
             'ip_address'        => request()->ip(),
-            'device_type'       => null,
-            'browser'           => null,
-            'operating_system'  => null,
+            'device_type'       => $this->parseDeviceType($agent),
+            'browser'           => $this->parseBrowser($agent),
+            'operating_system'  => $this->parseOS($agent),
             'session_id'        => request()->session()->getId(),
             'log_date'          => now()->toDateString(),
             'log_time'          => now()->toTimeString(),
